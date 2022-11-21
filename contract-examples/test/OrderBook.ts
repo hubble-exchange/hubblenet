@@ -58,12 +58,6 @@ describe.only('Order Book', function() {
             adminAddress
         )
 
-        expect(await orderBook.getOrdersLen()).to.eq(1)
-        const contractOrder = await orderBook.orders(0)
-        expect(contractOrder[0]).to.eq(order.trader)
-        expect(contractOrder[1]).to.eq(order.baseAssetQuantity)
-        expect(contractOrder[2]).to.eq(order.price)
-        expect(contractOrder[3]).to.eq(order.salt)
         let orderHash = await orderBook.getOrderHash(order)
         expect(await orderBook.ordersStatus(orderHash)).to.eq(0) // Unfilled
     })
@@ -76,7 +70,7 @@ describe.only('Order Book', function() {
         await orderBook.placeOrder(order2, signature2)
         await delay(1000)
 
-        await orderBook.executeMatchedOrders(0, 1, {gasLimit: 1e6})
+        await orderBook.executeMatchedOrders(order, signature, order2, signature2, {gasLimit: 1e6})
         await delay(1500)
 
         let position = await orderBook.positions(alice.address)
