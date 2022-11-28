@@ -15,10 +15,10 @@ describe.only('Order Book', function () {
         const OrderBook = await ethers.getContractFactory('OrderBook')
         orderBook = await OrderBook.deploy('Hubble', '2.0')
         const signers = await ethers.getSigners()
-            ; ([, alice, bob] = signers)
+        ;([, alice, bob] = signers)
     })
 
-    it('verify signer', async function () {
+    it('verify signer', async function() {
         order = {
             trader: alice.address,
             baseAssetQuantity: ethers.utils.parseEther('-5'),
@@ -48,7 +48,7 @@ describe.only('Order Book', function () {
         expect(signer).to.eq(alice.address)
     })
 
-    it('place an order', async function () {
+    it('place an order', async function() {
         const tx = await orderBook.placeOrder(order, signature)
         await expect(tx).to.emit(orderBook, "OrderPlaced").withArgs(
             alice.address,
@@ -73,7 +73,7 @@ describe.only('Order Book', function () {
         await orderBook.placeOrder(order2, signature2)
         await delay(1000)
 
-        await orderBook.executeMatchedOrders(order, signature, order2, signature2, { gasLimit: 1e6 })
+        await orderBook.executeMatchedOrders(order, signature, order2, signature2, {gasLimit: 1e6})
         await delay(1500)
 
         let position = await orderBook.positions(alice.address)
