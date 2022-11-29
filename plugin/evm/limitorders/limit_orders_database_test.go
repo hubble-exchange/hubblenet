@@ -2,6 +2,7 @@ package limitorders
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 
@@ -10,34 +11,37 @@ import (
 
 func TestInitializeDatabaseFirstTime(t *testing.T) {
 	lod, err := InitializeDatabase()
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
 	assert.NotNil(t, lod)
 	assert.Nil(t, err)
 
-	_, err = os.Stat("hubble.db")
+	_, err = os.Stat(dbName)
 	assert.Nil(t, err)
 
-	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
+	db, _ := sql.Open("sqlite3", dbName) // Open the created SQLite File
 	rows, err := db.Query("SELECT * FROM limit_orders")
 	assert.Nil(t, err)
 	assert.False(t, rows.Next())
-	os.Remove("hubble.db")
+	os.Remove(dbName)
 }
 
 func TestInitializeDatabaseAfterInitializationAlreadyDone(t *testing.T) {
 	InitializeDatabase()
-	dbFileInfo1, _ := os.Stat("hubble.db")
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	dbFileInfo1, _ := os.Stat(dbName)
 
 	_, err := InitializeDatabase()
 	assert.Nil(t, err)
 
-	dbFileInfo2, err := os.Stat("hubble.db")
+	dbFileInfo2, err := os.Stat(dbName)
 	assert.Nil(t, err)
 	assert.Equal(t, dbFileInfo1.Size(), dbFileInfo2.Size())
 	assert.Equal(t, dbFileInfo1.ModTime(), dbFileInfo2.ModTime())
-	os.Remove("hubble.db")
+	os.Remove(dbName)
 }
 
 func TestInsertLimitOrderFailureWhenPositionTypeIsWrong(t *testing.T) {
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
 	lod, _ := InitializeDatabase()
 	userAddress := ""
 	baseAssetQuantity := 10
@@ -48,13 +52,14 @@ func TestInsertLimitOrderFailureWhenPositionTypeIsWrong(t *testing.T) {
 	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.NotNil(t, err)
 
-	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
+	db, _ := sql.Open("sqlite3", dbName) // Open the created SQLite File
 	stmt, _ := db.Prepare("SELECT id, base_asset_quantity, price from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	assert.False(t, rows.Next())
-	os.Remove("hubble.db")
+	os.Remove(dbName)
 }
 func TestInsertLimitOrderFailureWhenUserAddressIsBlank(t *testing.T) {
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
 	lod, _ := InitializeDatabase()
 	userAddress := ""
 	baseAssetQuantity := 10
@@ -65,14 +70,15 @@ func TestInsertLimitOrderFailureWhenUserAddressIsBlank(t *testing.T) {
 	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.NotNil(t, err)
 
-	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
+	db, _ := sql.Open("sqlite3", dbName) // Open the created SQLite File
 	stmt, _ := db.Prepare("SELECT id, base_asset_quantity, price from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	assert.False(t, rows.Next())
-	os.Remove("hubble.db")
+	os.Remove(dbName)
 }
 
 func TestInsertLimitOrderFailureWhenBaseAssetQuantityIsZero(t *testing.T) {
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 0
@@ -83,14 +89,15 @@ func TestInsertLimitOrderFailureWhenBaseAssetQuantityIsZero(t *testing.T) {
 	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.NotNil(t, err)
 
-	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
+	db, _ := sql.Open("sqlite3", dbName) // Open the created SQLite File
 	stmt, _ := db.Prepare("SELECT id, base_asset_quantity, price from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	assert.False(t, rows.Next())
-	os.Remove("hubble.db")
+	os.Remove(dbName)
 }
 
 func TestInsertLimitOrderFailureWhenPriceIsZero(t *testing.T) {
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 10
@@ -101,14 +108,15 @@ func TestInsertLimitOrderFailureWhenPriceIsZero(t *testing.T) {
 	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.NotNil(t, err)
 
-	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
+	db, _ := sql.Open("sqlite3", dbName) // Open the created SQLite File
 	stmt, _ := db.Prepare("SELECT id, base_asset_quantity, price from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	assert.False(t, rows.Next())
-	os.Remove("hubble.db")
+	os.Remove(dbName)
 }
 
 func TestInsertLimitOrderSuccess(t *testing.T) {
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 10
@@ -119,7 +127,7 @@ func TestInsertLimitOrderSuccess(t *testing.T) {
 	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.Nil(t, err)
 
-	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
+	db, _ := sql.Open("sqlite3", dbName) // Open the created SQLite File
 	stmt, _ := db.Prepare("SELECT id, position_type, base_asset_quantity, price from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	defer rows.Close()
@@ -152,10 +160,11 @@ func TestInsertLimitOrderSuccess(t *testing.T) {
 		assert.Equal(t, price, queriedPrice)
 	}
 
-	os.Remove("hubble.db")
+	os.Remove(dbName)
 }
 
 func TestGetLimitOrderByPositionTypeAndPriceWhenShortOrders(t *testing.T) {
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 10
@@ -176,10 +185,11 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenShortOrders(t *testing.T) {
 	}
 	assert.Equal(t, price1, orders[0].price)
 	assert.Equal(t, price2, orders[1].price)
-	os.Remove("hubble.db")
+	os.Remove(dbName)
 }
 
 func TestGetLimitOrderByPositionTypeAndPriceWhenLongOrders(t *testing.T) {
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 10
@@ -200,5 +210,5 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenLongOrders(t *testing.T) {
 	}
 	assert.Equal(t, price2, orders[0].price)
 	assert.Equal(t, price3, orders[1].price)
-	os.Remove("hubble.db")
+	os.Remove(dbName)
 }

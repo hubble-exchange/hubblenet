@@ -31,13 +31,6 @@ type limitOrderDatabase struct {
 }
 
 func InitializeDatabase() (LimitOrderDatabase, error) {
-	if _, err := os.Stat("hubble.db"); err != nil {
-		file, err := os.Create("hubble.db") // Create SQLite file
-		if err != nil {
-			return nil, err
-		}
-		file.Close()
-	}
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
 	database, _ := sql.Open("sqlite3", dbName)          // Open the created SQLite File
 	err := createTable(database)                        // Create Database Tables
