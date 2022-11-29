@@ -257,7 +257,7 @@ run_ginkgo() {
   echo "building e2e.test"
   # to install the ginkgo binary (required for test build and run)
   go install -v github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
-  ginkgo -h
+  # ginkgo -h
 
   ACK_GINKGO_RC=true ginkgo build ./tests/e2e
 

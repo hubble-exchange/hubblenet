@@ -87,18 +87,18 @@ contract OrderBook is EIP712 {
     /**
     * @dev only for testing with evm
     */
-    function executeTestOrder(Order memory order1, bytes memory signature1) external {
+    function executeTestOrder(Order memory order, bytes memory signature) external {
         // validate that orders are matching
 
         // verify signature and change order status
-        (, bytes32 orderHash) = verifySigner(order1, signature1);
+        (, bytes32 orderHash) = verifySigner(order, signature);
         // OB_OMBU: Order Must Be Unfilled
         require(ordersStatus[orderHash] == OrderStatus.Unfilled, "OB_OMBU");
         ordersStatus[orderHash] = OrderStatus.Filled;
 
-        // open position for order1
-        positions[order1.trader].size += order1.baseAssetQuantity;
-        positions[order1.trader].openNotional += abs(order1.baseAssetQuantity) * order1.price;
+        // open position for order
+        positions[order.trader].size += order.baseAssetQuantity;
+        positions[order.trader].openNotional += abs(order.baseAssetQuantity) * order.price;
         // assert margin requirements
     }
 
