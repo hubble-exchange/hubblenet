@@ -42,8 +42,10 @@ func TestInsertLimitOrderFailureWhenPositionTypeIsWrong(t *testing.T) {
 	userAddress := ""
 	baseAssetQuantity := 10
 	price := 10.14
+	salt := "123"
+	signature := []byte("signature")
 	positionType := "neutral"
-	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price)
+	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.NotNil(t, err)
 
 	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
@@ -58,7 +60,9 @@ func TestInsertLimitOrderFailureWhenUserAddressIsBlank(t *testing.T) {
 	baseAssetQuantity := 10
 	price := 10.14
 	positionType := "long"
-	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price)
+	salt := "123"
+	signature := []byte("signature")
+	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.NotNil(t, err)
 
 	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
@@ -74,7 +78,9 @@ func TestInsertLimitOrderFailureWhenBaseAssetQuantityIsZero(t *testing.T) {
 	baseAssetQuantity := 0
 	price := 10.14
 	positionType := "long"
-	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price)
+	salt := "123"
+	signature := []byte("signature")
+	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.NotNil(t, err)
 
 	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
@@ -90,7 +96,9 @@ func TestInsertLimitOrderFailureWhenPriceIsZero(t *testing.T) {
 	baseAssetQuantity := 10
 	price := 0.0
 	positionType := "long"
-	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price)
+	salt := "123"
+	signature := []byte("signature")
+	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.NotNil(t, err)
 
 	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
@@ -106,7 +114,9 @@ func TestInsertLimitOrderSuccess(t *testing.T) {
 	baseAssetQuantity := 10
 	price := 10.14
 	positionType := "long"
-	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price)
+	salt := "123"
+	signature := []byte("signature")
+	err := lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
 	assert.Nil(t, err)
 
 	db, _ := sql.Open("sqlite3", "./hubble.db") // Open the created SQLite File
@@ -125,7 +135,7 @@ func TestInsertLimitOrderSuccess(t *testing.T) {
 		assert.Equal(t, price, queriedPrice)
 	}
 	positionType = "short"
-	err = lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price)
+	err = lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, "1", signature)
 	assert.Nil(t, err)
 	stmt, _ = db.Prepare("SELECT id, user_address, base_asset_quantity, price from limit_orders where position_type = ?")
 	rows, _ = stmt.Query(userAddress)
@@ -153,9 +163,10 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenShortOrders(t *testing.T) {
 	price2 := 11.14
 	price3 := 12.14
 	positionType := "short"
-	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price1)
-	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price2)
-	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price3)
+	signature := []byte("signature")
+	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price1, "1", signature)
+	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price2, "2", signature)
+	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price3, "3", signature)
 	orders := lod.GetLimitOrderByPositionTypeAndPrice("short", 12.00)
 	assert.Equal(t, 2, len(orders))
 	for i := 0; i < len(orders); i++ {
@@ -176,9 +187,10 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenLongOrders(t *testing.T) {
 	price2 := 11.14
 	price3 := 12.14
 	positionType := "long"
-	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price1)
-	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price2)
-	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price3)
+	signature := []byte("signature")
+	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price1, "1", signature)
+	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price2, "2", signature)
+	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price3, "3", signature)
 	orders := lod.GetLimitOrderByPositionTypeAndPrice("long", 11.00)
 	assert.Equal(t, 2, len(orders))
 	for i := 0; i < len(orders); i++ {
