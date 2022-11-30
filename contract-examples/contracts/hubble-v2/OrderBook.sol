@@ -33,8 +33,11 @@ contract OrderBook is EIP712Upgradeable {
     mapping(bytes32 => OrderStatus) public ordersStatus;
     mapping(address => Position) public positions;
 
+    bool public isInitialized;
+
     function initialize(string memory name, string memory version) initializer public {
         __EIP712_init(name, version);
+        isInitialized = true;
     }
 
     function placeOrder(Order memory order, bytes memory signature) external {

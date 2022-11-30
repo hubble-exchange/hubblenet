@@ -13,30 +13,42 @@ describe.only('Order Book', function () {
         const signers = await ethers.getSigners()
         ;([, alice, bob] = signers)
 
+        // 1. set proxyAdmin
+        const genesisTUP = await ethers.getContractAt('GenesisTUP', GENESIS_ORDERBOOK_ADDRESS)
+        let _admin = await ethers.provider.getStorageAt(GENESIS_ORDERBOOK_ADDRESS, '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103')
+        // console.log({ _admin })
+        let proxyAdmin
+        if (_admin == '0x' + '0'.repeat(64)) { // because we don't run a fresh subnet everytime
+            const ProxyAdmin = await ethers.getContractFactory('ProxyAdmin')
+            proxyAdmin = await ProxyAdmin.deploy()
+            await genesisTUP.init(proxyAdmin.address)
+            console.log('genesisTUP.init done...')
+            await delay(2000)
+        } else {
+            proxyAdmin = await ethers.getContractAt('ProxyAdmin', '0x' + _admin.slice(26))
+        }
+        // _admin = await ethers.provider.getStorageAt(GENESIS_ORDERBOOK_ADDRESS, '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103')
+        // console.log({ _admin })
+
+        // 2. set implementation
         const OrderBook = await ethers.getContractFactory('OrderBook')
         const orderBookImpl = await OrderBook.deploy()
 
-        const genesisTUP = await ethers.getContractAt('GenesisTUP', GENESIS_ORDERBOOK_ADDRESS)
-        const _admin = await ethers.provider.getStorageAt(GENESIS_ORDERBOOK_ADDRESS, '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103')
-        if (_admin == '0x' + '0'.repeat(64)) { // because we don't run a fresh subnet everytime
-            const ProxyAdmin = await ethers.getContractFactory('ProxyAdmin')
-            const proxyAdmin = await ProxyAdmin.deploy()
-            await genesisTUP.init(proxyAdmin.address)
-        }
-
-        await genesisTUP.upgradeToAndCall(
-            orderBookImpl.address,
-            orderBookImpl.interface.encodeFunctionData('initialize', ['Hubble', '2.0'])
-        )
         orderBook = await ethers.getContractAt('OrderBook', GENESIS_ORDERBOOK_ADDRESS)
-        // const _initialized = await orderBook._initialized({ gasLimit: 2e6 })
-        // console.log(_initialized)
-
-        // orderBook = await ethers.getContractAt('OrderBook', GENESIS_ORDERBOOK_ADDRESS)
-        // if (!_initialized) {
-        // } else {
-        //     await genesisTUP.upgradeTo(orderBookImpl.address)
-        // }
+        const isInitialized = await orderBook.isInitialized()
+        if (isInitialized) {
+            await proxyAdmin.upgrade(GENESIS_ORDERBOOK_ADDRESS, orderBookImpl.address)
+        } else {
+            await proxyAdmin.upgradeAndCall(
+                GENESIS_ORDERBOOK_ADDRESS,
+                orderBookImpl.address,
+                orderBookImpl.interface.encodeFunctionData('initialize', ['Hubble', '2.0'])
+            )
+        }
+        await delay(2000)
+        let _impl = await ethers.provider.getStorageAt(GENESIS_ORDERBOOK_ADDRESS, '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc')
+        // console.log({ _impl })
+        expect(ethers.utils.getAddress('0x' + _impl.slice(26))).to.eq('0x' + orderBookImpl.address)
     })
 
     it.only('verify signer', async function() {
