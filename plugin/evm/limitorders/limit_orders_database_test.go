@@ -128,7 +128,7 @@ func TestInsertLimitOrderSuccess(t *testing.T) {
 	assert.Nil(t, err)
 
 	db, _ := sql.Open("sqlite3", dbName) // Open the created SQLite File
-	stmt, _ := db.Prepare("SELECT id, position_type, base_asset_quantity, price from limit_orders where user_address = ?")
+	stmt, _ := db.Prepare("SELECT id, position_type, base_asset_quantity, price, status from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	defer rows.Close()
 	for rows.Next() {
@@ -136,16 +136,18 @@ func TestInsertLimitOrderSuccess(t *testing.T) {
 		var queriedPositionType string
 		var queriedBaseAssetQuantity int
 		var queriedPrice float64
-		_ = rows.Scan(&queriedId, &queriedPositionType, &queriedBaseAssetQuantity, &queriedPrice)
+		var queriedStatus string
+		_ = rows.Scan(&queriedId, &queriedPositionType, &queriedBaseAssetQuantity, &queriedPrice, &queriedStatus)
 		assert.Equal(t, 1, queriedId)
 		assert.Equal(t, positionType, queriedPositionType)
 		assert.Equal(t, baseAssetQuantity, queriedBaseAssetQuantity)
 		assert.Equal(t, price, queriedPrice)
+		assert.Equal(t, "open", queriedStatus)
 	}
 	positionType = "short"
 	err = lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, "1", signature)
 	assert.Nil(t, err)
-	stmt, _ = db.Prepare("SELECT id, user_address, base_asset_quantity, price from limit_orders where position_type = ?")
+	stmt, _ = db.Prepare("SELECT id, user_address, base_asset_quantity, price, status from limit_orders where position_type = ?")
 	rows, _ = stmt.Query(userAddress)
 	defer rows.Close()
 	for rows.Next() {
@@ -153,11 +155,13 @@ func TestInsertLimitOrderSuccess(t *testing.T) {
 		var queriedUserAddress string
 		var queriedBaseAssetQuantity int
 		var queriedPrice float64
-		_ = rows.Scan(&queriedId, &queriedUserAddress, &queriedBaseAssetQuantity, &queriedPrice)
+		var queriedStatus string
+		_ = rows.Scan(&queriedId, &queriedUserAddress, &queriedBaseAssetQuantity, &queriedPrice, &queriedStatus)
 		assert.Equal(t, 1, queriedId)
 		assert.Equal(t, userAddress, queriedUserAddress)
 		assert.Equal(t, baseAssetQuantity, queriedBaseAssetQuantity)
 		assert.Equal(t, price, queriedPrice)
+		assert.Equal(t, "open", queriedStatus)
 	}
 
 	os.Remove(dbName)
@@ -182,6 +186,7 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenShortOrders(t *testing.T) {
 		assert.Equal(t, orders[i].userAddress, userAddress)
 		assert.Equal(t, orders[i].baseAssetQuantity, baseAssetQuantity)
 		assert.Equal(t, orders[i].positionType, positionType)
+		assert.Equal(t, orders[i].status, "open")
 	}
 	assert.Equal(t, price1, orders[0].price)
 	assert.Equal(t, price2, orders[1].price)
@@ -207,6 +212,7 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenLongOrders(t *testing.T) {
 		assert.Equal(t, orders[i].userAddress, userAddress)
 		assert.Equal(t, orders[i].baseAssetQuantity, baseAssetQuantity)
 		assert.Equal(t, orders[i].positionType, positionType)
+		assert.Equal(t, orders[i].status, "open")
 	}
 	assert.Equal(t, price2, orders[0].price)
 	assert.Equal(t, price3, orders[1].price)

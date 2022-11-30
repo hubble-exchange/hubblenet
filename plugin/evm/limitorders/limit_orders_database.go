@@ -70,12 +70,13 @@ func (lod *limitOrderDatabase) UpdateLimitOrderStatus(userAddress string, salt s
 
 func (lod *limitOrderDatabase) GetLimitOrderByPositionTypeAndPrice(positionType string, price float64) []LimitOrder {
 	var rows = &sql.Rows{}
+	orderStatus := "open"
 	var limitOrders = []LimitOrder{}
 	if positionType == "short" {
-		rows = getShortLimitOrderByPrice(lod.db, price)
+		rows = getShortLimitOrderByPrice(lod.db, price, orderStatus)
 	}
 	if positionType == "long" {
-		rows = getLongLimitOrderByPrice(lod.db, price)
+		rows = getLongLimitOrderByPrice(lod.db, price, orderStatus)
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -94,25 +95,26 @@ func (lod *limitOrderDatabase) GetLimitOrderByPositionTypeAndPrice(positionType 
 			price:             price,
 			salt:              salt,
 			signature:         signature,
+			status:            orderStatus,
 		}
 		limitOrders = append(limitOrders, *limitOrder)
 	}
 	return limitOrders
 }
 
-func getShortLimitOrderByPrice(db *sql.DB, price float64) *sql.Rows {
-	stmt, _ := db.Prepare(`SELECT id, user_address, base_asset_quantity, price, salt, signature 
+func getShortLimitOrderByPrice(db *sql.DB, price float64, status string) *sql.Rows {
+	stmt, _ := db.Prepare(`SELECT id, user_address, base_asset_quantity, price, salt, signature
 		from limit_orders
-		where position_type = ? and price <= ? and status = 'open'`)
-	rows, _ := stmt.Query("short", price)
+		where position_type = ? and price <= ? and status = ?`)
+	rows, _ := stmt.Query("short", price, status)
 	return rows
 }
 
-func getLongLimitOrderByPrice(db *sql.DB, price float64) *sql.Rows {
+func getLongLimitOrderByPrice(db *sql.DB, price float64, status string) *sql.Rows {
 	stmt, _ := db.Prepare(`SELECT id, user_address, base_asset_quantity, price, salt, signature
 		from limit_orders
-		where position_type = ? and price >= ? and status = 'open'`)
-	rows, _ := stmt.Query("long", price)
+		where position_type = ? and price >= ? and status = ?`)
+	rows, _ := stmt.Query("long", price, status)
 	return rows
 }
 
