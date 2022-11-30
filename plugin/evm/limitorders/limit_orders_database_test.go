@@ -176,7 +176,7 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenShortOrders(t *testing.T) {
 	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price1, "1", signature)
 	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price2, "2", signature)
 	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price3, "3", signature)
-	orders := lod.GetLimitOrderByPositionTypeAndPrice("short", 12.00)
+	orders := lod.GetLimitOrderByPositionTypeAndPrice("short", 11.14)
 	assert.Equal(t, 2, len(orders))
 	for i := 0; i < len(orders); i++ {
 		assert.Equal(t, orders[i].userAddress, userAddress)
@@ -201,7 +201,7 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenLongOrders(t *testing.T) {
 	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price1, "1", signature)
 	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price2, "2", signature)
 	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price3, "3", signature)
-	orders := lod.GetLimitOrderByPositionTypeAndPrice("long", 11.00)
+	orders := lod.GetLimitOrderByPositionTypeAndPrice("long", 11.14)
 	assert.Equal(t, 2, len(orders))
 	for i := 0; i < len(orders); i++ {
 		assert.Equal(t, orders[i].userAddress, userAddress)

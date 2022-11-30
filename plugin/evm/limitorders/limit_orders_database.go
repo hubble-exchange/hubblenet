@@ -103,7 +103,7 @@ func (lod *limitOrderDatabase) GetLimitOrderByPositionTypeAndPrice(positionType 
 func getShortLimitOrderByPrice(db *sql.DB, price float64) *sql.Rows {
 	stmt, _ := db.Prepare(`SELECT id, user_address, base_asset_quantity, price, salt, signature 
 		from limit_orders
-		where position_type = ? and price < ? and status = 'open'`)
+		where position_type = ? and price <= ? and status = 'open'`)
 	rows, _ := stmt.Query("short", price)
 	return rows
 }
@@ -111,7 +111,7 @@ func getShortLimitOrderByPrice(db *sql.DB, price float64) *sql.Rows {
 func getLongLimitOrderByPrice(db *sql.DB, price float64) *sql.Rows {
 	stmt, _ := db.Prepare(`SELECT id, user_address, base_asset_quantity, price, salt, signature
 		from limit_orders
-		where position_type = ? and price > ? and status = 'open'`)
+		where position_type = ? and price >= ? and status = 'open'`)
 	rows, _ := stmt.Query("long", price)
 	return rows
 }
