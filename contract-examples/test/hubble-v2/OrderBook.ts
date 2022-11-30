@@ -1,24 +1,45 @@
 import { expect } from "chai";
 import { ethers } from "hardhat"
-import {
-    BigNumber,
-} from "ethers"
+import { BigNumber } from "ethers"
 
 // make sure this is always an admin for minter precompile
 const adminAddress: string = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+const GENESIS_ORDERBOOK_ADDRESS = '0x0300000000000000000000000000000000000069'
 
 describe.only('Order Book', function () {
     let orderBook, alice, bob, order, domain, orderType, signature
 
     before(async function () {
-        // const owner = await ethers.getSigner(adminAddress);
-        const OrderBook = await ethers.getContractFactory('OrderBook')
-        orderBook = await OrderBook.deploy('Hubble', '2.0')
         const signers = await ethers.getSigners()
         ;([, alice, bob] = signers)
+
+        const OrderBook = await ethers.getContractFactory('OrderBook')
+        const orderBookImpl = await OrderBook.deploy()
+
+        const genesisTUP = await ethers.getContractAt('GenesisTUP', GENESIS_ORDERBOOK_ADDRESS)
+        const _admin = await ethers.provider.getStorageAt(GENESIS_ORDERBOOK_ADDRESS, '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103')
+        if (_admin == '0x' + '0'.repeat(64)) { // because we don't run a fresh subnet everytime
+            const ProxyAdmin = await ethers.getContractFactory('ProxyAdmin')
+            const proxyAdmin = await ProxyAdmin.deploy()
+            await genesisTUP.init(proxyAdmin.address)
+        }
+
+        await genesisTUP.upgradeToAndCall(
+            orderBookImpl.address,
+            orderBookImpl.interface.encodeFunctionData('initialize', ['Hubble', '2.0'])
+        )
+        orderBook = await ethers.getContractAt('OrderBook', GENESIS_ORDERBOOK_ADDRESS)
+        // const _initialized = await orderBook._initialized({ gasLimit: 2e6 })
+        // console.log(_initialized)
+
+        // orderBook = await ethers.getContractAt('OrderBook', GENESIS_ORDERBOOK_ADDRESS)
+        // if (!_initialized) {
+        // } else {
+        //     await genesisTUP.upgradeTo(orderBookImpl.address)
+        // }
     })
 
-    it('verify signer', async function() {
+    it.only('verify signer', async function() {
         order = {
             trader: alice.address,
             baseAssetQuantity: ethers.utils.parseEther('-5'),
