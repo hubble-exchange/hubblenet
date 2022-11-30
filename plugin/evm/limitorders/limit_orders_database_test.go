@@ -12,6 +12,7 @@ import (
 func TestInitializeDatabaseFirstTime(t *testing.T) {
 	lod, err := InitializeDatabase()
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
 	assert.NotNil(t, lod)
 	assert.Nil(t, err)
 
@@ -22,12 +23,12 @@ func TestInitializeDatabaseFirstTime(t *testing.T) {
 	rows, err := db.Query("SELECT * FROM limit_orders")
 	assert.Nil(t, err)
 	assert.False(t, rows.Next())
-	os.Remove(dbName)
 }
 
 func TestInitializeDatabaseAfterInitializationAlreadyDone(t *testing.T) {
 	InitializeDatabase()
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
 	dbFileInfo1, _ := os.Stat(dbName)
 
 	_, err := InitializeDatabase()
@@ -37,11 +38,11 @@ func TestInitializeDatabaseAfterInitializationAlreadyDone(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, dbFileInfo1.Size(), dbFileInfo2.Size())
 	assert.Equal(t, dbFileInfo1.ModTime(), dbFileInfo2.ModTime())
-	os.Remove(dbName)
 }
 
 func TestInsertLimitOrderFailureWhenPositionTypeIsWrong(t *testing.T) {
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
 	lod, _ := InitializeDatabase()
 	userAddress := ""
 	baseAssetQuantity := 10
@@ -56,10 +57,10 @@ func TestInsertLimitOrderFailureWhenPositionTypeIsWrong(t *testing.T) {
 	stmt, _ := db.Prepare("SELECT id, base_asset_quantity, price from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	assert.False(t, rows.Next())
-	os.Remove(dbName)
 }
 func TestInsertLimitOrderFailureWhenUserAddressIsBlank(t *testing.T) {
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
 	lod, _ := InitializeDatabase()
 	userAddress := ""
 	baseAssetQuantity := 10
@@ -74,11 +75,11 @@ func TestInsertLimitOrderFailureWhenUserAddressIsBlank(t *testing.T) {
 	stmt, _ := db.Prepare("SELECT id, base_asset_quantity, price from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	assert.False(t, rows.Next())
-	os.Remove(dbName)
 }
 
 func TestInsertLimitOrderFailureWhenBaseAssetQuantityIsZero(t *testing.T) {
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 0
@@ -93,11 +94,11 @@ func TestInsertLimitOrderFailureWhenBaseAssetQuantityIsZero(t *testing.T) {
 	stmt, _ := db.Prepare("SELECT id, base_asset_quantity, price from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	assert.False(t, rows.Next())
-	os.Remove(dbName)
 }
 
 func TestInsertLimitOrderFailureWhenPriceIsZero(t *testing.T) {
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 10
@@ -112,11 +113,11 @@ func TestInsertLimitOrderFailureWhenPriceIsZero(t *testing.T) {
 	stmt, _ := db.Prepare("SELECT id, base_asset_quantity, price from limit_orders where user_address = ?")
 	rows, _ := stmt.Query(userAddress)
 	assert.False(t, rows.Next())
-	os.Remove(dbName)
 }
 
 func TestInsertLimitOrderSuccess(t *testing.T) {
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 10
@@ -164,11 +165,11 @@ func TestInsertLimitOrderSuccess(t *testing.T) {
 		assert.Equal(t, "open", queriedStatus)
 	}
 
-	os.Remove(dbName)
 }
 
 func TestGetLimitOrderByPositionTypeAndPriceWhenShortOrders(t *testing.T) {
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 10
@@ -190,11 +191,11 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenShortOrders(t *testing.T) {
 	}
 	assert.Equal(t, price1, orders[0].price)
 	assert.Equal(t, price2, orders[1].price)
-	os.Remove(dbName)
 }
 
 func TestGetLimitOrderByPositionTypeAndPriceWhenLongOrders(t *testing.T) {
 	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
 	lod, _ := InitializeDatabase()
 	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 	baseAssetQuantity := 10
@@ -216,5 +217,37 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenLongOrders(t *testing.T) {
 	}
 	assert.Equal(t, price2, orders[0].price)
 	assert.Equal(t, price3, orders[1].price)
-	os.Remove(dbName)
+}
+
+func TestUpdateLimitOrderStatus(t *testing.T) {
+	dbName := fmt.Sprintf("./hubble%d.db", os.Getpid()) // so that every node has a different database
+	defer os.Remove(dbName)
+	lod, _ := InitializeDatabase()
+	userAddress := "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
+	baseAssetQuantity := 10
+	price := 10.50
+	positionType := "long"
+	signature := []byte("signature")
+	salt := "1"
+	lod.InsertLimitOrder(positionType, userAddress, baseAssetQuantity, price, salt, signature)
+	newStatus := "fulfilled"
+	lod.UpdateLimitOrderStatus(userAddress, salt, newStatus)
+
+	db, _ := sql.Open("sqlite3", dbName) // Open the created SQLite File
+	stmt, _ := db.Prepare("SELECT id, position_type, base_asset_quantity, price, status from limit_orders where user_address = ? and salt = ?")
+	rows, _ := stmt.Query(userAddress, salt)
+	defer rows.Close()
+	for rows.Next() {
+		var queriedId int
+		var queriedPositionType string
+		var queriedBaseAssetQuantity int
+		var queriedPrice float64
+		var queriedStatus string
+		_ = rows.Scan(&queriedId, &queriedPositionType, &queriedBaseAssetQuantity, &queriedPrice, &queriedStatus)
+		assert.Equal(t, 1, queriedId)
+		assert.Equal(t, positionType, queriedPositionType)
+		assert.Equal(t, baseAssetQuantity, queriedBaseAssetQuantity)
+		assert.Equal(t, price, queriedPrice)
+		assert.Equal(t, "fulfilled", queriedStatus)
+	}
 }
