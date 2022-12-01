@@ -35,7 +35,13 @@ describe.only('Order Book', function () {
         const orderBookImpl = await OrderBook.deploy()
 
         orderBook = await ethers.getContractAt('OrderBook', GENESIS_ORDERBOOK_ADDRESS)
-        const isInitialized = await orderBook.isInitialized()
+        let _impl = await ethers.provider.getStorageAt(GENESIS_ORDERBOOK_ADDRESS, '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc')
+
+        let isInitialized = false
+        if (_impl != '0x' + '0'.repeat(64)) {
+            isInitialized = await orderBook.isInitialized()
+        }
+
         if (isInitialized) {
             await proxyAdmin.upgrade(GENESIS_ORDERBOOK_ADDRESS, orderBookImpl.address)
         } else {
@@ -46,9 +52,10 @@ describe.only('Order Book', function () {
             )
         }
         await delay(2000)
-        let _impl = await ethers.provider.getStorageAt(GENESIS_ORDERBOOK_ADDRESS, '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc')
+
+        _impl = await ethers.provider.getStorageAt(GENESIS_ORDERBOOK_ADDRESS, '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc')
         // console.log({ _impl })
-        expect(ethers.utils.getAddress('0x' + _impl.slice(26))).to.eq('0x' + orderBookImpl.address)
+        expect(ethers.utils.getAddress('0x' + _impl.slice(26))).to.eq(orderBookImpl.address)
     })
 
     it.only('verify signer', async function() {
@@ -56,7 +63,7 @@ describe.only('Order Book', function () {
             trader: alice.address,
             baseAssetQuantity: ethers.utils.parseEther('-5'),
             price: ethers.utils.parseUnits('15', 6),
-            salt: 1
+            salt: Date.now()
         }
 
         domain = {
@@ -98,10 +105,14 @@ describe.only('Order Book', function () {
         expect(await orderBook.ordersStatus(orderHash)).to.eq(1) // Filled; because evm is fulfilling all orders right now
     })
 
-    it.skip('execute matched orders', async function () {
-        const order2 = JSON.parse(JSON.stringify(order))
-        order2.baseAssetQuantity = BigNumber.from(order2.baseAssetQuantity).mul(-1)
-        order2.trader = bob.address
+    it('execute matched orders', async function() {
+        const order2 = {
+            trader: bob.address,
+            baseAssetQuantity: BigNumber.from(order.baseAssetQuantity).mul(-1),
+            price: ethers.utils.parseUnits('15', 6),
+            salt: Date.now()
+        }
+
         const signature2 = await bob._signTypedData(domain, orderType, order2)
         await orderBook.placeOrder(order2, signature2)
         await delay(1000)
