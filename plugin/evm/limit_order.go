@@ -3,7 +3,7 @@ package evm
 import (
 	"io/ioutil"
 	"math/big"
-	"reflect"
+
 	"sync"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
@@ -76,7 +76,6 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case txsEvent := <-txSubmitChan:
-				log.Info("New transaction event detected")
 
 				for i := 0; i < len(txsEvent.Txs); i++ {
 					tx := txsEvent.Txs[i]
@@ -88,22 +87,23 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					method := input[:4]
 					m, err := orderBookAbi.MethodById(method)
 					if err == nil {
-						log.Info("transaction was made by OrderBook contract")
-						log.Info("transaction", "method name", m.Name)
+						// log.Info("transaction was made by OrderBook contract")
+						// log.Info("transaction", "method name", m.Name)
 						in := make(map[string]interface{})
 						_ = m.Inputs.UnpackIntoMap(in, input[4:])
 						// m.Inputs[3].UnmarshalJSON()
 						if m.Name == "placeOrder" {
-							log.Info("transaction", "input", in)
-							order, ok := in["order"].(struct {
+							log.Info("##### in tx chan", "placeOrder tx hash", tx.Hash().String())
+							// log.Info("transaction", "input", in)
+							order, _ := in["order"].(struct {
 								Trader            common.Address `json:"trader"`
 								BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
 								Price             *big.Int       `json:"price"`
 								Salt              *big.Int       `json:"salt"`
 							})
 							signature := in["signature"].([]byte)
-							log.Info("####", "type of in[order]", reflect.TypeOf(in["order"]))
-							log.Info("transaction", "order", order, "ok", ok)
+							// log.Info("####", "type of in[order]", reflect.TypeOf(in["order"]))
+							// log.Info("transaction", "order", order, "ok", ok)
 
 							var positionType string
 							if order.BaseAssetQuantity.Int64() > 0 {
@@ -116,18 +116,18 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 							if err != nil {
 								log.Error("######", "err in database.InsertLimitOrder", err)
 							}
-							log.Info("######", "inserted!!")
+							// log.Info("######", "inserted!!")
 						}
 						if m.Name == "executeTestOrder" {
-							log.Info("transaction", "input", in)
-							order, ok := in["order"].(struct {
+							log.Info("##### in tx chan", "executeTestOrder tx hash", tx.Hash().String())
+							order, _ := in["order"].(struct {
 								Trader            common.Address `json:"trader"`
 								BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
 								Price             *big.Int       `json:"price"`
 								Salt              *big.Int       `json:"salt"`
 							})
-							log.Info("####", "type of in[order]", reflect.TypeOf(in["order"]))
-							log.Info("transaction", "order", order, "ok", ok)
+							// log.Info("####", "type of in[order]", reflect.TypeOf(in["order"]))
+							// log.Info("transaction", "order", order, "ok", ok)
 
 							err := lop.database.UpdateLimitOrderStatus(order.Trader.Hash().String(), order.Salt.String(), "fulfilled")
 							if err != nil {
@@ -141,7 +141,42 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 			}
 		}
 	})
+
+	newHeadChan := make(chan core.NewTxPoolHeadEvent)
+	lop.txPool.SubscribeNewHeadEvent(newHeadChan)
+
+	lop.shutdownWg.Add(1)
+	go lop.ctx.Log.RecoverAndPanic(func() {
+		defer lop.shutdownWg.Done()
+
+		for {
+			select {
+			case newHeadEvent := <-newHeadChan:
+				tsHashes := []string{}
+				for _, tx := range newHeadEvent.Block.Transactions() {
+					tsHashes = append(tsHashes, tx.Hash().String())
+				}
+				log.Info("$$$$$ New head event", "number", newHeadEvent.Block.Header().Number, "miner", newHeadEvent.Block.Coinbase().String(),
+					"root", newHeadEvent.Block.Header().Root.String(), "gas used", newHeadEvent.Block.Header().GasUsed,
+					"nonce", newHeadEvent.Block.Header().Nonce, "tx hashes", tsHashes)
+				executeOrderTxs := CheckMatchingOrders(newHeadEvent.Block.Transactions(), lop.txPool)
+				if len(executeOrderTxs) > 0 {
+					lop.txPool.AddLocals(executeOrderTxs)
+				}
+			case <-lop.shutdownChan:
+				return
+			}
+		}
+	})
 }
+
+// func (lop *limitOrderProcesser) CheckForStatus() {
+// 	ctx := context.Background()
+// 	tx, blockHash, blockNumber, index, err := lop.backend.GetTransaction(ctx, newHeadEvent.Block.Hash())
+// 	lop.backend.
+// 	lop.backend.GetReceipts(ctx, newHeadEvent.Block.Hash())
+
+// }
 
 func CheckMatchingOrders(txs types.Transactions, txPool *core.TxPool) []*types.Transaction {
 	jsonBytes, _ := ioutil.ReadFile("contract-examples/artifacts/contracts/OrderBook.sol/OrderBook.json")
@@ -155,9 +190,9 @@ func CheckMatchingOrders(txs types.Transactions, txPool *core.TxPool) []*types.T
 	for i := 0; i < len(txs); i++ {
 		tx := txs[i]
 		if tx.To() != nil && tx.Data() != nil && len(tx.Data()) != 0 {
-			log.Info("transaction", "to is", tx.To().String())
+			// log.Info("transaction", "to is", tx.To().String())
 			input := tx.Data() // "input" field above
-			log.Info("transaction", "data is", input)
+			// log.Info("transaction", "data is", input)
 			if len(input) < 4 {
 				log.Info("transaction data has less than 3 fields")
 				continue
@@ -165,14 +200,14 @@ func CheckMatchingOrders(txs types.Transactions, txPool *core.TxPool) []*types.T
 			method := input[:4]
 			m, err := orderBookAbi.MethodById(method)
 			if err == nil {
-				log.Info("transaction was made by OrderBook contract")
-				log.Info("transaction", "method name", m.Name)
+				// log.Info("transaction was made by OrderBook contract")
+				// log.Info("transaction", "method name", m.Name)
 				// log.Info("transaction", "amount in is: %+v\n", in["amount"])
 				// log.Info("transaction", "to is: %+v\n", in["to"])
 				in := make(map[string]interface{})
 				_ = m.Inputs.UnpackIntoMap(in, input[4:])
 				if m.Name == "placeOrder" {
-					log.Info("transaction", "input", in)
+					// log.Info("transaction", "input", in)
 					nonce := txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
 
 					data, err := orderBookAbi.Pack("executeTestOrder", in["order"], in["signature"])
@@ -190,6 +225,7 @@ func CheckMatchingOrders(txs types.Transactions, txPool *core.TxPool) []*types.T
 					if err != nil {
 						log.Error("types.SignTx failed", "err", err)
 					}
+					log.Info("#### executeTestOrder tx created", "tx hash", signedTx.Hash().String(), "for tx", tx.Hash().String())
 					matchingOrderTxs = append(matchingOrderTxs, signedTx)
 				}
 			}

@@ -159,7 +159,7 @@ PID=${!}
 $BIN control start \
   --log-level debug \
   --endpoint="0.0.0.0:12342" \
-  --number-of-nodes=4 \
+  --number-of-nodes=5 \
   --dial-timeout 30s \
   --avalanchego-path ${AVALANCHEGO_PATH} \
   --plugin-dir ${AVALANCHEGO_PLUGIN_DIR} \
@@ -167,5 +167,3 @@ $BIN control start \
 
 
 echo "pkill -P ${PID} && kill -2 ${PID} && pkill -9 -f srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy" > kill.sh
-
-echo "Initialised now !!!"
