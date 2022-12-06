@@ -21,6 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+var orderBookContractFileLocation = "contract-examples/artifacts/contracts/OrderBook.sol/OrderBook.json"
+
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions()
 	AddMatchingOrdersToTxPool()
@@ -37,8 +39,12 @@ type limitOrderProcesser struct {
 	orderBookABI abi.ABI
 }
 
+func SetOrderBookContractFileLocation(location string) {
+	orderBookContractFileLocation = location
+}
+
 func NewLimitOrderProcesser(ctx *snow.Context, chainConfig *params.ChainConfig, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend) LimitOrderProcesser {
-	jsonBytes, _ := ioutil.ReadFile("contract-examples/artifacts/contracts/OrderBook.sol/OrderBook.json")
+	jsonBytes, _ := ioutil.ReadFile(orderBookContractFileLocation)
 	orderBookAbi, err := abi.FromSolidityJson(string(jsonBytes))
 	if err != nil {
 		panic(err)
