@@ -99,6 +99,7 @@ func (lop *limitOrderProcesser) ParseTx(tx *types.Transaction) {
 	input := tx.Data()
 	if len(input) < 4 {
 		log.Info("transaction data has less than 3 fields")
+		return
 	}
 	method := input[:4]
 	m, err := lop.orderBookABI.MethodById(method)
