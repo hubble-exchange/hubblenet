@@ -66,6 +66,34 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	lop.listenAndStoreLimitOrderTransactions()
 }
 
+func (lop *limitOrderProcesser) AddMatchingOrdersToTxPool() {
+	orders := lop.memoryDb.GetAllOrders()
+	for _, order := range orders {
+		nonce := lop.txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
+
+		data, err := lop.orderBookABI.Pack("executeTestOrder", order.RawOrder, order.Signature)
+		if err != nil {
+			log.Error("abi.Pack failed", "err", err)
+		}
+		key, err := crypto.HexToECDSA("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027") // admin private key
+		if err != nil {
+			log.Error("HexToECDSA failed", "err", err)
+		}
+		executeOrderTx := types.NewTransaction(nonce, common.HexToAddress("0x52C84043CD9c865236f11d9Fc9F56aa003c1f922"), big.NewInt(0), 8000000, big.NewInt(250000000), data)
+		signer := types.NewLondonSigner(big.NewInt(99999))
+		signedTx, err := types.SignTx(executeOrderTx, signer, key)
+		if err != nil {
+			log.Error("types.SignTx failed", "err", err)
+		}
+		err = lop.txPool.AddLocal(signedTx)
+		if err != nil {
+			log.Error("lop.txPool.AddLocal failed", "err", err)
+		}
+		log.Info("#### AddMatchingOrdersToTxPool", "executeOrder", signedTx.Hash().String(), "from signature", string(order.Signature))
+		lop.memoryDb.Delete(order.Signature)
+	}
+}
+
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 
 	type Order struct {
@@ -88,7 +116,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 				tsHashes := []string{}
 				for _, tx := range newHeadEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
-					lop.ParseTx(tx) // parse update in memory db
+					parseTx(lop, tx) // parse update in memory db
 				}
 				log.Info("$$$$$ New head event", "number", newHeadEvent.Block.Header().Number, "tx hashes", tsHashes,
 					"miner", newHeadEvent.Block.Coinbase().String(),
@@ -101,7 +129,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-func (lop *limitOrderProcesser) ParseTx(tx *types.Transaction) {
+func parseTx(lop *limitOrderProcesser, tx *types.Transaction) {
 	input := tx.Data()
 	if len(input) < 4 {
 		log.Info("transaction data has less than 3 fields")
@@ -143,16 +171,16 @@ func (lop *limitOrderProcesser) ParseTx(tx *types.Transaction) {
 		}
 		if m.Name == "executeTestOrder" {
 			log.Info("##### in ParseTx", "executeTestOrder tx hash", tx.Hash().String())
-			go lop.PollForReceipt(tx.Hash())
+			go pollForReceipt(lop, tx.Hash())
 			signature := in["signature"].([]byte)
 			lop.memoryDb.Delete(signature)
 		}
 	}
 }
 
-func (lop *limitOrderProcesser) PollForReceipt(txHash common.Hash) {
+func pollForReceipt(lop *limitOrderProcesser, txHash common.Hash) {
 	for i := 0; i < 10; i++ {
-		receipt := lop.GetTxReceipt(txHash)
+		receipt := getTxReceipt(lop, txHash)
 		if receipt != nil {
 			log.Info("receipt found", "tx", txHash.String(), "receipt", receipt)
 			return
@@ -162,7 +190,7 @@ func (lop *limitOrderProcesser) PollForReceipt(txHash common.Hash) {
 	log.Info("receipt not found", "tx", txHash.String())
 }
 
-func (lop *limitOrderProcesser) GetTxReceipt(hash common.Hash) *types.Receipt {
+func getTxReceipt(lop *limitOrderProcesser, hash common.Hash) *types.Receipt {
 	ctx := context.Background()
 	_, blockHash, _, index, err := lop.backend.GetTransaction(ctx, hash)
 	if err != nil {
@@ -178,32 +206,4 @@ func (lop *limitOrderProcesser) GetTxReceipt(hash common.Hash) *types.Receipt {
 	}
 	receipt := receipts[index]
 	return receipt
-}
-
-func (lop *limitOrderProcesser) AddMatchingOrdersToTxPool() {
-	orders := lop.memoryDb.GetAllOrders()
-	for _, order := range orders {
-		nonce := lop.txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
-
-		data, err := lop.orderBookABI.Pack("executeTestOrder", order.RawOrder, order.Signature)
-		if err != nil {
-			log.Error("abi.Pack failed", "err", err)
-		}
-		key, err := crypto.HexToECDSA("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027") // admin private key
-		if err != nil {
-			log.Error("HexToECDSA failed", "err", err)
-		}
-		executeOrderTx := types.NewTransaction(nonce, common.HexToAddress("0x52C84043CD9c865236f11d9Fc9F56aa003c1f922"), big.NewInt(0), 8000000, big.NewInt(250000000), data)
-		signer := types.NewLondonSigner(big.NewInt(99999))
-		signedTx, err := types.SignTx(executeOrderTx, signer, key)
-		if err != nil {
-			log.Error("types.SignTx failed", "err", err)
-		}
-		err = lop.txPool.AddLocal(signedTx)
-		if err != nil {
-			log.Error("lop.txPool.AddLocal failed", "err", err)
-		}
-		log.Info("#### AddMatchingOrdersToTxPool", "executeOrder", signedTx.Hash().String(), "from signature", string(order.Signature))
-		lop.memoryDb.Delete(order.Signature)
-	}
 }
