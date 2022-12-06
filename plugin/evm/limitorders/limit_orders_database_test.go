@@ -184,13 +184,13 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenShortOrders(t *testing.T) {
 	orders := lod.GetLimitOrderByPositionTypeAndPrice("short", 11.14)
 	assert.Equal(t, 2, len(orders))
 	for i := 0; i < len(orders); i++ {
-		assert.Equal(t, orders[i].userAddress, userAddress)
-		assert.Equal(t, orders[i].baseAssetQuantity, baseAssetQuantity)
-		assert.Equal(t, orders[i].positionType, positionType)
-		assert.Equal(t, orders[i].status, "open")
+		assert.Equal(t, orders[i].UserAddress, userAddress)
+		assert.Equal(t, orders[i].BaseAssetQuantity, baseAssetQuantity)
+		assert.Equal(t, orders[i].PositionType, positionType)
+		assert.Equal(t, orders[i].Status, "open")
 	}
-	assert.Equal(t, price1, orders[0].price)
-	assert.Equal(t, price2, orders[1].price)
+	assert.Equal(t, price1, orders[0].Price)
+	assert.Equal(t, price2, orders[1].Price)
 }
 
 func TestGetLimitOrderByPositionTypeAndPriceWhenLongOrders(t *testing.T) {
@@ -210,13 +210,13 @@ func TestGetLimitOrderByPositionTypeAndPriceWhenLongOrders(t *testing.T) {
 	orders := lod.GetLimitOrderByPositionTypeAndPrice("long", 11.14)
 	assert.Equal(t, 2, len(orders))
 	for i := 0; i < len(orders); i++ {
-		assert.Equal(t, orders[i].userAddress, userAddress)
-		assert.Equal(t, orders[i].baseAssetQuantity, baseAssetQuantity)
-		assert.Equal(t, orders[i].positionType, positionType)
-		assert.Equal(t, orders[i].status, "open")
+		assert.Equal(t, orders[i].UserAddress, userAddress)
+		assert.Equal(t, orders[i].BaseAssetQuantity, baseAssetQuantity)
+		assert.Equal(t, orders[i].PositionType, positionType)
+		assert.Equal(t, orders[i].Status, "open")
 	}
-	assert.Equal(t, price2, orders[0].price)
-	assert.Equal(t, price3, orders[1].price)
+	assert.Equal(t, price2, orders[0].Price)
+	assert.Equal(t, price3, orders[1].Price)
 }
 
 func TestUpdateLimitOrderStatus(t *testing.T) {

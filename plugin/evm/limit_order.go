@@ -1,10 +1,12 @@
 package evm
 
 import (
+	"context"
 	"io/ioutil"
 	"math/big"
 
 	"sync"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core"
@@ -20,7 +22,8 @@ import (
 )
 
 type LimitOrderProcesser interface {
-	ListenAndProcessLimitOrderTransactions()
+	ListenAndProcessTransactions()
+	AddMatchingOrdersToTxPool()
 }
 
 type limitOrderProcesser struct {
@@ -30,14 +33,17 @@ type limitOrderProcesser struct {
 	shutdownChan <-chan struct{}
 	shutdownWg   *sync.WaitGroup
 	backend      *eth.EthAPIBackend
-	database     limitorders.LimitOrderDatabase
+	memoryDb     limitorders.InMemoryDatabase
+	orderBookABI abi.ABI
 }
 
 func NewLimitOrderProcesser(ctx *snow.Context, chainConfig *params.ChainConfig, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend) LimitOrderProcesser {
-	database, err := limitorders.InitializeDatabase()
+	jsonBytes, _ := ioutil.ReadFile("contract-examples/artifacts/contracts/OrderBook.sol/OrderBook.json")
+	orderBookAbi, err := abi.FromSolidityJson(string(jsonBytes))
 	if err != nil {
 		panic(err)
 	}
+
 	return &limitOrderProcesser{
 		ctx:          ctx,
 		chainConfig:  chainConfig,
@@ -45,11 +51,12 @@ func NewLimitOrderProcesser(ctx *snow.Context, chainConfig *params.ChainConfig, 
 		shutdownChan: shutdownChan,
 		shutdownWg:   shutdownWg,
 		backend:      backend,
-		database:     database,
+		memoryDb:     limitorders.NewInMemoryDatabase(),
+		orderBookABI: orderBookAbi,
 	}
 }
 
-func (lop *limitOrderProcesser) ListenAndProcessLimitOrderTransactions() {
+func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	lop.listenAndStoreLimitOrderTransactions()
 }
 
@@ -61,86 +68,6 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		Price             *big.Int       `json:"price"`
 		Salt              *big.Int       `json:"salt"`
 	}
-	jsonBytes, _ := ioutil.ReadFile("contract-examples/artifacts/contracts/OrderBook.sol/OrderBook.json")
-	orderBookAbi, err := abi.FromSolidityJson(string(jsonBytes))
-	if err != nil {
-		panic(err)
-	}
-
-	txSubmitChan := make(chan core.NewTxsEvent)
-	lop.txPool.SubscribeNewTxsEvent(txSubmitChan)
-	lop.shutdownWg.Add(1)
-	go lop.ctx.Log.RecoverAndPanic(func() {
-		defer lop.shutdownWg.Done()
-
-		for {
-			select {
-			case txsEvent := <-txSubmitChan:
-
-				for i := 0; i < len(txsEvent.Txs); i++ {
-					tx := txsEvent.Txs[i]
-					input := tx.Data() // "input" field above
-					if len(input) < 4 {
-						log.Info("transaction data has less than 3 fields")
-						continue
-					}
-					method := input[:4]
-					m, err := orderBookAbi.MethodById(method)
-					if err == nil {
-						// log.Info("transaction was made by OrderBook contract")
-						// log.Info("transaction", "method name", m.Name)
-						in := make(map[string]interface{})
-						_ = m.Inputs.UnpackIntoMap(in, input[4:])
-						// m.Inputs[3].UnmarshalJSON()
-						if m.Name == "placeOrder" {
-							log.Info("##### in tx chan", "placeOrder tx hash", tx.Hash().String())
-							// log.Info("transaction", "input", in)
-							order, _ := in["order"].(struct {
-								Trader            common.Address `json:"trader"`
-								BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
-								Price             *big.Int       `json:"price"`
-								Salt              *big.Int       `json:"salt"`
-							})
-							signature := in["signature"].([]byte)
-							// log.Info("####", "type of in[order]", reflect.TypeOf(in["order"]))
-							// log.Info("transaction", "order", order, "ok", ok)
-
-							var positionType string
-							if order.BaseAssetQuantity.Int64() > 0 {
-								positionType = "long"
-							} else {
-								positionType = "short"
-							}
-							baseAssetQuantity, _ := new(big.Float).SetInt(order.BaseAssetQuantity).Float64()
-							err := lop.database.InsertLimitOrder(positionType, order.Trader.Hash().String(), int(order.BaseAssetQuantity.Uint64()), baseAssetQuantity, order.Salt.String(), signature)
-							if err != nil {
-								log.Error("######", "err in database.InsertLimitOrder", err)
-							}
-							// log.Info("######", "inserted!!")
-						}
-						if m.Name == "executeTestOrder" {
-							log.Info("##### in tx chan", "executeTestOrder tx hash", tx.Hash().String())
-							order, _ := in["order"].(struct {
-								Trader            common.Address `json:"trader"`
-								BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
-								Price             *big.Int       `json:"price"`
-								Salt              *big.Int       `json:"salt"`
-							})
-							// log.Info("####", "type of in[order]", reflect.TypeOf(in["order"]))
-							// log.Info("transaction", "order", order, "ok", ok)
-
-							err := lop.database.UpdateLimitOrderStatus(order.Trader.Hash().String(), order.Salt.String(), "fulfilled")
-							if err != nil {
-								log.Error("######", "err in database.UpdateLimitOrderStatus", err)
-							}
-						}
-					}
-				}
-			case <-lop.shutdownChan:
-				return
-			}
-		}
-	})
 
 	newHeadChan := make(chan core.NewTxPoolHeadEvent)
 	lop.txPool.SubscribeNewHeadEvent(newHeadChan)
@@ -155,14 +82,12 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 				tsHashes := []string{}
 				for _, tx := range newHeadEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
+					lop.ParseTx(tx) // parse update in memory db
 				}
-				log.Info("$$$$$ New head event", "number", newHeadEvent.Block.Header().Number, "miner", newHeadEvent.Block.Coinbase().String(),
+				log.Info("$$$$$ New head event", "number", newHeadEvent.Block.Header().Number, "tx hashes", tsHashes,
+					"miner", newHeadEvent.Block.Coinbase().String(),
 					"root", newHeadEvent.Block.Header().Root.String(), "gas used", newHeadEvent.Block.Header().GasUsed,
-					"nonce", newHeadEvent.Block.Header().Nonce, "tx hashes", tsHashes)
-				executeOrderTxs := CheckMatchingOrders(newHeadEvent.Block.Transactions(), lop.txPool)
-				if len(executeOrderTxs) > 0 {
-					lop.txPool.AddLocals(executeOrderTxs)
-				}
+					"nonce", newHeadEvent.Block.Header().Nonce)
 			case <-lop.shutdownChan:
 				return
 			}
@@ -170,66 +95,108 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-// func (lop *limitOrderProcesser) CheckForStatus() {
-// 	ctx := context.Background()
-// 	tx, blockHash, blockNumber, index, err := lop.backend.GetTransaction(ctx, newHeadEvent.Block.Hash())
-// 	lop.backend.
-// 	lop.backend.GetReceipts(ctx, newHeadEvent.Block.Hash())
-
-// }
-
-func CheckMatchingOrders(txs types.Transactions, txPool *core.TxPool) []*types.Transaction {
-	jsonBytes, _ := ioutil.ReadFile("contract-examples/artifacts/contracts/OrderBook.sol/OrderBook.json")
-	orderBookAbi, err := abi.FromSolidityJson(string(jsonBytes))
-	if err != nil {
-		panic(err)
+func (lop *limitOrderProcesser) ParseTx(tx *types.Transaction) {
+	input := tx.Data()
+	if len(input) < 4 {
+		log.Info("transaction data has less than 3 fields")
 	}
+	method := input[:4]
+	m, err := lop.orderBookABI.MethodById(method)
+	if err == nil {
+		in := make(map[string]interface{})
+		_ = m.Inputs.UnpackIntoMap(in, input[4:])
+		if m.Name == "placeOrder" {
+			log.Info("##### in ParseTx", "placeOrder tx hash", tx.Hash().String())
+			order, _ := in["order"].(struct {
+				Trader            common.Address `json:"trader"`
+				BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
+				Price             *big.Int       `json:"price"`
+				Salt              *big.Int       `json:"salt"`
+			})
+			signature := in["signature"].([]byte)
 
-	matchingOrderTxs := []*types.Transaction{}
-
-	for i := 0; i < len(txs); i++ {
-		tx := txs[i]
-		if tx.To() != nil && tx.Data() != nil && len(tx.Data()) != 0 {
-			// log.Info("transaction", "to is", tx.To().String())
-			input := tx.Data() // "input" field above
-			// log.Info("transaction", "data is", input)
-			if len(input) < 4 {
-				log.Info("transaction data has less than 3 fields")
-				continue
+			var positionType string
+			if order.BaseAssetQuantity.Int64() > 0 {
+				positionType = "long"
+			} else {
+				positionType = "short"
 			}
-			method := input[:4]
-			m, err := orderBookAbi.MethodById(method)
-			if err == nil {
-				// log.Info("transaction was made by OrderBook contract")
-				// log.Info("transaction", "method name", m.Name)
-				// log.Info("transaction", "amount in is: %+v\n", in["amount"])
-				// log.Info("transaction", "to is: %+v\n", in["to"])
-				in := make(map[string]interface{})
-				_ = m.Inputs.UnpackIntoMap(in, input[4:])
-				if m.Name == "placeOrder" {
-					// log.Info("transaction", "input", in)
-					nonce := txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
-
-					data, err := orderBookAbi.Pack("executeTestOrder", in["order"], in["signature"])
-					if err != nil {
-						log.Error("abi.Pack failed", "err", err)
-					}
-					// log.Info("####", "data", data)
-					key, err := crypto.HexToECDSA("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027") // admin private key
-					if err != nil {
-						log.Error("HexToECDSA failed", "err", err)
-					}
-					tx := types.NewTransaction(nonce, common.HexToAddress("0x52C84043CD9c865236f11d9Fc9F56aa003c1f922"), big.NewInt(0), 8000000, big.NewInt(250000000), data)
-					signer := types.NewLondonSigner(big.NewInt(99999))
-					signedTx, err := types.SignTx(tx, signer, key)
-					if err != nil {
-						log.Error("types.SignTx failed", "err", err)
-					}
-					log.Info("#### executeTestOrder tx created", "tx hash", signedTx.Hash().String(), "for tx", tx.Hash().String())
-					matchingOrderTxs = append(matchingOrderTxs, signedTx)
-				}
+			price, _ := new(big.Float).SetInt(order.Price).Float64()
+			limitOrder := limitorders.LimitOrder{
+				PositionType:      positionType,
+				UserAddress:       order.Trader.Hash().String(),
+				BaseAssetQuantity: int(order.BaseAssetQuantity.Uint64()),
+				Price:             price,
+				Salt:              order.Salt.String(),
+				Signature:         signature,
+				RawOrder:          in["order"],
+				RawSignature:      in["signature"],
 			}
+			lop.memoryDb.Add(limitOrder)
+		}
+		if m.Name == "executeTestOrder" {
+			log.Info("##### in ParseTx", "executeTestOrder tx hash", tx.Hash().String())
+			go lop.PollForReceipt(tx.Hash())
+			signature := in["signature"].([]byte)
+			lop.memoryDb.Delete(signature)
 		}
 	}
-	return matchingOrderTxs
+}
+
+func (lop *limitOrderProcesser) PollForReceipt(txHash common.Hash) {
+	for i := 0; i < 10; i++ {
+		receipt := lop.GetTxReceipt(txHash)
+		if receipt != nil {
+			log.Info("receipt found", "tx", txHash.String(), "receipt", receipt)
+			return
+		}
+		time.Sleep(time.Second * 5)
+	}
+	log.Info("receipt not found", "tx", txHash.String())
+}
+
+func (lop *limitOrderProcesser) GetTxReceipt(hash common.Hash) *types.Receipt {
+	ctx := context.Background()
+	_, blockHash, _, index, err := lop.backend.GetTransaction(ctx, hash)
+	if err != nil {
+		log.Error("err in lop.backend.GetTransaction", "err", err)
+	}
+	receipts, err := lop.backend.GetReceipts(ctx, blockHash)
+	if err != nil {
+		log.Error("err in lop.backend.GetReceipts", "err", err)
+	}
+	if len(receipts) <= int(index) {
+		// log.Info("len(receipts) <= int(index)", "len(receipts)", len(receipts), "index", index)
+		return nil
+	}
+	receipt := receipts[index]
+	return receipt
+}
+
+func (lop *limitOrderProcesser) AddMatchingOrdersToTxPool() {
+	orders := lop.memoryDb.GetAllOrders()
+	for _, order := range orders {
+		nonce := lop.txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
+
+		data, err := lop.orderBookABI.Pack("executeTestOrder", order.RawOrder, order.Signature)
+		if err != nil {
+			log.Error("abi.Pack failed", "err", err)
+		}
+		key, err := crypto.HexToECDSA("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027") // admin private key
+		if err != nil {
+			log.Error("HexToECDSA failed", "err", err)
+		}
+		executeOrderTx := types.NewTransaction(nonce, common.HexToAddress("0x52C84043CD9c865236f11d9Fc9F56aa003c1f922"), big.NewInt(0), 8000000, big.NewInt(250000000), data)
+		signer := types.NewLondonSigner(big.NewInt(99999))
+		signedTx, err := types.SignTx(executeOrderTx, signer, key)
+		if err != nil {
+			log.Error("types.SignTx failed", "err", err)
+		}
+		err = lop.txPool.AddLocal(signedTx)
+		if err != nil {
+			log.Error("lop.txPool.AddLocal failed", "err", err)
+		}
+		log.Info("#### AddMatchingOrdersToTxPool", "executeOrder", signedTx.Hash().String(), "from signature", string(order.Signature))
+		lop.memoryDb.Delete(order.Signature)
+	}
 }

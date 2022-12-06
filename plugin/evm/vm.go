@@ -556,7 +556,7 @@ func (vm *VM) initBlockBuilding() {
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
 
 	vm.limitOrderProcesser = vm.NewLimitOrderProcesser()
-	vm.limitOrderProcesser.ListenAndProcessLimitOrderTransactions()
+	vm.limitOrderProcesser.ListenAndProcessTransactions()
 }
 
 // setAppRequestHandlers sets the request handlers for the VM to serve state sync
@@ -597,6 +597,7 @@ func (vm *VM) Shutdown() error {
 
 // buildBlock builds a block to be wrapped by ChainState
 func (vm *VM) buildBlock() (snowman.Block, error) {
+	vm.limitOrderProcesser.AddMatchingOrdersToTxPool()
 	block, err := vm.miner.GenerateBlock()
 	vm.builder.handleGenerateBlock()
 	if err != nil {

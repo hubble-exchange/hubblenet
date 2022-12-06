@@ -9,17 +9,6 @@ import (
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
-type LimitOrder struct {
-	positionType      string
-	id                int64
-	userAddress       string
-	baseAssetQuantity int
-	price             float64
-	status            string
-	salt              string
-	signature         []byte
-}
-
 type LimitOrderDatabase interface {
 	InsertLimitOrder(positionType string, userAddress string, baseAssetQuantity int, price float64, salt string, signature []byte) error
 	UpdateLimitOrderStatus(userAddress string, salt string, status string) error
@@ -89,13 +78,13 @@ func (lod *limitOrderDatabase) GetLimitOrderByPositionTypeAndPrice(positionType 
 		_ = rows.Scan(&id, &userAddress, &baseAssetQuantity, &price, &salt, &signature)
 		limitOrder := &LimitOrder{
 			id:                id,
-			positionType:      positionType,
-			userAddress:       userAddress,
-			baseAssetQuantity: baseAssetQuantity,
-			price:             price,
-			salt:              salt,
-			signature:         signature,
-			status:            orderStatus,
+			PositionType:      positionType,
+			UserAddress:       userAddress,
+			BaseAssetQuantity: baseAssetQuantity,
+			Price:             price,
+			Salt:              salt,
+			Signature:         signature,
+			Status:            orderStatus,
 		}
 		limitOrders = append(limitOrders, *limitOrder)
 	}
