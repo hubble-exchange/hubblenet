@@ -116,7 +116,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 				tsHashes := []string{}
 				for _, tx := range newHeadEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
-					parseTx(lop, tx) // parse update in memory db
+					parseTx(lop.orderBookABI, lop.memoryDb, *lop.backend, tx) // parse update in memory db
 				}
 				log.Info("$$$$$ New head event", "number", newHeadEvent.Block.Header().Number, "tx hashes", tsHashes,
 					"miner", newHeadEvent.Block.Coinbase().String(),
@@ -129,14 +129,14 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-func parseTx(lop *limitOrderProcesser, tx *types.Transaction) {
+func parseTx(orderBookABI abi.ABI, memoryDb limitorders.InMemoryDatabase, backend eth.EthAPIBackend, tx *types.Transaction) {
 	input := tx.Data()
 	if len(input) < 4 {
 		log.Info("transaction data has less than 3 fields")
 		return
 	}
 	method := input[:4]
-	m, err := lop.orderBookABI.MethodById(method)
+	m, err := orderBookABI.MethodById(method)
 	if err == nil {
 		in := make(map[string]interface{})
 		_ = m.Inputs.UnpackIntoMap(in, input[4:])
@@ -167,20 +167,20 @@ func parseTx(lop *limitOrderProcesser, tx *types.Transaction) {
 				RawOrder:          in["order"],
 				RawSignature:      in["signature"],
 			}
-			lop.memoryDb.Add(limitOrder)
+			memoryDb.Add(limitOrder)
 		}
 		if m.Name == "executeTestOrder" {
 			log.Info("##### in ParseTx", "executeTestOrder tx hash", tx.Hash().String())
-			go pollForReceipt(lop, tx.Hash())
+			go pollForReceipt(backend, tx.Hash())
 			signature := in["signature"].([]byte)
-			lop.memoryDb.Delete(signature)
+			memoryDb.Delete(signature)
 		}
 	}
 }
 
-func pollForReceipt(lop *limitOrderProcesser, txHash common.Hash) {
+func pollForReceipt(backend eth.EthAPIBackend, txHash common.Hash) {
 	for i := 0; i < 10; i++ {
-		receipt := getTxReceipt(lop, txHash)
+		receipt := getTxReceipt(backend, txHash)
 		if receipt != nil {
 			log.Info("receipt found", "tx", txHash.String(), "receipt", receipt)
 			return
@@ -190,13 +190,13 @@ func pollForReceipt(lop *limitOrderProcesser, txHash common.Hash) {
 	log.Info("receipt not found", "tx", txHash.String())
 }
 
-func getTxReceipt(lop *limitOrderProcesser, hash common.Hash) *types.Receipt {
+func getTxReceipt(backend eth.EthAPIBackend, hash common.Hash) *types.Receipt {
 	ctx := context.Background()
-	_, blockHash, _, index, err := lop.backend.GetTransaction(ctx, hash)
+	_, blockHash, _, index, err := backend.GetTransaction(ctx, hash)
 	if err != nil {
 		log.Error("err in lop.backend.GetTransaction", "err", err)
 	}
-	receipts, err := lop.backend.GetReceipts(ctx, blockHash)
+	receipts, err := backend.GetReceipts(ctx, blockHash)
 	if err != nil {
 		log.Error("err in lop.backend.GetReceipts", "err", err)
 	}
