@@ -111,3 +111,131 @@ func TestDelete(t *testing.T) {
 	sort.Ints(returnedOrderIds)
 	assert.Equal(t, expectedReturnedOrdersIds, returnedOrderIds)
 }
+
+var userAddress = "random-address"
+var baseAssetQuantity int
+var salt = "salt"
+var price = 20.01
+
+func TestGetOrdersByPriceAndPositionTypeWhenNoLongOrderExists(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	addLimitOrderInDatabase(inMemoryDatabase, "short")
+	orders1 := inMemoryDatabase.GetOrdersByPriceAndPositionType("long", 0)
+	assert.Equal(t, 0, len(orders1))
+	orders2 := inMemoryDatabase.GetOrdersByPriceAndPositionType("long", 20)
+	assert.Equal(t, 0, len(orders2))
+	orders3 := inMemoryDatabase.GetOrdersByPriceAndPositionType("long", 1000)
+	assert.Equal(t, 0, len(orders3))
+}
+func TestGetOrdersByPriceAndPositionTypeWhenNoShortOrderExists(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	addLimitOrderInDatabase(inMemoryDatabase, "long")
+	orders1 := inMemoryDatabase.GetOrdersByPriceAndPositionType("short", 0)
+	assert.Equal(t, 0, len(orders1))
+	orders2 := inMemoryDatabase.GetOrdersByPriceAndPositionType("short", 20)
+	assert.Equal(t, 0, len(orders2))
+	orders3 := inMemoryDatabase.GetOrdersByPriceAndPositionType("short", 100)
+	assert.Equal(t, 0, len(orders3))
+}
+
+func TestGetOrdersByPriceAndPositionTypeWhenLongOrderExistsButPriceDontMatch(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	addLimitOrderInDatabase(inMemoryDatabase, "long")
+	orders1 := inMemoryDatabase.GetOrdersByPriceAndPositionType("long", 21)
+	orders2 := inMemoryDatabase.GetOrdersByPriceAndPositionType("long", 20.02)
+	assert.Equal(t, 0, len(orders1))
+	assert.Equal(t, 0, len(orders2))
+}
+
+func TestGetOrdersByPriceAndPositionTypeWhenShortOrderExistsButPriceDontMatch(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	addLimitOrderInDatabase(inMemoryDatabase, "short")
+	orders1 := inMemoryDatabase.GetOrdersByPriceAndPositionType("short", 16)
+	orders2 := inMemoryDatabase.GetOrdersByPriceAndPositionType("short", 15)
+	assert.Equal(t, 0, len(orders1))
+	assert.Equal(t, 0, len(orders2))
+}
+
+func TestGetOrdersByPriceAndPositionTypeWhenShortOrderExistsAndPriceMatch(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	addLimitOrderInDatabase(inMemoryDatabase, "short")
+	orders1 := inMemoryDatabase.GetOrdersByPriceAndPositionType("short", 16.5)
+	assert.Equal(t, 1, len(orders1))
+	assert.Equal(t, 16.01, orders1[0].Price)
+
+	limitOrder := &LimitOrder{
+		id:                6,
+		PositionType:      "short",
+		UserAddress:       userAddress,
+		BaseAssetQuantity: baseAssetQuantity,
+		Price:             price,
+		Status:            "fulfilled",
+		Salt:              salt,
+		Signature:         []byte("Signature is 10"),
+	}
+	inMemoryDatabase.Add(*limitOrder)
+	orders2 := inMemoryDatabase.GetOrdersByPriceAndPositionType("short", 30)
+	assert.Equal(t, 5, len(orders2))
+	for i, order := range orders2 {
+		assert.Equal(t, userAddress, order.UserAddress)
+		assert.Equal(t, baseAssetQuantity, order.BaseAssetQuantity)
+		assert.Equal(t, "unfulfilled", order.Status)
+		assert.Equal(t, salt, order.Salt)
+		expectedPrice := price - float64((4 - i))
+		assert.Equal(t, expectedPrice, order.Price)
+	}
+}
+
+func TestGetOrdersByPriceAndPositionTypeWhenLongOrderExistsAndPriceMatch(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	addLimitOrderInDatabase(inMemoryDatabase, "long")
+	orders1 := inMemoryDatabase.GetOrdersByPriceAndPositionType("long", 20.00)
+	assert.Equal(t, 1, len(orders1))
+	assert.Equal(t, 20.01, orders1[0].Price)
+
+	limitOrder := &LimitOrder{
+		id:                6,
+		PositionType:      "long",
+		UserAddress:       userAddress,
+		BaseAssetQuantity: baseAssetQuantity,
+		Price:             price,
+		Status:            "fulfilled",
+		Salt:              salt,
+		Signature:         []byte("Signature is 10"),
+	}
+	inMemoryDatabase.Add(*limitOrder)
+	orders2 := inMemoryDatabase.GetOrdersByPriceAndPositionType("long", 10)
+	assert.Equal(t, 5, len(orders2))
+	for i, order := range orders2 {
+		assert.Equal(t, userAddress, order.UserAddress)
+		assert.Equal(t, baseAssetQuantity, order.BaseAssetQuantity)
+		assert.Equal(t, "unfulfilled", order.Status)
+		assert.Equal(t, salt, order.Salt)
+		expectedPrice := price - float64(i)
+		assert.Equal(t, expectedPrice, order.Price)
+	}
+}
+
+func addLimitOrderInDatabase(database *inMemoryDatabase, positionType string) {
+	totalOrders := 5
+	if positionType == "short" {
+		baseAssetQuantity = -10
+	} else {
+		baseAssetQuantity = 10
+	}
+	status := "unfulfilled"
+	for i := 0; i < totalOrders; i++ {
+		signature := []byte(fmt.Sprintf("Signature is %d", i))
+		limitOrder := &LimitOrder{
+			id:                int64(i),
+			PositionType:      positionType,
+			UserAddress:       userAddress,
+			BaseAssetQuantity: baseAssetQuantity,
+			Price:             price - float64(i),
+			Status:            status,
+			Salt:              salt,
+			Signature:         signature,
+		}
+		database.Add(*limitOrder)
+	}
+}

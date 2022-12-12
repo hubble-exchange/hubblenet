@@ -1,5 +1,7 @@
 package limitorders
 
+import "sort"
+
 type LimitOrder struct {
 	id                int64
 	PositionType      string
@@ -15,6 +17,7 @@ type LimitOrder struct {
 
 type InMemoryDatabase interface {
 	GetAllOrders() []*LimitOrder
+	GetOrdersByPriceAndPositionType(positionType string, price float64) []*LimitOrder
 	Add(order LimitOrder)
 	Delete(signature []byte)
 }
@@ -43,4 +46,40 @@ func (db *inMemoryDatabase) Add(order LimitOrder) {
 // Deletes silently
 func (db *inMemoryDatabase) Delete(signature []byte) {
 	delete(db.orderMap, string(signature))
+}
+
+func (db *inMemoryDatabase) GetOrdersByPriceAndPositionType(positionType string, price float64) []*LimitOrder {
+	if positionType == "long" {
+		return getLongOrdersByPrice(db.orderMap, price)
+	}
+	if positionType == "short" {
+		return getShortOrdersByPrice(db.orderMap, price)
+	}
+	return nil
+}
+
+func getLongOrdersByPrice(orderMap map[string]*LimitOrder, price float64) []*LimitOrder {
+	matchingLongOrders := []*LimitOrder{}
+	for _, order := range orderMap {
+		if order.PositionType == "long" && order.Status == "unfulfilled" && price <= order.Price {
+			matchingLongOrders = append(matchingLongOrders, order)
+		}
+	}
+	sort.SliceStable(matchingLongOrders, func(i, j int) bool {
+		return matchingLongOrders[i].Price > matchingLongOrders[j].Price
+	})
+	return matchingLongOrders
+}
+
+func getShortOrdersByPrice(orderMap map[string]*LimitOrder, price float64) []*LimitOrder {
+	matchingShortOrders := []*LimitOrder{}
+	for _, order := range orderMap {
+		if order.PositionType == "short" && order.Status == "unfulfilled" && price >= order.Price {
+			matchingShortOrders = append(matchingShortOrders, order)
+		}
+	}
+	sort.SliceStable(matchingShortOrders, func(i, j int) bool {
+		return matchingShortOrders[i].Price < matchingShortOrders[j].Price
+	})
+	return matchingShortOrders
 }
