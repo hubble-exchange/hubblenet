@@ -111,17 +111,17 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InM
 			})
 			signature := in["signature"].([]byte)
 
-			var positionType string
-			if order.BaseAssetQuantity.Int64() > 0 {
-				positionType = "long"
-			} else {
-				positionType = "short"
+			baseAssetQuantity := int(order.BaseAssetQuantity.Int64())
+			if baseAssetQuantity == 0 {
+				log.Error("order not saved because baseAssetQuantity is zero")
+				return
 			}
+			positionType := getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity)
 			price, _ := new(big.Float).SetInt(order.Price).Float64()
 			limitOrder := limitorders.LimitOrder{
 				PositionType:      positionType,
 				UserAddress:       order.Trader.Hash().String(),
-				BaseAssetQuantity: int(order.BaseAssetQuantity.Int64()),
+				BaseAssetQuantity: baseAssetQuantity,
 				Price:             price,
 				Salt:              order.Salt.String(),
 				Status:            "unfulfilled",
@@ -143,9 +143,6 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InM
 
 func matchLimitOrderAgainstStoredLimitOrders(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InMemoryDatabase, limitOrder limitorders.LimitOrder) {
 	oppositePositionType := getOppositePositionType(limitOrder.PositionType)
-	if oppositePositionType == "" {
-		return
-	}
 	potentialMatchingOrders := memoryDb.GetOrdersByPriceAndPositionType(oppositePositionType, limitOrder.Price)
 
 	for _, order := range potentialMatchingOrders {
@@ -181,8 +178,13 @@ func callExecuteMatchedOrders(txPool *core.TxPool, orderBookABI abi.ABI, incomin
 func getOppositePositionType(positionType string) string {
 	if positionType == "long" {
 		return "short"
-	} else if positionType == "short" {
+	}
+	return "long"
+}
+
+func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity int) string {
+	if baseAssetQuantity > 0 {
 		return "long"
 	}
-	return ""
+	return "short"
 }
