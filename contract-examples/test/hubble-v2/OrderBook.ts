@@ -58,7 +58,7 @@ describe.only('Order Book', function () {
         expect(ethers.utils.getAddress('0x' + _impl.slice(26))).to.eq(orderBookImpl.address)
     })
 
-    it.only('verify signer', async function() {
+    it('verify signer', async function() {
         order = {
             trader: alice.address,
             baseAssetQuantity: ethers.utils.parseEther('-5'),
@@ -97,41 +97,34 @@ describe.only('Order Book', function () {
             adminAddress
         )
 
-        let orderHash = await orderBook.getOrderHash(order)
+        let orderHash1 = await orderBook.getOrderHash(order)
         let status
-        status = await orderBook.ordersStatus(orderHash)
+        status = await orderBook.ordersStatus(orderHash1)
         console.log({ status });
 
-        expect(await orderBook.ordersStatus(orderHash)).to.eq(1) // Filled; because evm is fulfilling all orders right now
-    })
-
-    it('execute matched orders', async function() {
-        const order2 = {
+        // 2nd order
+        let order2 = {
             trader: bob.address,
-            baseAssetQuantity: BigNumber.from(order.baseAssetQuantity).mul(-1),
+            baseAssetQuantity: ethers.utils.parseEther('5'),
             price: ethers.utils.parseUnits('15', 6),
             salt: Date.now()
         }
+        let signature2 = await bob._signTypedData(domain, orderType, order2)
+        const signer2 = (await orderBook.verifySigner(order2, signature2))[0]
+        expect(signer2).to.eq(bob.address)
+        const tx2 = await orderBook.placeOrder(order2, signature2)
+        await expect(tx2).to.emit(orderBook, "OrderPlaced").withArgs(
+            bob.address,
+            order2.baseAssetQuantity,
+            order2.price,
+            adminAddress
+        )
+        let orderHash2 = await orderBook.getOrderHash(order2)
+        status = await orderBook.ordersStatus(orderHash2)
+        console.log({ status });
 
-        const signature2 = await bob._signTypedData(domain, orderType, order2)
-        await orderBook.placeOrder(order2, signature2)
-        await delay(1000)
-
-        await orderBook.executeMatchedOrders(order, signature, order2, signature2, {gasLimit: 1e6})
-        await delay(1500)
-
-        let position = await orderBook.positions(alice.address)
-        expect(position.size).to.eq(order.baseAssetQuantity)
-        expect(position.openNotional).to.eq(order.price.mul(order.baseAssetQuantity).abs())
-
-        position = await orderBook.positions(bob.address)
-        expect(position.size).to.eq(order2.baseAssetQuantity)
-        expect(position.openNotional).to.eq(order2.baseAssetQuantity.mul(order2.price).abs())
-
-        let orderHash = await orderBook.getOrderHash(order)
-        expect(await orderBook.ordersStatus(orderHash)).to.eq(1) // Filled
-        orderHash = await orderBook.getOrderHash(order2)
-        expect(await orderBook.ordersStatus(orderHash)).to.eq(1) // Filled
+        expect(await orderBook.ordersStatus(orderHash1)).to.eq(1) // Filled; because evm is fulfilling all orders right now
+        expect(await orderBook.ordersStatus(orderHash2)).to.eq(1) // Filled; because evm is fulfilling all orders right now
     })
 })
 

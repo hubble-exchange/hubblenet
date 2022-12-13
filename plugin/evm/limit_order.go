@@ -1,12 +1,10 @@
 package evm
 
 import (
-	"context"
 	"io/ioutil"
 	"math/big"
 
 	"sync"
-	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core"
@@ -25,7 +23,6 @@ var orderBookContractFileLocation = "contract-examples/artifacts/contracts/hubbl
 
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions()
-	AddMatchingOrdersToTxPool()
 }
 
 type limitOrderProcesser struct {
@@ -66,43 +63,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	lop.listenAndStoreLimitOrderTransactions()
 }
 
-func (lop *limitOrderProcesser) AddMatchingOrdersToTxPool() {
-	orders := lop.memoryDb.GetAllOrders()
-	for _, order := range orders {
-		nonce := lop.txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
-
-		data, err := lop.orderBookABI.Pack("executeTestOrder", order.RawOrder, order.Signature)
-		if err != nil {
-			log.Error("abi.Pack failed", "err", err)
-		}
-		key, err := crypto.HexToECDSA("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027") // admin private key
-		if err != nil {
-			log.Error("HexToECDSA failed", "err", err)
-		}
-		executeOrderTx := types.NewTransaction(nonce, common.HexToAddress("0x0300000000000000000000000000000000000069"), big.NewInt(0), 5000000, big.NewInt(80000000000), data)
-		signer := types.NewLondonSigner(big.NewInt(321123))
-		signedTx, err := types.SignTx(executeOrderTx, signer, key)
-		if err != nil {
-			log.Error("types.SignTx failed", "err", err)
-		}
-		err = lop.txPool.AddLocal(signedTx)
-		if err != nil {
-			log.Error("lop.txPool.AddLocal failed", "err", err)
-		}
-		log.Info("#### AddMatchingOrdersToTxPool", "executeOrder", signedTx.Hash().String(), "from signature", string(order.Signature))
-		lop.memoryDb.Delete(order.Signature)
-	}
-}
-
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
-
-	type Order struct {
-		Trader            common.Address `json:"trader"`
-		BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
-		Price             *big.Int       `json:"price"`
-		Salt              *big.Int       `json:"salt"`
-	}
-
 	newHeadChan := make(chan core.NewTxPoolHeadEvent)
 	lop.txPool.SubscribeNewHeadEvent(newHeadChan)
 
@@ -116,7 +77,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 				tsHashes := []string{}
 				for _, tx := range newHeadEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
-					parseTx(lop.orderBookABI, lop.memoryDb, *lop.backend, tx) // parse update in memory db
+					parseTx(lop, tx) // parse update in memory db
 				}
 				log.Info("$$$$$ New head event", "number", newHeadEvent.Block.Header().Number, "tx hashes", tsHashes,
 					"miner", newHeadEvent.Block.Coinbase().String(),
@@ -129,14 +90,14 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-func parseTx(orderBookABI abi.ABI, memoryDb limitorders.InMemoryDatabase, backend eth.EthAPIBackend, tx *types.Transaction) {
+func parseTx(lop *limitOrderProcesser, tx *types.Transaction) {
 	input := tx.Data()
 	if len(input) < 4 {
 		log.Info("transaction data has less than 3 fields")
 		return
 	}
 	method := input[:4]
-	m, err := orderBookABI.MethodById(method)
+	m, err := lop.orderBookABI.MethodById(method)
 	if err == nil {
 		in := make(map[string]interface{})
 		_ = m.Inputs.UnpackIntoMap(in, input[4:])
@@ -160,50 +121,68 @@ func parseTx(orderBookABI abi.ABI, memoryDb limitorders.InMemoryDatabase, backen
 			limitOrder := limitorders.LimitOrder{
 				PositionType:      positionType,
 				UserAddress:       order.Trader.Hash().String(),
-				BaseAssetQuantity: int(order.BaseAssetQuantity.Uint64()),
+				BaseAssetQuantity: int(order.BaseAssetQuantity.Int64()),
 				Price:             price,
 				Salt:              order.Salt.String(),
+				Status:            "unfulfilled",
 				Signature:         signature,
 				RawOrder:          in["order"],
 				RawSignature:      in["signature"],
 			}
-			memoryDb.Add(limitOrder)
+			lop.memoryDb.Add(limitOrder)
+			matchLimitOrderAgainstStoredLimitOrders(lop, limitOrder)
 		}
-		if m.Name == "executeTestOrder" {
-			log.Info("##### in ParseTx", "executeTestOrder tx hash", tx.Hash().String())
-			go pollForReceipt(backend, tx.Hash())
-			signature := in["signature"].([]byte)
-			memoryDb.Delete(signature)
+		if m.Name == "executeMatchedOrders" {
+			signature1 := in["signature1"].([]byte)
+			lop.memoryDb.Delete(signature1)
+			signature2 := in["signature2"].([]byte)
+			lop.memoryDb.Delete(signature2)
 		}
 	}
 }
 
-func pollForReceipt(backend eth.EthAPIBackend, txHash common.Hash) {
-	for i := 0; i < 10; i++ {
-		receipt := getTxReceipt(backend, txHash)
-		if receipt != nil {
-			log.Info("receipt found", "tx", txHash.String(), "receipt", receipt)
-			return
-		}
-		time.Sleep(time.Second * 5)
+func matchLimitOrderAgainstStoredLimitOrders(lop *limitOrderProcesser, limitOrder limitorders.LimitOrder) {
+	oppositePositionType := getOppositePositionType(limitOrder.PositionType)
+	if oppositePositionType == "" {
+		return
 	}
-	log.Info("receipt not found", "tx", txHash.String())
+	potentialMatchingOrders := lop.memoryDb.GetOrdersByPriceAndPositionType(oppositePositionType, limitOrder.Price)
+
+	for _, order := range potentialMatchingOrders {
+		if order.BaseAssetQuantity == -(limitOrder.BaseAssetQuantity) && order.Price == limitOrder.Price {
+			callExecuteMatchedOrders(lop, limitOrder, *order)
+		}
+	}
 }
 
-func getTxReceipt(backend eth.EthAPIBackend, hash common.Hash) *types.Receipt {
-	ctx := context.Background()
-	_, blockHash, _, index, err := backend.GetTransaction(ctx, hash)
+func callExecuteMatchedOrders(lop *limitOrderProcesser, incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder) {
+	nonce := lop.txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
+
+	data, err := lop.orderBookABI.Pack("executeMatchedOrders", incomingOrder.RawOrder, incomingOrder.Signature, matchedOrder.RawOrder, matchedOrder.Signature)
 	if err != nil {
-		log.Error("err in lop.backend.GetTransaction", "err", err)
+		log.Error("abi.Pack failed", "err", err)
 	}
-	receipts, err := backend.GetReceipts(ctx, blockHash)
+	key, err := crypto.HexToECDSA("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027") // admin private key
 	if err != nil {
-		log.Error("err in lop.backend.GetReceipts", "err", err)
+		log.Error("HexToECDSA failed", "err", err)
 	}
-	if len(receipts) <= int(index) {
-		// log.Info("len(receipts) <= int(index)", "len(receipts)", len(receipts), "index", index)
-		return nil
+	executeMatchedOrdersTx := types.NewTransaction(nonce, common.HexToAddress("0x0300000000000000000000000000000000000069"), big.NewInt(0), 5000000, big.NewInt(80000000000), data)
+	signer := types.NewLondonSigner(big.NewInt(321123))
+	signedTx, err := types.SignTx(executeMatchedOrdersTx, signer, key)
+	if err != nil {
+		log.Error("types.SignTx failed", "err", err)
 	}
-	receipt := receipts[index]
-	return receipt
+	err = lop.txPool.AddLocal(signedTx)
+	if err != nil {
+		log.Error("lop.txPool.AddLocal failed", "err", err)
+	}
+}
+
+func getOppositePositionType(positionType string) string {
+	if positionType == "long" {
+		return "short"
+	} else if positionType == "short" {
+		return "long"
+	}
+	return ""
 }
