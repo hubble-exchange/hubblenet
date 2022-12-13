@@ -97,11 +97,9 @@ describe.only('Order Book', function () {
             adminAddress
         )
 
-        let orderHash1 = await orderBook.getOrderHash(order)
-        let status
-        status = await orderBook.ordersStatus(orderHash1)
-        console.log({ status });
+    })
 
+    it('matches orders with same price and opposite base asset quantity', async function() {
         // 2nd order
         let order2 = {
             trader: bob.address,
@@ -119,10 +117,14 @@ describe.only('Order Book', function () {
             order2.price,
             adminAddress
         )
-        let orderHash2 = await orderBook.getOrderHash(order2)
-        status = await orderBook.ordersStatus(orderHash2)
-        console.log({ status });
 
+        const filter = orderBook.filters
+        let events = await orderBook.queryFilter(filter)
+        let matchedOrderEvent = events[events.length -1]
+        expect(matchedOrderEvent.event).to.eq('OrderMatched')
+
+        let orderHash1 = await orderBook.getOrderHash(order)
+        let orderHash2 = await orderBook.getOrderHash(order2)
         expect(await orderBook.ordersStatus(orderHash1)).to.eq(1) // Filled; because evm is fulfilling all orders right now
         expect(await orderBook.ordersStatus(orderHash2)).to.eq(1) // Filled; because evm is fulfilling all orders right now
     })
