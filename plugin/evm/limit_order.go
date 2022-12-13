@@ -21,6 +21,10 @@ import (
 
 var orderBookContractFileLocation = "contract-examples/artifacts/contracts/hubble-v2/OrderBook.sol/OrderBook.json"
 
+func getOrderBookAddress() common.Address {
+	return common.HexToAddress("0x0300000000000000000000000000000000000069")
+}
+
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions()
 }
@@ -96,9 +100,13 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InM
 		log.Info("transaction data has less than 3 fields")
 		return
 	}
-	method := input[:4]
-	m, err := orderBookABI.MethodById(method)
-	if err == nil {
+	if tx.To().Hash() == getOrderBookAddress().Hash() {
+		method := input[:4]
+		m, err := orderBookABI.MethodById(method)
+		if err != nil {
+			log.Error("OrderBook method not recongnised", "method", method)
+			return
+		}
 		in := make(map[string]interface{})
 		_ = m.Inputs.UnpackIntoMap(in, input[4:])
 		if m.Name == "placeOrder" {
@@ -164,7 +172,7 @@ func callExecuteMatchedOrders(txPool *core.TxPool, orderBookABI abi.ABI, incomin
 	if err != nil {
 		log.Error("HexToECDSA failed", "err", err)
 	}
-	executeMatchedOrdersTx := types.NewTransaction(nonce, common.HexToAddress("0x0300000000000000000000000000000000000069"), big.NewInt(0), 5000000, big.NewInt(80000000000), data)
+	executeMatchedOrdersTx := types.NewTransaction(nonce, getOrderBookAddress(), big.NewInt(0), 5000000, big.NewInt(80000000000), data)
 	signer := types.NewLondonSigner(big.NewInt(321123))
 	signedTx, err := types.SignTx(executeMatchedOrdersTx, signer, key)
 	if err != nil {
