@@ -148,6 +148,7 @@ func matchLimitOrderAgainstStoredLimitOrders(txPool *core.TxPool, orderBookABI a
 	for _, order := range potentialMatchingOrders {
 		if order.BaseAssetQuantity == -(limitOrder.BaseAssetQuantity) && order.Price == limitOrder.Price {
 			callExecuteMatchedOrders(txPool, orderBookABI, limitOrder, *order)
+			break
 		}
 	}
 }
