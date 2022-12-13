@@ -77,7 +77,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 				tsHashes := []string{}
 				for _, tx := range newHeadEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
-					parseTx(lop, tx) // parse update in memory db
+					parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx) // parse update in memory db
 				}
 				log.Info("$$$$$ New head event", "number", newHeadEvent.Block.Header().Number, "tx hashes", tsHashes,
 					"miner", newHeadEvent.Block.Coinbase().String(),
@@ -90,14 +90,14 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-func parseTx(lop *limitOrderProcesser, tx *types.Transaction) {
+func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InMemoryDatabase, tx *types.Transaction) {
 	input := tx.Data()
 	if len(input) < 4 {
 		log.Info("transaction data has less than 3 fields")
 		return
 	}
 	method := input[:4]
-	m, err := lop.orderBookABI.MethodById(method)
+	m, err := orderBookABI.MethodById(method)
 	if err == nil {
 		in := make(map[string]interface{})
 		_ = m.Inputs.UnpackIntoMap(in, input[4:])
@@ -129,36 +129,36 @@ func parseTx(lop *limitOrderProcesser, tx *types.Transaction) {
 				RawOrder:          in["order"],
 				RawSignature:      in["signature"],
 			}
-			lop.memoryDb.Add(limitOrder)
-			matchLimitOrderAgainstStoredLimitOrders(lop, limitOrder)
+			memoryDb.Add(limitOrder)
+			matchLimitOrderAgainstStoredLimitOrders(txPool, orderBookABI, memoryDb, limitOrder)
 		}
 		if m.Name == "executeMatchedOrders" {
 			signature1 := in["signature1"].([]byte)
-			lop.memoryDb.Delete(signature1)
+			memoryDb.Delete(signature1)
 			signature2 := in["signature2"].([]byte)
-			lop.memoryDb.Delete(signature2)
+			memoryDb.Delete(signature2)
 		}
 	}
 }
 
-func matchLimitOrderAgainstStoredLimitOrders(lop *limitOrderProcesser, limitOrder limitorders.LimitOrder) {
+func matchLimitOrderAgainstStoredLimitOrders(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InMemoryDatabase, limitOrder limitorders.LimitOrder) {
 	oppositePositionType := getOppositePositionType(limitOrder.PositionType)
 	if oppositePositionType == "" {
 		return
 	}
-	potentialMatchingOrders := lop.memoryDb.GetOrdersByPriceAndPositionType(oppositePositionType, limitOrder.Price)
+	potentialMatchingOrders := memoryDb.GetOrdersByPriceAndPositionType(oppositePositionType, limitOrder.Price)
 
 	for _, order := range potentialMatchingOrders {
 		if order.BaseAssetQuantity == -(limitOrder.BaseAssetQuantity) && order.Price == limitOrder.Price {
-			callExecuteMatchedOrders(lop, limitOrder, *order)
+			callExecuteMatchedOrders(txPool, orderBookABI, limitOrder, *order)
 		}
 	}
 }
 
-func callExecuteMatchedOrders(lop *limitOrderProcesser, incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder) {
-	nonce := lop.txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
+func callExecuteMatchedOrders(txPool *core.TxPool, orderBookABI abi.ABI, incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder) {
+	nonce := txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
 
-	data, err := lop.orderBookABI.Pack("executeMatchedOrders", incomingOrder.RawOrder, incomingOrder.Signature, matchedOrder.RawOrder, matchedOrder.Signature)
+	data, err := orderBookABI.Pack("executeMatchedOrders", incomingOrder.RawOrder, incomingOrder.Signature, matchedOrder.RawOrder, matchedOrder.Signature)
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
 	}
@@ -172,7 +172,7 @@ func callExecuteMatchedOrders(lop *limitOrderProcesser, incomingOrder limitorder
 	if err != nil {
 		log.Error("types.SignTx failed", "err", err)
 	}
-	err = lop.txPool.AddLocal(signedTx)
+	err = txPool.AddLocal(signedTx)
 	if err != nil {
 		log.Error("lop.txPool.AddLocal failed", "err", err)
 	}
