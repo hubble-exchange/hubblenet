@@ -62,7 +62,7 @@ func NewLimitOrderProcesser(ctx *snow.Context, chainConfig *params.ChainConfig, 
 		backend:      backend,
 		memoryDb:     limitorders.NewInMemoryDatabase(),
 		orderBookABI: orderBookAbi,
-		blockChain: blockChain,
+		blockChain:   blockChain,
 	}
 }
 
@@ -70,7 +70,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	lastAccepted := lop.blockChain.LastAcceptedBlock().NumberU64()
 	if lastAccepted > 0 {
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAccepted)
-		
+
 		allTxs := types.Transactions{}
 		for i := uint64(0); i <= lastAccepted; i++ {
 			block := lop.blockChain.GetBlockByNumber(i)
@@ -78,9 +78,9 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 				allTxs = append(allTxs, block.Transactions()...)
 			}
 		}
-	
+
 		for _, tx := range allTxs {
-			parseTx(lop.orderBookABI, lop.memoryDb, *lop.backend, tx)
+			parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx)
 		}
 
 		log.Info("ListenAndProcessTransactions - sync complete", "till block number", lastAccepted, "total transactions", len(allTxs))
