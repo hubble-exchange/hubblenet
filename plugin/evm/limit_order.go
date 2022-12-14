@@ -68,8 +68,8 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
-	newHeadChan := make(chan core.NewTxPoolHeadEvent)
-	lop.txPool.SubscribeNewHeadEvent(newHeadChan)
+	newChainChan := make(chan core.ChainEvent)
+	lop.backend.SubscribeChainAcceptedEvent(newChainChan)
 
 	lop.shutdownWg.Add(1)
 	go lop.ctx.Log.RecoverAndPanic(func() {
@@ -77,16 +77,17 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 
 		for {
 			select {
-			case newHeadEvent := <-newHeadChan:
+			case newChainAcceptedEvent := <-newChainChan:
 				tsHashes := []string{}
-				for _, tx := range newHeadEvent.Block.Transactions() {
+				for _, tx := range newChainAcceptedEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
 					parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx) // parse update in memory db
 				}
-				log.Info("$$$$$ New head event", "number", newHeadEvent.Block.Header().Number, "tx hashes", tsHashes,
-					"miner", newHeadEvent.Block.Coinbase().String(),
-					"root", newHeadEvent.Block.Header().Root.String(), "gas used", newHeadEvent.Block.Header().GasUsed,
-					"nonce", newHeadEvent.Block.Header().Nonce)
+				log.Info("$$$$$ New head event", "number", newChainAcceptedEvent.Block.Header().Number, "tx hashes", tsHashes,
+					"miner", newChainAcceptedEvent.Block.Coinbase().String(),
+					"root", newChainAcceptedEvent.Block.Header().Root.String(), "gas used", newChainAcceptedEvent.Block.Header().GasUsed,
+					"nonce", newChainAcceptedEvent.Block.Header().Nonce)
+
 			case <-lop.shutdownChan:
 				return
 			}
@@ -100,11 +101,11 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InM
 		log.Info("transaction data has less than 3 fields")
 		return
 	}
-	if tx.To().Hash() == getOrderBookAddress().Hash() {
+	if tx.To() != nil && tx.To().Hash() == getOrderBookAddress().Hash() {
 		method := input[:4]
 		m, err := orderBookABI.MethodById(method)
 		if err != nil {
-			log.Error("OrderBook method not recongnised", "method", method)
+			log.Error("OrderBook method not recongnised", "method", string(method))
 			return
 		}
 		in := make(map[string]interface{})
