@@ -37,7 +37,7 @@ type limitOrderProcesser struct {
 	shutdownWg   *sync.WaitGroup
 	backend      *eth.EthAPIBackend
 	blockChain   *core.BlockChain
-	memoryDb     limitorders.InMemoryDatabase
+	memoryDb     *limitorders.InMemoryDatabase
 	orderBookABI abi.ABI
 }
 
@@ -75,12 +75,10 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 		for i := uint64(0); i <= lastAccepted; i++ {
 			block := lop.blockChain.GetBlockByNumber(i)
 			if block != nil {
-				allTxs = append(allTxs, block.Transactions()...)
+				for _, tx := range block.Transactions() {
+					parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx, i)
+				}
 			}
-		}
-
-		for _, tx := range allTxs {
-			parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx)
 		}
 
 		log.Info("ListenAndProcessTransactions - sync complete", "till block number", lastAccepted, "total transactions", len(allTxs))
@@ -101,9 +99,10 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 			select {
 			case newChainAcceptedEvent := <-newChainChan:
 				tsHashes := []string{}
+				blockNumber := newChainAcceptedEvent.Block.Number().Uint64()
 				for _, tx := range newChainAcceptedEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
-					parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx) // parse update in memory db
+					parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx, blockNumber) // parse update in memory db
 				}
 				log.Info("$$$$$ New head event", "number", newChainAcceptedEvent.Block.Header().Number, "tx hashes", tsHashes,
 					"miner", newChainAcceptedEvent.Block.Coinbase().String(),
@@ -117,7 +116,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InMemoryDatabase, tx *types.Transaction) {
+func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *limitorders.InMemoryDatabase, tx *types.Transaction, blockNumber uint64) {
 	input := tx.Data()
 	if len(input) < 4 {
 		log.Info("transaction data has less than 3 fields")
@@ -149,7 +148,7 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InM
 			}
 			positionType := getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity)
 			price, _ := new(big.Float).SetInt(order.Price).Float64()
-			limitOrder := limitorders.LimitOrder{
+			limitOrder := &limitorders.LimitOrder{
 				PositionType:      positionType,
 				UserAddress:       order.Trader.Hash().String(),
 				BaseAssetQuantity: baseAssetQuantity,
@@ -157,29 +156,17 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InM
 				Salt:              order.Salt.String(),
 				Status:            "unfulfilled",
 				Signature:         signature,
+				BlockNumber:       blockNumber,
 				RawOrder:          in["order"],
 				RawSignature:      in["signature"],
 			}
 			memoryDb.Add(limitOrder)
-			matchLimitOrderAgainstStoredLimitOrders(txPool, orderBookABI, memoryDb, limitOrder)
 		}
 		if m.Name == "executeMatchedOrders" {
 			signature1 := in["signature1"].([]byte)
 			memoryDb.Delete(signature1)
 			signature2 := in["signature2"].([]byte)
 			memoryDb.Delete(signature2)
-		}
-	}
-}
-
-func matchLimitOrderAgainstStoredLimitOrders(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb limitorders.InMemoryDatabase, limitOrder limitorders.LimitOrder) {
-	oppositePositionType := getOppositePositionType(limitOrder.PositionType)
-	potentialMatchingOrders := memoryDb.GetOrdersByPriceAndPositionType(oppositePositionType, limitOrder.Price)
-
-	for _, order := range potentialMatchingOrders {
-		if order.BaseAssetQuantity == -(limitOrder.BaseAssetQuantity) && order.Price == limitOrder.Price {
-			callExecuteMatchedOrders(txPool, orderBookABI, limitOrder, *order)
-			break
 		}
 	}
 }
