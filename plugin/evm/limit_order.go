@@ -27,6 +27,7 @@ func getOrderBookAddress() common.Address {
 
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions()
+	RunMatchingEngine()
 }
 
 type limitOrderProcesser struct {
@@ -85,6 +86,30 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	}
 
 	lop.listenAndStoreLimitOrderTransactions()
+}
+
+func (lop *limitOrderProcesser) RunMatchingEngine() {
+	longOrders := lop.memoryDb.GetLongOrders()
+	shortOrders := lop.memoryDb.GetShortOrders()
+	if len(longOrders) == 0 || len(shortOrders) == 0 {
+		return
+	}
+	for _, longOrder := range longOrders {
+		var breakOuterLoop bool = false
+		for j, shortOrder := range shortOrders {
+			if longOrder.Price == shortOrder.Price && longOrder.BaseAssetQuantity == (-shortOrder.BaseAssetQuantity) {
+				err := callExecuteMatchedOrders(lop.txPool, lop.orderBookABI, *longOrder, *shortOrder)
+				if err == nil {
+					shortOrders = append(shortOrders[:j], shortOrders[j+1:]...)
+					breakOuterLoop = true
+					break
+				}
+			}
+		}
+		if breakOuterLoop {
+			continue
+		}
+	}
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
@@ -171,16 +196,18 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *limitorders.In
 	}
 }
 
-func callExecuteMatchedOrders(txPool *core.TxPool, orderBookABI abi.ABI, incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder) {
+func callExecuteMatchedOrders(txPool *core.TxPool, orderBookABI abi.ABI, incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder) error {
 	nonce := txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
 
 	data, err := orderBookABI.Pack("executeMatchedOrders", incomingOrder.RawOrder, incomingOrder.Signature, matchedOrder.RawOrder, matchedOrder.Signature)
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
+		return err
 	}
 	key, err := crypto.HexToECDSA("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027") // admin private key
 	if err != nil {
 		log.Error("HexToECDSA failed", "err", err)
+		return err
 	}
 	executeMatchedOrdersTx := types.NewTransaction(nonce, getOrderBookAddress(), big.NewInt(0), 5000000, big.NewInt(80000000000), data)
 	signer := types.NewLondonSigner(big.NewInt(321123))
@@ -191,14 +218,9 @@ func callExecuteMatchedOrders(txPool *core.TxPool, orderBookABI abi.ABI, incomin
 	err = txPool.AddLocal(signedTx)
 	if err != nil {
 		log.Error("lop.txPool.AddLocal failed", "err", err)
+		return err
 	}
-}
-
-func getOppositePositionType(positionType string) string {
-	if positionType == "long" {
-		return "short"
-	}
-	return "long"
+	return nil
 }
 
 func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity int) string {

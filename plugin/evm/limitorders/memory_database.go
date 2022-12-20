@@ -1,6 +1,8 @@
 package limitorders
 
-import "sort"
+import (
+	"sort"
+)
 
 type LimitOrder struct {
 	id                uint64

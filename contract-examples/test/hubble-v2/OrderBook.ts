@@ -7,7 +7,7 @@ const adminAddress: string = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
 const GENESIS_ORDERBOOK_ADDRESS = '0x0300000000000000000000000000000000000069'
 
 describe.only('Order Book', function () {
-    let orderBook, alice, bob, order, domain, orderType, signature
+    let orderBook, alice, bob, longOrder, shortOrder, domain, orderType, signature
 
     before(async function () {
         const signers = await ethers.getSigners()
@@ -60,12 +60,6 @@ describe.only('Order Book', function () {
     })
 
     it('verify signer', async function() {
-        order = {
-            trader: alice.address,
-            baseAssetQuantity: ethers.utils.parseEther('-5'),
-            price: ethers.utils.parseUnits('15', 6),
-            salt: Date.now()
-        }
 
         domain = {
             name: 'Hubble',
@@ -83,51 +77,74 @@ describe.only('Order Book', function () {
                 { name: "salt", type: "uint256" },
             ]
         }
+        shortOrder = {
+              trader: alice.address,
+              baseAssetQuantity: ethers.utils.parseEther('-5'),
+              price: ethers.utils.parseUnits('15', 6),
+              salt: Date.now()
+        }
 
-        signature = await alice._signTypedData(domain, orderType, order)
-        const signer = (await orderBook.verifySigner(order, signature))[0]
+        signature = await alice._signTypedData(domain, orderType, shortOrder)
+        const signer = (await orderBook.verifySigner(shortOrder, signature))[0]
         expect(signer).to.eq(alice.address)
     })
 
     it('place an order', async function() {
-        const tx = await orderBook.placeOrder(order, signature)
+        const tx = await orderBook.placeOrder(shortOrder, signature)
         await expect(tx).to.emit(orderBook, "OrderPlaced").withArgs(
-            alice.address,
-            order.baseAssetQuantity,
-            order.price,
+            shortOrder.trader,
+            shortOrder.baseAssetQuantity,
+            shortOrder.price,
             adminAddress
         )
-
     })
 
     it('matches orders with same price and opposite base asset quantity', async function() {
-        // 2nd order
-        let order2 = {
+      // long order with same price and baseAssetQuantity
+        longOrder = {
             trader: bob.address,
             baseAssetQuantity: ethers.utils.parseEther('5'),
             price: ethers.utils.parseUnits('15', 6),
             salt: Date.now()
         }
-        let signature2 = await bob._signTypedData(domain, orderType, order2)
-        const signer2 = (await orderBook.verifySigner(order2, signature2))[0]
-        expect(signer2).to.eq(bob.address)
-        const tx2 = await orderBook.placeOrder(order2, signature2)
-        await expect(tx2).to.emit(orderBook, "OrderPlaced").withArgs(
-            bob.address,
-            order2.baseAssetQuantity,
-            order2.price,
-            adminAddress
-        )
+        let signature = await bob._signTypedData(domain, orderType, longOrder)
+        const tx = await orderBook.placeOrder(longOrder, signature)
+
+        await delay(6000)
 
         const filter = orderBook.filters
         let events = await orderBook.queryFilter(filter)
         let matchedOrderEvent = events[events.length -1]
         expect(matchedOrderEvent.event).to.eq('OrderMatched')
+    })
 
-        let orderHash1 = await orderBook.getOrderHash(order)
-        let orderHash2 = await orderBook.getOrderHash(order2)
-        expect(await orderBook.ordersStatus(orderHash1)).to.eq(1) // Filled; because evm is fulfilling all orders right now
-        expect(await orderBook.ordersStatus(orderHash2)).to.eq(1) // Filled; because evm is fulfilling all orders right now
+    it('matches multiple long orders with same price and opposite base asset quantity with short orders', async function() {
+        longOrder.salt = Date.now()
+        signature = await bob._signTypedData(domain, orderType, longOrder)
+        const longOrderTx1 = await orderBook.placeOrder(longOrder, signature)
+
+        longOrder.salt = Date.now()
+        signature = await bob._signTypedData(domain, orderType, longOrder)
+        const longOrderTx2 = await orderBook.placeOrder(longOrder, signature)
+
+        shortOrder.salt = Date.now()
+        signature = await alice._signTypedData(domain, orderType, shortOrder)
+        let shortOrderTx1 = await orderBook.placeOrder(shortOrder, signature)
+
+        shortOrder.salt = Date.now()
+        signature = await alice._signTypedData(domain, orderType, shortOrder)
+        let shortOrderTx2 = await orderBook.placeOrder(shortOrder, signature)
+
+        // waiting for next buildblock call
+        await delay(6000)
+        const filter = orderBook.filters
+        let events = await orderBook.queryFilter(filter)
+
+        console.log(events)
+        expect(events[events.length - 1].event).to.eq('OrderMatched')
+        expect(events[events.length - 2].event).to.eq('OrderMatched')
+        expect(events[events.length - 3].event).to.eq('OrderPlaced')
+        expect(events[events.length - 4].event).to.eq('OrderPlaced')
     })
 })
 
