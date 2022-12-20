@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -86,7 +87,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 			block := lop.blockChain.GetBlockByNumber(i)
 			if block != nil {
 				for _, tx := range block.Transactions() {
-					parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx, i)
+					parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx, i, *lop.backend)
 				}
 			}
 		}
@@ -132,7 +133,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 				blockNumber := newChainAcceptedEvent.Block.Number().Uint64()
 				for _, tx := range newChainAcceptedEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
-					parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx, blockNumber) // parse update in memory db
+					parseTx(lop.txPool, lop.orderBookABI, lop.memoryDb, tx, blockNumber, *lop.backend) // parse update in memory db
 				}
 				log.Info("$$$$$ New head event", "number", newChainAcceptedEvent.Block.Header().Number, "tx hashes", tsHashes,
 					"miner", newChainAcceptedEvent.Block.Coinbase().String(),
@@ -146,7 +147,12 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *limitorders.InMemoryDatabase, tx *types.Transaction, blockNumber uint64) {
+func parseTx(txPool *core.TxPool,
+	orderBookABI abi.ABI,
+	memoryDb *limitorders.InMemoryDatabase,
+	tx *types.Transaction,
+	blockNumber uint64,
+	backend eth.EthAPIBackend) {
 	input := tx.Data()
 	if len(input) < 4 {
 		log.Info("transaction data has less than 3 fields")
@@ -192,7 +198,7 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *limitorders.In
 			}
 			memoryDb.Add(limitOrder)
 		}
-		if m.Name == "executeMatchedOrders" {
+		if m.Name == "executeMatchedOrders" && checkTxStatusSucess(backend, tx.Hash()) {
 			signature1 := in["signature1"].([]byte)
 			memoryDb.Delete(signature1)
 			signature2 := in["signature2"].([]byte)
@@ -257,4 +263,25 @@ func purgeLocalTx(txPool *core.TxPool) {
 			}
 		}
 	}
+}
+
+func checkTxStatusSucess(backend eth.EthAPIBackend, hash common.Hash) bool {
+	ctx := context.Background()
+	defer ctx.Done()
+
+	_, blockHash, _, index, err := backend.GetTransaction(ctx, hash)
+	if err != nil {
+		log.Error("err in lop.backend.GetTransaction", "err", err)
+		return false
+	}
+	receipts, err := backend.GetReceipts(ctx, blockHash)
+	if err != nil {
+		log.Error("err in lop.backend.GetReceipts", "err", err)
+		return false
+	}
+	if len(receipts) <= int(index) {
+		return false
+	}
+	receipt := receipts[index]
+	return receipt.Status == uint64(1)
 }
