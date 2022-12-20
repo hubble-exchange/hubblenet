@@ -25,8 +25,8 @@ var orderBookContractFileLocation = "contract-examples/artifacts/contracts/hubbl
 
 // using multiple private keys to make executeMatchedOrders contract call.
 // This will be replaced by validator's private key and address
-var userAddress = "0x55ee05dF718f1a5C1441e76190EB1a19eE2C9430"
-var privateKey = "15614556be13730e9e8d6eacc1603143e7b96987429df8726384c2ec4502ef6e"
+var userAddress1 = "0x55ee05dF718f1a5C1441e76190EB1a19eE2C9430"
+var privateKey1 = "15614556be13730e9e8d6eacc1603143e7b96987429df8726384c2ec4502ef6e"
 var userAddress2 = "0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4"
 var privateKey2 = "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e97dc"
 
@@ -105,19 +105,14 @@ func (lop *limitOrderProcesser) RunMatchingEngine() {
 		return
 	}
 	for _, longOrder := range longOrders {
-		var breakOuterLoop bool = false
 		for j, shortOrder := range shortOrders {
 			if longOrder.Price == shortOrder.Price && longOrder.BaseAssetQuantity == (-shortOrder.BaseAssetQuantity) {
 				err := callExecuteMatchedOrders(lop.txPool, lop.orderBookABI, *longOrder, *shortOrder)
 				if err == nil {
 					shortOrders = append(shortOrders[:j], shortOrders[j+1:]...)
-					breakOuterLoop = true
 					break
 				}
 			}
-		}
-		if breakOuterLoop {
-			continue
 		}
 	}
 }
@@ -209,7 +204,11 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *limitorders.In
 func callExecuteMatchedOrders(txPool *core.TxPool, orderBookABI abi.ABI, incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder) error {
 	//randomly selecting private key to get different validator profile on different nodes
 	rand.Seed(time.Now().UnixNano())
+	var privateKey, userAddress string
 	if rand.Intn(10000)%2 == 0 {
+		privateKey = privateKey1
+		userAddress = userAddress1
+	} else {
 		privateKey = privateKey2
 		userAddress = userAddress2
 	}
@@ -249,7 +248,7 @@ func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity int) string {
 
 func purgeLocalTx(txPool *core.TxPool) {
 	pending := txPool.Pending(true)
-	localAccounts := []common.Address{common.HexToAddress(userAddress), common.HexToAddress(userAddress2)}
+	localAccounts := []common.Address{common.HexToAddress(userAddress1), common.HexToAddress(userAddress2)}
 
 	for _, account := range localAccounts {
 		if txs := pending[account]; len(txs) > 0 {
