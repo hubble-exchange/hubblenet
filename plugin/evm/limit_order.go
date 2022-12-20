@@ -3,6 +3,8 @@ package evm
 import (
 	"io/ioutil"
 	"math/big"
+	"math/rand"
+	"time"
 
 	"sync"
 
@@ -20,6 +22,13 @@ import (
 )
 
 var orderBookContractFileLocation = "contract-examples/artifacts/contracts/hubble-v2/OrderBook.sol/OrderBook.json"
+
+// using multiple private keys to make executeMatchedOrders contract call.
+// This will be replaced by validator's private key and address
+var userAddress = "0x55ee05dF718f1a5C1441e76190EB1a19eE2C9430"
+var privateKey = "15614556be13730e9e8d6eacc1603143e7b96987429df8726384c2ec4502ef6e"
+var userAddress2 = "0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4"
+var privateKey2 = "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e97dc"
 
 func getOrderBookAddress() common.Address {
 	return common.HexToAddress("0x0300000000000000000000000000000000000069")
@@ -89,6 +98,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 }
 
 func (lop *limitOrderProcesser) RunMatchingEngine() {
+	purgeLocalTx(lop.txPool)
 	longOrders := lop.memoryDb.GetLongOrders()
 	shortOrders := lop.memoryDb.GetShortOrders()
 	if len(longOrders) == 0 || len(shortOrders) == 0 {
@@ -197,14 +207,21 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *limitorders.In
 }
 
 func callExecuteMatchedOrders(txPool *core.TxPool, orderBookABI abi.ABI, incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder) error {
-	nonce := txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
+	//randomly selecting private key to get different validator profile on different nodes
+	rand.Seed(time.Now().UnixNano())
+	if rand.Intn(10000)%2 == 0 {
+		privateKey = privateKey2
+		userAddress = userAddress2
+	}
+
+	nonce := txPool.Nonce(common.HexToAddress(userAddress)) // admin address
 
 	data, err := orderBookABI.Pack("executeMatchedOrders", incomingOrder.RawOrder, incomingOrder.Signature, matchedOrder.RawOrder, matchedOrder.Signature)
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
 		return err
 	}
-	key, err := crypto.HexToECDSA("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027") // admin private key
+	key, err := crypto.HexToECDSA(privateKey) // admin private key
 	if err != nil {
 		log.Error("HexToECDSA failed", "err", err)
 		return err
@@ -228,4 +245,17 @@ func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity int) string {
 		return "long"
 	}
 	return "short"
+}
+
+func purgeLocalTx(txPool *core.TxPool) {
+	pending := txPool.Pending(true)
+	localAccounts := []common.Address{common.HexToAddress(userAddress), common.HexToAddress(userAddress2)}
+
+	for _, account := range localAccounts {
+		if txs := pending[account]; len(txs) > 0 {
+			for _, tx := range txs {
+				txPool.RemoveTx(tx.Hash())
+			}
+		}
+	}
 }
