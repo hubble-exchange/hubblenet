@@ -140,7 +140,6 @@ describe.only('Order Book', function () {
         const filter = orderBook.filters
         let events = await orderBook.queryFilter(filter)
 
-        console.log(events)
         expect(events[events.length - 1].event).to.eq('OrderMatched')
         expect(events[events.length - 2].event).to.eq('OrderMatched')
         expect(events[events.length - 3].event).to.eq('OrderPlaced')

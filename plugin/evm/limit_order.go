@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -26,8 +27,8 @@ var orderBookContractFileLocation = "contract-examples/artifacts/contracts/hubbl
 
 // using multiple private keys to make executeMatchedOrders contract call.
 // This will be replaced by validator's private key and address
-var userAddress1 = "0x55ee05dF718f1a5C1441e76190EB1a19eE2C9430"
-var privateKey1 = "15614556be13730e9e8d6eacc1603143e7b96987429df8726384c2ec4502ef6e"
+var userAddress1 = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+var privateKey1 = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
 var userAddress2 = "0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4"
 var privateKey2 = "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e97dc"
 
@@ -99,7 +100,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 }
 
 func (lop *limitOrderProcesser) RunMatchingEngine() {
-	purgeLocalTx(lop.txPool)
+	purgeLocalTx(lop.txPool, lop.orderBookABI)
 	longOrders := lop.memoryDb.GetLongOrders()
 	shortOrders := lop.memoryDb.GetShortOrders()
 	if len(longOrders) == 0 || len(shortOrders) == 0 {
@@ -147,24 +148,10 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-func parseTx(txPool *core.TxPool,
-	orderBookABI abi.ABI,
-	memoryDb *limitorders.InMemoryDatabase,
-	tx *types.Transaction,
-	blockNumber uint64,
-	backend eth.EthAPIBackend) {
-	input := tx.Data()
-	if len(input) < 4 {
-		log.Info("transaction data has less than 3 fields")
-		return
-	}
-	if tx.To() != nil && tx.To().Hash() == getOrderBookAddress().Hash() {
-		method := input[:4]
-		m, err := orderBookABI.MethodById(method)
-		if err != nil {
-			log.Error("OrderBook method not recongnised", "method", string(method))
-			return
-		}
+func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *limitorders.InMemoryDatabase, tx *types.Transaction, blockNumber uint64, backend eth.EthAPIBackend) {
+	m, err := getOrderBookContractCallMethod(tx, orderBookABI)
+	if err == nil {
+		input := tx.Data()
 		in := make(map[string]interface{})
 		_ = m.Inputs.UnpackIntoMap(in, input[4:])
 		if m.Name == "placeOrder" {
@@ -252,14 +239,17 @@ func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity int) string {
 	return "short"
 }
 
-func purgeLocalTx(txPool *core.TxPool) {
+func purgeLocalTx(txPool *core.TxPool, orderBookABI abi.ABI) {
 	pending := txPool.Pending(true)
 	localAccounts := []common.Address{common.HexToAddress(userAddress1), common.HexToAddress(userAddress2)}
 
 	for _, account := range localAccounts {
 		if txs := pending[account]; len(txs) > 0 {
 			for _, tx := range txs {
-				txPool.RemoveTx(tx.Hash())
+				m, err := getOrderBookContractCallMethod(tx, orderBookABI)
+				if err == nil && m.Name == "executeMatchedOrders" {
+					txPool.RemoveTx(tx.Hash())
+				}
 			}
 		}
 	}
@@ -284,4 +274,24 @@ func checkTxStatusSucess(backend eth.EthAPIBackend, hash common.Hash) bool {
 	}
 	receipt := receipts[index]
 	return receipt.Status == uint64(1)
+}
+
+func checkIfOrderBookContractCall(tx *types.Transaction, orderBookABI abi.ABI) bool {
+	input := tx.Data()
+	if tx.To() != nil && tx.To().Hash() == getOrderBookAddress().Hash() && len(input) > 3 {
+		return true
+	}
+	return false
+}
+
+func getOrderBookContractCallMethod(tx *types.Transaction, orderBookABI abi.ABI) (*abi.Method, error) {
+	if checkIfOrderBookContractCall(tx, orderBookABI) {
+		input := tx.Data()
+		method := input[:4]
+		m, err := orderBookABI.MethodById(method)
+		return m, err
+	} else {
+		err := errors.New("tx is not an orderbook contract call")
+		return nil, err
+	}
 }
