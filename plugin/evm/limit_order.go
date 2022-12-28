@@ -172,17 +172,17 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *limitorders.In
 			positionType := getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity)
 			price, _ := new(big.Float).SetInt(order.Price).Float64()
 			limitOrder := &limitorders.LimitOrder{
-				PositionType:               positionType,
-				UserAddress:                order.Trader.Hash().String(),
-				BaseAssetQuantity:          baseAssetQuantity,
-				FulfilledBaseAssetQuantity: 0,
-				Price:                      price,
-				Salt:                       order.Salt.String(),
-				Status:                     "unfulfilled",
-				Signature:                  signature,
-				BlockNumber:                blockNumber,
-				RawOrder:                   in["order"],
-				RawSignature:               in["signature"],
+				PositionType:            positionType,
+				UserAddress:             order.Trader.Hash().String(),
+				BaseAssetQuantity:       baseAssetQuantity,
+				FilledBaseAssetQuantity: 0,
+				Price:                   price,
+				Salt:                    order.Salt.String(),
+				Status:                  "unfulfilled",
+				Signature:               signature,
+				BlockNumber:             blockNumber,
+				RawOrder:                in["order"],
+				RawSignature:            in["signature"],
 			}
 			memoryDb.Add(limitOrder)
 		}
