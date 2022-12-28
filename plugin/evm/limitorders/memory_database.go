@@ -5,17 +5,18 @@ import (
 )
 
 type LimitOrder struct {
-	id                uint64
-	PositionType      string
-	UserAddress       string
-	BaseAssetQuantity int
-	Price             float64
-	Status            string
-	Salt              string
-	Signature         []byte
-	RawOrder          interface{}
-	RawSignature      interface{}
-	BlockNumber       uint64
+	id                      uint64
+	PositionType            string
+	UserAddress             string
+	BaseAssetQuantity       int
+	FilledBaseAssetQuantity int
+	Price                   float64
+	Status                  string
+	Salt                    string
+	Signature               []byte
+	RawOrder                interface{}
+	RawSignature            interface{}
+	BlockNumber             uint64
 }
 
 type InMemoryDatabase struct {
@@ -37,6 +38,11 @@ func (db *InMemoryDatabase) GetAllOrders() []*LimitOrder {
 
 func (db *InMemoryDatabase) Add(order *LimitOrder) {
 	db.orderMap[string(order.Signature)] = order
+}
+
+func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity int, signature []byte) {
+	limitOrder := db.orderMap[string(signature)]
+	limitOrder.FilledBaseAssetQuantity = quantity
 }
 
 // Deletes silently
