@@ -1,7 +1,10 @@
 package limitorders
 
 import (
+	"math/big"
 	"sort"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type LimitOrder struct {
@@ -18,13 +21,20 @@ type LimitOrder struct {
 	BlockNumber       uint64
 }
 
+// We might add more fields like openNotional etc
+type Position struct {
+	BaseAssetQuantity *big.Int
+}
+
 type InMemoryDatabase struct {
-	orderMap map[string]*LimitOrder
+	orderMap    map[string]*LimitOrder
+	positionMap map[common.Address]*Position
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
 	orderMap := map[string]*LimitOrder{}
-	return &InMemoryDatabase{orderMap}
+	positionMap := map[common.Address]*Position{}
+	return &InMemoryDatabase{orderMap, positionMap}
 }
 
 func (db *InMemoryDatabase) GetAllOrders() []*LimitOrder {
@@ -33,6 +43,10 @@ func (db *InMemoryDatabase) GetAllOrders() []*LimitOrder {
 		allOrders = append(allOrders, order)
 	}
 	return allOrders
+}
+
+func (db *InMemoryDatabase) UpdateExecution(userAddress common.Address, baseAssetQuantity *big.Int) {
+	db.positionMap[userAddress].BaseAssetQuantity.Add(db.positionMap[userAddress].BaseAssetQuantity, baseAssetQuantity)
 }
 
 func (db *InMemoryDatabase) Add(order *LimitOrder) {

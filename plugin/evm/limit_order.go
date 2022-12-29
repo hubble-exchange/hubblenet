@@ -190,6 +190,22 @@ func parseTx(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *limitorders.In
 			memoryDb.Delete(signature1)
 			signature2 := in["signature2"].([]byte)
 			memoryDb.Delete(signature2)
+
+			order1, _ := in["order1"].(struct {
+				Trader            common.Address `json:"trader"`
+				BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
+				Price             *big.Int       `json:"price"`
+				Salt              *big.Int       `json:"salt"`
+			})
+			memoryDb.UpdateExecution(order1.Trader, order1.BaseAssetQuantity)
+
+			order2, _ := in["order2"].(struct {
+				Trader            common.Address `json:"trader"`
+				BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
+				Price             *big.Int       `json:"price"`
+				Salt              *big.Int       `json:"salt"`
+			})
+			memoryDb.UpdateExecution(order2.Trader, order2.BaseAssetQuantity)
 		}
 	}
 }
