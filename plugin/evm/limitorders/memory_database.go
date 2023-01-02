@@ -19,12 +19,13 @@ type LimitOrder struct {
 }
 
 type InMemoryDatabase struct {
-	orderMap map[string]*LimitOrder
+	orderMap        map[string]*LimitOrder
+	nextFundingTime uint64
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
 	orderMap := map[string]*LimitOrder{}
-	return &InMemoryDatabase{orderMap}
+	return &InMemoryDatabase{orderMap, 0} // @todo initialize nextFundingTime properly
 }
 
 func (db *InMemoryDatabase) GetAllOrders() []*LimitOrder {
@@ -42,6 +43,10 @@ func (db *InMemoryDatabase) Add(order *LimitOrder) {
 // Deletes silently
 func (db *InMemoryDatabase) Delete(signature []byte) {
 	delete(db.orderMap, string(signature))
+}
+
+func (db *InMemoryDatabase) GetNextFundingTime() uint64 {
+	return db.nextFundingTime
 }
 
 func (db *InMemoryDatabase) GetLongOrders() []*LimitOrder {

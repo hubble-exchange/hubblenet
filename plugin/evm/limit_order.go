@@ -15,6 +15,8 @@ import (
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions()
 	RunMatchingEngine()
+	isFundingPaymentTime(lastBlockTime uint64) bool
+	ExecuteFundingPayment()
 }
 
 type limitOrderProcesser struct {
@@ -62,7 +64,17 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 		log.Info("ListenAndProcessTransactions - sync complete", "till block number", lastAccepted, "total transactions", len(allTxs))
 	}
 
+	// @todo maintain margin amounts, open position size, open notionals for all users in memory
 	lop.listenAndStoreLimitOrderTransactions()
+}
+
+func (lop *limitOrderProcesser) isFundingPaymentTime(lastBlockTime uint64) bool {
+	return lastBlockTime >= lop.memoryDb.GetNextFundingTime()
+}
+
+func (lop *limitOrderProcesser) ExecuteFundingPayment() {
+	// @todo get index twap for each market with warp msging
+	// @todo make funding payment tx
 }
 
 func (lop *limitOrderProcesser) RunMatchingEngine() {
@@ -103,6 +115,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
 					lop.limitOrderTxProcessor.HandleOrderBookTx(tx, blockNumber, *lop.backend) // parse update in memory db
 				}
+				// @todo maintain margin amounts, open position size, open notionals for all users in memory
 				log.Info("$$$$$ New head event", "number", newChainAcceptedEvent.Block.Header().Number, "tx hashes", tsHashes,
 					"miner", newChainAcceptedEvent.Block.Coinbase().String(),
 					"root", newChainAcceptedEvent.Block.Header().Root.String(), "gas used", newChainAcceptedEvent.Block.Header().GasUsed,
