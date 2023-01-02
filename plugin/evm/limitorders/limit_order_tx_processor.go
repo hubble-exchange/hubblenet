@@ -27,11 +27,11 @@ var privateKey2 = "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e9
 type LimitOrderTxProcessor struct {
 	txPool                   *core.TxPool
 	orderBookABI             abi.ABI
-	memoryDb                 *InMemoryDatabase
+	memoryDb                 LimitOrderDatabase
 	orderBookContractAddress common.Address
 }
 
-func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *InMemoryDatabase, orderBookContractAddress common.Address) *LimitOrderTxProcessor {
+func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb LimitOrderDatabase, orderBookContractAddress common.Address) *LimitOrderTxProcessor {
 	return &LimitOrderTxProcessor{
 		txPool:                   txPool,
 		orderBookABI:             orderBookABI,

@@ -206,7 +206,9 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 
 	filledQuantity := 2
 	inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, signature)
-	assert.Equal(t, (inMemoryDatabase.orderMap[string(signature)].FilledBaseAssetQuantity), filledQuantity)
+	updatedLimitOrder := inMemoryDatabase.GetOrder(signature)
+
+	assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, filledQuantity)
 }
 
 func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity int, price float64, status string, salt string, signature []byte, blockNumber uint64) LimitOrder {

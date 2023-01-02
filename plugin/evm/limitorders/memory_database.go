@@ -19,16 +19,26 @@ type LimitOrder struct {
 	BlockNumber             uint64
 }
 
-type InMemoryDatabase struct {
+type LimitOrderDatabase interface {
+	GetAllOrders() []*LimitOrder
+	Add(order *LimitOrder)
+	UpdateFilledBaseAssetQuantity(quantity int, signature []byte)
+	Delete(signature []byte)
+	GetLongOrders() []*LimitOrder
+	GetShortOrders() []*LimitOrder
+	GetOrder(signature []byte) *LimitOrder
+}
+
+type inMemoryDatabase struct {
 	orderMap map[string]*LimitOrder
 }
 
-func NewInMemoryDatabase() *InMemoryDatabase {
+func NewInMemoryDatabase() LimitOrderDatabase {
 	orderMap := map[string]*LimitOrder{}
-	return &InMemoryDatabase{orderMap}
+	return &inMemoryDatabase{orderMap}
 }
 
-func (db *InMemoryDatabase) GetAllOrders() []*LimitOrder {
+func (db *inMemoryDatabase) GetAllOrders() []*LimitOrder {
 	allOrders := []*LimitOrder{}
 	for _, order := range db.orderMap {
 		allOrders = append(allOrders, order)
@@ -36,21 +46,21 @@ func (db *InMemoryDatabase) GetAllOrders() []*LimitOrder {
 	return allOrders
 }
 
-func (db *InMemoryDatabase) Add(order *LimitOrder) {
+func (db *inMemoryDatabase) Add(order *LimitOrder) {
 	db.orderMap[string(order.Signature)] = order
 }
 
-func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity int, signature []byte) {
+func (db *inMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity int, signature []byte) {
 	limitOrder := db.orderMap[string(signature)]
 	limitOrder.FilledBaseAssetQuantity = quantity
 }
 
 // Deletes silently
-func (db *InMemoryDatabase) Delete(signature []byte) {
+func (db *inMemoryDatabase) Delete(signature []byte) {
 	delete(db.orderMap, string(signature))
 }
 
-func (db *InMemoryDatabase) GetLongOrders() []*LimitOrder {
+func (db *inMemoryDatabase) GetLongOrders() []*LimitOrder {
 	var longOrders []*LimitOrder
 	for _, order := range db.orderMap {
 		if order.PositionType == "long" {
@@ -61,7 +71,7 @@ func (db *InMemoryDatabase) GetLongOrders() []*LimitOrder {
 	return longOrders
 }
 
-func (db *InMemoryDatabase) GetShortOrders() []*LimitOrder {
+func (db *inMemoryDatabase) GetShortOrders() []*LimitOrder {
 	var shortOrders []*LimitOrder
 	for _, order := range db.orderMap {
 		if order.PositionType == "short" {
@@ -70,6 +80,10 @@ func (db *InMemoryDatabase) GetShortOrders() []*LimitOrder {
 	}
 	sortShortOrders(shortOrders)
 	return shortOrders
+}
+
+func (db *inMemoryDatabase) GetOrder(signature []byte) *LimitOrder {
+	return db.orderMap[string(signature)]
 }
 
 func sortLongOrders(orders []*LimitOrder) []*LimitOrder {

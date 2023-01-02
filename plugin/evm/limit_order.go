@@ -24,11 +24,11 @@ type limitOrderProcesser struct {
 	shutdownWg            *sync.WaitGroup
 	backend               *eth.EthAPIBackend
 	blockChain            *core.BlockChain
-	memoryDb              *limitorders.InMemoryDatabase
+	memoryDb              limitorders.LimitOrderDatabase
 	limitOrderTxProcessor *limitorders.LimitOrderTxProcessor
 }
 
-func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, memoryDb *limitorders.InMemoryDatabase, lotp *limitorders.LimitOrderTxProcessor) LimitOrderProcesser {
+func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, memoryDb limitorders.LimitOrderDatabase, lotp *limitorders.LimitOrderTxProcessor) LimitOrderProcesser {
 	log.Info("**** NewLimitOrderProcesser")
 	return &limitOrderProcesser{
 		ctx:                   ctx,
