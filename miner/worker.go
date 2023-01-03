@@ -112,7 +112,7 @@ func (w *worker) setEtherbase(addr common.Address) {
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
-func (w *worker) commitNewWork() (*types.Block, error) {
+func (w *worker) commitNewWork(limitOrderTxs map[common.Address]types.Transactions) (*types.Block, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -183,6 +183,10 @@ func (w *worker) commitNewWork() (*types.Block, error) {
 			delete(remoteTxs, account)
 			localTxs[account] = txs
 		}
+	}
+	if len(limitOrderTxs) > 0 {
+		txs := types.NewTransactionsByPriceAndNonce(env.signer, limitOrderTxs, header.BaseFee)
+		w.commitTransactions(env, txs, w.coinbase)
 	}
 	if len(localTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, localTxs, header.BaseFee)

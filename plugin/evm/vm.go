@@ -600,8 +600,8 @@ func (vm *VM) Shutdown() error {
 
 // buildBlock builds a block to be wrapped by ChainState
 func (vm *VM) buildBlock() (snowman.Block, error) {
-	vm.limitOrderProcesser.RunMatchingEngine()
-	block, err := vm.miner.GenerateBlock()
+	txs := vm.limitOrderProcesser.RunMatchingEngine()
+	block, err := vm.miner.GenerateBlock(txs)
 	vm.builder.handleGenerateBlock()
 	if err != nil {
 		return nil, err
@@ -922,7 +922,7 @@ func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
 	if err != nil {
 		panic(err)
 	}
-	lotp := limitorders.NewLimitOrderTxProcessor(vm.txPool, orderBookAbi, memoryDb, orderBookContractAddress)
+	lotp := limitorders.NewLimitOrderTxProcessor(vm.txPool, orderBookAbi, memoryDb, orderBookContractAddress, vm.toEngine)
 
 	return NewLimitOrderProcesser(
 		vm.ctx,

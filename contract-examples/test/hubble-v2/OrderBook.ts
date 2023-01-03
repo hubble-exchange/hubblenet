@@ -127,6 +127,10 @@ describe.only('Order Book', function () {
         signature = await bob._signTypedData(domain, orderType, longOrder)
         const longOrderTx2 = await orderBook.placeOrder(longOrder, signature)
 
+        longOrder.salt = Date.now()
+        signature = await bob._signTypedData(domain, orderType, longOrder)
+        const longOrderTx3 = await orderBook.placeOrder(longOrder, signature)
+
         shortOrder.salt = Date.now()
         signature = await alice._signTypedData(domain, orderType, shortOrder)
         let shortOrderTx1 = await orderBook.placeOrder(shortOrder, signature)
@@ -135,6 +139,10 @@ describe.only('Order Book', function () {
         signature = await alice._signTypedData(domain, orderType, shortOrder)
         let shortOrderTx2 = await orderBook.placeOrder(shortOrder, signature)
 
+        shortOrder.salt = Date.now()
+        signature = await alice._signTypedData(domain, orderType, shortOrder)
+        let shortOrderTx3 = await orderBook.placeOrder(shortOrder, signature)
+
         // waiting for next buildblock call
         await delay(6000)
         const filter = orderBook.filters
@@ -142,8 +150,10 @@ describe.only('Order Book', function () {
 
         expect(events[events.length - 1].event).to.eq('OrderMatched')
         expect(events[events.length - 2].event).to.eq('OrderMatched')
-        expect(events[events.length - 3].event).to.eq('OrderPlaced')
+        expect(events[events.length - 3].event).to.eq('OrderMatched')
         expect(events[events.length - 4].event).to.eq('OrderPlaced')
+        expect(events[events.length - 5].event).to.eq('OrderPlaced')
+        expect(events[events.length - 6].event).to.eq('OrderPlaced')
     })
 })
 

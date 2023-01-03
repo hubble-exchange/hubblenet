@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 
+	commonEng "github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -29,14 +30,16 @@ type LimitOrderTxProcessor struct {
 	orderBookABI             abi.ABI
 	memoryDb                 *InMemoryDatabase
 	orderBookContractAddress common.Address
+	notifyBuildBlockChan     chan<- commonEng.Message
 }
 
-func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *InMemoryDatabase, orderBookContractAddress common.Address) *LimitOrderTxProcessor {
+func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb *InMemoryDatabase, orderBookContractAddress common.Address,notifyBuildBlockChan chan<- commonEng.Message) *LimitOrderTxProcessor {
 	return &LimitOrderTxProcessor{
 		txPool:                   txPool,
 		orderBookABI:             orderBookABI,
 		memoryDb:                 memoryDb,
 		orderBookContractAddress: orderBookContractAddress,
+		notifyBuildBlockChan:     notifyBuildBlockChan,
 	}
 }
 
@@ -76,52 +79,56 @@ func (lotp *LimitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 				RawSignature:      in["signature"],
 			}
 			lotp.memoryDb.Add(limitOrder)
+			lotp.notifyBuildBlockChan <- commonEng.PendingTxs
 		}
 		if m.Name == "executeMatchedOrders" && checkTxStatusSucess(backend, tx.Hash()) {
 			signature1 := in["signature1"].([]byte)
 			lotp.memoryDb.Delete(signature1)
 			signature2 := in["signature2"].([]byte)
 			lotp.memoryDb.Delete(signature2)
+			lotp.notifyBuildBlockChan <- commonEng.PendingTxs
 		}
 	}
 }
 
-func (lotp *LimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder) error {
+func (lotp *LimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder) (common.Address, *types.Transaction, error) {
 	//randomly selecting private key to get different validator profile on different nodes
 	rand.Seed(time.Now().UnixNano())
-	var privateKey, userAddress string
+	var privateKey string
+	var userAddress common.Address
 	if rand.Intn(10000)%2 == 0 {
 		privateKey = privateKey1
-		userAddress = userAddress1
+		userAddress = common.HexToAddress(userAddress1)
 	} else {
 		privateKey = privateKey2
-		userAddress = userAddress2
+		userAddress = common.HexToAddress(userAddress2)
 	}
 
-	nonce := lotp.txPool.Nonce(common.HexToAddress(userAddress)) // admin address
+	nonce := lotp.txPool.Nonce(userAddress) // admin address
+	lotp.txPool.IncrementNonce(userAddress)
+	if lotp.txPool.Nonce(userAddress) == nonce {
+		err := errors.New("nonce not updated")
+		return userAddress, nil, err
+	}
 
 	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", incomingOrder.RawOrder, incomingOrder.Signature, matchedOrder.RawOrder, matchedOrder.Signature)
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
-		return err
+		return userAddress, nil, err
 	}
 	key, err := crypto.HexToECDSA(privateKey) // admin private key
 	if err != nil {
 		log.Error("HexToECDSA failed", "err", err)
-		return err
+		return userAddress, nil, err
 	}
 	executeMatchedOrdersTx := types.NewTransaction(nonce, lotp.orderBookContractAddress, big.NewInt(0), 5000000, big.NewInt(80000000000), data)
 	signer := types.NewLondonSigner(big.NewInt(321123))
 	signedTx, err := types.SignTx(executeMatchedOrdersTx, signer, key)
 	if err != nil {
 		log.Error("types.SignTx failed", "err", err)
+		return userAddress, nil, err
 	}
-	err = lotp.txPool.AddLocal(signedTx)
-	if err != nil {
-		log.Error("lop.txPool.AddLocal failed", "err", err)
-		return err
-	}
-	return nil
+	return userAddress, signedTx, nil
 }
 
 func (lotp *LimitOrderTxProcessor) PurgeLocalTx() {

@@ -962,6 +962,11 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	return true
 }
 
+func (pool *TxPool) IncrementNonce(addr common.Address) {
+	nonce := pool.pendingNonces.get(addr)
+	pool.pendingNonces.set(addr, nonce + 1)
+}
+
 // AddLocals enqueues a batch of transactions into the pool if they are valid, marking the
 // senders as a local ones, ensuring they go around the local pricing constraints.
 //

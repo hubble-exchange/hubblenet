@@ -7,6 +7,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ethereum/go-ethereum/log"
@@ -14,7 +15,7 @@ import (
 
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions()
-	RunMatchingEngine()
+	RunMatchingEngine() map[common.Address]types.Transactions
 }
 
 type limitOrderProcesser struct {
@@ -65,24 +66,28 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	lop.listenAndStoreLimitOrderTransactions()
 }
 
-func (lop *limitOrderProcesser) RunMatchingEngine() {
-	lop.limitOrderTxProcessor.PurgeLocalTx()
+func (lop *limitOrderProcesser) RunMatchingEngine() map[common.Address]types.Transactions {
+	var limitOrderTxs = make(map[common.Address]types.Transactions)
 	longOrders := lop.memoryDb.GetLongOrders()
 	shortOrders := lop.memoryDb.GetShortOrders()
 	if len(longOrders) == 0 || len(shortOrders) == 0 {
-		return
+		return limitOrderTxs
 	}
 	for _, longOrder := range longOrders {
 		for j, shortOrder := range shortOrders {
 			if longOrder.Price == shortOrder.Price && longOrder.BaseAssetQuantity == (-shortOrder.BaseAssetQuantity) {
-				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(*longOrder, *shortOrder)
+				address, tx, err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(*longOrder, *shortOrder)
 				if err == nil {
 					shortOrders = append(shortOrders[:j], shortOrders[j+1:]...)
+					txs := limitOrderTxs[address]
+					txs = append(txs, tx)
+					limitOrderTxs[address] = txs
 					break
 				}
 			}
 		}
 	}
+	return limitOrderTxs
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {

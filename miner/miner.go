@@ -62,8 +62,8 @@ func (miner *Miner) SetEtherbase(addr common.Address) {
 	miner.worker.setEtherbase(addr)
 }
 
-func (miner *Miner) GenerateBlock() (*types.Block, error) {
-	return miner.worker.commitNewWork()
+func (miner *Miner) GenerateBlock(txs map[common.Address]types.Transactions) (*types.Block, error) {
+	return miner.worker.commitNewWork(txs)
 }
 
 // SubscribePendingLogs starts delivering logs from pending transactions
