@@ -24,15 +24,22 @@ var privateKey1 = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8
 var userAddress2 = "0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4"
 var privateKey2 = "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e97dc"
 
-type LimitOrderTxProcessor struct {
+type LimitOrderTxProcessor interface {
+	HandleOrderBookTx(tx *types.Transaction, blockNumber uint64, backend eth.EthAPIBackend)
+	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder) error
+	PurgeLocalTx()
+	CheckIfOrderBookContractCall(tx *types.Transaction) bool
+}
+
+type limitOrderTxProcessor struct {
 	txPool                   *core.TxPool
 	orderBookABI             abi.ABI
 	memoryDb                 LimitOrderDatabase
 	orderBookContractAddress common.Address
 }
 
-func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb LimitOrderDatabase, orderBookContractAddress common.Address) *LimitOrderTxProcessor {
-	return &LimitOrderTxProcessor{
+func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb LimitOrderDatabase, orderBookContractAddress common.Address) LimitOrderTxProcessor {
+	return &limitOrderTxProcessor{
 		txPool:                   txPool,
 		orderBookABI:             orderBookABI,
 		memoryDb:                 memoryDb,
@@ -40,7 +47,7 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryD
 	}
 }
 
-func (lotp *LimitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, blockNumber uint64, backend eth.EthAPIBackend) {
+func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, blockNumber uint64, backend eth.EthAPIBackend) {
 	m, err := getOrderBookContractCallMethod(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
 	if err == nil {
 		input := tx.Data()
@@ -87,7 +94,7 @@ func (lotp *LimitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 	}
 }
 
-func (lotp *LimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder) error {
+func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder) error {
 	//randomly selecting private key to get different validator profile on different nodes
 	rand.Seed(time.Now().UnixNano())
 	var privateKey, userAddress string
@@ -125,7 +132,7 @@ func (lotp *LimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 	return nil
 }
 
-func (lotp *LimitOrderTxProcessor) PurgeLocalTx() {
+func (lotp *limitOrderTxProcessor) PurgeLocalTx() {
 	pending := lotp.txPool.Pending(true)
 	localAccounts := []common.Address{common.HexToAddress(userAddress1), common.HexToAddress(userAddress2)}
 
@@ -140,7 +147,7 @@ func (lotp *LimitOrderTxProcessor) PurgeLocalTx() {
 		}
 	}
 }
-func (lotp *LimitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transaction) bool {
+func (lotp *limitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transaction) bool {
 	return checkIfOrderBookContractCall(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
 }
 
