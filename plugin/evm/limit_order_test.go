@@ -77,6 +77,55 @@ func TestRunMatchingEngine(t *testing.T) {
 			lop.RunMatchingEngine()
 		})
 	})
+	t.Run("When long and short orders are present in db", func(t *testing.T) {
+		t.Run("Matching engine does not make call ExecuteMatchedOrders when price is not same", func(t *testing.T) {
+			longOrders := make([]*limitorders.LimitOrder, 0)
+			shortOrders := make([]*limitorders.LimitOrder, 0)
+			longOrder := getLongOrder()
+			longOrders = append(longOrders, longOrder)
+			shortOrder := getShortOrder()
+			shortOrder.Price = longOrder.Price - 2
+			shortOrders = append(shortOrders, shortOrder)
+			db.On("GetLongOrders").Return(longOrders)
+			db.On("GetShortOrders").Return(shortOrders)
+			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx")
+			lop.RunMatchingEngine()
+		})
+		t.Run("When price is same", func(t *testing.T) {
+			t.Run("When mod of baseAssetQuantity is not same", func(t *testing.T) {
+				longOrders := make([]*limitorders.LimitOrder, 0)
+				shortOrders := make([]*limitorders.LimitOrder, 0)
+				longOrder := getLongOrder()
+				longOrders = append(longOrders, longOrder)
+				shortOrder := getShortOrder()
+				shortOrder.BaseAssetQuantity = longOrder.BaseAssetQuantity + 1
+				shortOrders = append(shortOrders, shortOrder)
+				db.On("GetLongOrders").Return(longOrders)
+				db.On("GetShortOrders").Return(shortOrders)
+				lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx")
+				lop.RunMatchingEngine()
+			})
+			t.Run("When mod of baseAssetQuantity is same", func(t *testing.T) {
+				t.Run("When ExecuteMatchedOrderTx return error it tries again", func(t *testing.T) {
+					//Write test when we handle error in a better way
+				})
+				t.Run("When ExecuteMatchedOrderTx does not return error", func(t *testing.T) {
+					//Write test when we handle error in a better way
+					longOrders := make([]*limitorders.LimitOrder, 0)
+					shortOrders := make([]*limitorders.LimitOrder, 0)
+					longOrder := getLongOrder()
+					longOrders = append(longOrders, longOrder)
+					shortOrder := getShortOrder()
+					shortOrder.BaseAssetQuantity = longOrder.BaseAssetQuantity + 1
+					shortOrders = append(shortOrders, shortOrder)
+					db.On("GetLongOrders").Return(longOrders)
+					db.On("GetShortOrders").Return(shortOrders)
+					lotp.On("ExecuteMatchedOrderTx").Return(nil)
+					lop.RunMatchingEngine()
+				})
+			})
+		})
+	})
 }
 
 func getShortOrder() *limitorders.LimitOrder {
