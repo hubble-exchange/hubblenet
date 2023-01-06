@@ -20,12 +20,12 @@ type LimitOrder struct {
 }
 
 type LimitOrderDatabase interface {
-	GetAllOrders() []*LimitOrder
+	GetAllOrders() []LimitOrder
 	Add(order *LimitOrder)
 	UpdateFilledBaseAssetQuantity(quantity int, signature []byte)
 	Delete(signature []byte)
-	GetLongOrders() []*LimitOrder
-	GetShortOrders() []*LimitOrder
+	GetLongOrders() []LimitOrder
+	GetShortOrders() []LimitOrder
 	GetOrder(signature []byte) *LimitOrder
 }
 
@@ -38,10 +38,10 @@ func NewInMemoryDatabase() LimitOrderDatabase {
 	return &inMemoryDatabase{orderMap}
 }
 
-func (db *inMemoryDatabase) GetAllOrders() []*LimitOrder {
-	allOrders := []*LimitOrder{}
+func (db *inMemoryDatabase) GetAllOrders() []LimitOrder {
+	allOrders := []LimitOrder{}
 	for _, order := range db.orderMap {
-		allOrders = append(allOrders, order)
+		allOrders = append(allOrders, *order)
 	}
 	return allOrders
 }
@@ -60,22 +60,22 @@ func (db *inMemoryDatabase) Delete(signature []byte) {
 	delete(db.orderMap, string(signature))
 }
 
-func (db *inMemoryDatabase) GetLongOrders() []*LimitOrder {
-	var longOrders []*LimitOrder
+func (db *inMemoryDatabase) GetLongOrders() []LimitOrder {
+	var longOrders []LimitOrder
 	for _, order := range db.orderMap {
 		if order.PositionType == "long" {
-			longOrders = append(longOrders, order)
+			longOrders = append(longOrders, *order)
 		}
 	}
 	sortLongOrders(longOrders)
 	return longOrders
 }
 
-func (db *inMemoryDatabase) GetShortOrders() []*LimitOrder {
-	var shortOrders []*LimitOrder
+func (db *inMemoryDatabase) GetShortOrders() []LimitOrder {
+	var shortOrders []LimitOrder
 	for _, order := range db.orderMap {
 		if order.PositionType == "short" {
-			shortOrders = append(shortOrders, order)
+			shortOrders = append(shortOrders, *order)
 		}
 	}
 	sortShortOrders(shortOrders)
@@ -86,7 +86,7 @@ func (db *inMemoryDatabase) GetOrder(signature []byte) *LimitOrder {
 	return db.orderMap[string(signature)]
 }
 
-func sortLongOrders(orders []*LimitOrder) []*LimitOrder {
+func sortLongOrders(orders []LimitOrder) []LimitOrder {
 	sort.SliceStable(orders, func(i, j int) bool {
 		if orders[i].Price > orders[j].Price {
 			return true
@@ -101,7 +101,7 @@ func sortLongOrders(orders []*LimitOrder) []*LimitOrder {
 	return orders
 }
 
-func sortShortOrders(orders []*LimitOrder) []*LimitOrder {
+func sortShortOrders(orders []LimitOrder) []LimitOrder {
 	sort.SliceStable(orders, func(i, j int) bool {
 		if orders[i].Price < orders[j].Price {
 			return true

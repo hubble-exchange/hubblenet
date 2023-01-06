@@ -75,7 +75,7 @@ func (lop *limitOrderProcesser) RunMatchingEngine() {
 	for _, longOrder := range longOrders {
 		for j, shortOrder := range shortOrders {
 			if longOrder.Price == shortOrder.Price && longOrder.BaseAssetQuantity == (-shortOrder.BaseAssetQuantity) {
-				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(*longOrder, *shortOrder)
+				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(longOrder, shortOrder)
 				if err == nil {
 					shortOrders = append(shortOrders[:j], shortOrders[j+1:]...)
 					break

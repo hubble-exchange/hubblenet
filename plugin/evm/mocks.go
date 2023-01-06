@@ -15,9 +15,9 @@ func NewMockLimitOrderDatabase() *MockLimitOrderDatabase {
 	return &MockLimitOrderDatabase{}
 }
 
-func (db *MockLimitOrderDatabase) GetAllOrders() []*limitorders.LimitOrder {
+func (db *MockLimitOrderDatabase) GetAllOrders() []limitorders.LimitOrder {
 	args := db.Called()
-	return args.Get(0).([]*limitorders.LimitOrder)
+	return args.Get(0).([]limitorders.LimitOrder)
 }
 
 func (db *MockLimitOrderDatabase) Add(order *limitorders.LimitOrder) {
@@ -29,14 +29,14 @@ func (db *MockLimitOrderDatabase) UpdateFilledBaseAssetQuantity(quantity int, si
 func (db *MockLimitOrderDatabase) Delete(signature []byte) {
 }
 
-func (db *MockLimitOrderDatabase) GetLongOrders() []*limitorders.LimitOrder {
+func (db *MockLimitOrderDatabase) GetLongOrders() []limitorders.LimitOrder {
 	args := db.Called()
-	return args.Get(0).([]*limitorders.LimitOrder)
+	return args.Get(0).([]limitorders.LimitOrder)
 }
 
-func (db *MockLimitOrderDatabase) GetShortOrders() []*limitorders.LimitOrder {
+func (db *MockLimitOrderDatabase) GetShortOrders() []limitorders.LimitOrder {
 	args := db.Called()
-	return args.Get(0).([]*limitorders.LimitOrder)
+	return args.Get(0).([]limitorders.LimitOrder)
 }
 
 func (db *MockLimitOrderDatabase) GetOrder(signature []byte) *limitorders.LimitOrder {
