@@ -6,6 +6,7 @@ import (
 
 	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestSetOrderBookContractFileLocation(t *testing.T) {
@@ -37,48 +38,58 @@ func newLimitOrderProcesser(t *testing.T, db limitorders.LimitOrderDatabase, lot
 	return lop
 }
 func TestNewLimitOrderProcesser(t *testing.T) {
-	db := NewMockLimitOrderDatabase()
-	lotp := NewMockLimitOrderTxProcessor()
-	lop := newLimitOrderProcesser(t, db, lotp)
+	_, _, lop := setupDependencies(t)
 	assert.NotNil(t, lop)
 }
 
-func TestRunMatchingEngine(t *testing.T) {
+func setupDependencies(t *testing.T) (*MockLimitOrderDatabase, *MockLimitOrderTxProcessor, LimitOrderProcesser) {
 	db := NewMockLimitOrderDatabase()
 	lotp := NewMockLimitOrderTxProcessor()
 	lop := newLimitOrderProcesser(t, db, lotp)
+	return db, lotp, lop
+}
+
+func TestRunMatchingEngine(t *testing.T) {
 	t.Run("Matching engine does not make call ExecuteMatchedOrders when no long orders are present in memorydb", func(t *testing.T) {
 		t.Run("Matching engine does not make call ExecuteMatchedOrders when no short orders are present", func(t *testing.T) {
+			db, lotp, lop := setupDependencies(t)
 			longOrders := make([]*limitorders.LimitOrder, 0)
 			shortOrders := make([]*limitorders.LimitOrder, 0)
 			db.On("GetLongOrders").Return(longOrders)
 			db.On("GetShortOrders").Return(shortOrders)
-			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx")
+			lotp.On("PurgeLocalTx").Return(nil)
 			lop.RunMatchingEngine()
+			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything)
 		})
 		t.Run("Matching engine does not make call ExecuteMatchedOrders when short orders are present", func(t *testing.T) {
+			db, lotp, lop := setupDependencies(t)
 			longOrders := make([]*limitorders.LimitOrder, 0)
 			shortOrders := make([]*limitorders.LimitOrder, 0)
 			shortOrders = append(shortOrders, getShortOrder())
 			db.On("GetLongOrders").Return(longOrders)
 			db.On("GetShortOrders").Return(shortOrders)
-			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx")
+			lotp.On("PurgeLocalTx").Return(nil)
 			lop.RunMatchingEngine()
+			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything)
 		})
 	})
 	t.Run("Matching engine does not make call ExecuteMatchedOrders when no short orders are present in memorydb", func(t *testing.T) {
 		t.Run("Matching engine does not make call ExecuteMatchedOrders when long orders are present", func(t *testing.T) {
+			db, lotp, lop := setupDependencies(t)
 			longOrders := make([]*limitorders.LimitOrder, 0)
-			longOrders = append(longOrders, getLongOrder())
+			longOrder := getLongOrder()
+			longOrders = append(longOrders, longOrder)
 			shortOrders := make([]*limitorders.LimitOrder, 0)
 			db.On("GetLongOrders").Return(longOrders)
 			db.On("GetShortOrders").Return(shortOrders)
-			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx")
+			lotp.On("PurgeLocalTx").Return(nil)
 			lop.RunMatchingEngine()
+			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything)
 		})
 	})
 	t.Run("When long and short orders are present in db", func(t *testing.T) {
 		t.Run("Matching engine does not make call ExecuteMatchedOrders when price is not same", func(t *testing.T) {
+			db, lotp, lop := setupDependencies(t)
 			longOrders := make([]*limitorders.LimitOrder, 0)
 			shortOrders := make([]*limitorders.LimitOrder, 0)
 			longOrder := getLongOrder()
@@ -88,39 +99,40 @@ func TestRunMatchingEngine(t *testing.T) {
 			shortOrders = append(shortOrders, shortOrder)
 			db.On("GetLongOrders").Return(longOrders)
 			db.On("GetShortOrders").Return(shortOrders)
-			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx")
 			lop.RunMatchingEngine()
+			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything)
 		})
 		t.Run("When price is same", func(t *testing.T) {
 			t.Run("When mod of baseAssetQuantity is not same", func(t *testing.T) {
+				db, lotp, lop := setupDependencies(t)
 				longOrders := make([]*limitorders.LimitOrder, 0)
 				shortOrders := make([]*limitorders.LimitOrder, 0)
 				longOrder := getLongOrder()
 				longOrders = append(longOrders, longOrder)
 				shortOrder := getShortOrder()
-				shortOrder.BaseAssetQuantity = longOrder.BaseAssetQuantity + 1
+				shortOrder.BaseAssetQuantity = shortOrder.BaseAssetQuantity + 1
 				shortOrders = append(shortOrders, shortOrder)
 				db.On("GetLongOrders").Return(longOrders)
 				db.On("GetShortOrders").Return(shortOrders)
-				lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx")
 				lop.RunMatchingEngine()
+				lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything)
 			})
 			t.Run("When mod of baseAssetQuantity is same", func(t *testing.T) {
 				t.Run("When ExecuteMatchedOrderTx return error it tries again", func(t *testing.T) {
 					//Write test when we handle error in a better way
 				})
 				t.Run("When ExecuteMatchedOrderTx does not return error", func(t *testing.T) {
+					db, lotp, lop := setupDependencies(t)
 					//Write test when we handle error in a better way
 					longOrders := make([]*limitorders.LimitOrder, 0)
 					shortOrders := make([]*limitorders.LimitOrder, 0)
 					longOrder := getLongOrder()
 					longOrders = append(longOrders, longOrder)
 					shortOrder := getShortOrder()
-					shortOrder.BaseAssetQuantity = longOrder.BaseAssetQuantity + 1
 					shortOrders = append(shortOrders, shortOrder)
 					db.On("GetLongOrders").Return(longOrders)
 					db.On("GetShortOrders").Return(shortOrders)
-					lotp.On("ExecuteMatchedOrderTx").Return(nil)
+					lotp.On("ExecuteMatchedOrdersTx", *longOrder, *shortOrder).Return(nil)
 					lop.RunMatchingEngine()
 				})
 			})

@@ -56,7 +56,7 @@ func (lotp *MockLimitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, 
 }
 
 func (lotp *MockLimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder) error {
-	args := lotp.Called()
+	args := lotp.Called(incomingOrder, matchedOrder)
 	return args.Error(0)
 }
 
