@@ -61,6 +61,7 @@ func (lotp *MockLimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder limi
 }
 
 func (lotp *MockLimitOrderTxProcessor) PurgeLocalTx() {
+	lotp.Called()
 }
 
 func (lotp *MockLimitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transaction) bool {

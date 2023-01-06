@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"math"
 	"sync"
 
 	"github.com/ava-labs/subnet-evm/core"
@@ -72,13 +73,21 @@ func (lop *limitOrderProcesser) RunMatchingEngine() {
 	if len(longOrders) == 0 || len(shortOrders) == 0 {
 		return
 	}
-	for _, longOrder := range longOrders {
-		for j, shortOrder := range shortOrders {
-			if longOrder.Price == shortOrder.Price && longOrder.BaseAssetQuantity == (-shortOrder.BaseAssetQuantity) {
-				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(longOrder, shortOrder)
+	for i := 0; i < len(longOrders); i++ {
+		for j := 0; j < len(shortOrders); j++ {
+			if longOrders[i].Price == shortOrders[j].Price {
+				fillAmount := math.Min(float64(getUnFilledBaseAssetQuantity(longOrders[i])), float64(-(getUnFilledBaseAssetQuantity(shortOrders[j]))))
+				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(longOrders[i], shortOrders[j])
 				if err == nil {
-					shortOrders = append(shortOrders[:j], shortOrders[j+1:]...)
-					break
+					longOrders[i].FilledBaseAssetQuantity = longOrders[i].FilledBaseAssetQuantity + int(fillAmount)
+					shortOrders[j].FilledBaseAssetQuantity = shortOrders[j].FilledBaseAssetQuantity - int(fillAmount)
+					if getUnFilledBaseAssetQuantity(shortOrders[j]) == 0 {
+						shortOrders = append(shortOrders[:j], shortOrders[j+1:]...)
+						j = j - 1
+					}
+					if getUnFilledBaseAssetQuantity(longOrders[i]) == 0 {
+						break
+					}
 				}
 			}
 		}
@@ -113,4 +122,8 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 			}
 		}
 	})
+}
+
+func getUnFilledBaseAssetQuantity(order limitorders.LimitOrder) int {
+	return order.BaseAssetQuantity - order.FilledBaseAssetQuantity
 }
