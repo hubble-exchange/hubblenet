@@ -26,7 +26,7 @@ type LimitOrderDatabase interface {
 	Delete(signature []byte)
 	GetLongOrders() []LimitOrder
 	GetShortOrders() []LimitOrder
-	GetOrder(signature []byte) *LimitOrder
+	GetOrder(signature []byte) LimitOrder
 }
 
 type inMemoryDatabase struct {
@@ -86,8 +86,8 @@ func (db *inMemoryDatabase) GetShortOrders() []LimitOrder {
 	return shortOrders
 }
 
-func (db *inMemoryDatabase) GetOrder(signature []byte) *LimitOrder {
-	return db.orderMap[string(signature)]
+func (db *inMemoryDatabase) GetOrder(signature []byte) LimitOrder {
+	return *db.orderMap[string(signature)]
 }
 
 func sortLongOrders(orders []LimitOrder) []LimitOrder {
