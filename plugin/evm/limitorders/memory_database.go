@@ -52,12 +52,16 @@ func (db *inMemoryDatabase) Add(order *LimitOrder) {
 
 func (db *inMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity int, signature []byte) {
 	limitOrder := db.orderMap[string(signature)]
+	if limitOrder.BaseAssetQuantity == quantity {
+		deleteOrder(db, signature)
+		return
+	}
 	limitOrder.FilledBaseAssetQuantity = quantity
 }
 
 // Deletes silently
 func (db *inMemoryDatabase) Delete(signature []byte) {
-	delete(db.orderMap, string(signature))
+	deleteOrder(db, signature)
 }
 
 func (db *inMemoryDatabase) GetLongOrders() []LimitOrder {
@@ -114,4 +118,8 @@ func sortShortOrders(orders []LimitOrder) []LimitOrder {
 		return false
 	})
 	return orders
+}
+
+func deleteOrder(db *inMemoryDatabase, signature []byte) {
+	delete(db.orderMap, string(signature))
 }

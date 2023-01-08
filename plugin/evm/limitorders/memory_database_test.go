@@ -198,17 +198,32 @@ func TestGetLongOrders(t *testing.T) {
 }
 
 func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
-	inMemoryDatabase := NewInMemoryDatabase()
-	signature := []byte("Here is a string....")
-	id := uint64(123)
-	limitOrder := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, salt, signature, blockNumber)
-	inMemoryDatabase.Add(&limitOrder)
+	t.Run("when filled quantity is not equal to baseAssetQuantity", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		signature := []byte("Here is a string....")
+		id := uint64(123)
+		limitOrder := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, salt, signature, blockNumber)
+		inMemoryDatabase.Add(&limitOrder)
 
-	filledQuantity := 2
-	inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, signature)
-	updatedLimitOrder := inMemoryDatabase.GetOrder(signature)
+		filledQuantity := 2
+		inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, signature)
+		updatedLimitOrder := inMemoryDatabase.GetOrder(signature)
 
-	assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, filledQuantity)
+		assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, filledQuantity)
+	})
+	t.Run("when filled quantity is equal to baseAssetQuantity", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		signature := []byte("Here is a string....")
+		id := uint64(123)
+		limitOrder := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, salt, signature, blockNumber)
+		inMemoryDatabase.Add(&limitOrder)
+
+		filledQuantity := limitOrder.BaseAssetQuantity
+		inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, signature)
+		allOrders := inMemoryDatabase.GetAllOrders()
+
+		assert.Equal(t, 0, len(allOrders))
+	})
 }
 
 func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity int, price float64, status string, salt string, signature []byte, blockNumber uint64) LimitOrder {
