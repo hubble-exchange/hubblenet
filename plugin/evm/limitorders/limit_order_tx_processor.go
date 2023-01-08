@@ -86,10 +86,10 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 			lotp.memoryDb.Add(limitOrder)
 		}
 		if m.Name == "executeMatchedOrders" && checkTxStatusSucess(backend, tx.Hash()) {
-			signature1 := in["signature1"].([]byte)
-			lotp.memoryDb.Delete(signature1)
-			signature2 := in["signature2"].([]byte)
-			lotp.memoryDb.Delete(signature2)
+			signatures := in["signatures"].([][]byte)
+			fillAmount := in["fillAmount"].(int)
+			lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signatures[0])
+			lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signatures[1])
 		}
 	}
 }
