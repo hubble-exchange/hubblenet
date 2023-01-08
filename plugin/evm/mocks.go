@@ -39,11 +39,6 @@ func (db *MockLimitOrderDatabase) GetShortOrders() []limitorders.LimitOrder {
 	return args.Get(0).([]limitorders.LimitOrder)
 }
 
-func (db *MockLimitOrderDatabase) GetOrder(signature []byte) limitorders.LimitOrder {
-	args := db.Called()
-	return args.Get(0).(limitorders.LimitOrder)
-}
-
 type MockLimitOrderTxProcessor struct {
 	mock.Mock
 }
