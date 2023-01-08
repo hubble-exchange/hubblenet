@@ -26,7 +26,7 @@ var privateKey2 = "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e9
 
 type LimitOrderTxProcessor interface {
 	HandleOrderBookTx(tx *types.Transaction, blockNumber uint64, backend eth.EthAPIBackend)
-	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder) error
+	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount int) error
 	PurgeLocalTx()
 	CheckIfOrderBookContractCall(tx *types.Transaction) bool
 }
@@ -94,7 +94,7 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 	}
 }
 
-func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder) error {
+func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount int) error {
 	//randomly selecting private key to get different validator profile on different nodes
 	rand.Seed(time.Now().UnixNano())
 	var privateKey, userAddress string
@@ -107,8 +107,16 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 	}
 
 	nonce := lotp.txPool.Nonce(common.HexToAddress(userAddress)) // admin address
+	orders := make([]interface{}, 2)
+	id := 1
+	orders[0] = incomingOrder.RawOrder
+	orders[1] = matchedOrder.RawOrder
 
-	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", incomingOrder.RawOrder, incomingOrder.Signature, matchedOrder.RawOrder, matchedOrder.Signature)
+	signatures := make([][]byte, 2)
+	signatures[0] = incomingOrder.Signature
+	signatures[1] = matchedOrder.Signature
+
+	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", id, orders, signatures, fillAmount)
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
 		return err
