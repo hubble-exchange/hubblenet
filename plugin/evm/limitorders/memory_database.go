@@ -12,7 +12,7 @@ type LimitOrder struct {
 	FilledBaseAssetQuantity int
 	Price                   float64
 	Status                  string
-	Salt                    string
+	Salt                    int64
 	Signature               []byte
 	RawOrder                interface{}
 	RawSignature            interface{}

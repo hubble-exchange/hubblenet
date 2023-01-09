@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
 	"github.com/stretchr/testify/assert"
@@ -246,17 +247,19 @@ func TestRunMatchingEngine(t *testing.T) {
 
 func getShortOrder() limitorders.LimitOrder {
 	signature := []byte("Here is a short order")
-	shortOrder := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", -10, 20.01, "unfulfilled", "salt", signature, 2)
+	salt := time.Now().Unix()
+	shortOrder := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", -10, 20.01, "unfulfilled", salt, signature, 2)
 	return shortOrder
 }
 
 func getLongOrder() limitorders.LimitOrder {
 	signature := []byte("Here is a long order")
-	longOrder := createLimitOrder("long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", 10, 20.01, "unfulfilled", "salt", signature, 2)
+	salt := time.Now().Unix()
+	longOrder := createLimitOrder("long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", 10, 20.01, "unfulfilled", salt, signature, 2)
 	return longOrder
 }
 
-func createLimitOrder(positionType string, userAddress string, baseAssetQuantity int, price float64, status string, salt string, signature []byte, blockNumber uint64) limitorders.LimitOrder {
+func createLimitOrder(positionType string, userAddress string, baseAssetQuantity int, price float64, status string, salt int64, signature []byte, blockNumber uint64) limitorders.LimitOrder {
 	return limitorders.LimitOrder{
 		PositionType:      positionType,
 		UserAddress:       userAddress,

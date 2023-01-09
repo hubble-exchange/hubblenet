@@ -76,7 +76,7 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 				BaseAssetQuantity:       baseAssetQuantity,
 				FilledBaseAssetQuantity: 0,
 				Price:                   price,
-				Salt:                    order.Salt.String(),
+				Salt:                    order.Salt.Int64(),
 				Status:                  "unfulfilled",
 				Signature:               signature,
 				BlockNumber:             blockNumber,

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,7 +14,7 @@ var userAddress = "random-address"
 var baseAssetQuantity = -10
 var price float64 = 20.01
 var status = "unfulfilled"
-var salt = "salt"
+var salt = time.Now().Unix()
 var blockNumber uint64 = 2
 
 func TestNewInMemoryDatabase(t *testing.T) {
@@ -226,7 +227,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 	})
 }
 
-func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity int, price float64, status string, salt string, signature []byte, blockNumber uint64) LimitOrder {
+func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity int, price float64, status string, salt int64, signature []byte, blockNumber uint64) LimitOrder {
 	return LimitOrder{
 		id:                id,
 		PositionType:      positionType,
