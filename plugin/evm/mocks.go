@@ -23,7 +23,7 @@ func (db *MockLimitOrderDatabase) GetAllOrders() []limitorders.LimitOrder {
 func (db *MockLimitOrderDatabase) Add(order *limitorders.LimitOrder) {
 }
 
-func (db *MockLimitOrderDatabase) UpdateFilledBaseAssetQuantity(quantity int, signature []byte) {
+func (db *MockLimitOrderDatabase) UpdateFilledBaseAssetQuantity(quantity uint, signature []byte) {
 }
 
 func (db *MockLimitOrderDatabase) Delete(signature []byte) {
@@ -50,7 +50,7 @@ func NewMockLimitOrderTxProcessor() *MockLimitOrderTxProcessor {
 func (lotp *MockLimitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, blockNumber uint64, backend eth.EthAPIBackend) {
 }
 
-func (lotp *MockLimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder, fillAmount int) error {
+func (lotp *MockLimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder, fillAmount uint) error {
 	args := lotp.Called(incomingOrder, matchedOrder, fillAmount)
 	return args.Error(0)
 }

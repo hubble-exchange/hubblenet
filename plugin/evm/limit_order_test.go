@@ -128,8 +128,8 @@ func TestRunMatchingEngine(t *testing.T) {
 					db.On("GetLongOrders").Return(longOrders)
 					db.On("GetShortOrders").Return(shortOrders)
 					lotp.On("PurgeLocalTx").Return(nil)
-					fillAmount1 := longOrder1.BaseAssetQuantity
-					fillAmount2 := longOrder2.BaseAssetQuantity
+					fillAmount1 := uint(longOrder1.BaseAssetQuantity)
+					fillAmount2 := uint(longOrder2.BaseAssetQuantity)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount1).Return(nil)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder2, shortOrder2, fillAmount2).Return(nil)
 					lop.RunMatchingEngine()
@@ -152,7 +152,7 @@ func TestRunMatchingEngine(t *testing.T) {
 					shortOrders := make([]limitorders.LimitOrder, 0)
 					shortOrders = append(shortOrders, shortOrder)
 
-					fillAmount := longOrder.BaseAssetQuantity - longOrder.FilledBaseAssetQuantity
+					fillAmount := uint(longOrder.BaseAssetQuantity - longOrder.FilledBaseAssetQuantity)
 					db.On("GetLongOrders").Return(longOrders)
 					db.On("GetShortOrders").Return(shortOrders)
 					lotp.On("PurgeLocalTx").Return(nil)
@@ -202,7 +202,7 @@ func TestRunMatchingEngine(t *testing.T) {
 				//During 1st  matching iteration
 				longOrder1UnfulfilledQuantity := longOrder1.BaseAssetQuantity - longOrder1.FilledBaseAssetQuantity
 				shortOrder1UnfulfilledQuantity := shortOrder1.BaseAssetQuantity - shortOrder1.FilledBaseAssetQuantity
-				fillAmount := int(math.Min(float64(longOrder1UnfulfilledQuantity), float64(-(shortOrder1UnfulfilledQuantity))))
+				fillAmount := uint(math.Min(float64(longOrder1UnfulfilledQuantity), float64(-(shortOrder1UnfulfilledQuantity))))
 				lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount)
 				//After 1st matching iteration longOrder1 has been matched fully but shortOrder1 has not
 				longOrder1.FilledBaseAssetQuantity = longOrder1.FilledBaseAssetQuantity + int(fillAmount)
@@ -211,7 +211,7 @@ func TestRunMatchingEngine(t *testing.T) {
 				//During 2nd iteration longOrder2 with be matched with shortOrder1
 				longOrder2UnfulfilledQuantity := longOrder2.BaseAssetQuantity - longOrder2.FilledBaseAssetQuantity
 				shortOrder1UnfulfilledQuantity = shortOrder1.BaseAssetQuantity - shortOrder1.FilledBaseAssetQuantity
-				fillAmount = int(math.Min(float64(longOrder2UnfulfilledQuantity), float64(-(shortOrder1UnfulfilledQuantity))))
+				fillAmount = uint(math.Min(float64(longOrder2UnfulfilledQuantity), float64(-(shortOrder1UnfulfilledQuantity))))
 				lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder2, shortOrder1, fillAmount)
 				//After 2nd matching iteration shortOrder1 has been matched fully but longOrder2 has not
 				longOrder2.FilledBaseAssetQuantity = longOrder2.FilledBaseAssetQuantity + int(fillAmount)
@@ -220,7 +220,7 @@ func TestRunMatchingEngine(t *testing.T) {
 				//During 3rd iteration longOrder2 with be matched with shortOrder2
 				longOrder2UnfulfilledQuantity = longOrder2.BaseAssetQuantity - longOrder2.FilledBaseAssetQuantity
 				shortOrder2UnfulfilledQuantity := shortOrder2.BaseAssetQuantity - shortOrder2.FilledBaseAssetQuantity
-				fillAmount = int(math.Min(float64(longOrder2UnfulfilledQuantity), float64(-(shortOrder2UnfulfilledQuantity))))
+				fillAmount = uint(math.Min(float64(longOrder2UnfulfilledQuantity), float64(-(shortOrder2UnfulfilledQuantity))))
 				lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder2, shortOrder2, fillAmount)
 				//After 3rd matching iteration longOrder2 has been matched fully but shortOrder2 has not
 				longOrder2.FilledBaseAssetQuantity = longOrder2.FilledBaseAssetQuantity + int(fillAmount)
@@ -229,7 +229,7 @@ func TestRunMatchingEngine(t *testing.T) {
 				//So during 4th iteration longOrder3 with be matched with shortOrder2
 				longOrder3UnfulfilledQuantity := longOrder3.BaseAssetQuantity - longOrder3.FilledBaseAssetQuantity
 				shortOrder2UnfulfilledQuantity = shortOrder2.BaseAssetQuantity - shortOrder2.FilledBaseAssetQuantity
-				fillAmount = int(math.Min(float64(longOrder3UnfulfilledQuantity), float64(-(shortOrder2UnfulfilledQuantity))))
+				fillAmount = uint(math.Min(float64(longOrder3UnfulfilledQuantity), float64(-(shortOrder2UnfulfilledQuantity))))
 				lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder3, shortOrder2, fillAmount)
 				//After 4rd matching iteration shortOrder2 has been matched fully but longOrder3 has not
 				longOrder3.FilledBaseAssetQuantity = longOrder3.FilledBaseAssetQuantity + int(fillAmount)
@@ -238,7 +238,7 @@ func TestRunMatchingEngine(t *testing.T) {
 				//So during 5th iteration longOrder3 with be matched with shortOrder3
 				longOrder3UnfulfilledQuantity = longOrder3.BaseAssetQuantity - longOrder3.FilledBaseAssetQuantity
 				shortOrder3UnfulfilledQuantity := shortOrder3.BaseAssetQuantity - shortOrder3.FilledBaseAssetQuantity
-				fillAmount = int(math.Min(float64(longOrder3UnfulfilledQuantity), float64(-(shortOrder3UnfulfilledQuantity))))
+				fillAmount = uint(math.Min(float64(longOrder3UnfulfilledQuantity), float64(-(shortOrder3UnfulfilledQuantity))))
 				lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder3, shortOrder3, fillAmount)
 			})
 		})

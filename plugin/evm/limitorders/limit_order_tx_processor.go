@@ -26,7 +26,7 @@ var privateKey2 = "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e9
 
 type LimitOrderTxProcessor interface {
 	HandleOrderBookTx(tx *types.Transaction, blockNumber uint64, backend eth.EthAPIBackend)
-	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount int) error
+	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount uint) error
 	PurgeLocalTx()
 	CheckIfOrderBookContractCall(tx *types.Transaction) bool
 }
@@ -86,15 +86,15 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 			lotp.memoryDb.Add(limitOrder)
 		}
 		if m.Name == "executeMatchedOrders" && checkTxStatusSucess(backend, tx.Hash()) {
-			signatures := in["signatures"].([][]byte)
-			fillAmount := in["fillAmount"].(int)
+			signatures := in["signatures"].([2][]byte)
+			fillAmount := uint(in["fillAmount"].(*big.Int).Int64())
 			lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signatures[0])
 			lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signatures[1])
 		}
 	}
 }
 
-func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount int) error {
+func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount uint) error {
 	//randomly selecting private key to get different validator profile on different nodes
 	rand.Seed(time.Now().UnixNano())
 	var privateKey, userAddress string
@@ -111,12 +111,11 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 	id := 1
 	orders[0] = incomingOrder.RawOrder
 	orders[1] = matchedOrder.RawOrder
-
 	signatures := make([][]byte, 2)
 	signatures[0] = incomingOrder.Signature
 	signatures[1] = matchedOrder.Signature
 
-	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", id, orders, signatures, fillAmount)
+	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", id, orders, signatures, big.NewInt(int64(fillAmount)))
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
 		return err

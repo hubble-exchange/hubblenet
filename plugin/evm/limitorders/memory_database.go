@@ -1,6 +1,7 @@
 package limitorders
 
 import (
+	"math"
 	"sort"
 )
 
@@ -22,7 +23,7 @@ type LimitOrder struct {
 type LimitOrderDatabase interface {
 	GetAllOrders() []LimitOrder
 	Add(order *LimitOrder)
-	UpdateFilledBaseAssetQuantity(quantity int, signature []byte)
+	UpdateFilledBaseAssetQuantity(quantity uint, signature []byte)
 	Delete(signature []byte)
 	GetLongOrders() []LimitOrder
 	GetShortOrders() []LimitOrder
@@ -49,13 +50,19 @@ func (db *InMemoryDatabase) Add(order *LimitOrder) {
 	db.orderMap[string(order.Signature)] = order
 }
 
-func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity int, signature []byte) {
+func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity uint, signature []byte) {
 	limitOrder := db.orderMap[string(signature)]
-	if limitOrder.BaseAssetQuantity == quantity {
+	if uint(math.Abs(float64(limitOrder.BaseAssetQuantity))) == quantity {
 		deleteOrder(db, signature)
 		return
+	} else {
+		if limitOrder.PositionType == "long" {
+			limitOrder.FilledBaseAssetQuantity = int(quantity)
+		}
+		if limitOrder.PositionType == "short" {
+			limitOrder.FilledBaseAssetQuantity = -int(quantity)
+		}
 	}
-	limitOrder.FilledBaseAssetQuantity = quantity
 }
 
 // Deletes silently
