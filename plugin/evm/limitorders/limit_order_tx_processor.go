@@ -2,6 +2,7 @@ package limitorders
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math/big"
 	"math/rand"
@@ -38,6 +39,13 @@ type limitOrderTxProcessor struct {
 	orderBookContractAddress common.Address
 }
 
+type Order struct {
+	Trader            common.Address `json:"trader"`
+	BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
+	Price             *big.Int       `json:"price"`
+	Salt              *big.Int       `json:"salt"`
+}
+
 func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb LimitOrderDatabase, orderBookContractAddress common.Address) LimitOrderTxProcessor {
 	return &limitOrderTxProcessor{
 		txPool:                   txPool,
@@ -55,12 +63,10 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 		_ = m.Inputs.UnpackIntoMap(in, input[4:])
 		if m.Name == "placeOrder" {
 			log.Info("##### in ParseTx", "placeOrder tx hash", tx.Hash().String())
-			order, _ := in["order"].(struct {
-				Trader            common.Address `json:"trader"`
-				BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
-				Price             *big.Int       `json:"price"`
-				Salt              *big.Int       `json:"salt"`
-			})
+			order := Order{}
+			x, _ := json.Marshal(in["order"])
+			_ = json.Unmarshal(x, &order)
+
 			signature := in["signature"].([]byte)
 
 			baseAssetQuantity := int(order.BaseAssetQuantity.Int64())
@@ -107,15 +113,18 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 	}
 
 	nonce := lotp.txPool.Nonce(common.HexToAddress(userAddress)) // admin address
-	orders := make([]interface{}, 2)
-	id := 1
-	orders[0] = incomingOrder.RawOrder
-	orders[1] = matchedOrder.RawOrder
+	ammID := big.NewInt(1)
+	orders := make([]Order, 2)
+	orders[0], orders[1] = Order{}, Order{}
+	x, _ := json.Marshal(incomingOrder.RawOrder)
+	_ = json.Unmarshal(x, &orders[0])
+	y, _ := json.Marshal(matchedOrder.RawOrder)
+	_ = json.Unmarshal(y, &orders[1])
 	signatures := make([][]byte, 2)
 	signatures[0] = incomingOrder.Signature
 	signatures[1] = matchedOrder.Signature
 
-	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", id, orders, signatures, big.NewInt(int64(fillAmount)))
+	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", ammID, orders, signatures, big.NewInt(int64(fillAmount)))
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
 		return err
