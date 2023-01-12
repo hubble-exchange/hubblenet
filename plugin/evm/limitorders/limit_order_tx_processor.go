@@ -39,6 +39,7 @@ type limitOrderTxProcessor struct {
 	orderBookContractAddress common.Address
 }
 
+// Order type is copy of Order struct defined in Orderbook contract
 type Order struct {
 	Trader            common.Address `json:"trader"`
 	BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
@@ -63,12 +64,8 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 		_ = m.Inputs.UnpackIntoMap(in, input[4:])
 		if m.Name == "placeOrder" {
 			log.Info("##### in ParseTx", "placeOrder tx hash", tx.Hash().String())
-			order := Order{}
-			x, _ := json.Marshal(in["order"])
-			_ = json.Unmarshal(x, &order)
-
+			order := getOrderFromRawOrder(in["order"])
 			signature := in["signature"].([]byte)
-
 			baseAssetQuantity := int(order.BaseAssetQuantity.Int64())
 			if baseAssetQuantity == 0 {
 				log.Error("order not saved because baseAssetQuantity is zero")
@@ -115,11 +112,7 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 	nonce := lotp.txPool.Nonce(common.HexToAddress(userAddress)) // admin address
 	ammID := big.NewInt(1)
 	orders := make([]Order, 2)
-	orders[0], orders[1] = Order{}, Order{}
-	x, _ := json.Marshal(incomingOrder.RawOrder)
-	_ = json.Unmarshal(x, &orders[0])
-	y, _ := json.Marshal(matchedOrder.RawOrder)
-	_ = json.Unmarshal(y, &orders[1])
+	orders[0], orders[1] = getOrderFromRawOrder(incomingOrder.RawOrder), getOrderFromRawOrder(matchedOrder.RawOrder)
 	signatures := make([][]byte, 2)
 	signatures[0] = incomingOrder.Signature
 	signatures[1] = matchedOrder.Signature
@@ -213,4 +206,11 @@ func getOrderBookContractCallMethod(tx *types.Transaction, orderBookABI abi.ABI,
 		err := errors.New("tx is not an orderbook contract call")
 		return nil, err
 	}
+}
+
+func getOrderFromRawOrder(rawOrder interface{}) Order {
+	order := Order{}
+	marshalledOrder, _ := json.Marshal(rawOrder)
+	_ = json.Unmarshal(marshalledOrder, &order)
+	return order
 }
