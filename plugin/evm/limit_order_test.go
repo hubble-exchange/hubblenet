@@ -27,7 +27,7 @@ func TestNewLimitOrderProcesser(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	lotp := limitorders.NewLimitOrderTxProcessor(vm.txPool, orderBookAbi, memoryDb, orderBookContractAddress)
+	lotp := limitorders.NewLimitOrderTxProcessor(vm.txPool, orderBookAbi, memoryDb, orderBookContractAddress, vm.eth.APIBackend)
 	lop := NewLimitOrderProcesser(
 		vm.ctx,
 		vm.txPool,

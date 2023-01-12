@@ -9,6 +9,7 @@ contract OrderBook is EIP712Upgradeable {
 
     // keccak256("Order(address trader,int256 baseAssetQuantity,uint256 price,uint256 salt)");
     bytes32 public constant ORDER_TYPEHASH = 0x4cab2d4fcf58d07df65ee3d9d1e6e3c407eae39d76ee15b247a025ab52e2c45d;
+    int public constant testVal = 12345;
 
     struct Order {
         address trader;
@@ -28,8 +29,10 @@ contract OrderBook is EIP712Upgradeable {
         uint256 openNotional;
     }
 
-    event OrderPlaced(address indexed trader, int256 baseAssetQuantity, uint256 price, address relayer);
-    event OrderMatched();
+    event OrderPlaced(address indexed trader, Order order, bytes signature);
+    // event OrderPlaced(address indexed trader, int256 baseAssetQuantity, uint256 price, address relayer);
+    // event OrdersMatched();
+    event OrdersMatched(Order[2] orders, bytes[2] signatures, int256 fillAmount, address relayer);
 
     mapping(bytes32 => OrderStatus) public ordersStatus;
     mapping(address => Position) public positions;
@@ -51,7 +54,7 @@ contract OrderBook is EIP712Upgradeable {
         ordersStatus[orderHash] = OrderStatus.Unfilled;
         // addressStatus[order.trader] = OrderStatus.Cancelled;
 
-        emit OrderPlaced(order.trader, order.baseAssetQuantity, order.price, msg.sender);
+        emit OrderPlaced(order.trader, order, signature);
     }
 
     function verifySigner(Order memory order, bytes memory signature) public view returns (address, bytes32) {
@@ -62,6 +65,10 @@ contract OrderBook is EIP712Upgradeable {
         require(signer == order.trader, "OB_SINT");
 
         return (signer, orderHash);
+    }
+
+    function testtest() public view returns (int) {
+        return 12345;
     }
 
     /**
@@ -89,7 +96,13 @@ contract OrderBook is EIP712Upgradeable {
         positions[order2.trader].openNotional += abs(order2.baseAssetQuantity) * order2.price;
 
         // assert margin requirements
-        emit OrderMatched();
+        Order[2] memory orders = new Order[](2);
+        orders[0] = order1;
+        orders[1] = order2;
+        bytes[2] memory signatures = new bytes[](2);
+        signatures[0] = signature1;
+        signatures[1] = signature2;
+        emit OrdersMatched(orders, signatures, order1.baseAssetQuantity, msg.sender);
     }
 
     /**

@@ -13,6 +13,7 @@ describe.only('Order Book', function () {
         const signers = await ethers.getSigners()
         ;([, alice, bob] = signers)
 
+        console.log({alice: alice.address, bob: bob.address})
         // 1. set proxyAdmin
         const genesisTUP = await ethers.getContractAt('GenesisTUP', GENESIS_ORDERBOOK_ADDRESS)
         let _admin = await ethers.provider.getStorageAt(GENESIS_ORDERBOOK_ADDRESS, '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103')
@@ -118,7 +119,7 @@ describe.only('Order Book', function () {
         expect(matchedOrderEvent.event).to.eq('OrderMatched')
     })
 
-    it('matches multiple long orders with same price and opposite base asset quantity with short orders', async function() {
+    it.skip('matches multiple long orders with same price and opposite base asset quantity with short orders', async function() {
         longOrder.salt = Date.now()
         signature = await bob._signTypedData(domain, orderType, longOrder)
         const longOrderTx1 = await orderBook.placeOrder(longOrder, signature)

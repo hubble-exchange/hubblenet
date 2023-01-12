@@ -601,12 +601,14 @@ func (vm *VM) Shutdown() error {
 // buildBlock builds a block to be wrapped by ChainState
 func (vm *VM) buildBlock() (snowman.Block, error) {
 	// Hourly Funding Payments
-	if vm.limitOrderProcesser.isFundingPaymentTime(vm.miner.GetLastBlockTime()) {
+	if vm.limitOrderProcesser.IsFundingPaymentTime(vm.miner.GetLastBlockTime()) {
 		// just execute the funding payment and skip running the matching engine
+		// @todo: check error and report the error
 		vm.limitOrderProcesser.ExecuteFundingPayment()
 	} else {
 		// Place reduce position orders for accounts to be liquidated
 		// Run Matching Engine
+		vm.limitOrderProcesser.RunLiquidations()
 		vm.limitOrderProcesser.RunMatchingEngine()
 	}
 
@@ -920,6 +922,8 @@ func attachEthService(handler *rpc.Server, apis []rpc.API, names []string) error
 
 var orderBookContractFileLocation = "contract-examples/artifacts/contracts/hubble-v2/OrderBook.sol/OrderBook.json"
 var orderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000069")
+var marginAccountContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000070")
+var clearingHouseContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000071")
 
 func SetOrderBookContractFileLocation(location string) {
 	orderBookContractFileLocation = location
@@ -932,7 +936,7 @@ func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
 	if err != nil {
 		panic(err)
 	}
-	lotp := limitorders.NewLimitOrderTxProcessor(vm.txPool, orderBookAbi, memoryDb, orderBookContractAddress)
+	lotp := limitorders.NewLimitOrderTxProcessor(vm.txPool, orderBookAbi, memoryDb, orderBookContractAddress, vm.eth.APIBackend)
 
 	return NewLimitOrderProcesser(
 		vm.ctx,

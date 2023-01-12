@@ -82,9 +82,8 @@ func (lod *limitOrderDatabase) GetLimitOrderByPositionTypeAndPrice(positionType 
 			UserAddress:       userAddress,
 			BaseAssetQuantity: baseAssetQuantity,
 			Price:             price,
-			Salt:              salt,
 			Signature:         signature,
-			Status:            orderStatus,
+			Status:            Status(orderStatus),
 		}
 		limitOrders = append(limitOrders, *limitOrder)
 	}

@@ -1,11 +1,13 @@
 package evm
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
+	"github.com/ava-labs/subnet-evm/eth/filters"
 	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
 
 	"github.com/ava-labs/avalanchego/snow"
@@ -15,8 +17,9 @@ import (
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions()
 	RunMatchingEngine()
-	isFundingPaymentTime(lastBlockTime uint64) bool
-	ExecuteFundingPayment()
+	RunLiquidations() []error
+	IsFundingPaymentTime(lastBlockTime uint64) bool
+	ExecuteFundingPayment() error
 }
 
 type limitOrderProcesser struct {
@@ -68,13 +71,14 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	lop.listenAndStoreLimitOrderTransactions()
 }
 
-func (lop *limitOrderProcesser) isFundingPaymentTime(lastBlockTime uint64) bool {
+func (lop *limitOrderProcesser) IsFundingPaymentTime(lastBlockTime uint64) bool {
 	return lastBlockTime >= lop.memoryDb.GetNextFundingTime()
 }
 
-func (lop *limitOrderProcesser) ExecuteFundingPayment() {
+func (lop *limitOrderProcesser) ExecuteFundingPayment() error {
 	// @todo get index twap for each market with warp msging
-	// @todo make funding payment tx
+
+	return lop.limitOrderTxProcessor.ExecuteFundingPaymentTx()
 }
 
 func (lop *limitOrderProcesser) RunMatchingEngine() {
@@ -84,6 +88,7 @@ func (lop *limitOrderProcesser) RunMatchingEngine() {
 	if len(longOrders) == 0 || len(shortOrders) == 0 {
 		return
 	}
+
 	for _, longOrder := range longOrders {
 		for j, shortOrder := range shortOrders {
 			if longOrder.Price == shortOrder.Price && longOrder.BaseAssetQuantity == (-shortOrder.BaseAssetQuantity) {
@@ -97,10 +102,52 @@ func (lop *limitOrderProcesser) RunMatchingEngine() {
 	}
 }
 
+func (lop *limitOrderProcesser) RunLiquidations() (errors []error) {
+	longOrders := lop.memoryDb.GetLongOrders()
+	shortOrders := lop.memoryDb.GetShortOrders()
+
+	for _, market := range limitorders.GetActiveMarkets() {
+		var markPrice float64 = 20 // last traded price
+		var oraclePrice float64 = 19
+
+		liquidableTraders := lop.memoryDb.GetLiquidableTraders(market, markPrice, oraclePrice)
+
+		for _, liquidable := range liquidableTraders {
+			var matchedOrders []*limitorders.LimitOrder
+			if liquidable.Size > 0 {
+				// we'll need to sell, so we need a long order to match
+				matchedOrders = longOrders
+			} else {
+				matchedOrders = shortOrders
+			}
+			if len(matchedOrders) == 0 {
+				errors = append(errors, fmt.Errorf("no matching order found for trader %s, size = %f", liquidable.Address.String(), liquidable.Size))
+				continue
+			} else {
+				// remove the selected matched order from long and short order arrays so that the same order is not matched with multiple liquidations
+				if liquidable.Size > 0 {
+					longOrders = append(longOrders[:0], longOrders[1:]...) // remove 0th index element
+				} else {
+					shortOrders = append(shortOrders[:0], shortOrders[1:]...) // remove 0th index element
+				}
+				matchedOrder := matchedOrders[0]
+				err := lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, *matchedOrder)
+				if err != nil {
+					errors = append(errors, err)
+					continue
+				}
+			}
+		}
+	}
+
+	return errors
+}
+
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	newChainChan := make(chan core.ChainEvent)
 	chainAcceptedEventSubscription := lop.backend.SubscribeChainAcceptedEvent(newChainChan)
 
+	// lop.limitOrderTxProcessor.GetLastPrice(limitorders.AvaxPerp)
 	lop.shutdownWg.Add(1)
 	go lop.ctx.Log.RecoverAndPanic(func() {
 		defer lop.shutdownWg.Done()
@@ -126,4 +173,34 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 			}
 		}
 	})
+
+	logsCh := make(chan []*types.Log)
+	logsSubscription := lop.backend.SubscribeAcceptedLogsEvent(logsCh)
+	lop.shutdownWg.Add(1)
+	go lop.ctx.Log.RecoverAndPanic(func() {
+		defer lop.shutdownWg.Done()
+		defer logsSubscription.Unsubscribe()
+
+		for {
+			select {
+			case logs := <-logsCh:
+				for _, event := range logs {
+					switch event.Address {
+					case orderBookContractAddress:
+						lop.limitOrderTxProcessor.HandleOrderBookEvent(event)
+					case marginAccountContractAddress:
+						lop.limitOrderTxProcessor.HandleMarginAccountEvent(event)
+					case clearingHouseContractAddress:
+						lop.limitOrderTxProcessor.HandleClearingHouseEvent(event)
+					}
+				}
+
+			case <-lop.shutdownChan:
+				return
+			}
+		}
+	})
+
+	filterSystem := filters.NewFilterSystem(lop.backend, filters.Config{})
+	filters.NewEventSystem(filterSystem, false)
 }
