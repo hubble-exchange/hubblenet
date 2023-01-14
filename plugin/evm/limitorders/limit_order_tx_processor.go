@@ -48,6 +48,7 @@ type limitOrderTxProcessor struct {
 // Order type is copy of Order struct defined in Orderbook contract
 type Order struct {
 	Trader            common.Address `json:"trader"`
+	AmmIndex          *big.Int       `json:"ammIndex"`
 	BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
 	Price             *big.Int       `json:"price"`
 	Salt              *big.Int       `json:"salt"`
@@ -73,15 +74,10 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderPlaced", "err", err)
 		}
 		log.Info("HandleOrderBookEvent", "orderplaced args", args)
-		order, _ := args["order"].(struct {
-			Trader            common.Address `json:"trader"`
-			BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
-			Price             *big.Int       `json:"price"`
-			Salt              *big.Int       `json:"salt"`
-		})
+		order := getOrderFromRawOrder(args["order"])
 
 		lotp.memoryDb.Add(&LimitOrder{
-			Market:            AvaxPerp, // @todo: get this from event
+			Market:            Market(order.AmmIndex.Int64()),
 			PositionType:      getPositionTypeBasedOnBaseAssetQuantity(int(order.BaseAssetQuantity.Int64())),
 			UserAddress:       userAddress32[:2] + userAddress32[26:], // removes 0 padding
 			BaseAssetQuantity: int(order.BaseAssetQuantity.Int64()),
@@ -101,10 +97,11 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 		log.Info("HandleOrderBookEvent", "OrdersMatched args", args)
 		signature1 := args["signature1"].([]byte)
 		signature2 := args["signature2"].([]byte)
-		lotp.memoryDb.UpdatePositionForOrder(string(signature1), args["fillAmount"].(float64))
-		lotp.memoryDb.UpdatePositionForOrder(string(signature2), args["fillAmount"].(float64))
-		lotp.memoryDb.Delete(signature1)
-		lotp.memoryDb.Delete(signature2) // @todo: check this method after partiall fill code
+		fillAmount := args["fillAmount"].(*big.Int).Int64()
+		lotp.memoryDb.UpdatePositionForOrder(string(signature1), float64(fillAmount))
+		lotp.memoryDb.UpdatePositionForOrder(string(signature2), float64(fillAmount))
+		lotp.memoryDb.UpdateFilledBaseAssetQuantity(uint(fillAmount), signature1)
+		lotp.memoryDb.UpdateFilledBaseAssetQuantity(uint(fillAmount), signature2)
 	}
 	log.Info("Log found", "log_.Address", event.Address.String(), "log_.BlockNumber", event.BlockNumber, "log_.Index", event.Index, "log_.TxHash", event.TxHash.String())
 
@@ -146,7 +143,7 @@ func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "FundingRateUpdated", "err", err)
 		}
 		premiumFraction := args["premiumFraction"].(int64)
-		market := args["market"].(int)
+		market := Market(int(event.Topics[1].Big().Int64()))
 		lotp.memoryDb.UpdateUnrealisedFunding(Market(market), float64(premiumFraction))
 	case lotp.orderBookABI.Events["FundingPaid"].ID:
 		log.Info("FundingPaid event")
@@ -156,7 +153,7 @@ func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 		}
 		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
 		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
-		market := args["market"].(int)
+		market := Market(int(event.Topics[2].Big().Int64()))
 		lotp.memoryDb.ResetUnrealisedFunding(Market(market), userAddress)
 	}
 }
@@ -189,11 +186,11 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 				FilledBaseAssetQuantity: 0,
 				Price:                   price,
 				// Salt:                    order.Salt.Int64(),
-				Status:                  "unfulfilled",
-				Signature:               signature,
-				BlockNumber:             blockNumber,
-				RawOrder:                in["order"],
-				RawSignature:            in["signature"],
+				Status:       "unfulfilled",
+				Signature:    signature,
+				BlockNumber:  blockNumber,
+				RawOrder:     in["order"],
+				RawSignature: in["signature"],
 			}
 			lotp.memoryDb.Add(limitOrder)
 		}

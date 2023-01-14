@@ -70,7 +70,6 @@ type LimitOrderDatabase interface {
 	GetAllOrders() []LimitOrder
 	Add(order *LimitOrder)
 	UpdateFilledBaseAssetQuantity(quantity uint, signature []byte)
-	Delete(signature []byte)
 	GetLongOrders() []LimitOrder
 	GetShortOrders() []LimitOrder
 	UpdatePositionForOrder(signature string, fillAmount float64)
@@ -131,10 +130,6 @@ func (db *InMemoryDatabase) GetNextFundingTime() uint64 {
 
 func (db *InMemoryDatabase) UpdateNextFundingTime() {
 	db.nextFundingTime = uint64(getNextHour().Unix())
-}
-
-func (db *InMemoryDatabase) Delete(signature []byte) {
-	deleteOrder(db, signature)
 }
 
 func (db *InMemoryDatabase) GetLongOrders() []LimitOrder {
@@ -206,7 +201,7 @@ func (db *InMemoryDatabase) UpdatePositionForOrder(signature string, fillAmount 
 	position.Size += math.Abs(fillAmount) * positionSign
 	db.traderMap[trader].Positions[market] = position
 
-	// @todo: update notional position too
+	// @todo: update OpenNotional also
 }
 
 func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, fundingRate float64) {

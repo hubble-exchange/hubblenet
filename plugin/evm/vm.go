@@ -603,12 +603,18 @@ func (vm *VM) buildBlock() (snowman.Block, error) {
 	// Hourly Funding Payments
 	if vm.limitOrderProcesser.IsFundingPaymentTime(vm.miner.GetLastBlockTime()) {
 		// just execute the funding payment and skip running the matching engine
-		// @todo: check error and report the error
-		vm.limitOrderProcesser.ExecuteFundingPayment()
+		err := vm.limitOrderProcesser.ExecuteFundingPayment()
+		if err != nil {
+			log.Error("Funding payment job failed", "err", err)
+		}
 	} else {
 		// Place reduce position orders for accounts to be liquidated
 		// Run Matching Engine
-		vm.limitOrderProcesser.RunLiquidations()
+		errs := vm.limitOrderProcesser.RunLiquidations()
+		if errs != nil && len(errs) > 0 {
+			log.Error("Liquidation(s) failed", "errs", errs)
+		}
+
 		vm.limitOrderProcesser.RunMatchingEngine()
 	}
 
