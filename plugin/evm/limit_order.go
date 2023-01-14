@@ -1,8 +1,9 @@
 package evm
 
 import (
-	"fmt"
+	"context"
 	"math"
+	"sort"
 	"sync"
 
 	"github.com/ava-labs/subnet-evm/core"
@@ -17,8 +18,7 @@ import (
 
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions()
-	RunMatchingEngine()
-	RunLiquidations() []error
+	RunLiquidationsAndMatching()
 	IsFundingPaymentTime(lastBlockTime uint64) bool
 	ExecuteFundingPayment() error
 }
@@ -52,23 +52,31 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	lastAccepted := lop.blockChain.LastAcceptedBlock().NumberU64()
 	if lastAccepted > 0 {
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAccepted)
+		ctx := context.Background()
 
 		allTxs := types.Transactions{}
 		for i := uint64(0); i <= lastAccepted; i++ {
 			block := lop.blockChain.GetBlockByNumber(i)
 			if block != nil {
-				for _, tx := range block.Transactions() {
-					if lop.limitOrderTxProcessor.CheckIfOrderBookContractCall(tx) {
-						lop.limitOrderTxProcessor.HandleOrderBookTx(tx, i, *lop.backend)
-					}
+				logs, err := lop.backend.GetLogs(ctx, block.Hash(), block.NumberU64())
+				if err != nil {
+					log.Error("lop.backend.GetLogs Failed", "err", err)
+					continue
 				}
+				flatLogs := []*types.Log{}
+				for _, logsArr := range logs {
+					flatLogs = append(flatLogs, logsArr...)
+				}
+				log.Info("ListenAndProcessTransactions", "block number", i, "logs", flatLogs)
+				processEvents(flatLogs, lop)
+			} else {
+				log.Error("Nil block found", "block number", i)
 			}
 		}
 
 		log.Info("ListenAndProcessTransactions - sync complete", "till block number", lastAccepted, "total transactions", len(allTxs))
 	}
 
-	// @todo maintain margin amounts, open position size, open notionals for all users in memory
 	lop.listenAndStoreLimitOrderTransactions()
 }
 
@@ -82,10 +90,18 @@ func (lop *limitOrderProcesser) ExecuteFundingPayment() error {
 	return lop.limitOrderTxProcessor.ExecuteFundingPaymentTx()
 }
 
-func (lop *limitOrderProcesser) RunMatchingEngine() {
+func (lop *limitOrderProcesser) RunLiquidationsAndMatching() {
 	lop.limitOrderTxProcessor.PurgeLocalTx()
-	longOrders := lop.memoryDb.GetLongOrders()
-	shortOrders := lop.memoryDb.GetShortOrders()
+	for _, market := range limitorders.GetActiveMarkets() {
+		longOrders := lop.memoryDb.GetLongOrders(market)
+		shortOrders := lop.memoryDb.GetShortOrders(market)
+		longOrders, shortOrders = lop.runLiquidations(market, longOrders, shortOrders)
+		lop.runMatchingEngine(longOrders, shortOrders)
+	}
+}
+
+func (lop *limitOrderProcesser) runMatchingEngine(longOrders []limitorders.LimitOrder, shortOrders []limitorders.LimitOrder) {
+
 	if len(longOrders) == 0 || len(shortOrders) == 0 {
 		return
 	}
@@ -103,51 +119,43 @@ func (lop *limitOrderProcesser) RunMatchingEngine() {
 				if err == nil {
 					longOrders[i].FilledBaseAssetQuantity = longOrders[i].FilledBaseAssetQuantity + int(fillAmount)
 					shortOrders[j].FilledBaseAssetQuantity = shortOrders[j].FilledBaseAssetQuantity - int(fillAmount)
+				} else {
+					log.Error("Error while executing order", "err", err, "longOrder", longOrders[i], "shortOrder", shortOrders[i], "fillAmount", fillAmount)
 				}
 			}
 		}
 	}
 }
 
-func (lop *limitOrderProcesser) RunLiquidations() (errors []error) {
-	longOrders := lop.memoryDb.GetLongOrders()
-	shortOrders := lop.memoryDb.GetShortOrders()
+func (lop *limitOrderProcesser) runLiquidations(market limitorders.Market, longOrders []limitorders.LimitOrder, shortOrders []limitorders.LimitOrder) (filteredLongOrder []limitorders.LimitOrder, filteredShortOrder []limitorders.LimitOrder) {
+	markPrice := lop.memoryDb.GetLastPrice(market)
+	var oraclePrice float64 = 20 // @todo: change this
 
-	for _, market := range limitorders.GetActiveMarkets() {
-		var markPrice float64 = 20 // last traded price
-		var oraclePrice float64 = 19
+	liquidableTraders := lop.memoryDb.GetLiquidableTraders(market, markPrice, oraclePrice)
 
-		liquidableTraders := lop.memoryDb.GetLiquidableTraders(market, markPrice, oraclePrice)
-
-		for _, liquidable := range liquidableTraders {
-			var matchedOrders []limitorders.LimitOrder
+	for _, liquidable := range liquidableTraders {
+		var matchedOrders []limitorders.LimitOrder
+		if liquidable.Size > 0 {
+			// we'll need to sell, so we need a long order to match
+			matchedOrders = longOrders
+		} else {
+			matchedOrders = shortOrders
+		}
+		if len(matchedOrders) == 0 {
+			log.Error("no matching order found for liquidation", "trader", liquidable.Address.String(), "size", liquidable.Size)
+		} else {
+			// remove the selected matched order from long and short order arrays so that the same order is not matched with multiple liquidations
 			if liquidable.Size > 0 {
-				// we'll need to sell, so we need a long order to match
-				matchedOrders = longOrders
+				longOrders = append(longOrders[:0], longOrders[1:]...) // remove 0th index element
 			} else {
-				matchedOrders = shortOrders
+				shortOrders = append(shortOrders[:0], shortOrders[1:]...) // remove 0th index element
 			}
-			if len(matchedOrders) == 0 {
-				errors = append(errors, fmt.Errorf("no matching order found for trader %s, size = %f", liquidable.Address.String(), liquidable.Size))
-				continue
-			} else {
-				// remove the selected matched order from long and short order arrays so that the same order is not matched with multiple liquidations
-				if liquidable.Size > 0 {
-					longOrders = append(longOrders[:0], longOrders[1:]...) // remove 0th index element
-				} else {
-					shortOrders = append(shortOrders[:0], shortOrders[1:]...) // remove 0th index element
-				}
-				matchedOrder := matchedOrders[0]
-				err := lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, matchedOrder)
-				if err != nil {
-					errors = append(errors, err)
-					continue
-				}
-			}
+			matchedOrder := matchedOrders[0]
+			lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, matchedOrder)
 		}
 	}
 
-	return errors
+	return longOrders, shortOrders
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
@@ -164,14 +172,13 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 			select {
 			case newChainAcceptedEvent := <-newChainChan:
 				tsHashes := []string{}
-				blockNumber := newChainAcceptedEvent.Block.Number().Uint64()
+				// blockNumber := newChainAcceptedEvent.Block.Number().Uint64()
 				for _, tx := range newChainAcceptedEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
-					if lop.limitOrderTxProcessor.CheckIfOrderBookContractCall(tx) {
-						lop.limitOrderTxProcessor.HandleOrderBookTx(tx, blockNumber, *lop.backend)
-					}
+					// if lop.limitOrderTxProcessor.CheckIfOrderBookContractCall(tx) {
+					// 	lop.limitOrderTxProcessor.HandleOrderBookTx(tx, blockNumber, *lop.backend)
+					// }
 				}
-				// @todo maintain margin amounts, open position size, open notionals for all users in memory
 				log.Info("$$$$$ New head event", "number", newChainAcceptedEvent.Block.Header().Number, "tx hashes", tsHashes,
 					"miner", newChainAcceptedEvent.Block.Coinbase().String(),
 					"root", newChainAcceptedEvent.Block.Header().Root.String(), "gas used", newChainAcceptedEvent.Block.Header().GasUsed,
@@ -193,17 +200,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case logs := <-logsCh:
-				for _, event := range logs {
-					switch event.Address {
-					case orderBookContractAddress:
-						lop.limitOrderTxProcessor.HandleOrderBookEvent(event)
-					case marginAccountContractAddress:
-						lop.limitOrderTxProcessor.HandleMarginAccountEvent(event)
-					case clearingHouseContractAddress:
-						lop.limitOrderTxProcessor.HandleClearingHouseEvent(event)
-					}
-				}
-
+				processEvents(logs, lop)
 			case <-lop.shutdownChan:
 				return
 			}
@@ -212,6 +209,27 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 
 	filterSystem := filters.NewFilterSystem(lop.backend, filters.Config{})
 	filters.NewEventSystem(filterSystem, false)
+}
+
+func processEvents(logs []*types.Log, lop *limitOrderProcesser) {
+	// sort by log index
+	sort.SliceStable(logs, func(i, j int) bool {
+		return logs[i].Index < logs[j].Index
+	})
+	for _, event := range logs {
+		if event.Removed {
+			// skip removed logs
+			continue
+		}
+		switch event.Address {
+		case orderBookContractAddress:
+			// lop.limitOrderTxProcessor.HandleOrderBookEvent(event)
+		case marginAccountContractAddress:
+			lop.limitOrderTxProcessor.HandleMarginAccountEvent(event)
+		case clearingHouseContractAddress:
+			lop.limitOrderTxProcessor.HandleClearingHouseEvent(event)
+		}
+	}
 }
 
 func getUnFilledBaseAssetQuantity(order limitorders.LimitOrder) int {

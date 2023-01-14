@@ -40,18 +40,19 @@ const (
 
 type LimitOrder struct {
 	Market
-	id                uint64
-	PositionType      string
-	UserAddress       string
-	BaseAssetQuantity int
+	id                      uint64
+	PositionType            string
+	UserAddress             string
+	BaseAssetQuantity       int
 	FilledBaseAssetQuantity int
-	Price             float64
-	Status            Status
-	Salt              string
-	Signature    []byte
-	RawOrder     interface{}
-	RawSignature interface{}
-	BlockNumber  uint64
+	Price                   float64
+	Status                  Status
+	Salt                    string
+	Signature               []byte
+	RawOrder                interface{}
+	RawSignature            interface{}
+	BlockNumber             uint64
+	Locked                  bool
 }
 
 type Position struct {
@@ -70,21 +71,24 @@ type LimitOrderDatabase interface {
 	GetAllOrders() []LimitOrder
 	Add(order *LimitOrder)
 	UpdateFilledBaseAssetQuantity(quantity uint, signature []byte)
-	GetLongOrders() []LimitOrder
-	GetShortOrders() []LimitOrder
-	UpdatePositionForOrder(signature string, fillAmount float64)
+	GetLongOrders(market Market) []LimitOrder
+	GetShortOrders(market Market) []LimitOrder
+	UpdatePosition(trader common.Address, market Market, size float64, openNotional float64)
 	UpdateMargin(trader common.Address, collateral Collateral, addAmount float64)
 	UpdateUnrealisedFunding(market Market, fundingRate float64)
 	ResetUnrealisedFunding(market Market, trader common.Address)
 	UpdateNextFundingTime()
 	GetNextFundingTime() uint64
 	GetLiquidableTraders(market Market, markPrice float64, oraclePrice float64) []Liquidable
+	UpdateLastPrice(market Market, lastPrice float64)
+	GetLastPrice(market Market) float64
 }
 
 type InMemoryDatabase struct {
 	orderMap        map[string]*LimitOrder     // signature => order
 	traderMap       map[common.Address]*Trader // address => trader info
 	nextFundingTime uint64
+	lastPrice       map[Market]float64
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
@@ -132,10 +136,10 @@ func (db *InMemoryDatabase) UpdateNextFundingTime() {
 	db.nextFundingTime = uint64(getNextHour().Unix())
 }
 
-func (db *InMemoryDatabase) GetLongOrders() []LimitOrder {
+func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 	var longOrders []LimitOrder
 	for _, order := range db.orderMap {
-		if order.PositionType == "long" {
+		if order.PositionType == "long" && order.Market == market {
 			longOrders = append(longOrders, *order)
 		}
 	}
@@ -143,10 +147,10 @@ func (db *InMemoryDatabase) GetLongOrders() []LimitOrder {
 	return longOrders
 }
 
-func (db *InMemoryDatabase) GetShortOrders() []LimitOrder {
+func (db *InMemoryDatabase) GetShortOrders(market Market) []LimitOrder {
 	var shortOrders []LimitOrder
 	for _, order := range db.orderMap {
-		if order.PositionType == "short" {
+		if order.PositionType == "short" && order.Market == market {
 			shortOrders = append(shortOrders, *order)
 		}
 	}
@@ -169,14 +173,7 @@ func (db *InMemoryDatabase) UpdateMargin(trader common.Address, collateral Colla
 	db.traderMap[trader].Margins[collateral] += addAmount
 }
 
-func (db *InMemoryDatabase) UpdatePositionForOrder(signature string, fillAmount float64) {
-	order, ok := db.orderMap[signature]
-	if !ok {
-
-	}
-
-	trader := common.HexToAddress(order.UserAddress)
-	market := order.Market
+func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market, size float64, openNotional float64) {
 	if _, ok := db.traderMap[trader]; !ok {
 		db.traderMap[trader] = &Trader{
 			Positions: map[Market]Position{},
@@ -190,18 +187,9 @@ func (db *InMemoryDatabase) UpdatePositionForOrder(signature string, fillAmount 
 
 	position := db.traderMap[trader].Positions[market]
 
-	// increase/decrease depending on the order's original amount as fillAmount may be always positive
-	positionSignBit := math.Signbit(float64(order.BaseAssetQuantity)) // returns true if qty is negative
-	var positionSign float64
-	if positionSignBit {
-		positionSign = -1
-	} else {
-		positionSign = 1
-	}
-	position.Size += math.Abs(fillAmount) * positionSign
+	position.Size = size
+	position.OpenNotional = openNotional
 	db.traderMap[trader].Positions[market] = position
-
-	// @todo: update OpenNotional also
 }
 
 func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, fundingRate float64) {
@@ -221,6 +209,14 @@ func (db *InMemoryDatabase) ResetUnrealisedFunding(market Market, trader common.
 
 func (db *InMemoryDatabase) GetAllTraders() map[common.Address]*Trader {
 	return db.traderMap
+}
+
+func (db *InMemoryDatabase) UpdateLastPrice(market Market, lastPrice float64) {
+	db.lastPrice[market] = lastPrice
+}
+
+func (db *InMemoryDatabase) GetLastPrice(market Market) float64 {
+	return db.lastPrice[market]
 }
 
 func (trader *Trader) GetNormalisedMargin() float64 {

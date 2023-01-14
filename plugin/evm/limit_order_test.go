@@ -60,7 +60,7 @@ func TestRunMatchingEngine(t *testing.T) {
 			db.On("GetLongOrders").Return(longOrders)
 			db.On("GetShortOrders").Return(shortOrders)
 			lotp.On("PurgeLocalTx").Return(nil)
-			lop.RunMatchingEngine()
+			lop.RunLiquidationsAndMatching()
 			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything, mock.Anything)
 		})
 		t.Run("Matching engine does not make call ExecuteMatchedOrders when short orders are present", func(t *testing.T) {
@@ -71,7 +71,7 @@ func TestRunMatchingEngine(t *testing.T) {
 			db.On("GetLongOrders").Return(longOrders)
 			db.On("GetShortOrders").Return(shortOrders)
 			lotp.On("PurgeLocalTx").Return(nil)
-			lop.RunMatchingEngine()
+			lop.RunLiquidationsAndMatching()
 			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything, mock.Anything)
 		})
 	})
@@ -85,7 +85,7 @@ func TestRunMatchingEngine(t *testing.T) {
 			db.On("GetLongOrders").Return(longOrders)
 			db.On("GetShortOrders").Return(shortOrders)
 			lotp.On("PurgeLocalTx").Return(nil)
-			lop.RunMatchingEngine()
+			lop.RunLiquidationsAndMatching()
 			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything, mock.Anything)
 		})
 	})
@@ -102,7 +102,7 @@ func TestRunMatchingEngine(t *testing.T) {
 			db.On("GetLongOrders").Return(longOrders)
 			db.On("GetShortOrders").Return(shortOrders)
 			lotp.On("PurgeLocalTx").Return(nil)
-			lop.RunMatchingEngine()
+			lop.RunLiquidationsAndMatching()
 			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything, mock.Anything)
 		})
 		t.Run("When price is same", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestRunMatchingEngine(t *testing.T) {
 					fillAmount2 := uint(longOrder2.BaseAssetQuantity)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount1).Return(nil)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder2, shortOrder2, fillAmount2).Return(nil)
-					lop.RunMatchingEngine()
+					lop.RunLiquidationsAndMatching()
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount1)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder2, shortOrder2, fillAmount2)
 				})
@@ -157,7 +157,7 @@ func TestRunMatchingEngine(t *testing.T) {
 					db.On("GetShortOrders").Return(shortOrders)
 					lotp.On("PurgeLocalTx").Return(nil)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder, shortOrder, fillAmount).Return(nil)
-					lop.RunMatchingEngine()
+					lop.RunLiquidationsAndMatching()
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder, shortOrder, fillAmount)
 				})
 			})
@@ -197,7 +197,7 @@ func TestRunMatchingEngine(t *testing.T) {
 				db.On("GetLongOrders").Return(longOrders)
 				db.On("GetShortOrders").Return(shortOrders)
 				lotp.On("PurgeLocalTx").Return(nil)
-				lop.RunMatchingEngine()
+				lop.RunLiquidationsAndMatching()
 
 				//During 1st  matching iteration
 				longOrder1UnfulfilledQuantity := longOrder1.BaseAssetQuantity - longOrder1.FilledBaseAssetQuantity

@@ -3,7 +3,6 @@ package limitorders
 import (
 	"fmt"
 	"math"
-	"sort"
 	"testing"
 	"time"
 
@@ -62,29 +61,6 @@ func TestGetAllOrders(t *testing.T) {
 	}
 }
 
-func TestDelete(t *testing.T) {
-	inMemoryDatabase := NewInMemoryDatabase()
-	totalOrders := uint64(5)
-	for i := uint64(0); i < totalOrders; i++ {
-		signature := []byte(fmt.Sprintf("Signature is %d", i))
-		limitOrder := createLimitOrder(i, positionType, userAddress, baseAssetQuantity, price, status, salt, signature, blockNumber)
-		inMemoryDatabase.Add(&limitOrder)
-	}
-
-	deletedOrderId := 3
-	inMemoryDatabase.Delete([]byte(fmt.Sprintf("Signature is %d", deletedOrderId)))
-	expectedReturnedOrdersIds := []int{0, 1, 2, 4}
-
-	returnedOrders := inMemoryDatabase.GetAllOrders()
-	assert.Equal(t, totalOrders-1, uint64(len(returnedOrders)))
-	var returnedOrderIds []int
-	for _, returnedOrder := range returnedOrders {
-		returnedOrderIds = append(returnedOrderIds, int(returnedOrder.id))
-	}
-	sort.Ints(returnedOrderIds)
-	assert.Equal(t, expectedReturnedOrdersIds, returnedOrderIds)
-}
-
 func TestGetShortOrders(t *testing.T) {
 	inMemoryDatabase := NewInMemoryDatabase()
 	totalLongOrders := uint64(2)
@@ -119,7 +95,7 @@ func TestGetShortOrders(t *testing.T) {
 	shortOrder3 := createLimitOrder(id3, "short", userAddress, baseAssetQuantity, price3, status, salt, signature3, blockNumber3)
 	inMemoryDatabase.Add(&shortOrder3)
 
-	returnedShortOrders := inMemoryDatabase.GetShortOrders()
+	returnedShortOrders := inMemoryDatabase.GetShortOrders(AvaxPerp)
 	assert.Equal(t, 3, len(returnedShortOrders))
 
 	for _, returnedOrder := range returnedShortOrders {
@@ -176,7 +152,7 @@ func TestGetLongOrders(t *testing.T) {
 	longOrder3 := createLimitOrder(id3, "long", userAddress, longOrderBaseAssetQuantity, price3, status, salt, signature3, blockNumber3)
 	inMemoryDatabase.Add(&longOrder3)
 
-	returnedLongOrders := inMemoryDatabase.GetLongOrders()
+	returnedLongOrders := inMemoryDatabase.GetLongOrders(AvaxPerp)
 	assert.Equal(t, 3, len(returnedLongOrders))
 
 	//Test returnedLongOrders are sorted by price highest to lowest first and then block number from lowest to highest

@@ -30,17 +30,17 @@ func (db *MockLimitOrderDatabase) UpdateFilledBaseAssetQuantity(quantity uint, s
 func (db *MockLimitOrderDatabase) Delete(signature []byte) {
 }
 
-func (db *MockLimitOrderDatabase) GetLongOrders() []limitorders.LimitOrder {
+func (db *MockLimitOrderDatabase) GetLongOrders(market limitorders.Market) []limitorders.LimitOrder {
 	args := db.Called()
 	return args.Get(0).([]limitorders.LimitOrder)
 }
 
-func (db *MockLimitOrderDatabase) GetShortOrders() []limitorders.LimitOrder {
+func (db *MockLimitOrderDatabase) GetShortOrders(market limitorders.Market) []limitorders.LimitOrder {
 	args := db.Called()
 	return args.Get(0).([]limitorders.LimitOrder)
 }
 
-func (db *MockLimitOrderDatabase) UpdatePositionForOrder(signature string, fillAmount float64) {	
+func (db *MockLimitOrderDatabase) UpdatePosition(trader common.Address, market limitorders.Market, size float64, openNotional float64) {	
 }
 
 func (db *MockLimitOrderDatabase) UpdateMargin(trader common.Address, collateral limitorders.Collateral, addAmount float64) {
@@ -61,6 +61,13 @@ func (db *MockLimitOrderDatabase) GetNextFundingTime() uint64 {
 
 func (db *MockLimitOrderDatabase) GetLiquidableTraders(market limitorders.Market, markPrice float64, oraclePrice float64) []limitorders.Liquidable {
 	return nil
+}
+
+func (db *MockLimitOrderDatabase) UpdateLastPrice(lastPrice float64) {
+}
+
+func (db *MockLimitOrderDatabase) GetLastPrice(market limitorders.Market) float64 {
+	return 0
 }
 
 type MockLimitOrderTxProcessor struct {

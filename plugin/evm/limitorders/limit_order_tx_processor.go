@@ -98,8 +98,6 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 		signature1 := args["signature1"].([]byte)
 		signature2 := args["signature2"].([]byte)
 		fillAmount := args["fillAmount"].(*big.Int).Int64()
-		lotp.memoryDb.UpdatePositionForOrder(string(signature1), float64(fillAmount))
-		lotp.memoryDb.UpdatePositionForOrder(string(signature2), float64(fillAmount))
 		lotp.memoryDb.UpdateFilledBaseAssetQuantity(uint(fillAmount), signature1)
 		lotp.memoryDb.UpdateFilledBaseAssetQuantity(uint(fillAmount), signature2)
 	}
@@ -145,6 +143,7 @@ func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 		premiumFraction := args["premiumFraction"].(int64)
 		market := Market(int(event.Topics[1].Big().Int64()))
 		lotp.memoryDb.UpdateUnrealisedFunding(Market(market), float64(premiumFraction))
+
 	case lotp.orderBookABI.Events["FundingPaid"].ID:
 		log.Info("FundingPaid event")
 		err := lotp.orderBookABI.UnpackIntoMap(args, "FundingPaid", event.Data)
@@ -154,6 +153,28 @@ func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
 		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
 		market := Market(int(event.Topics[2].Big().Int64()))
+		lotp.memoryDb.ResetUnrealisedFunding(Market(market), userAddress)
+
+	// both PositionModified and PositionLiquidated have the exact same signature
+	case lotp.orderBookABI.Events["PositionModified"].ID, lotp.orderBookABI.Events["PositionLiquidated"].ID:
+		log.Info("PositionModified event")
+		err := lotp.orderBookABI.UnpackIntoMap(args, "PositionModified", event.Data)
+		if err != nil {
+			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "PositionModified", "err", err)
+		}
+
+		market := Market(int(event.Topics[2].Big().Int64()))
+		baseAsset := args["baseAsset"].(*big.Int).Int64()
+		quoteAsset := args["quoteAsset"].(*big.Int).Int64()
+		lastPrice := float64(quoteAsset)/float64(baseAsset)
+		lotp.memoryDb.UpdateLastPrice(market, lastPrice)
+
+		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
+		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
+		openNotional := float64(args["openNotional"].(*big.Int).Int64())
+		size := float64(args["size"].(*big.Int).Int64())
+		lotp.memoryDb.UpdatePosition(userAddress, market, size, openNotional)
+
 		lotp.memoryDb.ResetUnrealisedFunding(Market(market), userAddress)
 	}
 }

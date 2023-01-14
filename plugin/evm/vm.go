@@ -610,12 +610,7 @@ func (vm *VM) buildBlock() (snowman.Block, error) {
 	} else {
 		// Place reduce position orders for accounts to be liquidated
 		// Run Matching Engine
-		errs := vm.limitOrderProcesser.RunLiquidations()
-		if errs != nil && len(errs) > 0 {
-			log.Error("Liquidation(s) failed", "errs", errs)
-		}
-
-		vm.limitOrderProcesser.RunMatchingEngine()
+		vm.limitOrderProcesser.RunLiquidationsAndMatching()
 	}
 
 	// Resume block building (untouched subnet-EVM code)
