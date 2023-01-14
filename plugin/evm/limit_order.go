@@ -2,6 +2,7 @@ package evm
 
 import (
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/ava-labs/subnet-evm/core"
@@ -29,11 +30,11 @@ type limitOrderProcesser struct {
 	shutdownWg            *sync.WaitGroup
 	backend               *eth.EthAPIBackend
 	blockChain            *core.BlockChain
-	memoryDb              *limitorders.InMemoryDatabase
-	limitOrderTxProcessor *limitorders.LimitOrderTxProcessor
+	memoryDb              limitorders.LimitOrderDatabase
+	limitOrderTxProcessor limitorders.LimitOrderTxProcessor
 }
 
-func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, memoryDb *limitorders.InMemoryDatabase, lotp *limitorders.LimitOrderTxProcessor) LimitOrderProcesser {
+func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, memoryDb limitorders.LimitOrderDatabase, lotp limitorders.LimitOrderTxProcessor) LimitOrderProcesser {
 	log.Info("**** NewLimitOrderProcesser")
 	return &limitOrderProcesser{
 		ctx:                   ctx,
@@ -88,14 +89,20 @@ func (lop *limitOrderProcesser) RunMatchingEngine() {
 	if len(longOrders) == 0 || len(shortOrders) == 0 {
 		return
 	}
-
-	for _, longOrder := range longOrders {
-		for j, shortOrder := range shortOrders {
-			if longOrder.Price == shortOrder.Price && longOrder.BaseAssetQuantity == (-shortOrder.BaseAssetQuantity) {
-				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(*longOrder, *shortOrder)
+	for i := 0; i < len(longOrders); i++ {
+		for j := 0; j < len(shortOrders); j++ {
+			if getUnFilledBaseAssetQuantity(longOrders[i]) == 0 {
+				break
+			}
+			if getUnFilledBaseAssetQuantity(shortOrders[j]) == 0 {
+				continue
+			}
+			if longOrders[i].Price == shortOrders[j].Price {
+				fillAmount := math.Abs(math.Min(float64(getUnFilledBaseAssetQuantity(longOrders[i])), float64(-(getUnFilledBaseAssetQuantity(shortOrders[j])))))
+				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(longOrders[i], shortOrders[j], uint(fillAmount))
 				if err == nil {
-					shortOrders = append(shortOrders[:j], shortOrders[j+1:]...)
-					break
+					longOrders[i].FilledBaseAssetQuantity = longOrders[i].FilledBaseAssetQuantity + int(fillAmount)
+					shortOrders[j].FilledBaseAssetQuantity = shortOrders[j].FilledBaseAssetQuantity - int(fillAmount)
 				}
 			}
 		}
@@ -160,7 +167,9 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 				blockNumber := newChainAcceptedEvent.Block.Number().Uint64()
 				for _, tx := range newChainAcceptedEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
-					lop.limitOrderTxProcessor.HandleOrderBookTx(tx, blockNumber, *lop.backend) // parse update in memory db
+					if lop.limitOrderTxProcessor.CheckIfOrderBookContractCall(tx) {
+						lop.limitOrderTxProcessor.HandleOrderBookTx(tx, blockNumber, *lop.backend)
+					}
 				}
 				// @todo maintain margin amounts, open position size, open notionals for all users in memory
 				log.Info("$$$$$ New head event", "number", newChainAcceptedEvent.Block.Header().Number, "tx hashes", tsHashes,
@@ -203,4 +212,8 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 
 	filterSystem := filters.NewFilterSystem(lop.backend, filters.Config{})
 	filters.NewEventSystem(filterSystem, false)
+}
+
+func getUnFilledBaseAssetQuantity(order limitorders.LimitOrder) int {
+	return order.BaseAssetQuantity - order.FilledBaseAssetQuantity
 }
