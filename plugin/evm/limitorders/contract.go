@@ -14,7 +14,7 @@ import (
 const gasCap = 5000000
 const maxFeePerGas = 70000000000
 
-func (lotp *LimitOrderTxProcessor) GetLastPrice(market Market) []byte {
+func (lotp *limitOrderTxProcessor) GetLastPrice(market Market) []byte {
 	from := common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")
 	nonce := hexutil.Uint64(lotp.txPool.Nonce(from))
 	// gasLimit := hexutil.Uint64(5000000)

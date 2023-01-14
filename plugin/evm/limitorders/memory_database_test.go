@@ -269,8 +269,8 @@ func createLimitOrder(id uint64, positionType string, userAddress string, baseAs
 		UserAddress:       userAddress,
 		BaseAssetQuantity: baseAssetQuantity,
 		Price:             price,
-		Status:            status,
-		Salt:              salt,
+		Status:            Status(status),
+		// Salt:              salt,
 		Signature:         signature,
 		BlockNumber:       blockNumber,
 	}

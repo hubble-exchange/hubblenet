@@ -30,6 +30,11 @@ type LimitOrderTxProcessor interface {
 	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount uint) error
 	PurgeLocalTx()
 	CheckIfOrderBookContractCall(tx *types.Transaction) bool
+	ExecuteFundingPaymentTx() error
+	ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder) error
+	HandleOrderBookEvent(event *types.Log)
+	HandleMarginAccountEvent(event *types.Log)
+	HandleClearingHouseEvent(event *types.Log)
 }
 
 type limitOrderTxProcessor struct {
@@ -48,7 +53,7 @@ type Order struct {
 	Salt              *big.Int       `json:"salt"`
 }
 
-func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb LimitOrderDatabase, orderBookContractAddress common.Address) LimitOrderTxProcessor {
+func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryDb LimitOrderDatabase, orderBookContractAddress common.Address, backend *eth.EthAPIBackend) LimitOrderTxProcessor {
 	return &limitOrderTxProcessor{
 		txPool:                   txPool,
 		orderBookABI:             orderBookABI,
@@ -58,7 +63,7 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, orderBookABI abi.ABI, memoryD
 	}
 }
 
-func (lotp *LimitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
+func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
 	case lotp.orderBookABI.Events["OrderPlaced"].ID:
@@ -105,7 +110,7 @@ func (lotp *LimitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 
 }
 
-func (lotp *LimitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log) {
+func (lotp *limitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log) {
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
 	case lotp.orderBookABI.Events["MarginAdded"].ID:
@@ -131,7 +136,7 @@ func (lotp *LimitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log) {
 	log.Info("Log found", "log_.Address", event.Address.String(), "log_.BlockNumber", event.BlockNumber, "log_.Index", event.Index, "log_.TxHash", event.TxHash.String())
 }
 
-func (lotp *LimitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
+func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
 	case lotp.orderBookABI.Events["FundingRateUpdated"].ID:
@@ -183,7 +188,7 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 				BaseAssetQuantity:       baseAssetQuantity,
 				FilledBaseAssetQuantity: 0,
 				Price:                   price,
-				Salt:                    order.Salt.Int64(),
+				// Salt:                    order.Salt.Int64(),
 				Status:                  "unfulfilled",
 				Signature:               signature,
 				BlockNumber:             blockNumber,
@@ -212,7 +217,7 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, bloc
 	}
 }
 
-func (lotp *LimitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder) error {
+func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder) error {
 	nonce := lotp.txPool.Nonce(common.HexToAddress(userAddress1)) // admin address
 
 	data, err := lotp.orderBookABI.Pack("liquidateAndExecuteOrder", trader.String(), matchedOrder.RawOrder, matchedOrder.Signature)
@@ -239,7 +244,7 @@ func (lotp *LimitOrderTxProcessor) ExecuteLiquidation(trader common.Address, mat
 	return nil
 }
 
-func (lotp *LimitOrderTxProcessor) ExecuteFundingPaymentTx() error {
+func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
 
 	nonce := lotp.txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
 

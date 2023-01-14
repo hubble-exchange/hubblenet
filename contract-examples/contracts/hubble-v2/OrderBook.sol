@@ -96,13 +96,13 @@ contract OrderBook is EIP712Upgradeable {
         positions[order2.trader].openNotional += abs(order2.baseAssetQuantity) * order2.price;
 
         // assert margin requirements
-        Order[2] memory orders = new Order[](2);
-        orders[0] = order1;
-        orders[1] = order2;
-        bytes[2] memory signatures = new bytes[](2);
-        signatures[0] = signature1;
-        signatures[1] = signature2;
-        emit OrdersMatched(orders, signatures, order1.baseAssetQuantity, msg.sender);
+        // Order[2] memory orders = new Order[](2);
+        // orders[0] = order1;
+        // orders[1] = order2;
+        // bytes[2] memory signatures = new bytes[](2);
+        // signatures[0] = signature1;
+        // signatures[1] = signature2;
+        // emit OrdersMatched(orders, signatures, order1.baseAssetQuantity, msg.sender);
     }
 
     /**

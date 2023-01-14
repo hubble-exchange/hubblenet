@@ -73,6 +73,13 @@ type LimitOrderDatabase interface {
 	Delete(signature []byte)
 	GetLongOrders() []LimitOrder
 	GetShortOrders() []LimitOrder
+	UpdatePositionForOrder(signature string, fillAmount float64)
+	UpdateMargin(trader common.Address, collateral Collateral, addAmount float64)
+	UpdateUnrealisedFunding(market Market, fundingRate float64)
+	ResetUnrealisedFunding(market Market, trader common.Address)
+	UpdateNextFundingTime()
+	GetNextFundingTime() uint64
+	GetLiquidableTraders(market Market, markPrice float64, oraclePrice float64) []Liquidable
 }
 
 type InMemoryDatabase struct {

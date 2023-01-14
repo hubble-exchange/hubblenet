@@ -4,6 +4,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -39,6 +40,29 @@ func (db *MockLimitOrderDatabase) GetShortOrders() []limitorders.LimitOrder {
 	return args.Get(0).([]limitorders.LimitOrder)
 }
 
+func (db *MockLimitOrderDatabase) UpdatePositionForOrder(signature string, fillAmount float64) {	
+}
+
+func (db *MockLimitOrderDatabase) UpdateMargin(trader common.Address, collateral limitorders.Collateral, addAmount float64) {
+}
+
+func (db *MockLimitOrderDatabase) UpdateUnrealisedFunding(market limitorders.Market, fundingRate float64) {
+}
+
+func (db *MockLimitOrderDatabase) ResetUnrealisedFunding(market limitorders.Market, trader common.Address) {
+}
+
+func (db *MockLimitOrderDatabase) UpdateNextFundingTime() {
+}
+
+func (db *MockLimitOrderDatabase) GetNextFundingTime() uint64 {
+	return 0
+}
+
+func (db *MockLimitOrderDatabase) GetLiquidableTraders(market limitorders.Market, markPrice float64, oraclePrice float64) []limitorders.Liquidable {
+	return nil
+}
+
 type MockLimitOrderTxProcessor struct {
 	mock.Mock
 }
@@ -61,4 +85,21 @@ func (lotp *MockLimitOrderTxProcessor) PurgeLocalTx() {
 
 func (lotp *MockLimitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transaction) bool {
 	return true
+}
+
+func (lotp *MockLimitOrderTxProcessor) ExecuteFundingPaymentTx() error {
+	return nil
+}
+
+func (lotp *MockLimitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder limitorders.LimitOrder) error {
+	return nil
+}
+
+func (lotp *MockLimitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
+}
+
+func (lotp *MockLimitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log) {
+}
+
+func (lotp *MockLimitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 }

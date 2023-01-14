@@ -120,7 +120,7 @@ func (lop *limitOrderProcesser) RunLiquidations() (errors []error) {
 		liquidableTraders := lop.memoryDb.GetLiquidableTraders(market, markPrice, oraclePrice)
 
 		for _, liquidable := range liquidableTraders {
-			var matchedOrders []*limitorders.LimitOrder
+			var matchedOrders []limitorders.LimitOrder
 			if liquidable.Size > 0 {
 				// we'll need to sell, so we need a long order to match
 				matchedOrders = longOrders
@@ -138,7 +138,7 @@ func (lop *limitOrderProcesser) RunLiquidations() (errors []error) {
 					shortOrders = append(shortOrders[:0], shortOrders[1:]...) // remove 0th index element
 				}
 				matchedOrder := matchedOrders[0]
-				err := lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, *matchedOrder)
+				err := lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, matchedOrder)
 				if err != nil {
 					errors = append(errors, err)
 					continue

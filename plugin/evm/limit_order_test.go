@@ -265,8 +265,7 @@ func createLimitOrder(positionType string, userAddress string, baseAssetQuantity
 		UserAddress:       userAddress,
 		BaseAssetQuantity: baseAssetQuantity,
 		Price:             price,
-		Status:            status,
-		Salt:              salt,
+		Status:            limitorders.Status(status),
 		Signature:         signature,
 		BlockNumber:       blockNumber,
 	}
