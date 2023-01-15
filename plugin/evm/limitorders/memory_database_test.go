@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -238,6 +239,122 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 	})
 }
 
+func TestUpdatePosition(t *testing.T) {
+	t.Run("When no positions exists for trader, it updates trader map with new positions", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+		var market Market = 1
+		size := 20.00
+		openNotional := 200.00
+		inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+		position := inMemoryDatabase.traderMap[address].Positions[market]
+		assert.Equal(t, size, position.Size)
+		assert.Equal(t, openNotional, position.OpenNotional)
+	})
+	t.Run("When positions exists for trader, it overwrites old positions with new data", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+		var market Market = 1
+		size := 20.00
+		openNotional := 200.00
+		inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+
+		newSize := 25.00
+		newOpenNotional := 250.00
+		inMemoryDatabase.UpdatePosition(address, market, newSize, newOpenNotional)
+		position := inMemoryDatabase.traderMap[address].Positions[market]
+		assert.Equal(t, newSize, position.Size)
+		assert.Equal(t, newOpenNotional, position.OpenNotional)
+	})
+}
+
+func TestUpdateMargin(t *testing.T) {
+	t.Run("when adding margin for first time it updates margin in tradermap", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+		var collateral Collateral = 1
+		amount := 20.00
+		inMemoryDatabase.UpdateMargin(address, collateral, amount)
+		margin := inMemoryDatabase.traderMap[address].Margins[collateral]
+		assert.Equal(t, amount, margin)
+	})
+	t.Run("When more margin is added, it updates margin in tradermap", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+		var collateral Collateral = 1
+		amount := 20.00
+		inMemoryDatabase.UpdateMargin(address, collateral, amount)
+
+		removedMargin := 15.00
+		inMemoryDatabase.UpdateMargin(address, collateral, removedMargin)
+		margin := inMemoryDatabase.traderMap[address].Margins[collateral]
+		assert.Equal(t, amount+removedMargin, margin)
+	})
+	t.Run("When margin is removed, it updates margin in tradermap", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+		var collateral Collateral = 1
+		amount := 20.00
+		inMemoryDatabase.UpdateMargin(address, collateral, amount)
+
+		removedMargin := 15.00
+		inMemoryDatabase.UpdateMargin(address, collateral, -removedMargin)
+		margin := inMemoryDatabase.traderMap[address].Margins[collateral]
+		assert.Equal(t, amount-removedMargin, margin)
+	})
+}
+
+func TestUpdateUnrealizedFunding(t *testing.T) {
+	t.Run("When trader has no positions, it does not update anything", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+		var market Market = 1
+		fundingRate := 0.01
+		trader := inMemoryDatabase.traderMap[address]
+		inMemoryDatabase.UpdateUnrealisedFunding(market, fundingRate)
+		updatedTrader := inMemoryDatabase.traderMap[address]
+		assert.Equal(t, trader, updatedTrader)
+	})
+	t.Run("When trader has positions", func(t *testing.T) {
+		t.Run("when unrealized funding is zero, it updates unrealized funding in trader's positions", func(t *testing.T) {
+			inMemoryDatabase := NewInMemoryDatabase()
+			addresses := [2]common.Address{common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"), common.HexToAddress("0x710bf5F942331874dcBC7783319123679033b63b")}
+			var market Market = 1
+			openNotional := 200.00
+			for i, address := range addresses {
+				iterator := float64(i + 1)
+				size := 20.00 * iterator
+				inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+			}
+			fundingRate := 0.01
+			inMemoryDatabase.UpdateUnrealisedFunding(market, fundingRate)
+			for _, address := range addresses {
+				unrealizedFunding := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
+				size := inMemoryDatabase.traderMap[address].Positions[market].Size
+				expectedUnrealizedFunding := fundingRate * size
+				assert.Equal(t, expectedUnrealizedFunding, unrealizedFunding)
+			}
+		})
+		t.Run("when unrealized funding is not zero, it adds new funding to old unrealized funding in trader's positions", func(t *testing.T) {
+			inMemoryDatabase := NewInMemoryDatabase()
+			address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+			var market Market = 1
+			openNotional := 200.00
+			size := 20.00
+			inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+			fundingRate := 0.01
+			inMemoryDatabase.UpdateUnrealisedFunding(market, fundingRate)
+			oldUnrealizedFunding := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
+
+			newFundingRate := -0.05
+			inMemoryDatabase.UpdateUnrealisedFunding(market, newFundingRate)
+			newUnrealizedFunding := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
+			expectedUnrealizedFunding := oldUnrealizedFunding + newFundingRate*size
+			assert.Equal(t, expectedUnrealizedFunding, newUnrealizedFunding)
+		})
+	})
+}
+
 func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity int, price float64, status string, salt int64, signature []byte, blockNumber uint64) LimitOrder {
 	return LimitOrder{
 		id:                id,
@@ -247,7 +364,7 @@ func createLimitOrder(id uint64, positionType string, userAddress string, baseAs
 		Price:             price,
 		Status:            Status(status),
 		// Salt:              salt,
-		Signature:         signature,
-		BlockNumber:       blockNumber,
+		Signature:   signature,
+		BlockNumber: blockNumber,
 	}
 }
