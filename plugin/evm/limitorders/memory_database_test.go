@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -372,6 +373,40 @@ func TestResetUnrealisedFunding(t *testing.T) {
 		unrealizedFundingFee := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
 		assert.Equal(t, float64(0), unrealizedFundingFee)
 	})
+}
+
+func TestUpdateNextFundingTime(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	inMemoryDatabase.UpdateNextFundingTime()
+	nextHour := time.Now().UTC().Round(time.Hour)
+	if time.Since(nextHour) >= 0 {
+		nextHour = nextHour.Add(time.Hour)
+	}
+	assert.Equal(t, uint64(nextHour.Unix()), inMemoryDatabase.nextFundingTime)
+}
+
+func TestGetNextFundingTime(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	nextHour := time.Now().UTC().Round(time.Hour)
+	if time.Since(nextHour) >= 0 {
+		nextHour = nextHour.Add(time.Hour)
+	}
+	assert.Equal(t, uint64(nextHour.Unix()), inMemoryDatabase.GetNextFundingTime())
+}
+
+func TestUpdateLastPrice(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	var market Market = 1
+	lastPrice := 20.01
+	inMemoryDatabase.UpdateLastPrice(market, lastPrice)
+	assert.Equal(t, lastPrice, inMemoryDatabase.lastPrice[market])
+}
+func TestGetLastPrice(t *testing.T) {
+	inMemoryDatabase := NewInMemoryDatabase()
+	var market Market = 1
+	lastPrice := 20.01
+	inMemoryDatabase.UpdateLastPrice(market, lastPrice)
+	assert.Equal(t, lastPrice, inMemoryDatabase.GetLastPrice(market))
 }
 
 func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity int, price float64, status Status, signature []byte, blockNumber uint64) LimitOrder {
