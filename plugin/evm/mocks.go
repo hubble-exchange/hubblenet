@@ -63,7 +63,7 @@ func (db *MockLimitOrderDatabase) GetLiquidableTraders(market limitorders.Market
 	return nil
 }
 
-func (db *MockLimitOrderDatabase) UpdateLastPrice(lastPrice float64) {
+func (db *MockLimitOrderDatabase) UpdateLastPrice(market limitorders.Market,lastPrice float64) {
 }
 
 func (db *MockLimitOrderDatabase) GetLastPrice(market limitorders.Market) float64 {
