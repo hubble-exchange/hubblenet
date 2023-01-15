@@ -355,6 +355,31 @@ func TestUpdateUnrealizedFunding(t *testing.T) {
 	})
 }
 
+func TestResetUnrealisedFunding(t *testing.T) {
+	t.Run("When trader has no positions, it does not update anything", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+		var market Market = 1
+		trader := inMemoryDatabase.traderMap[address]
+		inMemoryDatabase.ResetUnrealisedFunding(market, address)
+		updatedTrader := inMemoryDatabase.traderMap[address]
+		assert.Equal(t, trader, updatedTrader)
+	})
+	t.Run("When trader has positions, it resets unrealized funding to zero", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+		var market Market = 1
+		openNotional := 200.00
+		size := 20.00
+		inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+		fundingRate := 0.01
+		inMemoryDatabase.UpdateUnrealisedFunding(market, fundingRate)
+		inMemoryDatabase.ResetUnrealisedFunding(market, address)
+		unrealizedFundingFee := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
+		assert.Equal(t, float64(0), unrealizedFundingFee)
+	})
+}
+
 func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity int, price float64, status string, salt int64, signature []byte, blockNumber uint64) LimitOrder {
 	return LimitOrder{
 		id:                id,

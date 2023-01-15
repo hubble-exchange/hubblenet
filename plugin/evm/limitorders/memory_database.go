@@ -202,9 +202,13 @@ func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, fundingRate f
 }
 
 func (db *InMemoryDatabase) ResetUnrealisedFunding(market Market, trader common.Address) {
-	position := db.traderMap[trader].Positions[market]
-	position.UnrealisedFunding = 0
-	db.traderMap[trader].Positions[market] = position
+	if db.traderMap[trader] != nil {
+		if _, ok := db.traderMap[trader].Positions[market]; ok {
+			position := db.traderMap[trader].Positions[market]
+			position.UnrealisedFunding = 0
+			db.traderMap[trader].Positions[market] = position
+		}
+	}
 }
 
 func (db *InMemoryDatabase) GetAllTraders() map[common.Address]*Trader {
