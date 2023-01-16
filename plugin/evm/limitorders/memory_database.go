@@ -56,9 +56,10 @@ type LimitOrder struct {
 }
 
 type Position struct {
-	OpenNotional      float64
-	Size              float64
-	UnrealisedFunding float64
+	OpenNotional        float64
+	Size                float64
+	UnrealisedFunding   float64
+	LastPremiumFraction float64
 }
 
 type Trader struct {
@@ -75,8 +76,8 @@ type LimitOrderDatabase interface {
 	GetShortOrders(market Market) []LimitOrder
 	UpdatePosition(trader common.Address, market Market, size float64, openNotional float64)
 	UpdateMargin(trader common.Address, collateral Collateral, addAmount float64)
-	UpdateUnrealisedFunding(market Market, fundingRate float64)
-	ResetUnrealisedFunding(market Market, trader common.Address)
+	UpdateUnrealisedFunding(market Market, cumulativePremiumFraction float64)
+	ResetUnrealisedFunding(market Market, trader common.Address, cumulativePremiumFraction float64)
 	UpdateNextFundingTime()
 	GetNextFundingTime() uint64
 	GetLiquidableTraders(market Market, markPrice float64, oraclePrice float64) []Liquidable
@@ -196,22 +197,22 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 	db.traderMap[trader].Positions[market] = position
 }
 
-func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, fundingRate float64) {
+func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, cumulativePremiumFraction float64) {
 	for addr, trader := range db.traderMap {
 		position := trader.Positions[market]
-		newFunding := position.Size * fundingRate
-		position.UnrealisedFunding = trader.Positions[market].UnrealisedFunding + newFunding
+		position.UnrealisedFunding = (cumulativePremiumFraction - position.LastPremiumFraction) * position.Size
 		db.traderMap[addr].Positions[market] = position
 	}
 }
 
-func (db *InMemoryDatabase) ResetUnrealisedFunding(market Market, trader common.Address) {
+func (db *InMemoryDatabase) ResetUnrealisedFunding(market Market, trader common.Address, cumulativePremiumFraction float64) {
 	if db.traderMap[trader] != nil {
 		if _, ok := db.traderMap[trader].Positions[market]; ok {
 			position := db.traderMap[trader].Positions[market]
 			position.UnrealisedFunding = 0
+			position.LastPremiumFraction = cumulativePremiumFraction
 			db.traderMap[trader].Positions[market] = position
-		}
+				}
 	}
 }
 

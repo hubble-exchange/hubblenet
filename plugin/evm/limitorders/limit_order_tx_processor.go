@@ -126,7 +126,16 @@ func (lotp *limitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log) {
 		collateral := event.Topics[2].Big()
 		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
 		lotp.memoryDb.UpdateMargin(userAddress, Collateral(collateral.Int64()), -1*float64(args["amount"].(int)))
+	case lotp.orderBookABI.Events["PnLRealized"].ID:
+		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
+		err := lotp.orderBookABI.UnpackIntoMap(args, "PnLRealized", event.Data)
+		if err != nil {
+			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "PnLRealized", "err", err)
+		}
+		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
+		realisedPnL := float64(args["realizedPnl"].(*big.Int).Int64())
 
+		lotp.memoryDb.UpdateMargin(userAddress, USDC, realisedPnL)
 	}
 	log.Info("Log found", "log_.Address", event.Address.String(), "log_.BlockNumber", event.BlockNumber, "log_.Index", event.Index, "log_.TxHash", event.TxHash.String())
 }
@@ -140,9 +149,9 @@ func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 		if err != nil {
 			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "FundingRateUpdated", "err", err)
 		}
-		premiumFraction := args["premiumFraction"].(int64)
+		cumulativePremiumFraction := args["cumulativePremiumFraction"].(*big.Int)
 		market := Market(int(event.Topics[1].Big().Int64()))
-		lotp.memoryDb.UpdateUnrealisedFunding(Market(market), float64(premiumFraction))
+		lotp.memoryDb.UpdateUnrealisedFunding(Market(market), float64(cumulativePremiumFraction.Int64()))
 
 	case lotp.orderBookABI.Events["FundingPaid"].ID:
 		log.Info("FundingPaid event")
@@ -153,7 +162,8 @@ func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
 		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
 		market := Market(int(event.Topics[2].Big().Int64()))
-		lotp.memoryDb.ResetUnrealisedFunding(Market(market), userAddress)
+		cumulativePremiumFraction := args["cumulativePremiumFraction"].(*big.Int)
+		lotp.memoryDb.ResetUnrealisedFunding(Market(market), userAddress, float64(cumulativePremiumFraction.Int64()))
 
 	// both PositionModified and PositionLiquidated have the exact same signature
 	case lotp.orderBookABI.Events["PositionModified"].ID, lotp.orderBookABI.Events["PositionLiquidated"].ID:
@@ -174,8 +184,6 @@ func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 		openNotional := float64(args["openNotional"].(*big.Int).Int64())
 		size := float64(args["size"].(*big.Int).Int64())
 		lotp.memoryDb.UpdatePosition(userAddress, market, size, openNotional)
-
-		lotp.memoryDb.ResetUnrealisedFunding(Market(market), userAddress)
 	}
 }
 
