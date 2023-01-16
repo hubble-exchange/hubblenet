@@ -32,7 +32,6 @@ var collateralWeightMap map[Collateral]float64 = map[Collateral]float64{USDC: 1,
 type Status string
 
 const (
-	Open        = "open"
 	Unfulfilled = "unfulfilled"
 	Fulfilled   = "fulfilled"
 	Cancelled   = "cancelled"
@@ -52,7 +51,10 @@ type LimitOrder struct {
 	RawOrder                interface{}
 	RawSignature            interface{}
 	BlockNumber             uint64
-	Locked                  bool
+}
+
+func (order LimitOrder) GetUnFilledBaseAssetQuantity() int {
+	return order.BaseAssetQuantity - order.FilledBaseAssetQuantity
 }
 
 type Position struct {
@@ -78,9 +80,9 @@ type LimitOrderDatabase interface {
 	UpdateMargin(trader common.Address, collateral Collateral, addAmount float64)
 	UpdateUnrealisedFunding(market Market, cumulativePremiumFraction float64)
 	ResetUnrealisedFunding(market Market, trader common.Address, cumulativePremiumFraction float64)
-	UpdateNextFundingTime()
+	UpdateNextFundingTime(nextFundingTime uint64)
 	GetNextFundingTime() uint64
-	GetLiquidableTraders(market Market, markPrice float64, oraclePrice float64) []Liquidable
+	GetLiquidableTraders(market Market, oraclePrice float64) (longPositions []Liquidable, shortPositions []Liquidable)
 	UpdateLastPrice(market Market, lastPrice float64)
 	GetLastPrice(market Market) float64
 }
@@ -137,8 +139,8 @@ func (db *InMemoryDatabase) GetNextFundingTime() uint64 {
 	return db.nextFundingTime
 }
 
-func (db *InMemoryDatabase) UpdateNextFundingTime() {
-	db.nextFundingTime = uint64(getNextHour().Unix())
+func (db *InMemoryDatabase) UpdateNextFundingTime(nextFundingTime uint64) {
+	db.nextFundingTime = nextFundingTime
 }
 
 func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {

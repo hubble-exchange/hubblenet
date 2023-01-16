@@ -78,9 +78,6 @@ func NewMockLimitOrderTxProcessor() *MockLimitOrderTxProcessor {
 	return &MockLimitOrderTxProcessor{}
 }
 
-func (lotp *MockLimitOrderTxProcessor) HandleOrderBookTx(tx *types.Transaction, blockNumber uint64, backend eth.EthAPIBackend) {
-}
-
 func (lotp *MockLimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder limitorders.LimitOrder, matchedOrder limitorders.LimitOrder, fillAmount uint) error {
 	args := lotp.Called(incomingOrder, matchedOrder, fillAmount)
 	return args.Error(0)

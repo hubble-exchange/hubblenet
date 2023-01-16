@@ -128,30 +128,45 @@ func (lop *limitOrderProcesser) runMatchingEngine(longOrders []limitorders.Limit
 }
 
 func (lop *limitOrderProcesser) runLiquidations(market limitorders.Market, longOrders []limitorders.LimitOrder, shortOrders []limitorders.LimitOrder) (filteredLongOrder []limitorders.LimitOrder, filteredShortOrder []limitorders.LimitOrder) {
-	markPrice := lop.memoryDb.GetLastPrice(market)
 	var oraclePrice float64 = 20 // @todo: change this
 
-	liquidableTraders := lop.memoryDb.GetLiquidableTraders(market, markPrice, oraclePrice)
+	longPositions, shortPositions := lop.memoryDb.GetLiquidableTraders(market, oraclePrice)
 
-	for _, liquidable := range liquidableTraders {
-		var matchedOrders []limitorders.LimitOrder
-		if liquidable.Size > 0 {
-			// we'll need to sell, so we need a long order to match
-			matchedOrders = longOrders
-		} else {
-			matchedOrders = shortOrders
-		}
-		if len(matchedOrders) == 0 {
+	for i, liquidable := range longPositions {
+		if len(shortOrders) == 0 {
 			log.Error("no matching order found for liquidation", "trader", liquidable.Address.String(), "size", liquidable.Size)
-		} else {
-			// remove the selected matched order from long and short order arrays so that the same order is not matched with multiple liquidations
-			if liquidable.Size > 0 {
-				longOrders = append(longOrders[:0], longOrders[1:]...) // remove 0th index element
-			} else {
-				shortOrders = append(shortOrders[:0], shortOrders[1:]...) // remove 0th index element
+			continue // so that all other liquidable positions get logged
+		}
+		for j, shortOrder := range shortOrders {
+			if liquidable.GetUnfilledSize() == 0 {
+				break
 			}
-			matchedOrder := matchedOrders[0]
-			lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, matchedOrder)
+			fillAmount := uint(math.Min(math.Abs(liquidable.GetUnfilledSize()), math.Abs(float64(shortOrder.GetUnFilledBaseAssetQuantity()))))
+			if fillAmount == 0 {
+				continue
+			}
+			lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, shortOrder, fillAmount)
+			shortOrders[j].FilledBaseAssetQuantity = shortOrders[j].FilledBaseAssetQuantity - int(fillAmount)
+			longPositions[i].FilledSize = longPositions[i].FilledSize + float64(fillAmount)
+		}
+	}
+
+	for i, liquidable := range shortPositions {
+		if len(longOrders) == 0 {
+			log.Error("no matching order found for liquidation", "trader", liquidable.Address.String(), "size", liquidable.Size)
+			continue // so that all other liquidable positions get logged
+		}
+		for j, longOrder := range longOrders {
+			if liquidable.GetUnfilledSize() == 0 {
+				break
+			}
+			fillAmount := uint(math.Min(math.Abs(liquidable.GetUnfilledSize()), math.Abs(float64(longOrder.GetUnFilledBaseAssetQuantity()))))
+			if fillAmount == 0 {
+				continue
+			}
+			lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, longOrder, fillAmount)
+			longOrders[j].FilledBaseAssetQuantity = longOrders[j].FilledBaseAssetQuantity + int(fillAmount)
+			shortPositions[i].FilledSize = shortPositions[i].FilledSize - float64(fillAmount)
 		}
 	}
 
@@ -222,11 +237,11 @@ func processEvents(logs []*types.Log, lop *limitOrderProcesser) {
 			continue
 		}
 		switch event.Address {
-		case orderBookContractAddress:
-			// lop.limitOrderTxProcessor.HandleOrderBookEvent(event)
-		case marginAccountContractAddress:
+		case limitorders.OrderBookContractAddress:
+			lop.limitOrderTxProcessor.HandleOrderBookEvent(event)
+		case limitorders.MarginAccountContractAddress:
 			lop.limitOrderTxProcessor.HandleMarginAccountEvent(event)
-		case clearingHouseContractAddress:
+		case limitorders.ClearingHouseContractAddress:
 			lop.limitOrderTxProcessor.HandleClearingHouseEvent(event)
 		}
 	}

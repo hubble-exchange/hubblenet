@@ -14,11 +14,17 @@ type Liquidable struct {
 	Address        common.Address
 	Size           float64
 	MarginFraction float64
+	FilledSize     float64
 }
 
-func (db *InMemoryDatabase) GetLiquidableTraders(market Market, markPrice float64, oraclePrice float64) []Liquidable {
+func (liq Liquidable) GetUnfilledSize() float64 {
+	return liq.Size - liq.FilledSize
+}
 
-	toLiquidate := []Liquidable{}
+func (db *InMemoryDatabase) GetLiquidableTraders(market Market, oraclePrice float64) (longPositions []Liquidable, shortPositions []Liquidable) {
+	longPositions = []Liquidable{}
+	shortPositions = []Liquidable{}
+	markPrice := db.lastPrice[market]
 
 	overSpreadLimit := isOverSpreadLimit(markPrice, oraclePrice)
 
@@ -49,19 +55,33 @@ func (db *InMemoryDatabase) GetLiquidableTraders(market Market, markPrice float6
 		}
 
 		if marginFraction < maintenanceMargin {
-			toLiquidate = append(toLiquidate, Liquidable{
-				Address:        addr,
-				Size:           position.Size,
-				MarginFraction: marginFraction,
-			})
+			if position.Size < 0 {
+				shortPositions = append(shortPositions, Liquidable{
+					Address:        addr,
+					Size:           position.Size,
+					MarginFraction: marginFraction,
+					FilledSize:     0,
+				})
+			} else {
+				longPositions = append(longPositions, Liquidable{
+					Address:        addr,
+					Size:           position.Size,
+					MarginFraction: marginFraction,
+					FilledSize:     0,
+				})
+
+			}
 		}
 	}
 
 	// lower margin fraction positions should be liquidated first
-	sort.Slice(toLiquidate, func(i, j int) bool {
-		return toLiquidate[i].MarginFraction < toLiquidate[j].MarginFraction
+	sort.Slice(longPositions, func(i, j int) bool {
+		return longPositions[i].MarginFraction < longPositions[j].MarginFraction
 	})
-	return toLiquidate
+	sort.Slice(shortPositions, func(i, j int) bool {
+		return shortPositions[i].MarginFraction < shortPositions[j].MarginFraction
+	})
+	return longPositions, shortPositions
 }
 
 func isOverSpreadLimit(markPrice float64, oraclePrice float64) bool {
