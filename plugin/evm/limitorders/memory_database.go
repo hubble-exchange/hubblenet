@@ -197,9 +197,11 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 }
 
 func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, cumulativePremiumFraction *big.Int) {
-	for addr, trader := range db.traderMap {
+	for _, trader := range db.traderMap {
 		position := trader.Positions[market]
-		db.traderMap[addr].Positions[market].UnrealisedFunding = big.NewInt(0).Div(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, position.LastPremiumFraction), position.Size), BASE_PRECISION)
+		if position != nil {
+			position.UnrealisedFunding = big.NewInt(0).Div(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, position.LastPremiumFraction), position.Size), BASE_PRECISION)
+		}
 	}
 }
 
