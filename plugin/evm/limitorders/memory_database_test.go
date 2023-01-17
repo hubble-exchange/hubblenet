@@ -3,6 +3,7 @@ package limitorders
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"testing"
 	"time"
 
@@ -180,10 +181,11 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			limitOrder := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber)
 			inMemoryDatabase.Add(&limitOrder)
 
-			filledQuantity := uint(2)
+			filledQuantity := big.NewInt(2)
 			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, signature)
 			updatedLimitOrder := inMemoryDatabase.orderMap[string(signature)]
 
+			assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, big.NewInt(0).Neg(filledQuantity))
 			assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, -int(filledQuantity))
 		})
 		t.Run("When order type is long order", func(t *testing.T) {
@@ -195,7 +197,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			limitOrder := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber)
 			inMemoryDatabase.Add(&limitOrder)
 
-			filledQuantity := uint(2)
+			filledQuantity := big.NewInt(2)
 			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, signature)
 			updatedLimitOrder := inMemoryDatabase.orderMap[string(signature)]
 
@@ -210,7 +212,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			limitOrder := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber)
 			inMemoryDatabase.Add(&limitOrder)
 
-			filledQuantity := uint(math.Abs(float64(limitOrder.BaseAssetQuantity)))
+			filledQuantity := big.NewInt(0).Abs(limitOrder.BaseAssetQuantity)
 			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, signature)
 			allOrders := inMemoryDatabase.GetAllOrders()
 
@@ -225,7 +227,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			limitOrder := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber)
 			inMemoryDatabase.Add(&limitOrder)
 
-			filledQuantity := uint(math.Abs(float64(limitOrder.BaseAssetQuantity)))
+			filledQuantity := big.NewInt(0).Abs(limitOrder.BaseAssetQuantity)
 			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, signature)
 			allOrders := inMemoryDatabase.GetAllOrders()
 
@@ -239,8 +241,8 @@ func TestUpdatePosition(t *testing.T) {
 		inMemoryDatabase := NewInMemoryDatabase()
 		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
 		var market Market = 1
-		size := 20.00
-		openNotional := 200.00
+		size := big.NewInt( 20.00)
+		openNotional := big.NewInt(200.00)
 		inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
 		position := inMemoryDatabase.traderMap[address].Positions[market]
 		assert.Equal(t, size, position.Size)
@@ -250,12 +252,12 @@ func TestUpdatePosition(t *testing.T) {
 		inMemoryDatabase := NewInMemoryDatabase()
 		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
 		var market Market = 1
-		size := 20.00
-		openNotional := 200.00
+		size := big.NewInt(20.00)
+		openNotional := big.NewInt(200.00)
 		inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
 
-		newSize := 25.00
-		newOpenNotional := 250.00
+		newSize := big.NewInt(25.00)
+		newOpenNotional := big.NewInt(250.00)
 		inMemoryDatabase.UpdatePosition(address, market, newSize, newOpenNotional)
 		position := inMemoryDatabase.traderMap[address].Positions[market]
 		assert.Equal(t, newSize, position.Size)
@@ -268,7 +270,7 @@ func TestUpdateMargin(t *testing.T) {
 		inMemoryDatabase := NewInMemoryDatabase()
 		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
 		var collateral Collateral = 1
-		amount := 20.00
+		amount := big.NewInt(20.00)
 		inMemoryDatabase.UpdateMargin(address, collateral, amount)
 		margin := inMemoryDatabase.traderMap[address].Margins[collateral]
 		assert.Equal(t, amount, margin)
@@ -277,10 +279,10 @@ func TestUpdateMargin(t *testing.T) {
 		inMemoryDatabase := NewInMemoryDatabase()
 		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
 		var collateral Collateral = 1
-		amount := 20.00
+		amount := big.NewInt(20.00)
 		inMemoryDatabase.UpdateMargin(address, collateral, amount)
 
-		removedMargin := 15.00
+		removedMargin := big.NewInt(15.00)
 		inMemoryDatabase.UpdateMargin(address, collateral, removedMargin)
 		margin := inMemoryDatabase.traderMap[address].Margins[collateral]
 		assert.Equal(t, amount+removedMargin, margin)
@@ -289,11 +291,11 @@ func TestUpdateMargin(t *testing.T) {
 		inMemoryDatabase := NewInMemoryDatabase()
 		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
 		var collateral Collateral = 1
-		amount := 20.00
+		amount := big.NewInt(20.00)
 		inMemoryDatabase.UpdateMargin(address, collateral, amount)
 
-		removedMargin := 15.00
-		inMemoryDatabase.UpdateMargin(address, collateral, -removedMargin)
+		removedMargin := big.NewInt(-15.00)
+		inMemoryDatabase.UpdateMargin(address, collateral, removedMargin)
 		margin := inMemoryDatabase.traderMap[address].Margins[collateral]
 		assert.Equal(t, amount-removedMargin, margin)
 	})
@@ -304,7 +306,7 @@ func TestUpdateUnrealizedFunding(t *testing.T) {
 		inMemoryDatabase := NewInMemoryDatabase()
 		address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
 		var market Market = 1
-		fundingRate := 0.01
+		fundingRate := big.NewInt(2)
 		trader := inMemoryDatabase.traderMap[address]
 		inMemoryDatabase.UpdateUnrealisedFunding(market, fundingRate)
 		updatedTrader := inMemoryDatabase.traderMap[address]
@@ -315,18 +317,18 @@ func TestUpdateUnrealizedFunding(t *testing.T) {
 			inMemoryDatabase := NewInMemoryDatabase()
 			addresses := [2]common.Address{common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"), common.HexToAddress("0x710bf5F942331874dcBC7783319123679033b63b")}
 			var market Market = 1
-			openNotional := 200.00
+			openNotional := big.NewInt(200.00)
 			for i, address := range addresses {
-				iterator := float64(i + 1)
-				size := 20.00 * iterator
+				iterator := i + 1
+				size := big.NewInt(int64(20 * iterator))
 				inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
 			}
-			fundingRate := 0.01
+			fundingRate := big.NewInt(2)
 			inMemoryDatabase.UpdateUnrealisedFunding(market, fundingRate)
 			for _, address := range addresses {
 				unrealizedFunding := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
 				size := inMemoryDatabase.traderMap[address].Positions[market].Size
-				expectedUnrealizedFunding := fundingRate * size
+				expectedUnrealizedFunding := big.NewInt(0).Mul(fundingRate, size)
 				assert.Equal(t, expectedUnrealizedFunding, unrealizedFunding)
 			}
 		})
@@ -334,17 +336,17 @@ func TestUpdateUnrealizedFunding(t *testing.T) {
 			inMemoryDatabase := NewInMemoryDatabase()
 			address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
 			var market Market = 1
-			openNotional := 200.00
-			size := 20.00
+			openNotional :=  big.NewInt(200.00)
+			size := big.NewInt(20.00)
 			inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
-			fundingRate := 0.01
+			fundingRate := big.NewInt(2)
 			inMemoryDatabase.UpdateUnrealisedFunding(market, fundingRate)
 			oldUnrealizedFunding := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
 
-			newFundingRate := -0.05
+			newFundingRate := big.NewInt(-1)
 			inMemoryDatabase.UpdateUnrealisedFunding(market, newFundingRate)
 			newUnrealizedFunding := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
-			expectedUnrealizedFunding := oldUnrealizedFunding + newFundingRate*size
+			expectedUnrealizedFunding := big.NewInt(0).Add( big.NewInt(0).Mul(newFundingRate, size), oldUnrealizedFunding)
 			assert.Equal(t, expectedUnrealizedFunding, newUnrealizedFunding)
 		})
 	})
@@ -397,14 +399,14 @@ func TestGetNextFundingTime(t *testing.T) {
 func TestUpdateLastPrice(t *testing.T) {
 	inMemoryDatabase := NewInMemoryDatabase()
 	var market Market = 1
-	lastPrice := 20.01
+	lastPrice := big.NewInt(20)
 	inMemoryDatabase.UpdateLastPrice(market, lastPrice)
 	assert.Equal(t, lastPrice, inMemoryDatabase.lastPrice[market])
 }
 func TestGetLastPrice(t *testing.T) {
 	inMemoryDatabase := NewInMemoryDatabase()
 	var market Market = 1
-	lastPrice := 20.01
+	lastPrice := big.NewInt(20)
 	inMemoryDatabase.UpdateLastPrice(market, lastPrice)
 	assert.Equal(t, lastPrice, inMemoryDatabase.GetLastPrice(market))
 }

@@ -38,11 +38,11 @@ func SetOrderBookContractFileLocation(location string) {
 }
 
 type LimitOrderTxProcessor interface {
-	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount uint) error
+	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount *big.Int) error
 	PurgeLocalTx()
 	CheckIfOrderBookContractCall(tx *types.Transaction) bool
 	ExecuteFundingPaymentTx() error
-	ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount uint) error
+	ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error
 	HandleOrderBookEvent(event *types.Log)
 	HandleMarginAccountEvent(event *types.Log)
 	HandleClearingHouseEvent(event *types.Log)
@@ -101,132 +101,7 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 	}
 }
 
-func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
-	args := map[string]interface{}{}
-	switch event.Topics[0] {
-	case lotp.orderBookABI.Events["OrderPlaced"].ID:
-		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
-		err := lotp.orderBookABI.UnpackIntoMap(args, "OrderPlaced", event.Data)
-		if err != nil {
-			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderPlaced", "err", err)
-		}
-		log.Info("HandleOrderBookEvent", "orderplaced args", args)
-		order := getOrderFromRawOrder(args["order"])
-
-		lotp.memoryDb.Add(&LimitOrder{
-			Market:            Market(order.AmmIndex.Int64()),
-			PositionType:      getPositionTypeBasedOnBaseAssetQuantity(int(order.BaseAssetQuantity.Int64())),
-			UserAddress:       userAddress32[:2] + userAddress32[26:], // removes 0 padding
-			BaseAssetQuantity: int(order.BaseAssetQuantity.Int64()),
-			Price:             float64(order.Price.Int64()),
-			Status:            Unfulfilled,
-			RawOrder:          args["order"],
-			RawSignature:      args["signature"],
-			Signature:         args["signature"].([]byte),
-			BlockNumber:       event.BlockNumber,
-		})
-	case lotp.orderBookABI.Events["OrdersMatched"].ID:
-		log.Info("OrdersMatched event")
-		err := lotp.orderBookABI.UnpackIntoMap(args, "OrdersMatched", event.Data)
-		if err != nil {
-			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrdersMatched", "err", err)
-		}
-		log.Info("HandleOrderBookEvent", "OrdersMatched args", args)
-		signature1 := args["signature1"].([]byte)
-		signature2 := args["signature2"].([]byte)
-		fillAmount := args["fillAmount"].(*big.Int).Int64()
-		lotp.memoryDb.UpdateFilledBaseAssetQuantity(uint(fillAmount), signature1)
-		lotp.memoryDb.UpdateFilledBaseAssetQuantity(uint(fillAmount), signature2)
-	}
-	log.Info("Log found", "log_.Address", event.Address.String(), "log_.BlockNumber", event.BlockNumber, "log_.Index", event.Index, "log_.TxHash", event.TxHash.String())
-
-}
-
-func (lotp *limitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log) {
-	args := map[string]interface{}{}
-	switch event.Topics[0] {
-	case lotp.marginAccountABI.Events["MarginAdded"].ID:
-		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
-		err := lotp.marginAccountABI.UnpackIntoMap(args, "MarginAdded", event.Data)
-		if err != nil {
-			log.Error("error in marginAccountABI.UnpackIntoMap", "method", "MarginAdded", "err", err)
-		}
-		collateral := event.Topics[2].Big()
-		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
-		lotp.memoryDb.UpdateMargin(userAddress, Collateral(collateral.Int64()), float64(args["amount"].(int)))
-	case lotp.marginAccountABI.Events["MarginRemoved"].ID:
-		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
-		err := lotp.marginAccountABI.UnpackIntoMap(args, "MarginRemoved", event.Data)
-		if err != nil {
-			log.Error("error in marginAccountABI.UnpackIntoMap", "method", "MarginRemoved", "err", err)
-		}
-		collateral := event.Topics[2].Big()
-		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
-		lotp.memoryDb.UpdateMargin(userAddress, Collateral(collateral.Int64()), -1*float64(args["amount"].(int)))
-	case lotp.marginAccountABI.Events["PnLRealized"].ID:
-		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
-		err := lotp.marginAccountABI.UnpackIntoMap(args, "PnLRealized", event.Data)
-		if err != nil {
-			log.Error("error in marginAccountABI.UnpackIntoMap", "method", "PnLRealized", "err", err)
-		}
-		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
-		realisedPnL := float64(args["realizedPnl"].(*big.Int).Int64())
-
-		lotp.memoryDb.UpdateMargin(userAddress, USDC, realisedPnL)
-	}
-	log.Info("Log found", "log_.Address", event.Address.String(), "log_.BlockNumber", event.BlockNumber, "log_.Index", event.Index, "log_.TxHash", event.TxHash.String())
-}
-
-func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
-	args := map[string]interface{}{}
-	switch event.Topics[0] {
-	case lotp.clearingHouseABI.Events["FundingRateUpdated"].ID:
-		log.Info("FundingRateUpdated event")
-		err := lotp.clearingHouseABI.UnpackIntoMap(args, "FundingRateUpdated", event.Data)
-		if err != nil {
-			log.Error("error in clearingHouseABI.UnpackIntoMap", "method", "FundingRateUpdated", "err", err)
-		}
-		cumulativePremiumFraction := args["cumulativePremiumFraction"].(*big.Int)
-		nextFundingTime := args["nextFundingTime"].(*big.Int)
-		market := Market(int(event.Topics[1].Big().Int64()))
-		lotp.memoryDb.UpdateUnrealisedFunding(Market(market), float64(cumulativePremiumFraction.Int64()))
-		lotp.memoryDb.UpdateNextFundingTime(nextFundingTime.Uint64())
-
-	case lotp.clearingHouseABI.Events["FundingPaid"].ID:
-		log.Info("FundingPaid event")
-		err := lotp.clearingHouseABI.UnpackIntoMap(args, "FundingPaid", event.Data)
-		if err != nil {
-			log.Error("error in clearingHouseABI.UnpackIntoMap", "method", "FundingPaid", "err", err)
-		}
-		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
-		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
-		market := Market(int(event.Topics[2].Big().Int64()))
-		cumulativePremiumFraction := args["cumulativePremiumFraction"].(*big.Int)
-		lotp.memoryDb.ResetUnrealisedFunding(Market(market), userAddress, float64(cumulativePremiumFraction.Int64()))
-
-	// both PositionModified and PositionLiquidated have the exact same signature
-	case lotp.clearingHouseABI.Events["PositionModified"].ID, lotp.clearingHouseABI.Events["PositionLiquidated"].ID:
-		log.Info("PositionModified event")
-		err := lotp.clearingHouseABI.UnpackIntoMap(args, "PositionModified", event.Data)
-		if err != nil {
-			log.Error("error in clearingHouseABI.UnpackIntoMap", "method", "PositionModified", "err", err)
-		}
-
-		market := Market(int(event.Topics[2].Big().Int64()))
-		baseAsset := args["baseAsset"].(*big.Int).Int64()
-		quoteAsset := args["quoteAsset"].(*big.Int).Int64()
-		lastPrice := float64(quoteAsset) / float64(baseAsset)
-		lotp.memoryDb.UpdateLastPrice(market, lastPrice)
-
-		userAddress32 := event.Topics[1].String() // user's address in 32 bytes
-		userAddress := common.HexToAddress(userAddress32[:2] + userAddress32[26:])
-		openNotional := float64(args["openNotional"].(*big.Int).Int64())
-		size := float64(args["size"].(*big.Int).Int64())
-		lotp.memoryDb.UpdatePosition(userAddress, market, size, openNotional)
-	}
-}
-
-func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount uint) error {
+func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error {
 	nonce := lotp.txPool.Nonce(common.HexToAddress(userAddress1)) // admin address
 
 	data, err := lotp.orderBookABI.Pack("liquidateAndExecuteOrder", trader.String(), matchedOrder.RawOrder, matchedOrder.Signature, fillAmount)
@@ -283,7 +158,7 @@ func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
 
 }
 
-func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount uint) error {
+func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount *big.Int) error {
 	//randomly selecting private key to get different validator profile on different nodes
 	rand.Seed(time.Now().UnixNano())
 	var privateKey, userAddress string
@@ -303,7 +178,7 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 	signatures[0] = incomingOrder.Signature
 	signatures[1] = matchedOrder.Signature
 
-	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", ammID, orders, signatures, big.NewInt(int64(fillAmount)))
+	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", ammID, orders, signatures, fillAmount)
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
 		return err
@@ -346,8 +221,8 @@ func (lotp *limitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transa
 	return checkIfOrderBookContractCall(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
 }
 
-func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity int) string {
-	if baseAssetQuantity > 0 {
+func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity *big.Int) string {
+	if baseAssetQuantity.Sign() == 1 {
 		return "long"
 	}
 	return "short"
@@ -399,4 +274,9 @@ func getOrderFromRawOrder(rawOrder interface{}) Order {
 	marshalledOrder, _ := json.Marshal(rawOrder)
 	_ = json.Unmarshal(marshalledOrder, &order)
 	return order
+}
+
+func getAddressFromTopicHash(topicHash common.Hash) common.Address {
+	address32 := topicHash.String() // address in 32 bytes with 0 padding
+	return common.HexToAddress(address32[:2] + address32[26:])
 }

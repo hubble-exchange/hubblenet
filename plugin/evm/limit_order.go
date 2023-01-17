@@ -2,7 +2,7 @@ package evm
 
 import (
 	"context"
-	"math"
+	"math/big"
 	"sort"
 	"sync"
 
@@ -11,6 +11,7 @@ import (
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/eth/filters"
 	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
+	"github.com/ava-labs/subnet-evm/utils"
 
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ethereum/go-ethereum/log"
@@ -107,18 +108,18 @@ func (lop *limitOrderProcesser) runMatchingEngine(longOrders []limitorders.Limit
 	}
 	for i := 0; i < len(longOrders); i++ {
 		for j := 0; j < len(shortOrders); j++ {
-			if getUnFilledBaseAssetQuantity(longOrders[i]) == 0 {
+			if longOrders[i].GetUnFilledBaseAssetQuantity().Sign() == 0 {
 				break
 			}
-			if getUnFilledBaseAssetQuantity(shortOrders[j]) == 0 {
+			if shortOrders[j].GetUnFilledBaseAssetQuantity().Sign() == 0 {
 				continue
 			}
 			if longOrders[i].Price == shortOrders[j].Price {
-				fillAmount := math.Abs(math.Min(float64(getUnFilledBaseAssetQuantity(longOrders[i])), float64(-(getUnFilledBaseAssetQuantity(shortOrders[j])))))
-				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(longOrders[i], shortOrders[j], uint(fillAmount))
+				fillAmount := utils.BigIntMinAbs(longOrders[i].GetUnFilledBaseAssetQuantity(), shortOrders[j].GetUnFilledBaseAssetQuantity())
+				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(longOrders[i], shortOrders[j], fillAmount)
 				if err == nil {
-					longOrders[i].FilledBaseAssetQuantity = longOrders[i].FilledBaseAssetQuantity + int(fillAmount)
-					shortOrders[j].FilledBaseAssetQuantity = shortOrders[j].FilledBaseAssetQuantity - int(fillAmount)
+					longOrders[i].FilledBaseAssetQuantity = big.NewInt(0).Add(longOrders[i].FilledBaseAssetQuantity, fillAmount)
+					shortOrders[j].FilledBaseAssetQuantity = big.NewInt(0).Sub(shortOrders[j].FilledBaseAssetQuantity, fillAmount)
 				} else {
 					log.Error("Error while executing order", "err", err, "longOrder", longOrders[i], "shortOrder", shortOrders[i], "fillAmount", fillAmount)
 				}
@@ -128,7 +129,7 @@ func (lop *limitOrderProcesser) runMatchingEngine(longOrders []limitorders.Limit
 }
 
 func (lop *limitOrderProcesser) runLiquidations(market limitorders.Market, longOrders []limitorders.LimitOrder, shortOrders []limitorders.LimitOrder) (filteredLongOrder []limitorders.LimitOrder, filteredShortOrder []limitorders.LimitOrder) {
-	var oraclePrice float64 = 20 // @todo: change this
+	oraclePrice := big.NewInt(20 * 10e6) // @todo: get it from the oracle
 
 	longPositions, shortPositions := lop.memoryDb.GetLiquidableTraders(market, oraclePrice)
 
@@ -138,16 +139,16 @@ func (lop *limitOrderProcesser) runLiquidations(market limitorders.Market, longO
 			continue // so that all other liquidable positions get logged
 		}
 		for j, shortOrder := range shortOrders {
-			if liquidable.GetUnfilledSize() == 0 {
+			if liquidable.GetUnfilledSize().Sign() == 0 {
 				break
 			}
-			fillAmount := uint(math.Min(math.Abs(liquidable.GetUnfilledSize()), math.Abs(float64(shortOrder.GetUnFilledBaseAssetQuantity()))))
-			if fillAmount == 0 {
+			fillAmount := utils.BigIntMinAbs(liquidable.GetUnfilledSize(), shortOrder.GetUnFilledBaseAssetQuantity())
+			if fillAmount.Sign() == 0 {
 				continue
 			}
 			lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, shortOrder, fillAmount)
-			shortOrders[j].FilledBaseAssetQuantity = shortOrders[j].FilledBaseAssetQuantity - int(fillAmount)
-			longPositions[i].FilledSize = longPositions[i].FilledSize + float64(fillAmount)
+			shortOrders[j].FilledBaseAssetQuantity.Sub(shortOrders[j].FilledBaseAssetQuantity, fillAmount)
+			longPositions[i].FilledSize.Add(longPositions[i].FilledSize, fillAmount)
 		}
 	}
 
@@ -157,16 +158,16 @@ func (lop *limitOrderProcesser) runLiquidations(market limitorders.Market, longO
 			continue // so that all other liquidable positions get logged
 		}
 		for j, longOrder := range longOrders {
-			if liquidable.GetUnfilledSize() == 0 {
+			if liquidable.GetUnfilledSize().Sign() == 0 {
 				break
 			}
-			fillAmount := uint(math.Min(math.Abs(liquidable.GetUnfilledSize()), math.Abs(float64(longOrder.GetUnFilledBaseAssetQuantity()))))
-			if fillAmount == 0 {
+			fillAmount := utils.BigIntMinAbs(liquidable.GetUnfilledSize(), longOrder.GetUnFilledBaseAssetQuantity())
+			if fillAmount.Sign() == 0 {
 				continue
 			}
 			lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, longOrder, fillAmount)
-			longOrders[j].FilledBaseAssetQuantity = longOrders[j].FilledBaseAssetQuantity + int(fillAmount)
-			shortPositions[i].FilledSize = shortPositions[i].FilledSize - float64(fillAmount)
+			longOrders[j].FilledBaseAssetQuantity.Add(longOrders[j].FilledBaseAssetQuantity, fillAmount)
+			shortPositions[i].FilledSize.Sub(shortPositions[i].FilledSize, fillAmount)
 		}
 	}
 
@@ -177,7 +178,6 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	newChainChan := make(chan core.ChainEvent)
 	chainAcceptedEventSubscription := lop.backend.SubscribeChainAcceptedEvent(newChainChan)
 
-	// lop.limitOrderTxProcessor.GetLastPrice(limitorders.AvaxPerp)
 	lop.shutdownWg.Add(1)
 	go lop.ctx.Log.RecoverAndPanic(func() {
 		defer lop.shutdownWg.Done()
@@ -190,9 +190,6 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 				// blockNumber := newChainAcceptedEvent.Block.Number().Uint64()
 				for _, tx := range newChainAcceptedEvent.Block.Transactions() {
 					tsHashes = append(tsHashes, tx.Hash().String())
-					// if lop.limitOrderTxProcessor.CheckIfOrderBookContractCall(tx) {
-					// 	lop.limitOrderTxProcessor.HandleOrderBookTx(tx, blockNumber, *lop.backend)
-					// }
 				}
 				log.Info("$$$$$ New head event", "number", newChainAcceptedEvent.Block.Header().Number, "tx hashes", tsHashes,
 					"miner", newChainAcceptedEvent.Block.Coinbase().String(),
@@ -245,8 +242,4 @@ func processEvents(logs []*types.Log, lop *limitOrderProcesser) {
 			lop.limitOrderTxProcessor.HandleClearingHouseEvent(event)
 		}
 	}
-}
-
-func getUnFilledBaseAssetQuantity(order limitorders.LimitOrder) int {
-	return order.BaseAssetQuantity - order.FilledBaseAssetQuantity
 }
