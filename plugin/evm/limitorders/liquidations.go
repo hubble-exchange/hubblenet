@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -55,7 +54,9 @@ func (db *InMemoryDatabase) GetLiquidableTraders(market Market, oraclePrice *big
 			}
 
 			oracleBasedmarginFraction := big.NewInt(0).Div(big.NewInt(0).Add(margin, oracleBasedUnrealizedPnl), oracleBasedNotional)
-			marginFraction = utils.BigIntMax(marginFraction, oracleBasedmarginFraction)
+			if oracleBasedmarginFraction.Cmp(marginFraction) == 1 {
+				marginFraction = oracleBasedmarginFraction
+			}
 		}
 
 		if marginFraction.Cmp(maintenanceMargin) == -1 {
