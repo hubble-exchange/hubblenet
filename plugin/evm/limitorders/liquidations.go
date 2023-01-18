@@ -42,7 +42,8 @@ func (db *InMemoryDatabase) GetLiquidableTraders(market Market, oraclePrice *big
 		}
 
 		margin := big.NewInt(0).Sub(trader.GetNormalisedMargin(), position.UnrealisedFunding)
-		marginFraction := big.NewInt(0).Div(big.NewInt(0).Add(margin, unrealisedPnL), notionalPosition) // margin + unrealisedPnL / notionalPosition
+		totalMargin := big.NewInt(0).Mul( big.NewInt(0).Add(margin, unrealisedPnL), big.NewInt(1e6))
+		marginFraction := big.NewInt(0).Div(totalMargin, notionalPosition) // margin + unrealisedPnL / notionalPosition
 		if overSpreadLimit {
 			var oracleBasedUnrealizedPnl *big.Int
 
