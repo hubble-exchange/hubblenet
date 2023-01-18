@@ -81,13 +81,16 @@ func (lop *limitOrderProcesser) RunMatchingEngine() {
 			if getUnFilledBaseAssetQuantity(shortOrders[j]) == 0 {
 				continue
 			}
-			if longOrders[i].Price == shortOrders[j].Price {
+			if longOrders[i].Price >= shortOrders[j].Price {
 				fillAmount := math.Abs(math.Min(float64(getUnFilledBaseAssetQuantity(longOrders[i])), float64(-(getUnFilledBaseAssetQuantity(shortOrders[j])))))
 				err := lop.limitOrderTxProcessor.ExecuteMatchedOrdersTx(longOrders[i], shortOrders[j], uint(fillAmount))
 				if err == nil {
 					longOrders[i].FilledBaseAssetQuantity = longOrders[i].FilledBaseAssetQuantity + int(fillAmount)
 					shortOrders[j].FilledBaseAssetQuantity = shortOrders[j].FilledBaseAssetQuantity - int(fillAmount)
 				}
+			} else {
+				i = len(longOrders)
+				break
 			}
 		}
 	}
