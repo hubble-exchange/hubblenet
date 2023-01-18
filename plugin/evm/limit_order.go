@@ -15,6 +15,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type LimitOrderProcesser interface {
@@ -55,27 +56,17 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAccepted)
 		ctx := context.Background()
 
-		allTxs := types.Transactions{}
-		for i := uint64(0); i <= lastAccepted; i++ {
-			block := lop.blockChain.GetBlockByNumber(i)
-			if block != nil {
-				logs, err := lop.backend.GetLogs(ctx, block.Hash(), block.NumberU64())
-				if err != nil {
-					log.Error("lop.backend.GetLogs Failed", "err", err)
-					continue
-				}
-				flatLogs := []*types.Log{}
-				for _, logsArr := range logs {
-					flatLogs = append(flatLogs, logsArr...)
-				}
-				log.Info("ListenAndProcessTransactions", "block number", i, "logs", flatLogs)
-				processEvents(flatLogs, lop)
-			} else {
-				log.Error("Nil block found", "block number", i)
-			}
+		filterSystem := filters.NewFilterSystem(lop.backend, filters.Config{})
+		filterAPI := filters.NewFilterAPI(filterSystem, true)
+		logs, err := filterAPI.GetLogs(ctx, filters.FilterCriteria{
+			Addresses: []common.Address{limitorders.OrderBookContractAddress, limitorders.ClearingHouseContractAddress, limitorders.MarginAccountContractAddress},
+		})
+		if err != nil {
+			log.Error("ListenAndProcessTransactions - GetLogs failed", "err", err)
+			panic(err)
 		}
-
-		log.Info("ListenAndProcessTransactions - sync complete", "till block number", lastAccepted, "total transactions", len(allTxs))
+		log.Info("ListenAndProcessTransactions", "total logs", len(logs), "err", err)
+		processEvents(logs, lop)
 	}
 
 	lop.listenAndStoreLimitOrderTransactions()
@@ -224,9 +215,12 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 }
 
 func processEvents(logs []*types.Log, lop *limitOrderProcesser) {
-	// sort by log index
+	// sort by block number & log index
 	sort.SliceStable(logs, func(i, j int) bool {
-		return logs[i].Index < logs[j].Index
+		if logs[i].BlockNumber == logs[j].BlockNumber {
+			return logs[i].Index < logs[j].Index
+		}
+		return logs[i].BlockNumber < logs[j].BlockNumber
 	})
 	for _, event := range logs {
 		if event.Removed {

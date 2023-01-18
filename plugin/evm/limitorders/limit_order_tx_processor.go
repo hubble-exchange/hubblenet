@@ -218,15 +218,6 @@ func (lotp *limitOrderTxProcessor) PurgeLocalTx() {
 	}
 }
 
-func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
-
-}
-func (lotp *limitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log) {
-
-}
-func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
-
-}
 func (lotp *limitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transaction) bool {
 	return checkIfOrderBookContractCall(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
 }

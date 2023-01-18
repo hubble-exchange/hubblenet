@@ -96,7 +96,7 @@ type InMemoryDatabase struct {
 
 func NewInMemoryDatabase() *InMemoryDatabase {
 	orderMap := map[string]*LimitOrder{}
-	lastPrice := map[Market]*big.Int{}
+	lastPrice := map[Market]*big.Int{AvaxPerp: big.NewInt(0)}
 	traderMap := map[common.Address]*Trader{}
 	nextFundingTime := uint64(getNextHour().Unix())
 
