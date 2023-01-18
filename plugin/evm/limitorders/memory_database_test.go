@@ -329,7 +329,7 @@ func TestUpdateUnrealizedFunding(t *testing.T) {
 			for _, address := range addresses {
 				unrealizedFunding := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
 				size := inMemoryDatabase.traderMap[address].Positions[market].Size
-				expectedUnrealizedFunding := big.NewInt(0).Div(big.NewInt(0).Mul(big.NewInt(0).Sub(newCumulativePremiumFraction, cumulativePremiumFraction), size), BASE_PRECISION)
+				expectedUnrealizedFunding := big.NewInt(0).Div(big.NewInt(0).Mul(big.NewInt(0).Sub(newCumulativePremiumFraction, cumulativePremiumFraction), size), SIZE_BASE_PRECISION)
 				assert.Equal(t, expectedUnrealizedFunding, unrealizedFunding)
 			}
 		})
@@ -346,7 +346,7 @@ func TestUpdateUnrealizedFunding(t *testing.T) {
 			newCumulativePremiumFraction := big.NewInt(-1)
 			inMemoryDatabase.UpdateUnrealisedFunding(market, newCumulativePremiumFraction)
 			newUnrealizedFunding := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding
-			expectedUnrealizedFunding := big.NewInt(0).Div(big.NewInt(0).Mul(big.NewInt(0).Sub(newCumulativePremiumFraction, cumulativePremiumFraction), size), BASE_PRECISION)
+			expectedUnrealizedFunding := big.NewInt(0).Div(big.NewInt(0).Mul(big.NewInt(0).Sub(newCumulativePremiumFraction, cumulativePremiumFraction), size), SIZE_BASE_PRECISION)
 			assert.Equal(t, expectedUnrealizedFunding, newUnrealizedFunding)
 		})
 	})

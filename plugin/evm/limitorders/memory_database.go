@@ -200,7 +200,7 @@ func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, cumulativePre
 	for _, trader := range db.traderMap {
 		position := trader.Positions[market]
 		if position != nil {
-			position.UnrealisedFunding = big.NewInt(0).Div(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, position.LastPremiumFraction), position.Size), BASE_PRECISION)
+			position.UnrealisedFunding = dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, position.LastPremiumFraction), position.Size))
 		}
 	}
 }
@@ -214,28 +214,12 @@ func (db *InMemoryDatabase) ResetUnrealisedFunding(market Market, trader common.
 	}
 }
 
-func (db *InMemoryDatabase) GetAllTraders() map[common.Address]*Trader {
-	return db.traderMap
-}
-
 func (db *InMemoryDatabase) UpdateLastPrice(market Market, lastPrice *big.Int) {
 	db.lastPrice[market] = lastPrice
 }
 
 func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {
 	return db.lastPrice[market]
-}
-
-func (trader *Trader) GetNormalisedMargin() *big.Int {
-	return trader.Margins[USDC]
-
-	// this will change after multi collateral
-	// var normalisedMargin float64
-	// for coll, margin := range trader.Margins {
-	// 	normalisedMargin += margin * priceMap[coll] * collateralWeightMap[coll]
-	// }
-
-	// return normalisedMargin
 }
 
 func sortLongOrders(orders []LimitOrder) []LimitOrder {
