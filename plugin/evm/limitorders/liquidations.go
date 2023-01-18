@@ -88,7 +88,7 @@ func isOverSpreadLimit(markPrice *big.Int, oraclePrice *big.Int) bool {
 	// diff := abs(markPrice - oraclePrice)
 	diff := big.NewInt(0).Abs(big.NewInt(0).Sub(markPrice, oraclePrice))
 	// spreadRatioAbs := diff * 100 / oraclePrice
-	spreadRatioAbs := big.NewInt(0).Div(big.NewInt(0).Mul(diff, big.NewInt(100)), oraclePrice)
+	spreadRatioAbs := big.NewInt(0).Div(big.NewInt(0).Mul(diff, big.NewInt(1e6)), oraclePrice)
 	if spreadRatioAbs.Cmp(spreadRatioThreshold) >= 0 {
 		return true
 	} else {
