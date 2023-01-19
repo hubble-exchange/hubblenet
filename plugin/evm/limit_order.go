@@ -14,8 +14,8 @@ import (
 	"github.com/ava-labs/subnet-evm/utils"
 
 	"github.com/ava-labs/avalanchego/snow"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type LimitOrderProcesser interface {
@@ -122,43 +122,38 @@ func (lop *limitOrderProcesser) runMatchingEngine(longOrders []limitorders.Limit
 func (lop *limitOrderProcesser) runLiquidations(market limitorders.Market, longOrders []limitorders.LimitOrder, shortOrders []limitorders.LimitOrder) (filteredLongOrder []limitorders.LimitOrder, filteredShortOrder []limitorders.LimitOrder) {
 	oraclePrice := big.NewInt(20 * 10e6) // @todo: get it from the oracle
 
-	longPositions, shortPositions := lop.memoryDb.GetLiquidableTraders(market, oraclePrice)
+	liquidablePositions := lop.memoryDb.GetLiquidableTraders(market, oraclePrice)
 
-	for i, liquidable := range longPositions {
-		if len(shortOrders) == 0 {
+	for i, liquidable := range liquidablePositions {
+		var oppositeOrders []limitorders.LimitOrder
+		switch liquidable.PositionType {
+		case "long":
+			oppositeOrders = shortOrders
+		case "short":
+			oppositeOrders = longOrders
+		}
+		if len(oppositeOrders) == 0 {
 			log.Error("no matching order found for liquidation", "trader", liquidable.Address.String(), "size", liquidable.Size)
 			continue // so that all other liquidable positions get logged
 		}
-		for j, shortOrder := range shortOrders {
+		for j, oppositeOrder := range oppositeOrders {
 			if liquidable.GetUnfilledSize().Sign() == 0 {
 				break
 			}
-			fillAmount := utils.BigIntMinAbs(liquidable.GetUnfilledSize(), shortOrder.GetUnFilledBaseAssetQuantity())
+			fillAmount := utils.BigIntMinAbs(liquidable.GetUnfilledSize(), oppositeOrder.GetUnFilledBaseAssetQuantity())
 			if fillAmount.Sign() == 0 {
 				continue
 			}
-			lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, shortOrder, fillAmount)
-			shortOrders[j].FilledBaseAssetQuantity.Sub(shortOrders[j].FilledBaseAssetQuantity, fillAmount)
-			longPositions[i].FilledSize.Add(longPositions[i].FilledSize, fillAmount)
-		}
-	}
+			lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, oppositeOrder, fillAmount)
 
-	for i, liquidable := range shortPositions {
-		if len(longOrders) == 0 {
-			log.Error("no matching order found for liquidation", "trader", liquidable.Address.String(), "size", liquidable.Size)
-			continue // so that all other liquidable positions get logged
-		}
-		for j, longOrder := range longOrders {
-			if liquidable.GetUnfilledSize().Sign() == 0 {
-				break
+			switch liquidable.PositionType {
+			case "long":
+				oppositeOrders[j].FilledBaseAssetQuantity.Sub(shortOrders[j].FilledBaseAssetQuantity, fillAmount)
+				liquidablePositions[i].FilledSize.Add(liquidablePositions[i].FilledSize, fillAmount)
+			case "short":
+				oppositeOrders[j].FilledBaseAssetQuantity.Add(shortOrders[j].FilledBaseAssetQuantity, fillAmount)
+				liquidablePositions[i].FilledSize.Sub(liquidablePositions[i].FilledSize, fillAmount)
 			}
-			fillAmount := utils.BigIntMinAbs(liquidable.GetUnfilledSize(), longOrder.GetUnFilledBaseAssetQuantity())
-			if fillAmount.Sign() == 0 {
-				continue
-			}
-			lop.limitOrderTxProcessor.ExecuteLiquidation(liquidable.Address, longOrder, fillAmount)
-			longOrders[j].FilledBaseAssetQuantity.Add(longOrders[j].FilledBaseAssetQuantity, fillAmount)
-			shortPositions[i].FilledSize.Sub(shortPositions[i].FilledSize, fillAmount)
 		}
 	}
 

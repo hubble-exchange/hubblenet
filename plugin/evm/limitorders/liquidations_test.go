@@ -26,7 +26,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 			db := NewInMemoryDatabase()
 			var market Market = 1
 			longTraderAddress := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
-			collateral := USDC
+			collateral := HUSD
 			margin := multiplyBasePrecision(big.NewInt(100))
 			db.UpdateMargin(longTraderAddress, collateral, margin)
 			markPrice := multiplyBasePrecision(big.NewInt(100))
@@ -45,7 +45,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 					db := NewInMemoryDatabase()
 					var market Market = 1
 					db.lastPrice[market] = markPrice
-					collateral := USDC
+					collateral := HUSD
 
 					//long position for trader 1
 					longTraderAddress := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
@@ -75,7 +75,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 					db := NewInMemoryDatabase()
 					var market Market = 1
 					db.lastPrice[market] = markPrice
-					collateral := USDC
+					collateral := HUSD
 
 					//long trader 1
 					longTraderAddress := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
@@ -120,7 +120,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 						db := NewInMemoryDatabase()
 						var market Market = 1
 						db.lastPrice[market] = markPrice
-						collateral := USDC
+						collateral := HUSD
 
 						//long position for trader 1
 						longTraderAddress := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
@@ -156,7 +156,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 							db := NewInMemoryDatabase()
 							var market Market = 1
 							db.lastPrice[market] = markPrice
-							collateral := USDC
+							collateral := HUSD
 
 							//long trader 1
 							longTraderAddress1 := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
@@ -195,7 +195,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 							db := NewInMemoryDatabase()
 							var market Market = 1
 							db.lastPrice[market] = markPrice
-							collateral := USDC
+							collateral := HUSD
 
 							//short trader 1
 							shortTraderAddress1 := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
@@ -234,7 +234,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 							db := NewInMemoryDatabase()
 							var market Market = 1
 							db.lastPrice[market] = markPrice
-							collateral := USDC
+							collateral := HUSD
 
 							//long trader 1
 							longTraderAddress1 := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
@@ -273,7 +273,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 							db := NewInMemoryDatabase()
 							var market Market = 1
 							db.lastPrice[market] = markPrice
-							collateral := USDC
+							collateral := HUSD
 
 							//short trader 1
 							shortTraderAddress1 := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
@@ -317,13 +317,13 @@ func addPosition(db *InMemoryDatabase, address common.Address, size *big.Int, op
 func TestGetNormalisedMargin(t *testing.T) {
 	t.Run("When trader has no margin", func(t *testing.T) {
 		trader := &Trader{}
-		assert.Equal(t, trader.Margins[USDC], getNormalisedMargin(trader))
+		assert.Equal(t, trader.Margins[HUSD], getNormalisedMargin(trader))
 	})
-	t.Run("When trader has margin in USDC", func(t *testing.T) {
+	t.Run("When trader has margin in HUSD", func(t *testing.T) {
 		margin := multiplyBasePrecision(big.NewInt(10))
 		trader := &Trader{
 			Margins: map[Collateral]*big.Int{
-				USDC: margin,
+				HUSD: margin,
 			},
 		}
 		assert.Equal(t, margin, getNormalisedMargin(trader))
@@ -334,7 +334,7 @@ func TestGetMarginForTrader(t *testing.T) {
 	margin := multiplyBasePrecision(big.NewInt(10))
 	trader := &Trader{
 		Margins: map[Collateral]*big.Int{
-			USDC: margin,
+			HUSD: margin,
 		},
 	}
 	t.Run("when trader has no positions for a market, it returns output of getNormalized margin", func(t *testing.T) {

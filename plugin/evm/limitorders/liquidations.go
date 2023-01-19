@@ -12,19 +12,20 @@ var spreadRatioThreshold = big.NewInt(20 * 1e4)
 var BASE_PRECISION = big.NewInt(1e6)
 var SIZE_BASE_PRECISION = big.NewInt(1e12)
 
-type Liquidable struct {
+type LiquidablePosition struct {
 	Address        common.Address
 	Size           *big.Int
 	MarginFraction *big.Int
 	FilledSize     *big.Int
+	PositionType   string
 }
 
-func (liq Liquidable) GetUnfilledSize() *big.Int {
+func (liq LiquidablePosition) GetUnfilledSize() *big.Int {
 	return big.NewInt(0).Sub(liq.Size, liq.FilledSize)
 }
 
-func (db *InMemoryDatabase) GetLiquidableTraders(market Market, oraclePrice *big.Int) (longPositions []Liquidable, shortPositions []Liquidable) {
-	longPositions, shortPositions = []Liquidable{}, []Liquidable{}
+func (db *InMemoryDatabase) GetLiquidableTraders(market Market, oraclePrice *big.Int) []LiquidablePosition {
+	liquidablePositions := []LiquidablePosition{}
 	markPrice := db.lastPrice[market]
 
 	overSpreadLimit := isOverSpreadLimit(markPrice, oraclePrice)
@@ -43,28 +44,28 @@ func (db *InMemoryDatabase) GetLiquidableTraders(market Market, oraclePrice *big
 			}
 
 			if marginFraction.Cmp(maintenanceMargin) == -1 {
-				liquidable := Liquidable{
+				liquidable := LiquidablePosition{
 					Address:        addr,
-					Size:           position.Size,
+					Size:           position.LiquidationThreshold,
 					MarginFraction: marginFraction,
 					FilledSize:     big.NewInt(0),
 				}
 				if position.Size.Sign() == -1 {
-					shortPositions = append(shortPositions, liquidable)
+					liquidable.PositionType = "short"
 				} else {
-					longPositions = append(longPositions, liquidable)
+					liquidable.PositionType = "long"
 				}
+				liquidablePositions = append(liquidablePositions, liquidable)
 			}
 		}
 	}
 
 	// lower margin fraction positions should be liquidated first
-	sortLiquidableSliceByMarginFraction(longPositions)
-	sortLiquidableSliceByMarginFraction(shortPositions)
-	return longPositions, shortPositions
+	sortLiquidableSliceByMarginFraction(liquidablePositions)
+	return liquidablePositions
 }
 
-func sortLiquidableSliceByMarginFraction(positions []Liquidable) []Liquidable {
+func sortLiquidableSliceByMarginFraction(positions []LiquidablePosition) []LiquidablePosition {
 	sort.SliceStable(positions, func(i, j int) bool {
 		return positions[i].MarginFraction.Cmp(positions[j].MarginFraction) == -1
 	})
@@ -84,7 +85,7 @@ func isOverSpreadLimit(markPrice *big.Int, oraclePrice *big.Int) bool {
 }
 
 func getNormalisedMargin(trader *Trader) *big.Int {
-	return trader.Margins[USDC]
+	return trader.Margins[HUSD]
 
 	// this will change after multi collateral
 	// var normalisedMargin *big.Int
@@ -139,4 +140,8 @@ func multiplyPrecisionSize(number *big.Int) *big.Int {
 
 func dividePrecisionSize(number *big.Int) *big.Int {
 	return big.NewInt(0).Div(number, SIZE_BASE_PRECISION)
+}
+
+func divideByBasePrecision(number *big.Int) *big.Int {
+	return big.NewInt(0).Div(number, BASE_PRECISION)
 }

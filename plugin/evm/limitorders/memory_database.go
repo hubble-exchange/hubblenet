@@ -5,8 +5,12 @@ import (
 	"sort"
 	"time"
 
+	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
+
+var maxLiquidationRatio *big.Int = big.NewInt(25 * 10e4)
+var minSizeRequirement *big.Int = big.NewInt(0).Mul(big.NewInt(5), big.NewInt(1e18))
 
 type Market int
 
@@ -22,12 +26,12 @@ func GetActiveMarkets() []Market {
 type Collateral int
 
 const (
-	USDC Collateral = iota
+	HUSD Collateral = iota
 	Avax
 	Eth
 )
 
-var collateralWeightMap map[Collateral]float64 = map[Collateral]float64{USDC: 1, Avax: 0.8, Eth: 0.8}
+var collateralWeightMap map[Collateral]float64 = map[Collateral]float64{HUSD: 1, Avax: 0.8, Eth: 0.8}
 
 type Status string
 
@@ -46,11 +50,10 @@ type LimitOrder struct {
 	FilledBaseAssetQuantity *big.Int
 	Price                   *big.Int
 	Status                  Status
-	Salt                    string
 	Signature               []byte
 	RawOrder                interface{}
 	BlockNumber             *big.Int // block number order was placed on
-	// RawSignature interface{}
+	IsLiquidation           bool
 }
 
 func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
@@ -58,10 +61,11 @@ func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
 }
 
 type Position struct {
-	OpenNotional        *big.Int
-	Size                *big.Int
-	UnrealisedFunding   *big.Int
-	LastPremiumFraction *big.Int
+	OpenNotional         *big.Int
+	Size                 *big.Int
+	UnrealisedFunding    *big.Int
+	LastPremiumFraction  *big.Int
+	LiquidationThreshold *big.Int
 }
 
 type Trader struct {
@@ -82,7 +86,7 @@ type LimitOrderDatabase interface {
 	ResetUnrealisedFunding(market Market, trader common.Address, cumulativePremiumFraction *big.Int)
 	UpdateNextFundingTime(nextFundingTime uint64)
 	GetNextFundingTime() uint64
-	GetLiquidableTraders(market Market, oraclePrice *big.Int) (longPositions []Liquidable, shortPositions []Liquidable)
+	GetLiquidableTraders(market Market, oraclePrice *big.Int) []LiquidablePosition
 	UpdateLastPrice(market Market, lastPrice *big.Int)
 	GetLastPrice(market Market) *big.Int
 }
@@ -122,16 +126,15 @@ func (db *InMemoryDatabase) Add(order *LimitOrder) {
 
 func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, signature []byte) {
 	limitOrder := db.orderMap[string(signature)]
-	if limitOrder.BaseAssetQuantity.Cmp(quantity) == 0 {
+	if limitOrder.PositionType == "long" {
+		limitOrder.FilledBaseAssetQuantity.Add(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled + quantity
+	}
+	if limitOrder.PositionType == "short" {
+		limitOrder.FilledBaseAssetQuantity.Sub(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled - quantity
+	}
+
+	if limitOrder.BaseAssetQuantity.Cmp(limitOrder.FilledBaseAssetQuantity) == 0 {
 		deleteOrder(db, signature)
-		return
-	} else {
-		if limitOrder.PositionType == "long" {
-			limitOrder.FilledBaseAssetQuantity.Add(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled + quantity
-		}
-		if limitOrder.PositionType == "short" {
-			limitOrder.FilledBaseAssetQuantity.Sub(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled - quantity
-		}
 	}
 }
 
@@ -194,6 +197,7 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 
 	db.traderMap[trader].Positions[market].Size = size
 	db.traderMap[trader].Positions[market].OpenNotional = openNotional
+	db.traderMap[trader].Positions[market].LiquidationThreshold = getLiquidationThreshold(size)
 }
 
 func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, cumulativePremiumFraction *big.Int) {
@@ -263,4 +267,11 @@ func getNextHour() time.Time {
 
 func deleteOrder(db *InMemoryDatabase, signature []byte) {
 	delete(db.orderMap, string(signature))
+}
+
+func getLiquidationThreshold(size *big.Int) *big.Int {
+	absSize := big.NewInt(0).Abs(size)
+	maxLiquidationSize := divideByBasePrecision(big.NewInt(0).Mul(absSize, maxLiquidationRatio))
+	threshold := big.NewInt(0).Add(maxLiquidationSize, big.NewInt(1))
+	return utils.BigIntMax(threshold, minSizeRequirement)
 }

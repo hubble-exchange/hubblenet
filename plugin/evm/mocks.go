@@ -60,7 +60,7 @@ func (db *MockLimitOrderDatabase) GetNextFundingTime() uint64 {
 	return 0
 }
 
-func (db *MockLimitOrderDatabase) GetLiquidableTraders(market limitorders.Market, oraclePrice *big.Int) ([]limitorders.Liquidable, []limitorders.Liquidable) {
+func (db *MockLimitOrderDatabase) GetLiquidableTraders(market limitorders.Market, oraclePrice *big.Int) ([]limitorders.LiquidablePosition, []limitorders.LiquidablePosition) {
 	return nil, nil
 }
 

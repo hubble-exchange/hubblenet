@@ -26,9 +26,8 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 			Price:             order.Price,
 			Status:            Unfulfilled,
 			RawOrder:          args["order"],
-			// RawSignature:      args["signature"],
 			Signature:         args["signature"].([]byte),
-			BlockNumber:       big.NewInt( int64(event.BlockNumber)),
+			BlockNumber:       big.NewInt(int64(event.BlockNumber)),
 		})
 	case lotp.orderBookABI.Events["OrdersMatched"].ID:
 		log.Info("OrdersMatched event")
@@ -42,6 +41,16 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 		fillAmount := args["fillAmount"].(*big.Int)
 		lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signature1)
 		lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signature2)
+	case lotp.orderBookABI.Events["LiquidationOrderMatched"].ID:
+		log.Info("LiquidationOrderMatched event")
+		err := lotp.orderBookABI.UnpackIntoMap(args, "LiquidationOrderMatched", event.Data)
+		if err != nil {
+			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "LiquidationOrderMatched", "err", err)
+		}
+		log.Info("HandleOrderBookEvent", "LiquidationOrderMatched args", args)
+		signature := args["signature"].([]byte)
+		fillAmount := args["fillAmount"].(*big.Int)
+		lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signature)
 	}
 	log.Info("Log found", "log_.Address", event.Address.String(), "log_.BlockNumber", event.BlockNumber, "log_.Index", event.Index, "log_.TxHash", event.TxHash.String())
 
@@ -55,15 +64,15 @@ func (lotp *limitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log) {
 		if err != nil {
 			log.Error("error in marginAccountABI.UnpackIntoMap", "method", "MarginAdded", "err", err)
 		}
-		collateral := event.Topics[2].Big()
-		lotp.memoryDb.UpdateMargin(getAddressFromTopicHash(event.Topics[1]), Collateral(collateral.Int64()), args["amount"].(*big.Int))
+		collateral := event.Topics[2].Big().Int64()
+		lotp.memoryDb.UpdateMargin(getAddressFromTopicHash(event.Topics[1]), Collateral(collateral), args["amount"].(*big.Int))
 	case lotp.marginAccountABI.Events["MarginRemoved"].ID:
 		err := lotp.marginAccountABI.UnpackIntoMap(args, "MarginRemoved", event.Data)
 		if err != nil {
 			log.Error("error in marginAccountABI.UnpackIntoMap", "method", "MarginRemoved", "err", err)
 		}
-		collateral := event.Topics[2].Big()
-		lotp.memoryDb.UpdateMargin(getAddressFromTopicHash(event.Topics[1]), Collateral(collateral.Int64()), big.NewInt(0).Neg(args["amount"].(*big.Int)))
+		collateral := event.Topics[2].Big().Int64()
+		lotp.memoryDb.UpdateMargin(getAddressFromTopicHash(event.Topics[1]), Collateral(collateral), big.NewInt(0).Neg(args["amount"].(*big.Int)))
 	case lotp.marginAccountABI.Events["PnLRealized"].ID:
 		err := lotp.marginAccountABI.UnpackIntoMap(args, "PnLRealized", event.Data)
 		if err != nil {
@@ -71,7 +80,7 @@ func (lotp *limitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log) {
 		}
 		realisedPnL := args["realizedPnl"].(*big.Int)
 
-		lotp.memoryDb.UpdateMargin(getAddressFromTopicHash(event.Topics[1]), USDC, realisedPnL)
+		lotp.memoryDb.UpdateMargin(getAddressFromTopicHash(event.Topics[1]), HUSD, realisedPnL)
 	}
 	log.Info("Log found", "log_.Address", event.Address.String(), "log_.BlockNumber", event.BlockNumber, "log_.Index", event.Index, "log_.TxHash", event.TxHash.String())
 }
