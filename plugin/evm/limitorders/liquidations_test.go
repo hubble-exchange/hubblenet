@@ -15,9 +15,8 @@ func TestGetLiquidableTraders(t *testing.T) {
 		markPrice := multiplyBasePrecision(big.NewInt(100))
 		db.lastPrice[market] = markPrice
 		oraclePrice := multiplyBasePrecision(big.NewInt(110))
-		longPositions, shortPositions := db.GetLiquidableTraders(market, oraclePrice)
-		assert.Equal(t, 0, len(longPositions))
-		assert.Equal(t, 0, len(shortPositions))
+		liquidablePositions := db.GetLiquidableTraders(market, oraclePrice)
+		assert.Equal(t, 0, len(liquidablePositions))
 	})
 
 	t.Run("When traders exist", func(t *testing.T) {
@@ -32,9 +31,8 @@ func TestGetLiquidableTraders(t *testing.T) {
 			markPrice := multiplyBasePrecision(big.NewInt(100))
 			db.lastPrice[market] = markPrice
 			oraclePrice := multiplyBasePrecision(big.NewInt(110))
-			longPositions, shortPositions := db.GetLiquidableTraders(market, oraclePrice)
-			assert.Equal(t, 0, len(longPositions))
-			assert.Equal(t, 0, len(shortPositions))
+			liquidablePositions := db.GetLiquidableTraders(market, oraclePrice)
+			assert.Equal(t, 0, len(liquidablePositions))
 		})
 		t.Run("When traders have positions", func(t *testing.T) {
 			t.Run("When mark price is within 20% of oracle price, it uses mark price for calculating margin fraction", func(t *testing.T) {
@@ -67,9 +65,8 @@ func TestGetLiquidableTraders(t *testing.T) {
 					openNotionalShort := dividePrecisionSize(big.NewInt(0).Abs(big.NewInt(0).Mul(shortEntryPrice, shortSize)))
 					addPosition(db, shortTraderAddress, shortSize, openNotionalShort, market)
 
-					longPositions, shortPositions := db.GetLiquidableTraders(market, oraclePrice)
-					assert.Equal(t, 0, len(longPositions))
-					assert.Equal(t, 0, len(shortPositions))
+					liquidablePositions := db.GetLiquidableTraders(market, oraclePrice)
+					assert.Equal(t, 0, len(liquidablePositions))
 				})
 				t.Run("When trader margin fraction is < than maintenance margin, it returns trader's info in GetLiquidableTraders sorted by marginFraction", func(t *testing.T) {
 					db := NewInMemoryDatabase()
@@ -100,15 +97,15 @@ func TestGetLiquidableTraders(t *testing.T) {
 					positionShort := db.traderMap[shortTraderAddress].Positions[market]
 					expectedMarginFractionShort := getMarginFraction(marginShort, markPrice, positionShort)
 
-					longPositions, shortPositions := db.GetLiquidableTraders(market, oraclePrice)
-					assert.Equal(t, 1, len(longPositions))
-					assert.Equal(t, longTraderAddress, longPositions[0].Address)
-					assert.Equal(t, longSize, longPositions[0].Size)
-					assert.Equal(t, expectedMarginFractionLong, longPositions[0].MarginFraction)
-					assert.Equal(t, 1, len(shortPositions))
-					assert.Equal(t, shortTraderAddress, shortPositions[0].Address)
-					assert.Equal(t, shortSize, shortPositions[0].Size)
-					assert.Equal(t, expectedMarginFractionShort, shortPositions[0].MarginFraction)
+					liquidablePositions := db.GetLiquidableTraders(market, oraclePrice)
+					assert.Equal(t, 0, len(liquidablePositions))
+					assert.Equal(t, 2, len(liquidablePositions))
+					assert.Equal(t, longTraderAddress, liquidablePositions[0].Address)
+					assert.Equal(t, longSize, liquidablePositions[0].Size)
+					assert.Equal(t, expectedMarginFractionLong, liquidablePositions[0].MarginFraction)
+					assert.Equal(t, shortTraderAddress, liquidablePositions[1].Address)
+					assert.Equal(t, shortSize, liquidablePositions[0].Size)
+					assert.Equal(t, expectedMarginFractionShort, liquidablePositions[0].MarginFraction)
 				})
 			})
 			t.Run("When mark price is outside of 20% of oracle price, it uses oracle price for calculating margin fraction", func(t *testing.T) {
@@ -142,9 +139,8 @@ func TestGetLiquidableTraders(t *testing.T) {
 						openNotionalShort := dividePrecisionSize(big.NewInt(0).Abs(big.NewInt(0).Mul(shortEntryPrice, shortSize)))
 						addPosition(db, shortTraderAddress, shortSize, openNotionalShort, market)
 
-						longPositions, shortPositions := db.GetLiquidableTraders(market, oraclePrice)
-						assert.Equal(t, 0, len(longPositions))
-						assert.Equal(t, 0, len(shortPositions))
+						liquidablePositions := db.GetLiquidableTraders(market, oraclePrice)
+						assert.Equal(t, 0, len(liquidablePositions))
 					})
 				})
 				t.Run("When trader margin fraction is < than maintenance margin, it returns trader's info in GetLiquidableTraders", func(t *testing.T) {
@@ -180,14 +176,14 @@ func TestGetLiquidableTraders(t *testing.T) {
 							openNotionalLong2 := dividePrecisionSize(big.NewInt(0).Mul(longEntryPrice2, longSize2))
 							addPosition(db, longTraderAddress2, longSize2, openNotionalLong2, market)
 
-							longPositions, _ := db.GetLiquidableTraders(market, oraclePrice)
-							assert.Equal(t, 1, len(longPositions))
+							liquidablePositions := db.GetLiquidableTraders(market, oraclePrice)
+							assert.Equal(t, 1, len(liquidablePositions))
 
 							//long trader 1 mf-markPrice > maintenanceMargin so it is not liquidated
 							//long trader 2 mf-markPrice < maintenanceMargin so it is liquidated
-							assert.Equal(t, longTraderAddress1, longPositions[0].Address)
-							assert.Equal(t, longSize1, longPositions[0].Size)
-							assert.Equal(t, expectedMarginFractionLong1, longPositions[0].MarginFraction)
+							assert.Equal(t, longTraderAddress1, liquidablePositions[0].Address)
+							assert.Equal(t, getLiquidationThreshold(longSize1), liquidablePositions[0].Size)
+							assert.Equal(t, expectedMarginFractionLong1, liquidablePositions[0].MarginFraction)
 						})
 						t.Run("For short order", func(t *testing.T) {
 							markPrice := multiplyBasePrecision(big.NewInt(110))
@@ -219,11 +215,11 @@ func TestGetLiquidableTraders(t *testing.T) {
 							openNotionalShort2 := dividePrecisionSize(big.NewInt(0).Abs(big.NewInt(0).Mul(shortEntryPrice2, shortSize2)))
 							addPosition(db, shortTraderAddress2, shortSize2, openNotionalShort2, market)
 
-							_, shortPositions := db.GetLiquidableTraders(market, oraclePrice)
-							assert.Equal(t, 1, len(shortPositions))
-							assert.Equal(t, shortTraderAddress1, shortPositions[0].Address)
-							assert.Equal(t, shortSize1, shortPositions[0].Size)
-							assert.Equal(t, expectedMarginFractionShort1, shortPositions[0].MarginFraction)
+							liquidablePositions := db.GetLiquidableTraders(market, oraclePrice)
+							assert.Equal(t, 1, len(liquidablePositions))
+							assert.Equal(t, shortTraderAddress1, liquidablePositions[0].Address)
+							assert.Equal(t, getLiquidationThreshold(shortSize1), liquidablePositions[0].Size)
+							assert.Equal(t, expectedMarginFractionShort1, liquidablePositions[0].MarginFraction)
 						})
 					})
 					t.Run("When mf-markPrice < mf-oraclePrice, it uses mf with oracle price", func(t *testing.T) {
@@ -258,14 +254,14 @@ func TestGetLiquidableTraders(t *testing.T) {
 							openNotionalLong2 := dividePrecisionSize(big.NewInt(0).Mul(longEntryPrice2, longSize2))
 							addPosition(db, longTraderAddress2, longSize2, openNotionalLong2, market)
 
-							longPositions, _ := db.GetLiquidableTraders(market, oraclePrice)
-							assert.Equal(t, 1, len(longPositions))
+							liquidablePositions := db.GetLiquidableTraders(market, oraclePrice)
+							assert.Equal(t, 1, len(liquidablePositions))
 
 							//long trader 1 mf-markPrice > maintenanceMargin so it is not liquidated
 							//long trader 2 mf-markPrice < maintenanceMargin so it is liquidated
-							assert.Equal(t, longTraderAddress1, longPositions[0].Address)
-							assert.Equal(t, longSize1, longPositions[0].Size)
-							assert.Equal(t, expectedMarginFractionLong1, longPositions[0].MarginFraction)
+							assert.Equal(t, longTraderAddress1, liquidablePositions[0].Address)
+							assert.Equal(t, getLiquidationThreshold(longSize1), liquidablePositions[0].Size)
+							assert.Equal(t, expectedMarginFractionLong1, liquidablePositions[0].MarginFraction)
 						})
 						t.Run("For short order", func(t *testing.T) {
 							markPrice := multiplyBasePrecision(big.NewInt(140))
@@ -297,11 +293,11 @@ func TestGetLiquidableTraders(t *testing.T) {
 							openNotionalShort2 := dividePrecisionSize(big.NewInt(0).Abs(big.NewInt(0).Mul(shortEntryPrice2, shortSize2)))
 							addPosition(db, shortTraderAddress2, shortSize2, openNotionalShort2, market)
 
-							_, shortPositions := db.GetLiquidableTraders(market, oraclePrice)
-							assert.Equal(t, 1, len(shortPositions))
-							assert.Equal(t, shortTraderAddress1, shortPositions[0].Address)
-							assert.Equal(t, shortSize1, shortPositions[0].Size)
-							assert.Equal(t, expectedMarginFractionShort1, shortPositions[0].MarginFraction)
+							liquidablePositions := db.GetLiquidableTraders(market, oraclePrice)
+							assert.Equal(t, 1, len(liquidablePositions))
+							assert.Equal(t, shortTraderAddress1, liquidablePositions[0].Address)
+							assert.Equal(t, getLiquidationThreshold(shortSize1), liquidablePositions[0].Size)
+							assert.Equal(t, expectedMarginFractionShort1, liquidablePositions[0].MarginFraction)
 						})
 					})
 				})
