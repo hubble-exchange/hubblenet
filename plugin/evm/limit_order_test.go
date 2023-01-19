@@ -286,3 +286,32 @@ func createLimitOrder(positionType string, userAddress string, baseAssetQuantity
 		BlockNumber:             blockNumber,
 	}
 }
+
+func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
+	t.Run("When limit FilledBaseAssetQuantity is zero, it returns BaseAssetQuantity", func(t *testing.T) {
+		longOrder := getLongOrder()
+		longOrderFilledBaseQuantity := 0
+		longOrder.FilledBaseAssetQuantity = longOrderFilledBaseQuantity
+		expectedUnFilledForLongOrder := longOrder.BaseAssetQuantity - longOrderFilledBaseQuantity
+		assert.Equal(t, expectedUnFilledForLongOrder, getUnFilledBaseAssetQuantity(longOrder))
+
+		shortOrder := getShortOrder()
+		shortOrderFilledBaseQuantity := 0
+		shortOrder.FilledBaseAssetQuantity = shortOrderFilledBaseQuantity
+		expectedUnFilledForShortOrder := shortOrder.BaseAssetQuantity - shortOrderFilledBaseQuantity
+		assert.Equal(t, expectedUnFilledForShortOrder, getUnFilledBaseAssetQuantity(shortOrder))
+	})
+	t.Run("When limit FilledBaseAssetQuantity is not zero, it returns BaseAssetQuantity - FilledBaseAssetQuantity", func(t *testing.T) {
+		longOrder := getLongOrder()
+		longOrderFilledBaseQuantity := 5
+		longOrder.FilledBaseAssetQuantity = longOrderFilledBaseQuantity
+		expectedUnFilledForLongOrder := longOrder.BaseAssetQuantity - longOrderFilledBaseQuantity
+		assert.Equal(t, expectedUnFilledForLongOrder, getUnFilledBaseAssetQuantity(longOrder))
+
+		shortOrder := getShortOrder()
+		shortOrderFilledBaseQuantity := -5
+		shortOrder.FilledBaseAssetQuantity = shortOrderFilledBaseQuantity
+		expectedUnFilledForShortOrder := shortOrder.BaseAssetQuantity - shortOrderFilledBaseQuantity
+		assert.Equal(t, expectedUnFilledForShortOrder, getUnFilledBaseAssetQuantity(shortOrder))
+	})
+}
