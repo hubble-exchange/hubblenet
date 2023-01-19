@@ -327,3 +327,152 @@ func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
 		assert.Equal(t, expectedUnFilledForShortOrder, getUnFilledBaseAssetQuantity(shortOrder))
 	})
 }
+
+func TestMatchLongAndShortOrder(t *testing.T) {
+	t.Run("When longPrice is less than shortPrice ,it returns orders unchanged and ordersMatched=false", func(t *testing.T) {
+		_, lotp, _ := setupDependencies(t)
+		longOrder := getLongOrder()
+		shortOrder := getShortOrder()
+		longOrder.Price = shortOrder.Price - 1
+		changedLongOrder, changedShortOrder, ordersMatched := matchLongAndShortOrder(lotp, longOrder, shortOrder)
+		lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything, mock.Anything)
+		assert.Equal(t, longOrder, changedLongOrder)
+		assert.Equal(t, shortOrder, changedShortOrder)
+		assert.Equal(t, false, ordersMatched)
+	})
+	t.Run("When longPrice is >= shortPrice", func(t *testing.T) {
+		t.Run("When either longOrder or/and shortOrder is fully filled ", func(t *testing.T) {
+			t.Run("When longOrder is fully filled, it returns orders unchanged and ordersMatched=false", func(t *testing.T) {
+				_, lotp, _ := setupDependencies(t)
+				longOrder := getLongOrder()
+				longOrder.FilledBaseAssetQuantity = longOrder.BaseAssetQuantity
+				shortOrder := getShortOrder()
+				longOrder.Price = shortOrder.Price + 1
+				changedLongOrder, changedShortOrder, ordersMatched := matchLongAndShortOrder(lotp, longOrder, shortOrder)
+				lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything, mock.Anything)
+				assert.Equal(t, longOrder, changedLongOrder)
+				assert.Equal(t, shortOrder, changedShortOrder)
+				assert.Equal(t, false, ordersMatched)
+			})
+			t.Run("When shortOrder is fully filled, it returns orders unchanged and ordersMatched=false", func(t *testing.T) {
+				_, lotp, _ := setupDependencies(t)
+				longOrder := getLongOrder()
+				shortOrder := getShortOrder()
+				longOrder.Price = shortOrder.Price + 1
+				shortOrder.FilledBaseAssetQuantity = shortOrder.BaseAssetQuantity
+				changedLongOrder, changedShortOrder, ordersMatched := matchLongAndShortOrder(lotp, longOrder, shortOrder)
+				lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything, mock.Anything)
+				assert.Equal(t, longOrder, changedLongOrder)
+				assert.Equal(t, shortOrder, changedShortOrder)
+				assert.Equal(t, false, ordersMatched)
+			})
+			t.Run("When longOrder and shortOrder are fully filled, it returns orders unchanged and ordersMatched=false", func(t *testing.T) {
+				_, lotp, _ := setupDependencies(t)
+				longOrder := getLongOrder()
+				longOrder.FilledBaseAssetQuantity = longOrder.BaseAssetQuantity
+				shortOrder := getShortOrder()
+				longOrder.Price = shortOrder.Price + 1
+				shortOrder.FilledBaseAssetQuantity = shortOrder.BaseAssetQuantity
+				changedLongOrder, changedShortOrder, ordersMatched := matchLongAndShortOrder(lotp, longOrder, shortOrder)
+				lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything, mock.Anything)
+				assert.Equal(t, longOrder, changedLongOrder)
+				assert.Equal(t, shortOrder, changedShortOrder)
+				assert.Equal(t, false, ordersMatched)
+			})
+		})
+		t.Run("when both long and short order are not fully filled", func(t *testing.T) {
+			t.Run("when unfilled is same for longOrder and shortOrder", func(t *testing.T) {
+				t.Run("When filled is zero for long and short order, it returns fully filled longOrder and shortOrder and ordersMatched=true", func(t *testing.T) {
+					_, lotp, _ := setupDependencies(t)
+					longOrder := getLongOrder()
+					longOrder.FilledBaseAssetQuantity = 0
+					shortOrder := getShortOrder()
+					longOrder.Price = shortOrder.Price + 1
+					shortOrder.FilledBaseAssetQuantity = 0
+					shortOrder.BaseAssetQuantity = -longOrder.BaseAssetQuantity
+
+					expectedFillAmount := longOrder.BaseAssetQuantity
+					lotp.On("ExecuteMatchedOrdersTx", longOrder, shortOrder, uint(expectedFillAmount)).Return(nil)
+
+					changedLongOrder, changedShortOrder, ordersMatched := matchLongAndShortOrder(lotp, longOrder, shortOrder)
+					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder, shortOrder, uint(expectedFillAmount))
+
+					//setting this to test if returned order is same as original except for FilledBaseAssetQuantity
+					longOrder.FilledBaseAssetQuantity = longOrder.BaseAssetQuantity
+					shortOrder.FilledBaseAssetQuantity = shortOrder.BaseAssetQuantity
+					assert.Equal(t, longOrder, changedLongOrder)
+					assert.Equal(t, shortOrder, changedShortOrder)
+					assert.Equal(t, true, ordersMatched)
+				})
+				t.Run("When filled is non zero for long and short order, it returns fully filled longOrder and shortOrder and ordersMatched=true", func(t *testing.T) {
+					_, lotp, _ := setupDependencies(t)
+					longOrder := getLongOrder()
+					longOrder.BaseAssetQuantity = 20
+					longOrder.FilledBaseAssetQuantity = 5
+					shortOrder := getShortOrder()
+					longOrder.Price = shortOrder.Price + 1
+					shortOrder.BaseAssetQuantity = -30
+					shortOrder.FilledBaseAssetQuantity = -15
+
+					expectedFillAmount := longOrder.BaseAssetQuantity - longOrder.FilledBaseAssetQuantity
+					lotp.On("ExecuteMatchedOrdersTx", longOrder, shortOrder, uint(expectedFillAmount)).Return(nil)
+					changedLongOrder, changedShortOrder, ordersMatched := matchLongAndShortOrder(lotp, longOrder, shortOrder)
+
+					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder, shortOrder, uint(expectedFillAmount))
+					//setting this to test if returned order is same as original except for FilledBaseAssetQuantity
+					longOrder.FilledBaseAssetQuantity = longOrder.BaseAssetQuantity
+					shortOrder.FilledBaseAssetQuantity = shortOrder.BaseAssetQuantity
+					assert.Equal(t, longOrder, changedLongOrder)
+					assert.Equal(t, shortOrder, changedShortOrder)
+					assert.Equal(t, true, ordersMatched)
+				})
+			})
+			t.Run("when unfilled(amount x) is less for longOrder, it returns fully filled longOrder and adds fillAmount(x) to shortOrder with and ordersMatched=true", func(t *testing.T) {
+				_, lotp, _ := setupDependencies(t)
+				longOrder := getLongOrder()
+				longOrder.BaseAssetQuantity = 20
+				longOrder.FilledBaseAssetQuantity = 15
+				shortOrder := getShortOrder()
+				longOrder.Price = shortOrder.Price + 1
+				shortOrder.BaseAssetQuantity = -30
+				shortOrder.FilledBaseAssetQuantity = -15
+
+				expectedFillAmount := longOrder.BaseAssetQuantity - longOrder.FilledBaseAssetQuantity
+				lotp.On("ExecuteMatchedOrdersTx", longOrder, shortOrder, uint(expectedFillAmount)).Return(nil)
+				changedLongOrder, changedShortOrder, ordersMatched := matchLongAndShortOrder(lotp, longOrder, shortOrder)
+				lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder, shortOrder, uint(expectedFillAmount))
+
+				expectedShortOrderFilled := shortOrder.FilledBaseAssetQuantity - expectedFillAmount
+				//setting this to test if returned order is same as original except for FilledBaseAssetQuantity
+				longOrder.FilledBaseAssetQuantity = longOrder.BaseAssetQuantity
+				shortOrder.FilledBaseAssetQuantity = expectedShortOrderFilled
+				assert.Equal(t, longOrder, changedLongOrder)
+				assert.Equal(t, shortOrder, changedShortOrder)
+				assert.Equal(t, true, ordersMatched)
+			})
+			t.Run("when unfilled(amount x) is less for shortOrder, it returns fully filled shortOrder and adds fillAmount(x) to longOrder and ordersMatched=true", func(t *testing.T) {
+				_, lotp, _ := setupDependencies(t)
+				longOrder := getLongOrder()
+				longOrder.BaseAssetQuantity = 20
+				longOrder.FilledBaseAssetQuantity = 5
+				shortOrder := getShortOrder()
+				longOrder.Price = shortOrder.Price + 1
+				shortOrder.BaseAssetQuantity = -30
+				shortOrder.FilledBaseAssetQuantity = -25
+
+				expectedFillAmount := -(shortOrder.BaseAssetQuantity - shortOrder.FilledBaseAssetQuantity)
+				lotp.On("ExecuteMatchedOrdersTx", longOrder, shortOrder, uint(expectedFillAmount)).Return(nil)
+				changedLongOrder, changedShortOrder, ordersMatched := matchLongAndShortOrder(lotp, longOrder, shortOrder)
+				lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder, shortOrder, uint(expectedFillAmount))
+
+				expectedLongOrderFilled := longOrder.FilledBaseAssetQuantity + expectedFillAmount
+				//setting this to test if returned order is same as original except for FilledBaseAssetQuantity
+				longOrder.FilledBaseAssetQuantity = expectedLongOrderFilled
+				shortOrder.FilledBaseAssetQuantity = shortOrder.BaseAssetQuantity
+				assert.Equal(t, longOrder, changedLongOrder)
+				assert.Equal(t, shortOrder, changedShortOrder)
+				assert.Equal(t, true, ordersMatched)
+			})
+		})
+	})
+}
