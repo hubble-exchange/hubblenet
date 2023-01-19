@@ -289,29 +289,41 @@ func createLimitOrder(positionType string, userAddress string, baseAssetQuantity
 
 func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
 	t.Run("When limit FilledBaseAssetQuantity is zero, it returns BaseAssetQuantity", func(t *testing.T) {
-		longOrder := getLongOrder()
-		longOrderFilledBaseQuantity := 0
-		longOrder.FilledBaseAssetQuantity = longOrderFilledBaseQuantity
-		expectedUnFilledForLongOrder := longOrder.BaseAssetQuantity - longOrderFilledBaseQuantity
+		baseAssetQuantityLongOrder := 10
+		signature := []byte("Here is a long order")
+		salt := time.Now().Unix()
+		longOrder := createLimitOrder("long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityLongOrder, 20.01, "unfulfilled", salt, signature, 2)
+		longOrder.FilledBaseAssetQuantity = 0
+		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
+		expectedUnFilledForLongOrder := 10
 		assert.Equal(t, expectedUnFilledForLongOrder, getUnFilledBaseAssetQuantity(longOrder))
 
-		shortOrder := getShortOrder()
-		shortOrderFilledBaseQuantity := 0
-		shortOrder.FilledBaseAssetQuantity = shortOrderFilledBaseQuantity
-		expectedUnFilledForShortOrder := shortOrder.BaseAssetQuantity - shortOrderFilledBaseQuantity
+		signature = []byte("Here is a short order")
+		salt = time.Now().Unix()
+		baseAssetQuantityShortOrder := -10
+		shortOrder := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityShortOrder, 20.01, "unfulfilled", salt, signature, 2)
+		shortOrder.FilledBaseAssetQuantity = 0
+		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
+		expectedUnFilledForShortOrder := -10
 		assert.Equal(t, expectedUnFilledForShortOrder, getUnFilledBaseAssetQuantity(shortOrder))
 	})
 	t.Run("When limit FilledBaseAssetQuantity is not zero, it returns BaseAssetQuantity - FilledBaseAssetQuantity", func(t *testing.T) {
-		longOrder := getLongOrder()
-		longOrderFilledBaseQuantity := 5
-		longOrder.FilledBaseAssetQuantity = longOrderFilledBaseQuantity
-		expectedUnFilledForLongOrder := longOrder.BaseAssetQuantity - longOrderFilledBaseQuantity
+		baseAssetQuantityLongOrder := 10
+		signature := []byte("Here is a long order")
+		salt := time.Now().Unix()
+		longOrder := createLimitOrder("long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityLongOrder, 20.01, "unfulfilled", salt, signature, 2)
+		longOrder.FilledBaseAssetQuantity = 5
+		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
+		expectedUnFilledForLongOrder := 5
 		assert.Equal(t, expectedUnFilledForLongOrder, getUnFilledBaseAssetQuantity(longOrder))
 
-		shortOrder := getShortOrder()
-		shortOrderFilledBaseQuantity := -5
-		shortOrder.FilledBaseAssetQuantity = shortOrderFilledBaseQuantity
-		expectedUnFilledForShortOrder := shortOrder.BaseAssetQuantity - shortOrderFilledBaseQuantity
+		signature = []byte("Here is a short order")
+		salt = time.Now().Unix()
+		baseAssetQuantityShortOrder := -10
+		shortOrder := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityShortOrder, 20.01, "unfulfilled", salt, signature, 2)
+		shortOrder.FilledBaseAssetQuantity = -5
+		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
+		expectedUnFilledForShortOrder := -5
 		assert.Equal(t, expectedUnFilledForShortOrder, getUnFilledBaseAssetQuantity(shortOrder))
 	})
 }
