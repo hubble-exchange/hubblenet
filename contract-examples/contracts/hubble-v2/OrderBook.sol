@@ -65,7 +65,8 @@ contract OrderBook is IOrderBook, EIP712Upgradeable {
      * Execute matched orders
      * @param orders It is required that orders[0] is a LONG and orders[1] is a short
      * @param signatures To verify authenticity of the order
-     * @param fillAmount fillAmount to support partial fills. Should be > 0
+     * @param fillAmount Amount to be filled for each order. This is to support partial fills.
+     *        Should be > 0 and min(unfilled amount in both orders)
     */
     function executeMatchedOrders(
         Order[2] memory orders,
