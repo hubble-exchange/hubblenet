@@ -356,57 +356,57 @@ func TestRunLiquidationsAndMatching(t *testing.T) {
 					// During 1st  matching iteration
 					// orderbook: Longs: [(22.01,10,3), (21.01,40,0), (20.01,20,5)], Shorts: [(18.01,-20,-10), (19.01,-50,-20), (20.01,-30,-2)]
 					fillAmount := utils.BigIntMinAbs(longOrder3.GetUnFilledBaseAssetQuantity(), shortOrder3.GetUnFilledBaseAssetQuantity())
-					assert.Equal(t, uint(7), fillAmount)
+					assert.Equal(t, big.NewInt(7), fillAmount)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder3, shortOrder3, fillAmount)
 					//After 1st matching iteration longOrder3 has been matched fully but shortOrder3 has not
 					longOrder3.FilledBaseAssetQuantity.Add(longOrder3.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(10), longOrder3.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(10), longOrder3.FilledBaseAssetQuantity)
 					shortOrder3.FilledBaseAssetQuantity.Sub(shortOrder3.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(-17), shortOrder3.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(-17), shortOrder3.FilledBaseAssetQuantity)
 
 					// During 2nd iteration longOrder2 with be matched with shortOrder3
 					// orderbook: Longs: [(22.01,10,10), (21.01,40,0), (20.01,20,5)], Shorts: [(18.01,-20,-17), (19.01,-50,-20), (20.01,-30,-2)]
 					fillAmount = utils.BigIntMinAbs(longOrder2.GetUnFilledBaseAssetQuantity(), shortOrder3.GetUnFilledBaseAssetQuantity())
-					assert.Equal(t, uint(3), fillAmount)
+					assert.Equal(t, big.NewInt(3), fillAmount)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder2, shortOrder3, fillAmount)
 					//After 2nd matching iteration shortOrder3 has been matched fully but longOrder2 has not
 					longOrder2.FilledBaseAssetQuantity.Add(longOrder2.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(3), longOrder2.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(3), longOrder2.FilledBaseAssetQuantity)
 					shortOrder3.FilledBaseAssetQuantity.Sub(shortOrder3.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(-20), shortOrder2.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(-20), shortOrder2.FilledBaseAssetQuantity)
 
 					// During 3rd iteration longOrder2 with be matched with shortOrder2
 					// orderbook: Longs: [(22.01,10,10), (21.01,40,3), (20.01,20,5)], Shorts: [(18.01,-20,-20), (19.01,-50,-20), (20.01,-30,-2)]
 					fillAmount = utils.BigIntMinAbs(longOrder2.GetUnFilledBaseAssetQuantity(), shortOrder2.GetUnFilledBaseAssetQuantity())
-					assert.Equal(t, uint(30), fillAmount)
+					assert.Equal(t, big.NewInt(30), fillAmount)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder2, shortOrder2, fillAmount)
 					//After 3rd matching iteration shortOrder2 has been matched fully but longOrder2 has not
 					longOrder2.FilledBaseAssetQuantity.Add(longOrder2.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(33), longOrder2.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(33), longOrder2.FilledBaseAssetQuantity)
 					shortOrder2.FilledBaseAssetQuantity.Sub(shortOrder2.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(-50), shortOrder2.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(-50), shortOrder2.FilledBaseAssetQuantity)
 
 					// During 4th iteration longOrder2 with be matched with shortOrder1
 					// orderbook: Longs: [(22.01,10,10), (21.01,40,33), (20.01,20,5)], Shorts: [(18.01,-20,-20), (19.01,-50,-50), (20.01,-30,-2)]
 					fillAmount = utils.BigIntMinAbs(longOrder2.GetUnFilledBaseAssetQuantity(), shortOrder1.GetUnFilledBaseAssetQuantity())
-					assert.Equal(t, uint(7), fillAmount)
+					assert.Equal(t, big.NewInt(7), fillAmount)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder2, shortOrder1, fillAmount)
 					//After 4rd matching iteration shortOrder2 has been matched fully but longOrder3 has not
 					longOrder2.FilledBaseAssetQuantity.Add(longOrder2.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(40), longOrder2.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(40), longOrder2.FilledBaseAssetQuantity)
 					shortOrder1.FilledBaseAssetQuantity.Sub(shortOrder1.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(-9), shortOrder1.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(-9), shortOrder1.FilledBaseAssetQuantity)
 
 					// During 5th iteration longOrder1 with be matched with shortOrder1
 					// orderbook: Longs: [(22.01,10,10), (21.01,40,40), (20.01,20,5)], Shorts: [(18.01,-20,-20), (19.01,-50,-50), (20.01,-30,-9)]
 					fillAmount = utils.BigIntMinAbs(longOrder1.GetUnFilledBaseAssetQuantity(), shortOrder1.GetUnFilledBaseAssetQuantity())
-					assert.Equal(t, uint(15), fillAmount)
+					assert.Equal(t, big.NewInt(15), fillAmount)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount)
 
 					longOrder1.FilledBaseAssetQuantity.Add(longOrder1.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(20), longOrder1.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(20), longOrder1.FilledBaseAssetQuantity)
 					shortOrder1.FilledBaseAssetQuantity.Sub(shortOrder1.FilledBaseAssetQuantity, fillAmount)
-					assert.Equal(t, int(-24), shortOrder1.FilledBaseAssetQuantity)
+					assert.Equal(t, big.NewInt(-24), shortOrder1.FilledBaseAssetQuantity)
 				})
 			})
 		})
