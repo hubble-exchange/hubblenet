@@ -157,13 +157,13 @@ func (lop *limitOrderProcesser) runLiquidations(market limitorders.Market, longO
 }
 
 func matchLongAndShortOrder(lotp limitorders.LimitOrderTxProcessor, longOrder limitorders.LimitOrder, shortOrder limitorders.LimitOrder) (limitorders.LimitOrder, limitorders.LimitOrder, bool) {
-	if longOrder.Price >= shortOrder.Price {
-		fillAmount := math.Abs(math.Min(float64(getUnFilledBaseAssetQuantity(longOrder)), float64(-(getUnFilledBaseAssetQuantity(shortOrder)))))
-		if fillAmount != 0 {
-			err := lotp.ExecuteMatchedOrdersTx(longOrder, shortOrder, uint(fillAmount))
+	if longOrder.Price.Cmp(shortOrder.Price) >= 0 { // longOrder.Price >= shortOrder.Price
+		fillAmount := utils.BigIntMinAbs(longOrder.GetUnFilledBaseAssetQuantity(), shortOrder.GetUnFilledBaseAssetQuantity())
+		if fillAmount.Sign() != 0 {
+			err := lotp.ExecuteMatchedOrdersTx(longOrder, shortOrder, fillAmount)
 			if err == nil {
-				longOrder.FilledBaseAssetQuantity += int(fillAmount)
-				shortOrder.FilledBaseAssetQuantity -= int(fillAmount)
+				longOrder.FilledBaseAssetQuantity.Add(longOrder.FilledBaseAssetQuantity, fillAmount)
+				shortOrder.FilledBaseAssetQuantity.Sub(shortOrder.FilledBaseAssetQuantity, fillAmount)
 				return longOrder, shortOrder, true
 			}
 		}
