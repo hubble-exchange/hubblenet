@@ -105,7 +105,7 @@ contract OrderBook is IOrderBook, EIP712Upgradeable {
     */
     function _openPosition(Order memory order, int fillAmount, uint fulfillPrice) internal {
         // update open notional
-        uint delta = abs(fillAmount).toUint256() * fulfillPrice;
+        uint delta = abs(fillAmount).toUint256() * fulfillPrice / 1e18;
         address trader = order.trader;
         uint ammIndex = order.ammIndex;
         require(ammIndex < numAmms, "OB_please_whitelist_new_amm");
@@ -159,7 +159,7 @@ contract OrderBook is IOrderBook, EIP712Upgradeable {
     */
     function liquidateAndExecuteOrder(address trader, Order memory order, bytes memory signature, int toLiquidate) external {
         // liquidate
-        positions[order.ammIndex][trader].openNotional -= (order.price * abs(toLiquidate).toUint256());
+        positions[order.ammIndex][trader].openNotional -= (order.price * abs(toLiquidate).toUint256() / 1e18);
         positions[order.ammIndex][trader].size -= toLiquidate;
 
         (bytes32 orderHash,) = _verifyOrder(order, signature, toLiquidate);
