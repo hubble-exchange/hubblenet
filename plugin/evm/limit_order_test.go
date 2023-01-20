@@ -90,14 +90,14 @@ func TestRunLiquidationsAndMatching(t *testing.T) {
 		})
 	})
 	t.Run("When long and short orders are present in db", func(t *testing.T) {
-		t.Run("Matching engine does not make call ExecuteMatchedOrders when price is not same", func(t *testing.T) {
+		t.Run("when longOrder.Price < shortOrder.Price", func(t *testing.T) {
 			db, lotp, lop := setupDependencies(t)
 			longOrders := make([]limitorders.LimitOrder, 0)
 			shortOrders := make([]limitorders.LimitOrder, 0)
 			longOrder := getLongOrder()
 			longOrders = append(longOrders, longOrder)
 			shortOrder := getShortOrder()
-			shortOrder.Price = big.NewInt(0).Sub(shortOrder.Price, big.NewInt(2))
+			shortOrder.Price = big.NewInt(0).Add(shortOrder.Price, big.NewInt(2))
 			shortOrders = append(shortOrders, shortOrder)
 			db.On("GetLongOrders").Return(longOrders)
 			db.On("GetShortOrders").Return(shortOrders)
@@ -105,7 +105,7 @@ func TestRunLiquidationsAndMatching(t *testing.T) {
 			lop.RunLiquidationsAndMatching()
 			lotp.AssertNotCalled(t, "ExecuteMatchedOrdersTx", mock.Anything, mock.Anything, mock.Anything)
 		})
-		t.Run("When price is same", func(t *testing.T) {
+		t.Run("When longOrder.Price >= shortOrder.Price same", func(t *testing.T) {
 			t.Run("When long order and short order's unfulfilled quantity is same", func(t *testing.T) {
 				t.Run("When long order and short order's base asset quantity is same", func(t *testing.T) {
 					//Add 2 long orders
@@ -354,7 +354,7 @@ func TestRunLiquidationsAndMatching(t *testing.T) {
 					lop.RunLiquidationsAndMatching()
 
 					// During 1st  matching iteration
-					// orderbook: Longs: [(22.01,10,3), (21.01,40,0), (20.01,20,5)], Shorts: [(18.01,-20,-10), (19.01,-50,-20), (20.01,-30,-2)]					
+					// orderbook: Longs: [(22.01,10,3), (21.01,40,0), (20.01,20,5)], Shorts: [(18.01,-20,-10), (19.01,-50,-20), (20.01,-30,-2)]
 					fillAmount := utils.BigIntMinAbs(longOrder3.GetUnFilledBaseAssetQuantity(), shortOrder3.GetUnFilledBaseAssetQuantity())
 					assert.Equal(t, uint(7), fillAmount)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder3, shortOrder3, fillAmount)
@@ -415,7 +415,7 @@ func TestRunLiquidationsAndMatching(t *testing.T) {
 
 func getShortOrder() limitorders.LimitOrder {
 	signature := []byte("Here is a short order")
-	shortOrder := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", big.NewInt( -10), big.NewInt(20.0), "unfulfilled", signature, big.NewInt(2))
+	shortOrder := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", big.NewInt(-10), big.NewInt(20.0), "unfulfilled", signature, big.NewInt(2))
 	return shortOrder
 }
 
@@ -427,50 +427,50 @@ func getLongOrder() limitorders.LimitOrder {
 
 func createLimitOrder(positionType string, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status string, signature []byte, blockNumber *big.Int) limitorders.LimitOrder {
 	return limitorders.LimitOrder{
-		PositionType:      positionType,
-		UserAddress:       userAddress,
-		BaseAssetQuantity: baseAssetQuantity,
-		Price:             price,
-		Status:            limitorders.Status(status),
-		Signature:         signature,
+		PositionType:            positionType,
+		UserAddress:             userAddress,
+		BaseAssetQuantity:       baseAssetQuantity,
+		Price:                   price,
+		Status:                  limitorders.Status(status),
+		Signature:               signature,
 		FilledBaseAssetQuantity: big.NewInt(0),
-		BlockNumber:       blockNumber,
+		BlockNumber:             blockNumber,
 	}
 }
 
 func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
 	t.Run("When limit FilledBaseAssetQuantity is zero, it returns BaseAssetQuantity", func(t *testing.T) {
-		baseAssetQuantityLongOrder := big.NewInt( 10)
+		baseAssetQuantityLongOrder := big.NewInt(10)
 		signature := []byte("Here is a long order")
 		longOrder := createLimitOrder("long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityLongOrder, big.NewInt(21), "unfulfilled", signature, big.NewInt(2))
 		longOrder.FilledBaseAssetQuantity = big.NewInt(0)
 		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
-		expectedUnFilledForLongOrder := big.NewInt( 10)
+		expectedUnFilledForLongOrder := big.NewInt(10)
 		assert.Equal(t, expectedUnFilledForLongOrder, longOrder.GetUnFilledBaseAssetQuantity())
 
 		signature = []byte("Here is a short order")
-		baseAssetQuantityShortOrder :=  big.NewInt(-10)
+		baseAssetQuantityShortOrder := big.NewInt(-10)
 		shortOrder := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityShortOrder, big.NewInt(21), "unfulfilled", signature, big.NewInt(2))
 		shortOrder.FilledBaseAssetQuantity = big.NewInt(0)
 		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
-		expectedUnFilledForShortOrder :=  big.NewInt(-10)
+		expectedUnFilledForShortOrder := big.NewInt(-10)
 		assert.Equal(t, expectedUnFilledForShortOrder, shortOrder.GetUnFilledBaseAssetQuantity())
 	})
 	t.Run("When limit FilledBaseAssetQuantity is not zero, it returns BaseAssetQuantity - FilledBaseAssetQuantity", func(t *testing.T) {
-		baseAssetQuantityLongOrder := big.NewInt( 10)
+		baseAssetQuantityLongOrder := big.NewInt(10)
 		signature := []byte("Here is a long order")
 		longOrder := createLimitOrder("long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityLongOrder, big.NewInt(21), "unfulfilled", signature, big.NewInt(2))
-		longOrder.FilledBaseAssetQuantity = big.NewInt( 5)
+		longOrder.FilledBaseAssetQuantity = big.NewInt(5)
 		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
-		expectedUnFilledForLongOrder := big.NewInt( 5)
+		expectedUnFilledForLongOrder := big.NewInt(5)
 		assert.Equal(t, expectedUnFilledForLongOrder, longOrder.GetUnFilledBaseAssetQuantity())
 
 		signature = []byte("Here is a short order")
-		baseAssetQuantityShortOrder :=  big.NewInt(-10)
+		baseAssetQuantityShortOrder := big.NewInt(-10)
 		shortOrder := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityShortOrder, big.NewInt(21), "unfulfilled", signature, big.NewInt(2))
-		shortOrder.FilledBaseAssetQuantity =  big.NewInt(-5)
+		shortOrder.FilledBaseAssetQuantity = big.NewInt(-5)
 		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
-		expectedUnFilledForShortOrder :=  big.NewInt(-5)
+		expectedUnFilledForShortOrder := big.NewInt(-5)
 		assert.Equal(t, expectedUnFilledForShortOrder, shortOrder.GetUnFilledBaseAssetQuantity())
 	})
 }
@@ -554,12 +554,12 @@ func TestMatchLongAndShortOrder(t *testing.T) {
 				t.Run("When filled is non zero for long and short order, it returns fully filled longOrder and shortOrder and ordersMatched=true", func(t *testing.T) {
 					_, lotp, _ := setupDependencies(t)
 					longOrder := getLongOrder()
-					longOrder.BaseAssetQuantity = big.NewInt( 20)
-					longOrder.FilledBaseAssetQuantity = big.NewInt( 5)
+					longOrder.BaseAssetQuantity = big.NewInt(20)
+					longOrder.FilledBaseAssetQuantity = big.NewInt(5)
 					shortOrder := getShortOrder()
 					longOrder.Price.Add(shortOrder.Price, big.NewInt(1))
-					shortOrder.BaseAssetQuantity =  big.NewInt(-30)
-					shortOrder.FilledBaseAssetQuantity =  big.NewInt(-15)
+					shortOrder.BaseAssetQuantity = big.NewInt(-30)
+					shortOrder.FilledBaseAssetQuantity = big.NewInt(-15)
 
 					expectedFillAmount := big.NewInt(0).Sub(longOrder.BaseAssetQuantity, longOrder.FilledBaseAssetQuantity)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder, shortOrder, expectedFillAmount).Return(nil)
@@ -577,12 +577,12 @@ func TestMatchLongAndShortOrder(t *testing.T) {
 			t.Run("when unfilled(amount x) is less for longOrder, it returns fully filled longOrder and adds fillAmount(x) to shortOrder with and ordersMatched=true", func(t *testing.T) {
 				_, lotp, _ := setupDependencies(t)
 				longOrder := getLongOrder()
-				longOrder.BaseAssetQuantity = big.NewInt( 20)
-				longOrder.FilledBaseAssetQuantity = big.NewInt( 15)
+				longOrder.BaseAssetQuantity = big.NewInt(20)
+				longOrder.FilledBaseAssetQuantity = big.NewInt(15)
 				shortOrder := getShortOrder()
 				longOrder.Price.Add(shortOrder.Price, big.NewInt(1))
-				shortOrder.BaseAssetQuantity =  big.NewInt(-30)
-				shortOrder.FilledBaseAssetQuantity =  big.NewInt(-15)
+				shortOrder.BaseAssetQuantity = big.NewInt(-30)
+				shortOrder.FilledBaseAssetQuantity = big.NewInt(-15)
 
 				expectedFillAmount := big.NewInt(0).Sub(longOrder.BaseAssetQuantity, longOrder.FilledBaseAssetQuantity)
 				lotp.On("ExecuteMatchedOrdersTx", longOrder, shortOrder, expectedFillAmount).Return(nil)

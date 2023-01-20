@@ -162,8 +162,8 @@ func matchLongAndShortOrder(lotp limitorders.LimitOrderTxProcessor, longOrder li
 		if fillAmount.Sign() != 0 {
 			err := lotp.ExecuteMatchedOrdersTx(longOrder, shortOrder, fillAmount)
 			if err == nil {
-				longOrder.FilledBaseAssetQuantity.Add(longOrder.FilledBaseAssetQuantity, fillAmount)
-				shortOrder.FilledBaseAssetQuantity.Sub(shortOrder.FilledBaseAssetQuantity, fillAmount)
+				longOrder.FilledBaseAssetQuantity = big.NewInt(0).Add(longOrder.FilledBaseAssetQuantity, fillAmount)
+				shortOrder.FilledBaseAssetQuantity = big.NewInt(0).Sub(shortOrder.FilledBaseAssetQuantity, fillAmount)
 				return longOrder, shortOrder, true
 			}
 		}
