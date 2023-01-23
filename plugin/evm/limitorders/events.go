@@ -29,6 +29,15 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 			Signature:         args["signature"].([]byte),
 			BlockNumber:       big.NewInt(int64(event.BlockNumber)),
 		})
+	case lotp.orderBookABI.Events["OrderCancelled"].ID:
+		err := lotp.orderBookABI.UnpackIntoMap(args, "OrderCancelled", event.Data)
+		if err != nil {
+			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderCancelled", "err", err)
+		}
+		log.Info("HandleOrderBookEvent", "OrderCancelled args", args)
+		signature := args["signature"].([]byte)
+
+		lotp.memoryDb.Delete(signature)
 	case lotp.orderBookABI.Events["OrdersMatched"].ID:
 		log.Info("OrdersMatched event")
 		err := lotp.orderBookABI.UnpackIntoMap(args, "OrdersMatched", event.Data)

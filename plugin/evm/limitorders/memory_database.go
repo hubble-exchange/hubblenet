@@ -73,6 +73,7 @@ type Trader struct {
 type LimitOrderDatabase interface {
 	GetAllOrders() []LimitOrder
 	Add(order *LimitOrder)
+	Delete(signature []byte)
 	UpdateFilledBaseAssetQuantity(quantity *big.Int, signature []byte)
 	GetLongOrders(market Market) []LimitOrder
 	GetShortOrders(market Market) []LimitOrder
@@ -118,6 +119,10 @@ func (db *InMemoryDatabase) GetAllOrders() []LimitOrder {
 
 func (db *InMemoryDatabase) Add(order *LimitOrder) {
 	db.orderMap[string(order.Signature)] = order
+}
+
+func (db *InMemoryDatabase) Delete(signature []byte) {
+	deleteOrder(db, signature)
 }
 
 func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, signature []byte) {
