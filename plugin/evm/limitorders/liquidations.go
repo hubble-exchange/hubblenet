@@ -10,7 +10,7 @@ import (
 var maintenanceMargin = big.NewInt(1e5)
 var spreadRatioThreshold = big.NewInt(20 * 1e4)
 var BASE_PRECISION = big.NewInt(1e6)
-var SIZE_BASE_PRECISION = big.NewInt(1e12)
+var SIZE_BASE_PRECISION = big.NewInt(1e18)
 
 type LiquidablePosition struct {
 	Address        common.Address

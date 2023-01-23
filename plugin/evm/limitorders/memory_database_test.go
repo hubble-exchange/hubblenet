@@ -14,7 +14,7 @@ var positionType = "short"
 var userAddress = "random-address"
 var baseAssetQuantity = big.NewInt(-10)
 var price = big.NewInt(20)
-var status Status = Unfulfilled
+var status Status = Placed
 var blockNumber = big.NewInt(2)
 
 func TestNewInMemoryDatabase(t *testing.T) {

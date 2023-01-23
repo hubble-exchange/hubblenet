@@ -16,7 +16,6 @@ type Market int
 
 const (
 	AvaxPerp Market = iota
-	EthPerp
 )
 
 func GetActiveMarkets() []Market {
@@ -27,18 +26,16 @@ type Collateral int
 
 const (
 	HUSD Collateral = iota
-	Avax
-	Eth
 )
 
-var collateralWeightMap map[Collateral]float64 = map[Collateral]float64{HUSD: 1, Avax: 0.8, Eth: 0.8}
+var collateralWeightMap map[Collateral]float64 = map[Collateral]float64{HUSD: 1}
 
 type Status string
 
 const (
-	Unfulfilled = "unfulfilled"
-	Fulfilled   = "fulfilled"
-	Cancelled   = "cancelled"
+	Placed    = "placed"
+	Filled    = "filled"
+	Cancelled = "cancelled"
 )
 
 type LimitOrder struct {
@@ -53,7 +50,6 @@ type LimitOrder struct {
 	Signature               []byte
 	RawOrder                interface{}
 	BlockNumber             *big.Int // block number order was placed on
-	IsLiquidation           bool
 }
 
 func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
@@ -80,7 +76,7 @@ type LimitOrderDatabase interface {
 	UpdateFilledBaseAssetQuantity(quantity *big.Int, signature []byte)
 	GetLongOrders(market Market) []LimitOrder
 	GetShortOrders(market Market) []LimitOrder
-	UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int)
+	UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool)
 	UpdateMargin(trader common.Address, collateral Collateral, addAmount *big.Int)
 	UpdateUnrealisedFunding(market Market, cumulativePremiumFraction *big.Int)
 	ResetUnrealisedFunding(market Market, trader common.Address, cumulativePremiumFraction *big.Int)
@@ -183,7 +179,7 @@ func (db *InMemoryDatabase) UpdateMargin(trader common.Address, collateral Colla
 	db.traderMap[trader].Margins[collateral].Add(db.traderMap[trader].Margins[collateral], addAmount)
 }
 
-func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int) {
+func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool) {
 	if _, ok := db.traderMap[trader]; !ok {
 		db.traderMap[trader] = &Trader{
 			Positions: map[Market]*Position{},
@@ -197,7 +193,10 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 
 	db.traderMap[trader].Positions[market].Size = size
 	db.traderMap[trader].Positions[market].OpenNotional = openNotional
-	db.traderMap[trader].Positions[market].LiquidationThreshold = getLiquidationThreshold(size)
+
+	if !isLiquidation {
+		db.traderMap[trader].Positions[market].LiquidationThreshold = getLiquidationThreshold(size)
+	}
 }
 
 func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, cumulativePremiumFraction *big.Int) {
@@ -273,5 +272,6 @@ func getLiquidationThreshold(size *big.Int) *big.Int {
 	absSize := big.NewInt(0).Abs(size)
 	maxLiquidationSize := divideByBasePrecision(big.NewInt(0).Mul(absSize, maxLiquidationRatio))
 	threshold := big.NewInt(0).Add(maxLiquidationSize, big.NewInt(1))
-	return utils.BigIntMax(threshold, minSizeRequirement)
+	liquidationThreshold := utils.BigIntMax(threshold, minSizeRequirement)
+	return big.NewInt(0).Mul(liquidationThreshold, big.NewInt(int64(size.Sign()))) // same sign as size
 }

@@ -51,22 +51,33 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan
 }
 
 func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
-	lastAccepted := lop.blockChain.LastAcceptedBlock().NumberU64()
-	if lastAccepted > 0 {
+	lastAccepted := lop.blockChain.LastAcceptedBlock().Number()
+	if lastAccepted.Sign() > 0 {
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAccepted)
 		ctx := context.Background()
 
 		filterSystem := filters.NewFilterSystem(lop.backend, filters.Config{})
 		filterAPI := filters.NewFilterAPI(filterSystem, true)
-		logs, err := filterAPI.GetLogs(ctx, filters.FilterCriteria{
-			Addresses: []common.Address{limitorders.OrderBookContractAddress, limitorders.ClearingHouseContractAddress, limitorders.MarginAccountContractAddress},
-		})
-		if err != nil {
-			log.Error("ListenAndProcessTransactions - GetLogs failed", "err", err)
-			panic(err)
+
+		var fromBlock, toBlock *big.Int
+		fromBlock = big.NewInt(0)
+		toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
+		for toBlock.Cmp(fromBlock) > 0 {
+			logs, err := filterAPI.GetLogs(ctx, filters.FilterCriteria{
+				FromBlock: fromBlock,
+				ToBlock: toBlock,
+				Addresses: []common.Address{limitorders.OrderBookContractAddress, limitorders.ClearingHouseContractAddress, limitorders.MarginAccountContractAddress},
+			})
+			if err != nil {
+				log.Error("ListenAndProcessTransactions - GetLogs failed", "err", err)
+				panic(err)
+			}
+			processEvents(logs, lop)
+			log.Info("ListenAndProcessTransactions", "number of logs", len(logs), "err", err)
+
+			fromBlock = toBlock.Add(fromBlock, big.NewInt(1))
+			toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))	
 		}
-		log.Info("ListenAndProcessTransactions", "total logs", len(logs), "err", err)
-		processEvents(logs, lop)
 	}
 
 	lop.listenAndStoreLimitOrderTransactions()
@@ -136,6 +147,8 @@ func (lop *limitOrderProcesser) runLiquidations(market limitorders.Market, longO
 			if liquidable.GetUnfilledSize().Sign() == 0 {
 				break
 			}
+			// @todo: add a restriction on the price range that liquidation will occur on.
+			// An illiquid market can be very adverse for trader being liquidated.
 			fillAmount := utils.BigIntMinAbs(liquidable.GetUnfilledSize(), oppositeOrder.GetUnFilledBaseAssetQuantity())
 			if fillAmount.Sign() == 0 {
 				continue
@@ -172,33 +185,6 @@ func matchLongAndShortOrder(lotp limitorders.LimitOrderTxProcessor, longOrder li
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
-	newChainChan := make(chan core.ChainEvent)
-	chainAcceptedEventSubscription := lop.backend.SubscribeChainAcceptedEvent(newChainChan)
-
-	lop.shutdownWg.Add(1)
-	go lop.ctx.Log.RecoverAndPanic(func() {
-		defer lop.shutdownWg.Done()
-		defer chainAcceptedEventSubscription.Unsubscribe()
-
-		for {
-			select {
-			case newChainAcceptedEvent := <-newChainChan:
-				tsHashes := []string{}
-				// blockNumber := newChainAcceptedEvent.Block.Number().Uint64()
-				for _, tx := range newChainAcceptedEvent.Block.Transactions() {
-					tsHashes = append(tsHashes, tx.Hash().String())
-				}
-				log.Info("$$$$$ New head event", "number", newChainAcceptedEvent.Block.Header().Number, "tx hashes", tsHashes,
-					"miner", newChainAcceptedEvent.Block.Coinbase().String(),
-					"root", newChainAcceptedEvent.Block.Header().Root.String(), "gas used", newChainAcceptedEvent.Block.Header().GasUsed,
-					"nonce", newChainAcceptedEvent.Block.Header().Nonce)
-
-			case <-lop.shutdownChan:
-				return
-			}
-		}
-	})
-
 	logsCh := make(chan []*types.Log)
 	logsSubscription := lop.backend.SubscribeAcceptedLogsEvent(logsCh)
 	lop.shutdownWg.Add(1)
@@ -215,9 +201,6 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 			}
 		}
 	})
-
-	filterSystem := filters.NewFilterSystem(lop.backend, filters.Config{})
-	filters.NewEventSystem(filterSystem, false)
 }
 
 func processEvents(logs []*types.Log, lop *limitOrderProcesser) {

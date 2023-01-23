@@ -6,8 +6,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"math/big"
-	"math/rand"
-	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core"
@@ -102,9 +100,28 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error {
+	return lotp.executeOrderBookLocalTx("liquidateAndExecuteOrder", trader.String(), matchedOrder.RawOrder, matchedOrder.Signature, fillAmount)
+}
+
+func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
+	return lotp.executeOrderBookLocalTx("settleFunding")
+}
+
+func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount *big.Int) error {
+	orders := make([]Order, 2)
+	orders[0], orders[1] = getOrderFromRawOrder(incomingOrder.RawOrder), getOrderFromRawOrder(matchedOrder.RawOrder)
+
+	signatures := make([][]byte, 2)
+	signatures[0] = incomingOrder.Signature
+	signatures[1] = matchedOrder.Signature
+
+	return lotp.executeOrderBookLocalTx("executeMatchedOrders", orders, signatures, fillAmount)
+}
+
+func (lotp *limitOrderTxProcessor) executeOrderBookLocalTx(method string, args ...interface{}) error {
 	nonce := lotp.txPool.Nonce(common.HexToAddress(userAddress1)) // admin address
 
-	data, err := lotp.orderBookABI.Pack("liquidateAndExecuteOrder", trader.String(), matchedOrder.RawOrder, matchedOrder.Signature, fillAmount)
+	data, err := lotp.orderBookABI.Pack(method, args...)
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
 		return err
@@ -114,83 +131,9 @@ func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, mat
 		log.Error("HexToECDSA failed", "err", err)
 		return err
 	}
-	executeMatchedOrdersTx := types.NewTransaction(nonce, lotp.orderBookContractAddress, big.NewInt(0), 5000000, big.NewInt(80000000000), data)
-	signer := types.NewLondonSigner(big.NewInt(321123))
-	signedTx, err := types.SignTx(executeMatchedOrdersTx, signer, key)
-	if err != nil {
-		log.Error("types.SignTx failed", "err", err)
-	}
-	err = lotp.txPool.AddLocal(signedTx)
-	if err != nil {
-		log.Error("lop.txPool.AddLocal failed", "err", err)
-		return err
-	}
-	return nil
-}
-
-func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
-
-	nonce := lotp.txPool.Nonce(common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")) // admin address
-
-	data, err := lotp.orderBookABI.Pack("settleFunding")
-	if err != nil {
-		log.Error("abi.Pack failed", "err", err)
-		return err
-	}
-	key, err := crypto.HexToECDSA("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027") // admin private key
-	if err != nil {
-		log.Error("HexToECDSA failed", "err", err)
-		return err
-	}
-	settleFundingTx := types.NewTransaction(nonce, lotp.orderBookContractAddress, big.NewInt(0), 5000000, big.NewInt(80000000000), data)
-	signer := types.NewLondonSigner(big.NewInt(321123))
-	signedTx, err := types.SignTx(settleFundingTx, signer, key)
-	if err != nil {
-		log.Error("types.SignTx failed", "err", err)
-		return err
-	}
-	err = lotp.txPool.AddLocal(signedTx)
-	if err != nil {
-		log.Error("types.SignTx failed", "err", err)
-		return err
-	}
-	return nil
-
-}
-
-func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount *big.Int) error {
-	//randomly selecting private key to get different validator profile on different nodes
-	rand.Seed(time.Now().UnixNano())
-	var privateKey, userAddress string
-	if rand.Intn(10000)%2 == 0 {
-		privateKey = privateKey1
-		userAddress = userAddress1
-	} else {
-		privateKey = privateKey2
-		userAddress = userAddress2
-	}
-
-	nonce := lotp.txPool.Nonce(common.HexToAddress(userAddress)) // admin address
-	ammID := big.NewInt(1)
-	orders := make([]Order, 2)
-	orders[0], orders[1] = getOrderFromRawOrder(incomingOrder.RawOrder), getOrderFromRawOrder(matchedOrder.RawOrder)
-	signatures := make([][]byte, 2)
-	signatures[0] = incomingOrder.Signature
-	signatures[1] = matchedOrder.Signature
-
-	data, err := lotp.orderBookABI.Pack("executeMatchedOrders", ammID, orders, signatures, fillAmount)
-	if err != nil {
-		log.Error("abi.Pack failed", "err", err)
-		return err
-	}
-	key, err := crypto.HexToECDSA(privateKey) // admin private key
-	if err != nil {
-		log.Error("HexToECDSA failed", "err", err)
-		return err
-	}
-	executeMatchedOrdersTx := types.NewTransaction(nonce, lotp.orderBookContractAddress, big.NewInt(0), 5000000, big.NewInt(80000000000), data)
-	signer := types.NewLondonSigner(big.NewInt(321123))
-	signedTx, err := types.SignTx(executeMatchedOrdersTx, signer, key)
+	tx := types.NewTransaction(nonce, lotp.orderBookContractAddress, big.NewInt(0), 0, big.NewInt(80000000000), data)
+	signer := types.NewLondonSigner(lotp.backend.ChainConfig().ChainID)
+	signedTx, err := types.SignTx(tx, signer, key)
 	if err != nil {
 		log.Error("types.SignTx failed", "err", err)
 	}
@@ -209,11 +152,9 @@ func (lotp *limitOrderTxProcessor) PurgeLocalTx() {
 	for _, account := range localAccounts {
 		if txs := pending[account]; len(txs) > 0 {
 			for _, tx := range txs {
-				m, err := getOrderBookContractCallMethod(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
+				_, err := getOrderBookContractCallMethod(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
 				if err == nil {
-					if m.Name == "executeMatchedOrders" || m.Name == "liquidateAndExecuteOrder" || m.Name == "settleFunding" {
-						lotp.txPool.RemoveTx(tx.Hash())
-					}
+					lotp.txPool.RemoveTx(tx.Hash())
 				}
 			}
 		}

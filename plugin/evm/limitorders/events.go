@@ -24,7 +24,7 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 			UserAddress:       getAddressFromTopicHash(event.Topics[1]).String(),
 			BaseAssetQuantity: order.BaseAssetQuantity,
 			Price:             order.Price,
-			Status:            Unfulfilled,
+			Status:            Placed,
 			RawOrder:          args["order"],
 			Signature:         args["signature"].([]byte),
 			BlockNumber:       big.NewInt(int64(event.BlockNumber)),
@@ -36,11 +36,10 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrdersMatched", "err", err)
 		}
 		log.Info("HandleOrderBookEvent", "OrdersMatched args", args)
-		signature1 := args["signature1"].([]byte)
-		signature2 := args["signature2"].([]byte)
+		signatures := args["signature1"].([][]byte)
 		fillAmount := args["fillAmount"].(*big.Int)
-		lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signature1)
-		lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signature2)
+		lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signatures[0])
+		lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signatures[1])
 	case lotp.orderBookABI.Events["LiquidationOrderMatched"].ID:
 		log.Info("LiquidationOrderMatched event")
 		err := lotp.orderBookABI.UnpackIntoMap(args, "LiquidationOrderMatched", event.Data)
@@ -111,7 +110,7 @@ func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 		lotp.memoryDb.ResetUnrealisedFunding(Market(market), getAddressFromTopicHash(event.Topics[1]), cumulativePremiumFraction)
 
 	// both PositionModified and PositionLiquidated have the exact same signature
-	case lotp.clearingHouseABI.Events["PositionModified"].ID, lotp.clearingHouseABI.Events["PositionLiquidated"].ID:
+	case lotp.clearingHouseABI.Events["PositionModified"].ID:
 		log.Info("PositionModified event")
 		err := lotp.clearingHouseABI.UnpackIntoMap(args, "PositionModified", event.Data)
 		if err != nil {
@@ -126,6 +125,22 @@ func (lotp *limitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 
 		openNotional := args["openNotional"].(*big.Int)
 		size := args["size"].(*big.Int)
-		lotp.memoryDb.UpdatePosition(getAddressFromTopicHash(event.Topics[1]), market, size, openNotional)
+		lotp.memoryDb.UpdatePosition(getAddressFromTopicHash(event.Topics[1]), market, size, openNotional, false)
+	case lotp.clearingHouseABI.Events["PositionLiquidated"].ID:
+		log.Info("PositionLiquidated event")
+		err := lotp.clearingHouseABI.UnpackIntoMap(args, "PositionLiquidated", event.Data)
+		if err != nil {
+			log.Error("error in clearingHouseABI.UnpackIntoMap", "method", "PositionLiquidated", "err", err)
+		}
+
+		market := Market(int(event.Topics[2].Big().Int64()))
+		baseAsset := args["baseAsset"].(*big.Int)
+		quoteAsset := args["quoteAsset"].(*big.Int)
+		lastPrice := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, big.NewInt(1e18)), baseAsset)
+		lotp.memoryDb.UpdateLastPrice(market, lastPrice)
+
+		openNotional := args["openNotional"].(*big.Int)
+		size := args["size"].(*big.Int)
+		lotp.memoryDb.UpdatePosition(getAddressFromTopicHash(event.Topics[1]), market, size, openNotional, true)
 	}
 }
