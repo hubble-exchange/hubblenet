@@ -242,7 +242,7 @@ func TestUpdatePosition(t *testing.T) {
 		var market Market = 1
 		size := big.NewInt(20.00)
 		openNotional := big.NewInt(200.00)
-		inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+		inMemoryDatabase.UpdatePosition(address, market, size, openNotional, false)
 		position := inMemoryDatabase.traderMap[address].Positions[market]
 		assert.Equal(t, size, position.Size)
 		assert.Equal(t, openNotional, position.OpenNotional)
@@ -253,11 +253,11 @@ func TestUpdatePosition(t *testing.T) {
 		var market Market = 1
 		size := big.NewInt(20.00)
 		openNotional := big.NewInt(200.00)
-		inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+		inMemoryDatabase.UpdatePosition(address, market, size, openNotional, false)
 
 		newSize := big.NewInt(25.00)
 		newOpenNotional := big.NewInt(250.00)
-		inMemoryDatabase.UpdatePosition(address, market, newSize, newOpenNotional)
+		inMemoryDatabase.UpdatePosition(address, market, newSize, newOpenNotional, false)
 		position := inMemoryDatabase.traderMap[address].Positions[market]
 		assert.Equal(t, newSize, position.Size)
 		assert.Equal(t, newOpenNotional, position.OpenNotional)
@@ -321,7 +321,7 @@ func TestUpdateUnrealizedFunding(t *testing.T) {
 			for i, address := range addresses {
 				iterator := i + 1
 				size := big.NewInt(int64(20 * iterator))
-				inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+				inMemoryDatabase.UpdatePosition(address, market, size, openNotional, false)
 				inMemoryDatabase.ResetUnrealisedFunding(market, address, cumulativePremiumFraction)
 			}
 			newCumulativePremiumFraction := big.NewInt(5)
@@ -339,7 +339,7 @@ func TestUpdateUnrealizedFunding(t *testing.T) {
 			var market Market = 1
 			openNotional := big.NewInt(200.00)
 			size := big.NewInt(20.00)
-			inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+			inMemoryDatabase.UpdatePosition(address, market, size, openNotional, false)
 			cumulativePremiumFraction := big.NewInt(2)
 			inMemoryDatabase.ResetUnrealisedFunding(market, address, cumulativePremiumFraction)
 
@@ -369,7 +369,7 @@ func TestResetUnrealisedFunding(t *testing.T) {
 		var market Market = 1
 		openNotional := big.NewInt(200)
 		size := big.NewInt(20)
-		inMemoryDatabase.UpdatePosition(address, market, size, openNotional)
+		inMemoryDatabase.UpdatePosition(address, market, size, openNotional, false)
 		cumulativePremiumFraction := big.NewInt(1)
 		inMemoryDatabase.ResetUnrealisedFunding(market, address, cumulativePremiumFraction)
 		unrealizedFundingFee := inMemoryDatabase.traderMap[address].Positions[market].UnrealisedFunding

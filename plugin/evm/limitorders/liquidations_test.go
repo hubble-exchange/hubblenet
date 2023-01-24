@@ -307,7 +307,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 }
 
 func addPosition(db *InMemoryDatabase, address common.Address, size *big.Int, openNotional *big.Int, market Market) {
-	db.UpdatePosition(address, market, size, openNotional)
+	db.UpdatePosition(address, market, size, openNotional, false)
 }
 
 func TestGetNormalisedMargin(t *testing.T) {
@@ -373,7 +373,8 @@ func TestGetUnrealizedPnl(t *testing.T) {
 				OpenNotional: getNotionalPosition(entryPrice, size),
 			}
 			expectedPnl := dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(newPrice, entryPrice), size))
-			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position))
+			newNotional := getNotionalPosition(newPrice, size)
+			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position, newNotional))
 		})
 		t.Run("When size is negative", func(t *testing.T) {
 			size := multiplyPrecisionSize(big.NewInt(-10))
@@ -384,7 +385,8 @@ func TestGetUnrealizedPnl(t *testing.T) {
 				OpenNotional: getNotionalPosition(entryPrice, size),
 			}
 			expectedPnl := dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(newPrice, entryPrice), size))
-			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position))
+			newNotional := getNotionalPosition(newPrice, size)
+			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position, newNotional))
 		})
 	})
 	t.Run("When newPrice is < entryPrice", func(t *testing.T) {
@@ -397,7 +399,8 @@ func TestGetUnrealizedPnl(t *testing.T) {
 				OpenNotional: getNotionalPosition(entryPrice, size),
 			}
 			expectedPnl := dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(newPrice, entryPrice), size))
-			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position))
+			newNotional := getNotionalPosition(newPrice, size)
+			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position, newNotional))
 		})
 		t.Run("When size is negative", func(t *testing.T) {
 			size := multiplyPrecisionSize(big.NewInt(-10))
@@ -408,7 +411,8 @@ func TestGetUnrealizedPnl(t *testing.T) {
 				OpenNotional: getNotionalPosition(entryPrice, size),
 			}
 			expectedPnl := dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(newPrice, entryPrice), size))
-			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position))
+			newNotional := getNotionalPosition(newPrice, size)
+			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position, newNotional))
 		})
 	})
 }
@@ -434,7 +438,8 @@ func TestGetMarginFraction(t *testing.T) {
 			Size:         size,
 			OpenNotional: getNotionalPosition(entryPrice, size),
 		}
-		expectedMarginFraction := big.NewInt(0).Div(multiplyBasePrecision(big.NewInt(0).Add(margin, getUnrealisedPnl(newPrice, position))), getNotionalPosition(newPrice, size))
+		newNotional := getNotionalPosition(newPrice, size)
+		expectedMarginFraction := big.NewInt(0).Div(multiplyBasePrecision(big.NewInt(0).Add(margin, getUnrealisedPnl(newPrice, position, newNotional))), getNotionalPosition(newPrice, size))
 		assert.Equal(t, expectedMarginFraction, getMarginFraction(margin, newPrice, position))
 	})
 }
