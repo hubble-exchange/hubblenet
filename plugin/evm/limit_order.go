@@ -84,6 +84,9 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 }
 
 func (lop *limitOrderProcesser) IsFundingPaymentTime(lastBlockTime uint64) bool {
+	if lop.memoryDb.GetNextFundingTime() == 0 {
+		return false
+	}
 	return lastBlockTime >= lop.memoryDb.GetNextFundingTime()
 }
 
