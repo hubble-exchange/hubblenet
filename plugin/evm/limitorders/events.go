@@ -45,7 +45,7 @@ func (lotp *limitOrderTxProcessor) HandleOrderBookEvent(event *types.Log) {
 			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrdersMatched", "err", err)
 		}
 		log.Info("HandleOrderBookEvent", "OrdersMatched args", args)
-		signatures := args["signature1"].([][]byte)
+		signatures := args["signatures"].([][]byte)
 		fillAmount := args["fillAmount"].(*big.Int)
 		lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signatures[0])
 		lotp.memoryDb.UpdateFilledBaseAssetQuantity(fillAmount, signatures[1])

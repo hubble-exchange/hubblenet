@@ -131,7 +131,7 @@ func (lotp *limitOrderTxProcessor) executeOrderBookLocalTx(method string, args .
 		log.Error("HexToECDSA failed", "err", err)
 		return err
 	}
-	tx := types.NewTransaction(nonce, lotp.orderBookContractAddress, big.NewInt(0), 0, big.NewInt(80000000000), data)
+	tx := types.NewTransaction(nonce, lotp.orderBookContractAddress, big.NewInt(0), 5000000, big.NewInt(0), data)
 	signer := types.NewLondonSigner(lotp.backend.ChainConfig().ChainID)
 	signedTx, err := types.SignTx(tx, signer, key)
 	if err != nil {

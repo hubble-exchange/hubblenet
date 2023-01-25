@@ -62,7 +62,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 		var fromBlock, toBlock *big.Int
 		fromBlock = big.NewInt(0)
 		toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
-		for toBlock.Cmp(fromBlock) > 0 {
+		for toBlock.Cmp(fromBlock) >= 0 {
 			logs, err := filterAPI.GetLogs(ctx, filters.FilterCriteria{
 				FromBlock: fromBlock,
 				ToBlock: toBlock,
