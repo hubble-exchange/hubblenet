@@ -133,7 +133,7 @@ func (lop *limitOrderProcesser) runMatchingEngine(longOrders []limitorders.Limit
 func (lop *limitOrderProcesser) runLiquidations(market limitorders.Market, longOrders []limitorders.LimitOrder, shortOrders []limitorders.LimitOrder) (filteredLongOrder []limitorders.LimitOrder, filteredShortOrder []limitorders.LimitOrder) {
 	oraclePrice := big.NewInt(20 * 10e6) // @todo: get it from the oracle
 
-	liquidablePositions := lop.memoryDb.GetLiquidableTraders(market, oraclePrice)
+	liquidablePositions := limitorders.GetLiquidableTraders(lop.memoryDb.GetAllTraders(), market, lop.memoryDb.GetLastPrice(market), oraclePrice)
 
 	for i, liquidable := range liquidablePositions {
 		var oppositeOrders []limitorders.LimitOrder
