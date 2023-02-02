@@ -27,27 +27,30 @@ type LimitOrderProcesser interface {
 }
 
 type limitOrderProcesser struct {
-	ctx                   *snow.Context
-	txPool                *core.TxPool
-	shutdownChan          <-chan struct{}
-	shutdownWg            *sync.WaitGroup
-	backend               *eth.EthAPIBackend
-	blockChain            *core.BlockChain
-	memoryDb              limitorders.LimitOrderDatabase
-	limitOrderTxProcessor limitorders.LimitOrderTxProcessor
+	ctx                    *snow.Context
+	txPool                 *core.TxPool
+	shutdownChan           <-chan struct{}
+	shutdownWg             *sync.WaitGroup
+	backend                *eth.EthAPIBackend
+	blockChain             *core.BlockChain
+	memoryDb               limitorders.LimitOrderDatabase
+	limitOrderTxProcessor  limitorders.LimitOrderTxProcessor
+	contractEventProcessor *limitorders.ContractEventsProcessor
 }
 
 func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, memoryDb limitorders.LimitOrderDatabase, lotp limitorders.LimitOrderTxProcessor) LimitOrderProcesser {
 	log.Info("**** NewLimitOrderProcesser")
+	contractEventProcessor := limitorders.NewContractEventsProcessor(memoryDb)
 	return &limitOrderProcesser{
-		ctx:                   ctx,
-		txPool:                txPool,
-		shutdownChan:          shutdownChan,
-		shutdownWg:            shutdownWg,
-		backend:               backend,
-		memoryDb:              memoryDb,
-		blockChain:            blockChain,
-		limitOrderTxProcessor: lotp,
+		ctx:                    ctx,
+		txPool:                 txPool,
+		shutdownChan:           shutdownChan,
+		shutdownWg:             shutdownWg,
+		backend:                backend,
+		memoryDb:               memoryDb,
+		blockChain:             blockChain,
+		limitOrderTxProcessor:  lotp,
+		contractEventProcessor: contractEventProcessor,
 	}
 }
 
@@ -222,11 +225,11 @@ func processEvents(logs []*types.Log, lop *limitOrderProcesser) {
 		}
 		switch event.Address {
 		case limitorders.OrderBookContractAddress:
-			lop.limitOrderTxProcessor.HandleOrderBookEvent(event)
+			lop.contractEventProcessor.HandleOrderBookEvent(event)
 		case limitorders.MarginAccountContractAddress:
-			lop.limitOrderTxProcessor.HandleMarginAccountEvent(event)
+			lop.contractEventProcessor.HandleMarginAccountEvent(event)
 		case limitorders.ClearingHouseContractAddress:
-			lop.limitOrderTxProcessor.HandleClearingHouseEvent(event)
+			lop.contractEventProcessor.HandleClearingHouseEvent(event)
 		}
 	}
 }
