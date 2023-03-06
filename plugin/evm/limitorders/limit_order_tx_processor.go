@@ -25,9 +25,11 @@ var privateKey1 = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8
 var userAddress2 = "0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4"
 var privateKey2 = "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e97dc"
 
-var orderBookContractFileLocation = "contract-examples/artifacts/contracts/hubble-v2/OrderBook.sol/OrderBook.json"
-var marginAccountContractFileLocation = "contract-examples/artifacts/contracts/hubble-v2/MarginAccount.sol/MarginAccount.json"
-var clearingHouseContractFileLocation = "contract-examples/artifacts/contracts/hubble-v2/ClearingHouse.sol/ClearingHouse.json"
+var abiLocationPrefix = "contract-examples/artifacts/contracts/hubble-v2/interfaces/"
+var orderBookContractFileLocation = abiLocationPrefix + "IOrderBook.sol/IOrderBook.json"
+var marginAccountContractFileLocation = abiLocationPrefix + "IMarginAccount.sol/IMarginAccount.json"
+var clearingHouseContractFileLocation = abiLocationPrefix + "IClearingHouse.sol/IClearingHouse.json"
+
 var OrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000069")
 var MarginAccountContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000070")
 var ClearingHouseContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000071")
