@@ -1,7 +1,6 @@
 package limitorders
 
 import (
-	"io/ioutil"
 	"math/big"
 	"sort"
 
@@ -18,20 +17,17 @@ type ContractEventsProcessor struct {
 }
 
 func NewContractEventsProcessor(database LimitOrderDatabase) *ContractEventsProcessor {
-	jsonBytes, _ := ioutil.ReadFile(orderBookContractFileLocation)
-	orderBookABI, err := abi.FromSolidityJson(string(jsonBytes))
+	orderBookABI, err := abi.FromSolidityJson(string(orderBookAbi))
 	if err != nil {
 		panic(err)
 	}
 
-	jsonBytes, _ = ioutil.ReadFile(marginAccountContractFileLocation)
-	marginAccountABI, err := abi.FromSolidityJson(string(jsonBytes))
+	marginAccountABI, err := abi.FromSolidityJson(string(marginAccountAbi))
 	if err != nil {
 		panic(err)
 	}
 
-	jsonBytes, _ = ioutil.ReadFile(clearingHouseContractFileLocation)
-	clearingHouseABI, err := abi.FromSolidityJson(string(jsonBytes))
+	clearingHouseABI, err := abi.FromSolidityJson(string(clearingHouseAbi))
 	if err != nil {
 		panic(err)
 	}
