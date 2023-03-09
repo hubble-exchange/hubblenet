@@ -232,6 +232,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		cep := newcep(t, db)
 		event := getEventFromABI(orderBookABI, "OrderCancelled")
 		topics := []common.Hash{event.ID, traderAddress.Hash()}
+		blockNumber := uint64(4)
 		limitOrder := &LimitOrder{
 			Market:            Market(ammIndex.Int64()),
 			PositionType:      "long",
@@ -252,11 +253,12 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			assert.Equal(t, limitOrder, actualLimitOrder)
 		})
 		t.Run("When data in log unpack suceeds", func(t *testing.T) {
-			//orderCancelledEventData, _ := event.Inputs.NonIndexed().Pack(order)
-			//log := getEventLog(topics, orderCancelledEventData, blockNumber)
-			//cep.ProcessEvents([]*types.Log{log})
-			//actualLimitOrder := *db.GetOrderBookData().OrderMap[string(signature)]
-			//assert.Nil(t, actualLimitOrder)
+			orderCancelledEventData, _ := event.Inputs.NonIndexed().Pack(order)
+			log := getEventLog(OrderBookContractAddress, topics, orderCancelledEventData, blockNumber)
+			orderId := getIdFromLimitOrder(*limitOrder)
+			cep.ProcessEvents([]*types.Log{log})
+			actualLimitOrder := db.GetOrderBookData().OrderMap[orderId]
+			assert.Nil(t, actualLimitOrder)
 		})
 	})
 	t.Run("When event is OrderMatched", func(t *testing.T) {

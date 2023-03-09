@@ -250,3 +250,7 @@ func getOrdersFromRawOrderList(rawOrders interface{}) [2]Order {
 	_ = json.Unmarshal(marshalledOrders, &orders)
 	return orders
 }
+
+func getIdFromOrder(order Order) string {
+	return order.Trader.String() + order.Salt.String()
+}
