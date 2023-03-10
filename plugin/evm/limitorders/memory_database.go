@@ -128,17 +128,15 @@ func (db *InMemoryDatabase) Delete(orderId string) {
 
 func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId string) {
 	limitOrder := db.OrderMap[orderId]
-	if limitOrder != nil {
-		if limitOrder.PositionType == "long" {
-			limitOrder.FilledBaseAssetQuantity.Add(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled + quantity
-		}
-		if limitOrder.PositionType == "short" {
-			limitOrder.FilledBaseAssetQuantity.Sub(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled - quantity
-		}
+	if limitOrder.PositionType == "long" {
+		limitOrder.FilledBaseAssetQuantity.Add(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled + quantity
+	}
+	if limitOrder.PositionType == "short" {
+		limitOrder.FilledBaseAssetQuantity.Sub(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled - quantity
+	}
 
-		if limitOrder.BaseAssetQuantity.Cmp(limitOrder.FilledBaseAssetQuantity) == 0 {
-			deleteOrder(db, orderId)
-		}
+	if limitOrder.BaseAssetQuantity.Cmp(limitOrder.FilledBaseAssetQuantity) == 0 {
+		deleteOrder(db, orderId)
 	}
 }
 
