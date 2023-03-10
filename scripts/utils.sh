@@ -10,6 +10,12 @@ EOF
 }
 
 function showLogs() {
+    if ! command -v multitail &> /dev/null
+    then
+        echo "multitail could not be found; please install using 'brew install multitail'"
+        exit
+    fi
+
     source local_status.sh
 
     multitail -D -ci magenta --label "[node1]" $(echo $LOGS_PATH | sed -e 's/<i>/1/g')/$CHAIN_ID.log \
