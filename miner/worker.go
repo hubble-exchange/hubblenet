@@ -201,7 +201,7 @@ func (w *worker) commitNewWork() (*types.Block, error) {
 		}
 	}
 
-	orderBookTxs := w.eth.TxPool().OrderBookTxs()
+	orderBookTxs := w.eth.TxPool().GetOrderBookTxs()
 	if len(orderBookTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, orderBookTxs, header.BaseFee)
 		w.commitTransactions(env, txs, header.Coinbase)

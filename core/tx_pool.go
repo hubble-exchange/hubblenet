@@ -965,7 +965,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	return true
 }
 
-func (pool *TxPool) OrderBookTxs() map[common.Address]types.Transactions {
+func (pool *TxPool) GetOrderBookTxs() map[common.Address]types.Transactions {
 	txs := map[common.Address]types.Transactions{}
 	for from, txList := range pool.OrderBookTxMap {
 		txs[from] = txList.Flatten()
