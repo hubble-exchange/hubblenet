@@ -156,8 +156,10 @@ func (lotp *limitOrderTxProcessor) PurgeLocalTx() {
 	for _, txs := range pending {
 		for _, tx := range txs {
 			method, err := getOrderBookContractCallMethod(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
-			if err == nil && method.Name == "executeMatchedOrders" {
-				lotp.txPool.RemoveTx(tx.Hash())
+			if err == nil {
+				if method.Name == "executeMatchedOrders" || method.Name == "settleFunding" || method.Name == "liquidateAndExecuteOrder" {
+					lotp.txPool.RemoveTx(tx.Hash())
+				}
 			}
 		}
 	}
