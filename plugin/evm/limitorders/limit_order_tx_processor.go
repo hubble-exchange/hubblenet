@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"math/rand"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core"
@@ -111,14 +113,24 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 }
 
 func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contractABI abi.ABI, method string, args ...interface{}) error {
-	nonce := lotp.txPool.Nonce(common.HexToAddress(userAddress1)) // admin address
+	rand.Seed(time.Now().UnixNano())
+	var privateKey, userAddress string
+	if rand.Intn(10000)%2 == 0 {
+		privateKey = privateKey1
+		userAddress = userAddress1
+	} else {
+		privateKey = privateKey2
+		userAddress = userAddress2
+	}
+
+	nonce := lotp.txPool.GetOrderBookTxNonce(common.HexToAddress(userAddress)) // admin address
 
 	data, err := contractABI.Pack(method, args...)
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
 		return err
 	}
-	key, err := crypto.HexToECDSA(privateKey1) // admin private key
+	key, err := crypto.HexToECDSA(privateKey) // admin private key
 	if err != nil {
 		log.Error("HexToECDSA failed", "err", err)
 		return err
@@ -141,15 +153,11 @@ func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contr
 
 func (lotp *limitOrderTxProcessor) PurgeLocalTx() {
 	pending := lotp.txPool.Pending(true)
-	localAccounts := []common.Address{common.HexToAddress(userAddress1), common.HexToAddress(userAddress2)}
-
-	for _, account := range localAccounts {
-		if txs := pending[account]; len(txs) > 0 {
-			for _, tx := range txs {
-				_, err := getOrderBookContractCallMethod(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
-				if err == nil {
-					lotp.txPool.RemoveTx(tx.Hash())
-				}
+	for _, txs := range pending {
+		for _, tx := range txs {
+			method, err := getOrderBookContractCallMethod(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
+			if err == nil && method.Name == "executeMatchedOrders" {
+				lotp.txPool.RemoveTx(tx.Hash())
 			}
 		}
 	}

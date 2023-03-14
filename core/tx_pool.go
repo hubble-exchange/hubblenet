@@ -979,6 +979,15 @@ func (pool *TxPool) PurgeOrderBookTxs() {
 	}
 }
 
+func (pool *TxPool) GetOrderBookTxNonce(address common.Address) uint64 {
+	nonce := pool.Nonce(address)
+	val, ok := pool.orderBookQueue[address]
+	if ok {
+		return nonce + uint64(val.Len())
+	}
+	return nonce
+}
+
 func (pool *TxPool) AddOrderBookTx(tx *types.Transaction) error {
 	if from, err := types.Sender(pool.signer, tx); err == nil {
 		val, ok := pool.orderBookQueue[from]
@@ -990,7 +999,6 @@ func (pool *TxPool) AddOrderBookTx(tx *types.Transaction) error {
 		if !ok {
 			return errors.New("error adding tx to orderbookQueue")
 		}
-		pool.pendingNonces.set(from, tx.Nonce()+1)
 	}
 	return nil
 }
