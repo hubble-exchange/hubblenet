@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"math/rand"
-	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core"
@@ -113,24 +111,14 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 }
 
 func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contractABI abi.ABI, method string, args ...interface{}) error {
-	rand.Seed(time.Now().UnixNano())
-	var privateKey, userAddress string
-	if rand.Intn(10000)%2 == 0 {
-		privateKey = privateKey1
-		userAddress = userAddress1
-	} else {
-		privateKey = privateKey2
-		userAddress = userAddress2
-	}
-
-	nonce := lotp.txPool.GetOrderBookTxNonce(common.HexToAddress(userAddress)) // admin address
+	nonce := lotp.txPool.GetOrderBookTxNonce(common.HexToAddress(userAddress1)) // admin address
 
 	data, err := contractABI.Pack(method, args...)
 	if err != nil {
 		log.Error("abi.Pack failed", "err", err)
 		return err
 	}
-	key, err := crypto.HexToECDSA(privateKey) // admin private key
+	key, err := crypto.HexToECDSA(privateKey1) // admin private key
 	if err != nil {
 		log.Error("HexToECDSA failed", "err", err)
 		return err
