@@ -216,15 +216,12 @@ func getAddressFromPrivateKey(key string) (string, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		panic("unable to get address from private key")
+		return "", errors.New("unable to get address from private key")
 	}
 	return crypto.PubkeyToAddress(*publicKeyECDSA).Hex(), nil
 }
 
 func isValidPrivateKey(key string) bool {
 	_, err := getAddressFromPrivateKey(key)
-	if err == nil {
-		return true
-	}
-	return false
+	return err == nil
 }
