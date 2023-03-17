@@ -45,6 +45,7 @@ type limitOrderTxProcessor struct {
 	clearingHouseContractAddress common.Address
 	marginAccountContractAddress common.Address
 	backend                      *eth.EthAPIBackend
+	validatorAddress             common.Address
 	validatorPrivateKey          string
 }
 
@@ -76,6 +77,10 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 	if validatorPrivateKey == "" || !isValidPrivateKey(validatorPrivateKey) {
 		panic("either private key is not supplied or it is invalid")
 	}
+	validatorAddress, err := getAddressFromPrivateKey(validatorPrivateKey)
+	if err != nil {
+		panic("Unable to get address from validator private key")
+	}
 
 	return &limitOrderTxProcessor{
 		txPool:                       txPool,
@@ -87,6 +92,7 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 		clearingHouseContractAddress: ClearingHouseContractAddress,
 		marginAccountContractAddress: MarginAccountContractAddress,
 		backend:                      backend,
+		validatorAddress:             validatorAddress,
 		validatorPrivateKey:          validatorPrivateKey,
 	}
 }
@@ -112,8 +118,7 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 }
 
 func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contractABI abi.ABI, method string, args ...interface{}) error {
-	address, _ := getAddressFromPrivateKey(lotp.validatorPrivateKey)
-	nonce := lotp.txPool.GetOrderBookTxNonce(common.HexToAddress(address)) // admin address
+	nonce := lotp.txPool.GetOrderBookTxNonce(common.HexToAddress(lotp.validatorAddress.Hex())) // admin address
 
 	data, err := contractABI.Pack(method, args...)
 	if err != nil {
@@ -208,17 +213,18 @@ func getOrderBookContractCallMethod(tx *types.Transaction, orderBookABI abi.ABI,
 	}
 }
 
-func getAddressFromPrivateKey(key string) (string, error) {
+func getAddressFromPrivateKey(key string) (common.Address, error) {
 	privateKey, err := crypto.HexToECDSA(key) // admin private key
 	if err != nil {
-		return "", err
+		return common.Address{}, err
 	}
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return "", errors.New("unable to get address from private key")
+		return common.Address{}, errors.New("unable to get address from private key")
 	}
-	return crypto.PubkeyToAddress(*publicKeyECDSA).Hex(), nil
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	return address, nil
 }
 
 func isValidPrivateKey(key string) bool {
