@@ -428,16 +428,17 @@ func TestGetLastPrice(t *testing.T) {
 
 func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, signature []byte, blockNumber *big.Int, salt *big.Int) LimitOrder {
 	return LimitOrder{
-		Id:                      id,
-		PositionType:            positionType,
-		UserAddress:             userAddress,
-		FilledBaseAssetQuantity: big.NewInt(0),
-		BaseAssetQuantity:       baseAssetQuantity,
-		Price:                   price,
-		Status:                  Status(status),
-		Salt:                    salt,
-		Signature:               signature,
-		BlockNumber:             blockNumber,
+		Id:                          id,
+		PositionType:                positionType,
+		UserAddress:                 userAddress,
+		FilledBaseAssetQuantity:     big.NewInt(0),
+		BaseAssetQuantity:           baseAssetQuantity,
+		Price:                       price,
+		Status:                      Status(status),
+		Salt:                        salt,
+		Signature:                   signature,
+		BlockNumber:                 blockNumber,
+		InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 	}
 }
 

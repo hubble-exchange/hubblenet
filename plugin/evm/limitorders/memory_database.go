@@ -3,10 +3,13 @@ package limitorders
 import (
 	"math/big"
 	"sort"
+	"sync"
 	"time"
 
+	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var maxLiquidationRatio *big.Int = big.NewInt(25 * 10e4)
@@ -39,22 +42,41 @@ const (
 )
 
 type LimitOrder struct {
-	Id                      uint64   `json:"id"`
-	Market                  Market   `json:"market"`
-	PositionType            string   `json:"position_type"`
-	UserAddress             string   `json:"user_address"`
-	BaseAssetQuantity       *big.Int `json:"base_asset_quantity"`
-	FilledBaseAssetQuantity *big.Int `json:"filled_base_asset_quantity"`
-	Salt                    *big.Int `json:"salt"`
-	Price                   *big.Int `json:"price"`
-	Status                  Status   `json:"status"`
-	Signature               []byte   `json:"signature"`
-	RawOrder                interface{}
-	BlockNumber             *big.Int `json:"block_number"` // block number order was placed on
+	Id                          uint64                   `json:"id"`
+	Market                      Market                   `json:"market"`
+	PositionType                string                   `json:"position_type"`
+	UserAddress                 string                   `json:"user_address"`
+	BaseAssetQuantity           *big.Int                 `json:"base_asset_quantity"`
+	FilledBaseAssetQuantity     *big.Int                 `json:"filled_base_asset_quantity"`
+	Salt                        *big.Int                 `json:"salt"`
+	Price                       *big.Int                 `json:"price"`
+	Status                      Status                   `json:"status"`
+	Signature                   []byte                   `json:"signature"`
+	BlockNumber                 *big.Int                 `json:"block_number"`                    // block number order was placed on
+	InProgressBaseAssetQuantity map[common.Hash]*big.Int `json:"in_progress_base_asset_quantity"` // block hash => quantity
+	RawOrder                    interface{}              `json:"-"`
 }
 
 func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
 	return big.NewInt(0).Sub(order.BaseAssetQuantity, order.FilledBaseAssetQuantity)
+}
+
+// GetAvailableUnFilledBaseAssetQuantity returns (total quantity - filled quantity - in progress quantity) - signed
+func (order LimitOrder) GetAvailableUnFilledBaseAssetQuantity() *big.Int {
+	if order.PositionType == "long" {
+		return big.NewInt(0).Sub(order.GetUnFilledBaseAssetQuantity(), order.GetInProgressBaseAssetQuantity())
+	} else {
+		return big.NewInt(0).Add(order.GetUnFilledBaseAssetQuantity(), order.GetInProgressBaseAssetQuantity())
+	}
+}
+
+func (order LimitOrder) GetInProgressBaseAssetQuantity() *big.Int { // always positive
+	totalQuantity := big.NewInt(0)
+	for _, quantity := range order.InProgressBaseAssetQuantity {
+		totalQuantity.Add(totalQuantity, quantity)
+	}
+
+	return totalQuantity
 }
 
 type Position struct {
@@ -88,29 +110,42 @@ type LimitOrderDatabase interface {
 	GetLastPrice(market Market) *big.Int
 	GetAllTraders() map[common.Address]Trader
 	GetOrderBookData() InMemoryDatabase
+	GetInProgressBlocks() []*types.Block
+	UpdateInProgressState(block *types.Block, quantityMap map[string]*big.Int)
+	RemoveInProgressState(block *types.Block, quantityMap map[string]*big.Int)
 }
 
 type InMemoryDatabase struct {
-	OrderMap        map[string]*LimitOrder     `json:"order_map"`  // ID => order
-	TraderMap       map[common.Address]*Trader `json:"trader_map"` // address => trader info
-	NextFundingTime uint64                     `json:"next_funding_time"`
-	LastPrice       map[Market]*big.Int        `json:"last_price"`
+	mu               sync.Mutex                 `json:"-"`
+	OrderMap         map[string]*LimitOrder     `json:"order_map"`  // ID => order
+	TraderMap        map[common.Address]*Trader `json:"trader_map"` // address => trader info
+	NextFundingTime  uint64                     `json:"next_funding_time"`
+	LastPrice        map[Market]*big.Int        `json:"last_price"`
+	InProgressBlocks []*types.Block             `json:"in_progress_blocks"` // block number => block hash
+	// InProgressBlockOrders  map[common.Hash][]string   `json:"in_progress_block_orders"`  // block hash => list of order ids
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
 	orderMap := map[string]*LimitOrder{}
 	lastPrice := map[Market]*big.Int{AvaxPerp: big.NewInt(0)}
 	traderMap := map[common.Address]*Trader{}
+	// inProgressBlockOrders := map[common.Hash][]string{}
+	inProgressBlockNumbers := []*types.Block{}
 
 	return &InMemoryDatabase{
 		OrderMap:        orderMap,
 		TraderMap:       traderMap,
 		NextFundingTime: 0,
 		LastPrice:       lastPrice,
+		// InProgressBlockOrders: inProgressBlockOrders,
+		InProgressBlocks: inProgressBlockNumbers,
 	}
 }
 
 func (db *InMemoryDatabase) GetAllOrders() []LimitOrder {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	allOrders := []LimitOrder{}
 	for _, order := range db.OrderMap {
 		allOrders = append(allOrders, *order)
@@ -119,14 +154,23 @@ func (db *InMemoryDatabase) GetAllOrders() []LimitOrder {
 }
 
 func (db *InMemoryDatabase) Add(order *LimitOrder) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	db.OrderMap[getIdFromLimitOrder(*order)] = order
 }
 
 func (db *InMemoryDatabase) Delete(orderId string) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	deleteOrder(db, orderId)
 }
 
 func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId string) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	limitOrder := db.OrderMap[orderId]
 	if limitOrder.PositionType == "long" {
 		limitOrder.FilledBaseAssetQuantity.Add(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled + quantity
@@ -151,7 +195,7 @@ func (db *InMemoryDatabase) UpdateNextFundingTime(nextFundingTime uint64) {
 func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 	var longOrders []LimitOrder
 	for _, order := range db.OrderMap {
-		if order.PositionType == "long" && order.Market == market {
+		if order.PositionType == "long" && order.Market == market && order.GetAvailableUnFilledBaseAssetQuantity().Cmp(big.NewInt(0)) > 0 {
 			longOrders = append(longOrders, *order)
 		}
 	}
@@ -162,7 +206,7 @@ func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 func (db *InMemoryDatabase) GetShortOrders(market Market) []LimitOrder {
 	var shortOrders []LimitOrder
 	for _, order := range db.OrderMap {
-		if order.PositionType == "short" && order.Market == market {
+		if order.PositionType == "short" && order.Market == market && order.GetAvailableUnFilledBaseAssetQuantity().Cmp(big.NewInt(0)) < 0 {
 			shortOrders = append(shortOrders, *order)
 		}
 	}
@@ -238,6 +282,63 @@ func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 	}
 	return traderMap
 }
+func (db *InMemoryDatabase) GetInProgressBlocks() []*types.Block {
+	// sort descending
+	sort.Slice(db.InProgressBlocks, func(i, j int) bool {
+		return db.InProgressBlocks[i].NumberU64() > db.InProgressBlocks[j].NumberU64()
+	})
+	return db.InProgressBlocks
+}
+
+func (db *InMemoryDatabase) UpdateInProgressState(block *types.Block, quantityMap map[string]*big.Int) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	log.Info("#### updating state for block", "number", block.NumberU64(), "hash", block.Hash().String(), "orders", len(quantityMap))
+	for orderId, quantity := range quantityMap {
+		if _, ok := db.OrderMap[orderId]; !ok {
+			log.Info("#### order id not found; ignoring", "orderId", orderId, "block", block.Hash().String())
+			continue
+		}
+
+		log.Info("#### setting InProgress in order", "orderId", orderId, "block", block.Hash().String(), "quantity", quantity.Uint64())
+		db.OrderMap[orderId].InProgressBaseAssetQuantity[block.Hash()] = quantity
+	}
+
+	db.InProgressBlocks = append(db.InProgressBlocks, block)
+
+	traderMap := map[common.Address]Trader{}
+	for address, trader := range db.TraderMap {
+		traderMap[address] = *trader
+	}
+}
+
+func (db *InMemoryDatabase) RemoveInProgressState(block *types.Block, quantityMap map[string]*big.Int) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	log.Info("#### removing state for block", "number", block.NumberU64(), "hash", block.Hash().String(), "orders", len(quantityMap))
+	for orderId, quantity := range quantityMap {
+		if _, ok := db.OrderMap[orderId]; !ok {
+			log.Info("#### order id not found; ignoring", "orderId", orderId, "block", block.Hash().String())
+			continue
+		}
+
+		log.Info("#### removing InProgress in order", "orderId", orderId, "block", block.Hash().String(), "quantity", quantity.Uint64())
+		delete(db.OrderMap[orderId].InProgressBaseAssetQuantity, block.Hash())
+	}
+
+	db.InProgressBlocks = deleteBlockFromSlice(db.InProgressBlocks, block)
+}
+
+func deleteBlockFromSlice(slice []*types.Block, block *types.Block) []*types.Block {
+	for i, other := range slice {
+		if other.Hash() == block.Hash() {
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	return slice
+}
 
 func sortLongOrders(orders []LimitOrder) []LimitOrder {
 	sort.SliceStable(orders, func(i, j int) bool {
@@ -279,6 +380,7 @@ func getNextHour() time.Time {
 }
 
 func deleteOrder(db *InMemoryDatabase, id string) {
+	log.Info("#### deleting order", "orderId", id)
 	delete(db.OrderMap, id)
 }
 

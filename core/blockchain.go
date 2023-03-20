@@ -1500,7 +1500,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	// Ensure the user sees large reorgs
 	if len(oldChain) > 0 && len(newChain) > 0 {
 		logFn := log.Info
-		msg := "Resetting chain preference"
+		msg := "#### Resetting chain preference"
 		if len(oldChain) > 63 {
 			msg = "Large chain preference change detected"
 			logFn = log.Warn

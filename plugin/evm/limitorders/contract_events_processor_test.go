@@ -238,6 +238,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			Signature:         signature,
 			BlockNumber:       big.NewInt(1),
 			Salt:              salt,
+			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 		}
 		db.Add(limitOrder)
 		t.Run("When data in log unpack fails", func(t *testing.T) {
@@ -274,6 +275,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			BlockNumber:             big.NewInt(1),
 			FilledBaseAssetQuantity: big.NewInt(0),
 			Salt:                    salt,
+			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 		}
 		shortOrder := &LimitOrder{
 			Market:                  Market(ammIndex.Int64()),
@@ -286,6 +288,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			BlockNumber:             big.NewInt(1),
 			FilledBaseAssetQuantity: big.NewInt(0),
 			Salt:                    big.NewInt(0).Add(salt, big.NewInt(1000)),
+			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 		}
 		db.Add(longOrder)
 		db.Add(shortOrder)
@@ -327,6 +330,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			Salt:                    salt,
 			BlockNumber:             big.NewInt(1),
 			FilledBaseAssetQuantity: big.NewInt(0),
+			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 		}
 		db.Add(longOrder)
 		relayer := common.HexToAddress("0x710bf5F942331874dcBC7783319123679033b63b")

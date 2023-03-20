@@ -65,6 +65,26 @@ func (cep *ContractEventsProcessor) ProcessEvents(logs []*types.Log) {
 	}
 }
 
+func (cep *ContractEventsProcessor) GetMatchedOrderQuantity(events []*types.Log) map[string]*big.Int {
+	sort.SliceStable(events, func(i, j int) bool {
+		return events[i].Index < events[j].Index
+	})
+
+	res := map[string]*big.Int{}
+	for _, event := range events {
+		if event.Address == OrderBookContractAddress && event.Topics[0] == cep.orderBookABI.Events["OrdersMatched"].ID {
+			args := map[string]interface{}{}
+			cep.orderBookABI.UnpackIntoMap(args, "OrdersMatched", event.Data)
+			orders := getOrdersFromRawOrderList(args["orders"])
+			fillAmount := args["fillAmount"].(*big.Int)
+
+			res[getIdFromOrder(orders[0])] = fillAmount
+			res[getIdFromOrder(orders[1])] = fillAmount
+		}
+	}
+	return res
+}
+
 func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
@@ -77,18 +97,20 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 		log.Info("HandleOrderBookEvent", "orderplaced args", args)
 		order := getOrderFromRawOrder(args["order"])
 
+		log.Info("#### adding order", "orderId", getIdFromOrder(order), "block", event.BlockHash.String(), "number", event.BlockNumber)
 		cep.database.Add(&LimitOrder{
-			Market:                  Market(order.AmmIndex.Int64()),
-			PositionType:            getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
-			UserAddress:             getAddressFromTopicHash(event.Topics[1]).String(),
-			BaseAssetQuantity:       order.BaseAssetQuantity,
-			FilledBaseAssetQuantity: big.NewInt(0),
-			Price:                   order.Price,
-			Status:                  Placed,
-			RawOrder:                args["order"],
-			Signature:               args["signature"].([]byte),
-			Salt:                    order.Salt,
-			BlockNumber:             big.NewInt(int64(event.BlockNumber)),
+			Market:                      Market(order.AmmIndex.Int64()),
+			PositionType:                getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
+			UserAddress:                 getAddressFromTopicHash(event.Topics[1]).String(),
+			BaseAssetQuantity:           order.BaseAssetQuantity,
+			FilledBaseAssetQuantity:     big.NewInt(0),
+			Price:                       order.Price,
+			Status:                      Placed,
+			RawOrder:                    args["order"],
+			Signature:                   args["signature"].([]byte),
+			Salt:                        order.Salt,
+			BlockNumber:                 big.NewInt(int64(event.BlockNumber)),
+			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 		})
 		SendTxReadySignal()
 	case cep.orderBookABI.Events["OrderCancelled"].ID:
@@ -101,15 +123,14 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 		orderId := getIdFromOrder(getOrderFromRawOrder(args["order"]))
 		cep.database.Delete(orderId)
 	case cep.orderBookABI.Events["OrdersMatched"].ID:
-		log.Info("OrdersMatched event")
 		err := cep.orderBookABI.UnpackIntoMap(args, "OrdersMatched", event.Data)
 		if err != nil {
 			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrdersMatched", "err", err)
 			return
 		}
-		log.Info("HandleOrderBookEvent", "OrdersMatched args", args)
 		orders := getOrdersFromRawOrderList(args["orders"])
 		fillAmount := args["fillAmount"].(*big.Int)
+		log.Info("#### matched orders", "orderId 1", getIdFromOrder(orders[0]), "orderId 2", getIdFromOrder(orders[1]), "block", event.BlockHash.String(), "number", event.BlockNumber)
 		cep.database.UpdateFilledBaseAssetQuantity(fillAmount, getIdFromOrder(orders[0]))
 		cep.database.UpdateFilledBaseAssetQuantity(fillAmount, getIdFromOrder(orders[1]))
 	case cep.orderBookABI.Events["LiquidationOrderMatched"].ID:
