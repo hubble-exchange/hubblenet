@@ -187,9 +187,10 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
 
-	lop.memoryDb.RemoveInProgressState(block, lop.getOrderQuantityMap(block))
+	lop.memoryDb.Accept(block)
+	// lop.memoryDb.RemoveInProgressState(block, lop.getOrderQuantityMap(block))
 
-	lop.contractEventProcessor.ProcessEvents(event.Logs)
+	// lop.contractEventProcessor.ProcessEvents(event.Logs)
 }
 
 func blockHashes(blocks []*types.Block) []string {

@@ -42,41 +42,24 @@ const (
 )
 
 type LimitOrder struct {
-	Id                          uint64                   `json:"id"`
-	Market                      Market                   `json:"market"`
-	PositionType                string                   `json:"position_type"`
-	UserAddress                 string                   `json:"user_address"`
-	BaseAssetQuantity           *big.Int                 `json:"base_asset_quantity"`
-	FilledBaseAssetQuantity     *big.Int                 `json:"filled_base_asset_quantity"`
-	Salt                        *big.Int                 `json:"salt"`
-	Price                       *big.Int                 `json:"price"`
-	Status                      Status                   `json:"status"`
-	Signature                   []byte                   `json:"signature"`
-	BlockNumber                 *big.Int                 `json:"block_number"`                    // block number order was placed on
-	InProgressBaseAssetQuantity map[common.Hash]*big.Int `json:"in_progress_base_asset_quantity"` // block hash => quantity
-	RawOrder                    interface{}              `json:"-"`
+	Id     uint64 `json:"id"`
+	Market Market `json:"market"`
+	// @todo make this an enum
+	PositionType            string   `json:"position_type"`
+	UserAddress             string   `json:"user_address"`
+	BaseAssetQuantity       *big.Int `json:"base_asset_quantity"`
+	FilledBaseAssetQuantity *big.Int `json:"filled_base_asset_quantity"`
+	Salt                    *big.Int `json:"salt"`
+	Price                   *big.Int `json:"price"`
+	Status                  Status   `json:"status"`
+	Signature               []byte   `json:"signature"`
+	BlockNumber             *big.Int `json:"block_number"` // block number order was placed on
+	// InProgressBaseAssetQuantity map[common.Hash]*big.Int `json:"in_progress_base_asset_quantity"` // block hash => quantity
+	RawOrder interface{} `json:"-"`
 }
 
 func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
 	return big.NewInt(0).Sub(order.BaseAssetQuantity, order.FilledBaseAssetQuantity)
-}
-
-// GetAvailableUnFilledBaseAssetQuantity returns (total quantity - filled quantity - in progress quantity) - signed
-func (order LimitOrder) GetAvailableUnFilledBaseAssetQuantity() *big.Int {
-	if order.PositionType == "long" {
-		return big.NewInt(0).Sub(order.GetUnFilledBaseAssetQuantity(), order.GetInProgressBaseAssetQuantity())
-	} else {
-		return big.NewInt(0).Add(order.GetUnFilledBaseAssetQuantity(), order.GetInProgressBaseAssetQuantity())
-	}
-}
-
-func (order LimitOrder) GetInProgressBaseAssetQuantity() *big.Int { // always positive
-	totalQuantity := big.NewInt(0)
-	for _, quantity := range order.InProgressBaseAssetQuantity {
-		totalQuantity.Add(totalQuantity, quantity)
-	}
-
-	return totalQuantity
 }
 
 type Position struct {
@@ -113,15 +96,22 @@ type LimitOrderDatabase interface {
 	GetInProgressBlocks() []*types.Block
 	UpdateInProgressState(block *types.Block, quantityMap map[string]*big.Int)
 	RemoveInProgressState(block *types.Block, quantityMap map[string]*big.Int)
+	Accept(block *types.Block)
+}
+
+type StateSnapshot struct {
+	OrderMap        map[string]*LimitOrder     `json:"order_map"`  // ID => order
+	TraderMap       map[common.Address]*Trader `json:"trader_map"` // address => trader info
+	NextFundingTime uint64                     `json:"next_funding_time"`
+	LastPrice       map[Market]*big.Int        `json:"last_price"`
 }
 
 type InMemoryDatabase struct {
-	mu               sync.Mutex                 `json:"-"`
-	OrderMap         map[string]*LimitOrder     `json:"order_map"`  // ID => order
-	TraderMap        map[common.Address]*Trader `json:"trader_map"` // address => trader info
-	NextFundingTime  uint64                     `json:"next_funding_time"`
-	LastPrice        map[Market]*big.Int        `json:"last_price"`
-	InProgressBlocks []*types.Block             `json:"in_progress_blocks"` // block number => block hash
+	mu                     sync.Mutex `json:"-"`
+	stateSnapshot          map[common.Hash]*StateSnapshot
+	acceptedHeadBlockHash  common.Hash
+	preferredHeadBlockHash common.Hash
+	// InProgressBlocks []*types.Block `json:"in_progress_blocks"` // block number => block hash
 	// InProgressBlockOrders  map[common.Hash][]string   `json:"in_progress_block_orders"`  // block hash => list of order ids
 }
 
@@ -140,6 +130,18 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 		// InProgressBlockOrders: inProgressBlockOrders,
 		InProgressBlocks: inProgressBlockNumbers,
 	}
+}
+
+func (db *InMemoryDatabase) Accept(block *types.Block) {
+	if db.acceptedHeadBlockHash != block.Header().ParentHash {
+		// @todo throw error
+	}
+	delete(db.stateSnapshot, db.acceptedHeadBlockHash)
+	db.acceptedHeadBlockHash = block.Hash()
+}
+
+func (db *InMemoryDatabase) Discover(block *types.Block) {
+	block.
 }
 
 func (db *InMemoryDatabase) GetAllOrders() []LimitOrder {
@@ -192,10 +194,15 @@ func (db *InMemoryDatabase) UpdateNextFundingTime(nextFundingTime uint64) {
 	db.NextFundingTime = nextFundingTime
 }
 
+func (db *InMemoryDatabase) getPreferredHeadStateSnapshot() *StateSnapshot {
+	return db.stateSnapshot[db.preferredHeadBlockHash]
+}
+
 func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 	var longOrders []LimitOrder
-	for _, order := range db.OrderMap {
-		if order.PositionType == "long" && order.Market == market && order.GetAvailableUnFilledBaseAssetQuantity().Cmp(big.NewInt(0)) > 0 {
+	var snapshot = db.getPreferredHeadStateSnapshot()
+	for _, order := range snapshot.OrderMap {
+		if order.PositionType == "long" && order.Market == market {
 			longOrders = append(longOrders, *order)
 		}
 	}
@@ -205,8 +212,9 @@ func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 
 func (db *InMemoryDatabase) GetShortOrders(market Market) []LimitOrder {
 	var shortOrders []LimitOrder
-	for _, order := range db.OrderMap {
-		if order.PositionType == "short" && order.Market == market && order.GetAvailableUnFilledBaseAssetQuantity().Cmp(big.NewInt(0)) < 0 {
+	var snapshot = db.getPreferredHeadStateSnapshot()
+	for _, order := range snapshot.OrderMap {
+		if order.PositionType == "short" && order.Market == market {
 			shortOrders = append(shortOrders, *order)
 		}
 	}

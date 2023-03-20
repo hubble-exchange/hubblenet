@@ -69,7 +69,7 @@ func (pipeline *BuildBlockPipeline) runLiquidations(market Market, longOrders []
 			}
 			// @todo: add a restriction on the price range that liquidation will occur on.
 			// An illiquid market can be very adverse for trader being liquidated.
-			fillAmount := utils.BigIntMinAbs(liquidable.GetUnfilledSize(), oppositeOrder.GetAvailableUnFilledBaseAssetQuantity())
+			fillAmount := utils.BigIntMinAbs(liquidable.GetUnfilledSize(), oppositeOrder.GetUnFilledBaseAssetQuantity())
 			if fillAmount.Sign() == 0 {
 				continue
 			}
@@ -95,10 +95,10 @@ func runMatchingEngine(lotp LimitOrderTxProcessor, longOrders []LimitOrder, shor
 	}
 	for i := 0; i < len(longOrders); i++ {
 		for j := 0; j < len(shortOrders); j++ {
-			if longOrders[i].GetAvailableUnFilledBaseAssetQuantity().Sign() == 0 {
+			if longOrders[i].GetUnFilledBaseAssetQuantity().Sign() == 0 {
 				break
 			}
-			if shortOrders[j].GetAvailableUnFilledBaseAssetQuantity().Sign() == 0 {
+			if shortOrders[j].GetUnFilledBaseAssetQuantity().Sign() == 0 {
 				continue
 			}
 			var ordersMatched bool
@@ -113,7 +113,7 @@ func runMatchingEngine(lotp LimitOrderTxProcessor, longOrders []LimitOrder, shor
 
 func matchLongAndShortOrder(lotp LimitOrderTxProcessor, longOrder LimitOrder, shortOrder LimitOrder) (LimitOrder, LimitOrder, bool) {
 	if longOrder.Price.Cmp(shortOrder.Price) >= 0 { // longOrder.Price >= shortOrder.Price
-		fillAmount := utils.BigIntMinAbs(longOrder.GetAvailableUnFilledBaseAssetQuantity(), shortOrder.GetAvailableUnFilledBaseAssetQuantity())
+		fillAmount := utils.BigIntMinAbs(longOrder.GetUnFilledBaseAssetQuantity(), shortOrder.GetUnFilledBaseAssetQuantity())
 		if fillAmount.Sign() != 0 {
 			err := lotp.ExecuteMatchedOrdersTx(longOrder, shortOrder, fillAmount)
 			if err == nil {

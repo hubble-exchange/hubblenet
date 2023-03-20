@@ -71,8 +71,7 @@ func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*O
 		orders = append(orders, OrderMin{
 			Market:         order.Market,
 			Price:          order.Price.String(),
-			Size:           order.GetUnFilledBaseAssetQuantity().String(),
-			InprogressSize: order.GetInProgressBaseAssetQuantity().String(),
+			Size:           order.GetUnFilledBaseAssetQuantity().String()
 		})
 	}
 

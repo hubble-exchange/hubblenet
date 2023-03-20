@@ -99,18 +99,17 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 
 		log.Info("#### adding order", "orderId", getIdFromOrder(order), "block", event.BlockHash.String(), "number", event.BlockNumber)
 		cep.database.Add(&LimitOrder{
-			Market:                      Market(order.AmmIndex.Int64()),
-			PositionType:                getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
-			UserAddress:                 getAddressFromTopicHash(event.Topics[1]).String(),
-			BaseAssetQuantity:           order.BaseAssetQuantity,
-			FilledBaseAssetQuantity:     big.NewInt(0),
-			Price:                       order.Price,
-			Status:                      Placed,
-			RawOrder:                    args["order"],
-			Signature:                   args["signature"].([]byte),
-			Salt:                        order.Salt,
-			BlockNumber:                 big.NewInt(int64(event.BlockNumber)),
-			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
+			Market:                  Market(order.AmmIndex.Int64()),
+			PositionType:            getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
+			UserAddress:             getAddressFromTopicHash(event.Topics[1]).String(),
+			BaseAssetQuantity:       order.BaseAssetQuantity,
+			FilledBaseAssetQuantity: big.NewInt(0),
+			Price:                   order.Price,
+			Status:                  Placed,
+			RawOrder:                args["order"],
+			Signature:               args["signature"].([]byte),
+			Salt:                    order.Salt,
+			BlockNumber:             big.NewInt(int64(event.BlockNumber)),
 		})
 		SendTxReadySignal()
 	case cep.orderBookABI.Events["OrderCancelled"].ID:
