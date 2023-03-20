@@ -64,7 +64,16 @@ func (db *MockLimitOrderDatabase) GetAllTraders() map[common.Address]Trader {
 	return args.Get(0).(map[common.Address]Trader)
 }
 
-func (db *MockLimitOrderDatabase) UpdateLastPrice(market Market, lastPrice *big.Int) {
+func (db *MockLimitOrderDatabase) UpdateLastPrice(market Market, lastPrice *big.Int) {}
+
+func (db *MockLimitOrderDatabase) GetInProgressBlocks() []*types.Block {
+	return []*types.Block{}
+}
+
+func (db *MockLimitOrderDatabase) 	UpdateInProgressState(block *types.Block, quantityMap map[string]*big.Int) {
+}
+
+func (db *MockLimitOrderDatabase) 	RemoveInProgressState(block *types.Block, quantityMap map[string]*big.Int) {
 }
 
 func (db *MockLimitOrderDatabase) GetLastPrice(market Market) *big.Int {
