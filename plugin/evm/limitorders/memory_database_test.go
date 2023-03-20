@@ -12,7 +12,6 @@ import (
 
 var positionType = "short"
 var userAddress = "random-address"
-var baseAssetQuantity = big.NewInt(-10)
 var price = big.NewInt(20)
 var status Status = Placed
 var blockNumber = big.NewInt(2)
@@ -23,6 +22,7 @@ func TestNewInMemoryDatabase(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
+	baseAssetQuantity := big.NewInt(-10)
 	inMemoryDatabase := NewInMemoryDatabase()
 	signature := []byte("Here is a string....")
 	id := uint64(123)
@@ -40,6 +40,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestGetAllOrders(t *testing.T) {
+	baseAssetQuantity := big.NewInt(-10)
 	inMemoryDatabase := NewInMemoryDatabase()
 	totalOrders := uint64(5)
 	for i := uint64(0); i < totalOrders; i++ {
@@ -61,6 +62,7 @@ func TestGetAllOrders(t *testing.T) {
 }
 
 func TestGetShortOrders(t *testing.T) {
+	baseAssetQuantity := big.NewInt(-10)
 	inMemoryDatabase := NewInMemoryDatabase()
 	totalLongOrders := uint64(2)
 	longOrderPrice := big.NewInt(0).Add(price, big.NewInt(1))
@@ -122,6 +124,7 @@ func TestGetShortOrders(t *testing.T) {
 }
 
 func TestGetLongOrders(t *testing.T) {
+	baseAssetQuantity := big.NewInt(-10)
 	inMemoryDatabase := NewInMemoryDatabase()
 	for i := uint64(0); i < 3; i++ {
 		signature := []byte("signature")
@@ -181,6 +184,7 @@ func TestGetLongOrders(t *testing.T) {
 }
 
 func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
+	baseAssetQuantity := big.NewInt(-10)
 	t.Run("when filled quantity is not equal to baseAssetQuantity", func(t *testing.T) {
 		t.Run("When order type is short order", func(t *testing.T) {
 			inMemoryDatabase := NewInMemoryDatabase()

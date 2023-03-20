@@ -31,7 +31,7 @@ func TestProcessEvents(t *testing.T) {
 
 		traderAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 		ammIndex := big.NewInt(0)
-		baseAssetQuantity = big.NewInt(5000000000000000000)
+		baseAssetQuantity := big.NewInt(5000000000000000000)
 		price := big.NewInt(1000000000)
 		longSignature := []byte("long")
 		salt1 := big.NewInt(1675239557437)
@@ -120,7 +120,7 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 
 	//OrderBook Contract log
 	ammIndex := big.NewInt(0)
-	baseAssetQuantity = big.NewInt(5000000000000000000)
+	baseAssetQuantity := big.NewInt(5000000000000000000)
 	price := big.NewInt(1000000000)
 	salt := big.NewInt(1675239557437)
 	signature := []byte("signature")
@@ -183,7 +183,7 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 func TestHandleOrderBookEvent(t *testing.T) {
 	traderAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 	ammIndex := big.NewInt(0)
-	baseAssetQuantity = big.NewInt(5000000000000000000)
+	baseAssetQuantity := big.NewInt(5000000000000000000)
 	price := big.NewInt(1000000000)
 	salt := big.NewInt(1675239557437)
 	signature := []byte("signature")
@@ -229,15 +229,15 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		topics := []common.Hash{event.ID, traderAddress.Hash()}
 		blockNumber := uint64(4)
 		limitOrder := &LimitOrder{
-			Market:            Market(ammIndex.Int64()),
-			PositionType:      "long",
-			UserAddress:       traderAddress.String(),
-			BaseAssetQuantity: baseAssetQuantity,
-			Price:             price,
-			Status:            Placed,
-			Signature:         signature,
-			BlockNumber:       big.NewInt(1),
-			Salt:              salt,
+			Market:                      Market(ammIndex.Int64()),
+			PositionType:                "long",
+			UserAddress:                 traderAddress.String(),
+			BaseAssetQuantity:           baseAssetQuantity,
+			Price:                       price,
+			Status:                      Placed,
+			Signature:                   signature,
+			BlockNumber:                 big.NewInt(1),
+			Salt:                        salt,
 			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 		}
 		db.Add(limitOrder)
@@ -265,29 +265,29 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		signature1 := []byte("longOrder")
 		signature2 := []byte("shortOrder")
 		longOrder := &LimitOrder{
-			Market:                  Market(ammIndex.Int64()),
-			PositionType:            "long",
-			UserAddress:             traderAddress.String(),
-			BaseAssetQuantity:       baseAssetQuantity,
-			Price:                   price,
-			Status:                  Placed,
-			Signature:               signature1,
-			BlockNumber:             big.NewInt(1),
-			FilledBaseAssetQuantity: big.NewInt(0),
-			Salt:                    salt,
+			Market:                      Market(ammIndex.Int64()),
+			PositionType:                "long",
+			UserAddress:                 traderAddress.String(),
+			BaseAssetQuantity:           baseAssetQuantity,
+			Price:                       price,
+			Status:                      Placed,
+			Signature:                   signature1,
+			BlockNumber:                 big.NewInt(1),
+			FilledBaseAssetQuantity:     big.NewInt(0),
+			Salt:                        salt,
 			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 		}
 		shortOrder := &LimitOrder{
-			Market:                  Market(ammIndex.Int64()),
-			PositionType:            "short",
-			UserAddress:             traderAddress.String(),
-			BaseAssetQuantity:       big.NewInt(0).Mul(baseAssetQuantity, big.NewInt(-1)),
-			Price:                   price,
-			Status:                  Placed,
-			Signature:               signature2,
-			BlockNumber:             big.NewInt(1),
-			FilledBaseAssetQuantity: big.NewInt(0),
-			Salt:                    big.NewInt(0).Add(salt, big.NewInt(1000)),
+			Market:                      Market(ammIndex.Int64()),
+			PositionType:                "short",
+			UserAddress:                 traderAddress.String(),
+			BaseAssetQuantity:           big.NewInt(0).Mul(baseAssetQuantity, big.NewInt(-1)),
+			Price:                       price,
+			Status:                      Placed,
+			Signature:                   signature2,
+			BlockNumber:                 big.NewInt(1),
+			FilledBaseAssetQuantity:     big.NewInt(0),
+			Salt:                        big.NewInt(0).Add(salt, big.NewInt(1000)),
 			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 		}
 		db.Add(longOrder)
@@ -320,16 +320,16 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		topics := []common.Hash{event.ID, traderAddress.Hash()}
 		signature := []byte("longOrder")
 		longOrder := &LimitOrder{
-			Market:                  Market(ammIndex.Int64()),
-			PositionType:            "long",
-			UserAddress:             traderAddress.String(),
-			BaseAssetQuantity:       baseAssetQuantity,
-			Price:                   price,
-			Status:                  Placed,
-			Signature:               signature,
-			Salt:                    salt,
-			BlockNumber:             big.NewInt(1),
-			FilledBaseAssetQuantity: big.NewInt(0),
+			Market:                      Market(ammIndex.Int64()),
+			PositionType:                "long",
+			UserAddress:                 traderAddress.String(),
+			BaseAssetQuantity:           baseAssetQuantity,
+			Price:                       price,
+			Status:                      Placed,
+			Signature:                   signature,
+			Salt:                        salt,
+			BlockNumber:                 big.NewInt(1),
+			FilledBaseAssetQuantity:     big.NewInt(0),
 			InProgressBaseAssetQuantity: map[common.Hash]*big.Int{},
 		}
 		db.Add(longOrder)

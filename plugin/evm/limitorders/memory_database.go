@@ -206,7 +206,7 @@ func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 func (db *InMemoryDatabase) GetShortOrders(market Market) []LimitOrder {
 	var shortOrders []LimitOrder
 	for _, order := range db.OrderMap {
-		if order.PositionType == "short" && order.Market == market && order.GetAvailableUnFilledBaseAssetQuantity().Cmp(big.NewInt(0)) > 0 {
+		if order.PositionType == "short" && order.Market == market && order.GetAvailableUnFilledBaseAssetQuantity().Cmp(big.NewInt(0)) < 0 {
 			shortOrders = append(shortOrders, *order)
 		}
 	}
