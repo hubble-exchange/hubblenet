@@ -42,7 +42,10 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/metrics"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/precompile"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/feemanager"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/txallowlist"
+	"github.com/ava-labs/subnet-evm/vmerrs"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/event"
@@ -695,10 +698,10 @@ func (pool *TxPool) checkTxState(from common.Address, tx *types.Transaction) err
 
 	// If the tx allow list is enabled, return an error if the from address is not allow listed.
 	headTimestamp := big.NewInt(int64(pool.currentHead.Time))
-	if pool.chainconfig.IsTxAllowList(headTimestamp) {
-		txAllowListRole := precompile.GetTxAllowListStatus(pool.currentState, from)
+	if pool.chainconfig.IsPrecompileEnabled(txallowlist.ContractAddress, headTimestamp) {
+		txAllowListRole := txallowlist.GetTxAllowListStatus(pool.currentState, from)
 		if !txAllowListRole.IsEnabled() {
-			return fmt.Errorf("%w: %s", precompile.ErrSenderAddressNotAllowListed, from)
+			return fmt.Errorf("%w: %s", vmerrs.ErrSenderAddressNotAllowListed, from)
 		}
 	}
 	return nil
@@ -1155,6 +1158,8 @@ func (pool *TxPool) HasLocal(hash common.Hash) bool {
 	return pool.all.GetLocal(hash) != nil
 }
 
+// RemoveTx removes a single transaction from the queue, moving all subsequent
+// transactions back to the future queue.
 func (pool *TxPool) RemoveTx(hash common.Hash) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
@@ -1481,11 +1486,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 
 	// when we reset txPool we should explicitly check if fee struct for min base fee has changed
 	// so that we can correctly drop txs with < minBaseFee from tx pool.
-	// TODO: this should be checking IsSubnetEVM since we also support minimumFee for SubnetEVM
-	// without requiring FeeConfigManager is enabled.
-	// This is already being set by SetMinFee when gas price updater starts.
-	// However tests are currently failing if we change this check to IsSubnetEVM.
-	if pool.chainconfig.IsFeeConfigManager(new(big.Int).SetUint64(newHead.Time)) {
+	if pool.chainconfig.IsPrecompileEnabled(feemanager.ContractAddress, new(big.Int).SetUint64(newHead.Time)) {
 		feeConfig, _, err := pool.chain.GetFeeConfigAt(newHead)
 		if err != nil {
 			log.Error("Failed to get fee config state", "err", err, "root", newHead.Root)
