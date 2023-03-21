@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/ava-labs/subnet-evm/core"
-	"github.com/ava-labs/subnet-evm/core/rawdb"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/eth/filters"
@@ -78,7 +77,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 				log.Error("ListenAndProcessTransactions - GetLogs failed", "err", err)
 				panic(err)
 			}
-			lop.contractEventProcessor.ProcessEvents(logs)
+			lop.contractEventProcessor.ProcessEvents(logs, false)
 			log.Info("ListenAndProcessTransactions", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs), "err", err)
 
 			toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
@@ -98,17 +97,35 @@ func (lop *limitOrderProcesser) GetOrderBookAPI() *limitorders.OrderBookAPI {
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
-	chainHeadEventCh := make(chan core.ChainHeadEvent)
-	chainHeadEventSubscription := lop.backend.SubscribeChainHeadEvent(chainHeadEventCh)
+	logsCh := make(chan []*types.Log)
+	logsSubscription := lop.backend.SubscribeAcceptedLogsEvent(logsCh)
 	lop.shutdownWg.Add(1)
 	go lop.ctx.Log.RecoverAndPanic(func() {
 		defer lop.shutdownWg.Done()
-		defer chainHeadEventSubscription.Unsubscribe()
+		defer logsSubscription.Unsubscribe()
 
 		for {
 			select {
-			case chainHeadEvent := <-chainHeadEventCh:
-				lop.handleChainHeadEvent(chainHeadEvent.Block)
+			case logs := <-logsCh:
+				lop.contractEventProcessor.ProcessEvents(logs, false)
+			case <-lop.shutdownChan:
+				return
+			}
+		}
+	})
+
+	removedLogsCh := make(chan core.RemovedLogsEvent)
+	removedLogsSubscription := lop.backend.SubscribeRemovedLogsEvent(removedLogsCh)
+	lop.shutdownWg.Add(1)
+	go lop.ctx.Log.RecoverAndPanic(func() {
+		defer lop.shutdownWg.Done()
+		defer removedLogsSubscription.Unsubscribe()
+
+		for {
+			select {
+			case removedLogs := <-removedLogsCh:
+				// should we reverse them?
+				lop.contractEventProcessor.ProcessEvents(removedLogs.Logs, true)
 			case <-lop.shutdownChan:
 				return
 			}
@@ -133,64 +150,13 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-func (lop *limitOrderProcesser) handleChainHeadEvent(block *types.Block) {
-	lop.mu.Lock()
-	defer lop.mu.Unlock()
-
-	log.Info("#### received ChainHeadEvent", "number", block.NumberU64(), "hash", block.Hash().String())
-	inProgressBlocks := lop.memoryDb.GetInProgressBlocks()
-	blocksToApply := []*types.Block{}
-	blocksToRemove := []*types.Block{}
-	if len(inProgressBlocks) > 0 {
-		// figure out which blocks to apply and which blocks to remove from in-progress state
-		commonHeader := rawdb.FindCommonAncestor(lop.backend.ChainDb(), block.Header(), inProgressBlocks[0].Header())
-		currentBlock := block
-		for {
-			blocksToApply = append(blocksToApply, currentBlock)
-			currentBlock = lop.blockChain.GetBlockByHash(currentBlock.ParentHash())
-			if currentBlock.Hash() == commonHeader.Hash() {
-				break
-			}
-		}
-		for _, inProgressBlock := range inProgressBlocks {
-			if inProgressBlock.Hash() == commonHeader.Hash() {
-				break
-			}
-			blocksToRemove = append(blocksToRemove, inProgressBlock)
-		}
-		log.Info("#### inprogress blocks found", "blocks", len(inProgressBlocks), "commonHeader", commonHeader.Number.Uint64(), "common hash", commonHeader.Hash().String(), "blocksToApply", blockHashes(blocksToApply), "blocksToRemove", blockHashes(blocksToRemove))
-	} else {
-		// assume only one block needs to be added
-		log.Info("#### inprogress blocks not found; applying single block", "number", block.NumberU64(), "hash", block.Hash().String())
-		blocksToApply = append(blocksToApply, block)
-	}
-
-	// iterate in straight order so that blocks are removed in order of decreasing block number
-	for _, blockToRemove := range blocksToRemove {
-		lop.memoryDb.RemoveInProgressState(blockToRemove, lop.getOrderQuantityMap(blockToRemove))
-	}
-
-	// iterate in reverse order so that blocks are applied in order of increasing block number
-	if len(blocksToApply) > 0 {
-		for i := len(blocksToApply) - 1; i >= 0; i-- {
-			blockToApply := blocksToApply[i]
-			lop.memoryDb.UpdateInProgressState(blockToApply, lop.getOrderQuantityMap(blockToApply))
-		}
-	}
-}
-
 func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) {
 	lop.mu.Lock()
 	defer lop.mu.Unlock()
 
 	block := event.Block
-
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
-
-	lop.memoryDb.Accept(block)
-	// lop.memoryDb.RemoveInProgressState(block, lop.getOrderQuantityMap(block))
-
-	// lop.contractEventProcessor.ProcessEvents(event.Logs)
+	lop.memoryDb.Accept(block.NumberU64())
 }
 
 func blockHashes(blocks []*types.Block) []string {
@@ -199,11 +165,4 @@ func blockHashes(blocks []*types.Block) []string {
 		hashes = append(hashes, block.Hash().String())
 	}
 	return hashes
-}
-
-func (lop *limitOrderProcesser) getOrderQuantityMap(block *types.Block) map[string]*big.Int {
-	logs, _ := lop.backend.GetLogs(context.Background(), block.Hash(), block.NumberU64())
-	flatLogs := types.FlattenLogs(logs)
-
-	return lop.contractEventProcessor.GetMatchedOrderQuantity(flatLogs)
 }
