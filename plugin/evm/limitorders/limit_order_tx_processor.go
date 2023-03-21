@@ -74,8 +74,11 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 		panic(err)
 	}
 	validatorPrivateKey := os.Getenv("VALIDATOR_PRIVATE_KEY")
-	if validatorPrivateKey == "" || !isValidPrivateKey(validatorPrivateKey) {
-		panic("either private key is not supplied or it is invalid")
+	if validatorPrivateKey == "" {
+		panic("private key is not supplied")
+	}
+	if !isValidPrivateKey(validatorPrivateKey) {
+		panic("private key is invalid")
 	}
 	validatorAddress, err := getAddressFromPrivateKey(validatorPrivateKey)
 	if err != nil {

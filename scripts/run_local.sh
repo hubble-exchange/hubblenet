@@ -8,6 +8,7 @@ if ! [[ "$0" =~ scripts/run_local.sh ]]; then
   exit 255
 fi
 
+export VALIDATOR_PRIVATE_KEY="31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e97dc"
 if [[ -z "${VALIDATOR_PRIVATE_KEY}" ]]; then
   echo "VALIDATOR_PRIVATE_KEY must be set"
   exit 255
