@@ -3,12 +3,14 @@ package limitorders
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"sort"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -43,18 +45,16 @@ func NewContractEventsProcessor(database LimitOrderDatabase) *ContractEventsProc
 }
 
 func (cep *ContractEventsProcessor) ProcessEvents(logs []*types.Log, removed bool) {
-	// sort by block number & log index
-	sort.SliceStable(logs, func(i, j int) bool {
-		if logs[i].BlockNumber == logs[j].BlockNumber {
-			return logs[i].Index < logs[j].Index
+	// removed logs are received in increasing order of block number
+	// but the way that we have written our logic they are best processed in the opposite order
+	if removed {
+		reversedLogs := make([]*types.Log, 0, len(logs))
+		for i := len(logs) - 1; i >= 0; i-- {
+			reversedLogs = append(reversedLogs, logs[i])
 		}
-		return logs[i].BlockNumber < logs[j].BlockNumber
-	})
+		logs = reversedLogs
+	}
 	for _, event := range logs {
-		if event.Removed {
-			// skip removed logs
-			continue
-		}
 		switch event.Address {
 		case OrderBookContractAddress:
 			cep.handleOrderBookEvent(event, removed)
@@ -99,7 +99,9 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log, remov
 
 		if !removed {
 			order := getOrderFromRawOrder(args["order"])
+			fmt.Print("orderHash yoyo", args["orderHash"])
 			orderId := hex.EncodeToString(args["orderHash"].([]byte))
+			// orderId := hex.EncodeToString(args["orderHash"].([]byte))
 			log.Info("#### adding order", "orderId", orderId, "block", event.BlockHash.String(), "number", event.BlockNumber)
 			cep.database.Add(orderId, &LimitOrder{
 				Market:                  Market(order.AmmIndex.Int64()),
@@ -292,6 +294,7 @@ func getOrdersFromRawOrderList(rawOrders interface{}) [2]Order {
 	return orders
 }
 
+// @todo change this to return the EIp712 hash instead
 func getIdFromOrder(order Order) string {
-	return order.Trader.String() + order.Salt.String()
+	return crypto.Keccak256Hash([]byte(order.Trader.String() + order.Salt.String())).String()
 }

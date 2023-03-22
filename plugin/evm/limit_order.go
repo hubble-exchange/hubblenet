@@ -114,6 +114,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		}
 	})
 
+	// @todo removed logs should be processed before new logs for the reorged chunk are received
 	removedLogsCh := make(chan core.RemovedLogsEvent)
 	removedLogsSubscription := lop.backend.SubscribeRemovedLogsEvent(removedLogsCh)
 	lop.shutdownWg.Add(1)
@@ -124,7 +125,6 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case removedLogs := <-removedLogsCh:
-				// should we reverse them?
 				lop.contractEventProcessor.ProcessEvents(removedLogs.Logs, true)
 			case <-lop.shutdownChan:
 				return

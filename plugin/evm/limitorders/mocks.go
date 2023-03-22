@@ -16,15 +16,18 @@ func NewMockLimitOrderDatabase() *MockLimitOrderDatabase {
 	return &MockLimitOrderDatabase{}
 }
 
+func (db *MockLimitOrderDatabase) Accept(blockNumber uint64) {
+}
+
 func (db *MockLimitOrderDatabase) GetAllOrders() []LimitOrder {
 	args := db.Called()
 	return args.Get(0).([]LimitOrder)
 }
 
-func (db *MockLimitOrderDatabase) Add(order *LimitOrder) {
+func (db *MockLimitOrderDatabase) Add(orderId string, order *LimitOrder) {
 }
 
-func (db *MockLimitOrderDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId string) {
+func (db *MockLimitOrderDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId string, blockNumber uint64) {
 }
 
 func (db *MockLimitOrderDatabase) Delete(id string) {
@@ -70,10 +73,10 @@ func (db *MockLimitOrderDatabase) GetInProgressBlocks() []*types.Block {
 	return []*types.Block{}
 }
 
-func (db *MockLimitOrderDatabase) 	UpdateInProgressState(block *types.Block, quantityMap map[string]*big.Int) {
+func (db *MockLimitOrderDatabase) UpdateInProgressState(block *types.Block, quantityMap map[string]*big.Int) {
 }
 
-func (db *MockLimitOrderDatabase) 	RemoveInProgressState(block *types.Block, quantityMap map[string]*big.Int) {
+func (db *MockLimitOrderDatabase) RemoveInProgressState(block *types.Block, quantityMap map[string]*big.Int) {
 }
 
 func (db *MockLimitOrderDatabase) GetLastPrice(market Market) *big.Int {
