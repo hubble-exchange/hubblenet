@@ -9,6 +9,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -36,10 +37,10 @@ var collateralWeightMap map[Collateral]float64 = map[Collateral]float64{HUSD: 1}
 type Status string
 
 const (
-	Placed = "placed"
+	Placed Status = "placed"
 	// Deleted   = "deleted"
-	Filled    = "filled"
-	Cancelled = "cancelled"
+	Filled    Status = "filled"
+	Cancelled Status = "cancelled"
 )
 
 type LimitOrder struct {
@@ -80,9 +81,9 @@ type Trader struct {
 
 type LimitOrderDatabase interface {
 	GetAllOrders() []LimitOrder
-	Add(orderId string, order *LimitOrder)
-	Delete(id string)
-	UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId string, blockNumber uint64)
+	Add(orderId common.Hash, order *LimitOrder)
+	Delete(orderId common.Hash)
+	UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, blockNumber uint64)
 	GetLongOrders(market Market) []LimitOrder
 	GetShortOrders(market Market) []LimitOrder
 	UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool)
@@ -99,15 +100,15 @@ type LimitOrderDatabase interface {
 }
 
 type InMemoryDatabase struct {
-	mu              sync.Mutex                 `json:"-"`
-	OrderMap        map[string]*LimitOrder     `json:"order_map"`  // ID => order
-	TraderMap       map[common.Address]*Trader `json:"trader_map"` // address => trader info
-	NextFundingTime uint64                     `json:"next_funding_time"`
-	LastPrice       map[Market]*big.Int        `json:"last_price"`
+	mu              sync.Mutex                  `json:"-"`
+	OrderMap        map[common.Hash]*LimitOrder `json:"order_map"`  // ID => order
+	TraderMap       map[common.Address]*Trader  `json:"trader_map"` // address => trader info
+	NextFundingTime uint64                      `json:"next_funding_time"`
+	LastPrice       map[Market]*big.Int         `json:"last_price"`
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
-	orderMap := map[string]*LimitOrder{}
+	orderMap := map[common.Hash]*LimitOrder{}
 	lastPrice := map[Market]*big.Int{AvaxPerp: big.NewInt(0)}
 	traderMap := map[common.Address]*Trader{}
 
@@ -138,21 +139,21 @@ func (db *InMemoryDatabase) GetAllOrders() []LimitOrder {
 	return allOrders
 }
 
-func (db *InMemoryDatabase) Add(orderId string, order *LimitOrder) {
+func (db *InMemoryDatabase) Add(orderId common.Hash, order *LimitOrder) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	db.OrderMap[orderId] = order
 }
 
-func (db *InMemoryDatabase) Delete(orderId string) {
+func (db *InMemoryDatabase) Delete(orderId common.Hash) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	delete(db.OrderMap, orderId)
 }
 
-func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId string, block uint64) {
+func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, block uint64) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -316,7 +317,7 @@ func getNextHour() time.Time {
 	return nextHour
 }
 
-func deleteOrder(db *InMemoryDatabase, id string) {
+func deleteOrder(db *InMemoryDatabase, id common.Hash) {
 	log.Info("#### deleting order", "orderId", id)
 	delete(db.OrderMap, id)
 }
@@ -333,6 +334,7 @@ func getLiquidationThreshold(size *big.Int) *big.Int {
 	return big.NewInt(0).Mul(liquidationThreshold, big.NewInt(int64(size.Sign()))) // same sign as size
 }
 
-func getIdFromLimitOrder(order LimitOrder) string {
-	return order.UserAddress + order.Salt.String()
+// @todo change this to return the EIP712 hash instead
+func getIdFromLimitOrder(order LimitOrder) common.Hash {
+	return crypto.Keccak256Hash([]byte(order.UserAddress + order.Salt.String()))
 }

@@ -196,8 +196,8 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 
 			filledQuantity := big.NewInt(2)
 
-			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, getIdFromLimitOrder(limitOrder), 69)
-			updatedLimitOrder := inMemoryDatabase.OrderMap[getIdFromLimitOrder(limitOrder)]
+			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, orderId, 69)
+			updatedLimitOrder := inMemoryDatabase.OrderMap[orderId]
 
 			assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, big.NewInt(0).Neg(filledQuantity))
 			assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, filledQuantity.Mul(filledQuantity, big.NewInt(-1)))
@@ -213,8 +213,8 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			inMemoryDatabase.Add(orderId, &limitOrder)
 
 			filledQuantity := big.NewInt(2)
-			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, getIdFromLimitOrder(limitOrder), 69)
-			updatedLimitOrder := inMemoryDatabase.OrderMap[getIdFromLimitOrder(limitOrder)]
+			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, orderId, 69)
+			updatedLimitOrder := inMemoryDatabase.OrderMap[orderId]
 
 			assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, filledQuantity)
 		})
@@ -229,7 +229,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			inMemoryDatabase.Add(orderId, &limitOrder)
 
 			filledQuantity := big.NewInt(0).Abs(limitOrder.BaseAssetQuantity)
-			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, getIdFromLimitOrder(limitOrder), 69)
+			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, orderId, 69)
 			allOrders := inMemoryDatabase.GetAllOrders()
 
 			assert.Equal(t, 0, len(allOrders))
@@ -245,7 +245,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			inMemoryDatabase.Add(orderId, &limitOrder)
 
 			filledQuantity := big.NewInt(0).Abs(limitOrder.BaseAssetQuantity)
-			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, getIdFromLimitOrder(limitOrder), 69)
+			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, orderId, 69)
 			allOrders := inMemoryDatabase.GetAllOrders()
 
 			assert.Equal(t, 0, len(allOrders))
@@ -430,7 +430,7 @@ func TestGetLastPrice(t *testing.T) {
 	assert.Equal(t, lastPrice, inMemoryDatabase.GetLastPrice(market))
 }
 
-func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, signature []byte, blockNumber *big.Int, salt *big.Int) (LimitOrder, string) {
+func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, signature []byte, blockNumber *big.Int, salt *big.Int) (LimitOrder, common.Hash) {
 	lo := LimitOrder{
 		Id:                      id,
 		PositionType:            positionType,

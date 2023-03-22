@@ -79,37 +79,10 @@ var orderBookAbi = []byte(`{"abi": [
         "type": "address"
       },
       {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "ammIndex",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "trader",
-            "type": "address"
-          },
-          {
-            "internalType": "int256",
-            "name": "baseAssetQuantity",
-            "type": "int256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "price",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "salt",
-            "type": "uint256"
-          }
-        ],
         "indexed": false,
-        "internalType": "struct IOrderBook.Order",
-        "name": "order",
-        "type": "tuple"
+        "internalType": "bytes32",
+        "name": "orderHash",
+        "type": "bytes32"
       }
     ],
     "name": "OrderCancelled",
