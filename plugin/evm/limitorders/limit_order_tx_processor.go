@@ -11,6 +11,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
+	"github.com/joho/godotenv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -73,6 +74,11 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 	if err != nil {
 		panic(err)
 	}
+	err = godotenv.Load()
+	if err != nil {
+		panic(err)
+	}
+
 	validatorPrivateKey := os.Getenv("VALIDATOR_PRIVATE_KEY")
 	if validatorPrivateKey == "" {
 		panic("private key is not supplied")
