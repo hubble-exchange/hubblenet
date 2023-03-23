@@ -175,7 +175,7 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 	assert.Equal(t, traderAddress.String(), actualLimitOrder.UserAddress)
 	assert.Equal(t, *baseAssetQuantity, *actualLimitOrder.BaseAssetQuantity)
 	assert.Equal(t, *price, *actualLimitOrder.Price)
-	assert.Equal(t, Placed, actualLimitOrder.Status)
+	assert.Equal(t, Placed, actualLimitOrder.getOrderStatus().Status)
 	assert.Equal(t, signature, actualLimitOrder.Signature)
 	assert.Equal(t, big.NewInt(int64(blockNumber)), actualLimitOrder.BlockNumber)
 	assert.Equal(t, args["order"], actualLimitOrder.RawOrder)
@@ -230,7 +230,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			assert.Equal(t, traderAddress.String(), actualLimitOrder.UserAddress)
 			assert.Equal(t, *baseAssetQuantity, *actualLimitOrder.BaseAssetQuantity)
 			assert.Equal(t, *price, *actualLimitOrder.Price)
-			assert.Equal(t, Placed, actualLimitOrder.Status)
+			assert.Equal(t, Placed, actualLimitOrder.getOrderStatus().Status)
 			assert.Equal(t, signature, actualLimitOrder.Signature)
 			assert.Equal(t, big.NewInt(int64(blockNumber)), actualLimitOrder.BlockNumber)
 			assert.Equal(t, args["order"], actualLimitOrder.RawOrder)
@@ -248,7 +248,6 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			UserAddress:       traderAddress.String(),
 			BaseAssetQuantity: baseAssetQuantity,
 			Price:             price,
-			Status:            Placed,
 			Signature:         signature,
 			BlockNumber:       big.NewInt(1),
 			Salt:              salt,
@@ -268,7 +267,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			orderId := getIdFromLimitOrder(*limitOrder)
 			cep.ProcessEvents([]*types.Log{log})
 			actualLimitOrder := db.GetOrderBookData().OrderMap[orderId]
-			assert.Equal(t, Cancelled, actualLimitOrder.Status)
+			assert.Equal(t, Cancelled, actualLimitOrder.getOrderStatus().Status)
 		})
 	})
 	t.Run("When event is OrderMatched", func(t *testing.T) {
@@ -284,7 +283,6 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			UserAddress:             traderAddress.String(),
 			BaseAssetQuantity:       baseAssetQuantity,
 			Price:                   price,
-			Status:                  Placed,
 			Signature:               signature1,
 			BlockNumber:             big.NewInt(1),
 			FilledBaseAssetQuantity: big.NewInt(0),
@@ -296,7 +294,6 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			UserAddress:             traderAddress.String(),
 			BaseAssetQuantity:       big.NewInt(0).Mul(baseAssetQuantity, big.NewInt(-1)),
 			Price:                   price,
-			Status:                  Placed,
 			Signature:               signature2,
 			BlockNumber:             big.NewInt(1),
 			FilledBaseAssetQuantity: big.NewInt(0),
@@ -340,7 +337,6 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			UserAddress:             traderAddress.String(),
 			BaseAssetQuantity:       baseAssetQuantity,
 			Price:                   price,
-			Status:                  Placed,
 			Signature:               signature,
 			Salt:                    salt,
 			BlockNumber:             big.NewInt(1),

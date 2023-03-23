@@ -112,7 +112,6 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 				BaseAssetQuantity:       order.BaseAssetQuantity,
 				FilledBaseAssetQuantity: big.NewInt(0),
 				Price:                   order.Price,
-				Status:                  Placed,
 				RawOrder:                args["order"],
 				Signature:               args["signature"].([]byte),
 				Salt:                    order.Salt,
@@ -132,14 +131,12 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 		log.Info("HandleOrderBookEvent", "OrderCancelled args", args, "removed", removed)
 		orderId := parseOrderId(args["orderHash"])
 		if !removed {
-			if cep.database.setOrderStatus(orderId, Cancelled) != nil {
+			if err := cep.database.setOrderStatus(orderId, Cancelled, event.BlockNumber); err != nil {
 				log.Error("error in setOrderStatus", "method", "OrderCancelled", "err", err)
 				return
 			}
 		} else {
-			// orders that are already fulfilled will be marked Placed as well;
-			// however they will not be used for matching as long as we filter by unfilled base asset quantity for that order
-			if cep.database.setOrderStatus(orderId, Placed) != nil {
+			if err := cep.database.revertLastStatus(orderId); err != nil {
 				log.Error("error in setOrderStatus", "method", "OrderCancelled", "removed", true, "err", err)
 				return
 			}
@@ -180,6 +177,25 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 			cep.database.UpdateFilledBaseAssetQuantity(fillAmount, orderId, event.BlockNumber)
 		} else {
 			cep.database.UpdateFilledBaseAssetQuantity(fillAmount.Neg(fillAmount), orderId, event.BlockNumber)
+		}
+	case cep.orderBookABI.Events["OrderMatchingError"].ID:
+		err := cep.orderBookABI.UnpackIntoMap(args, "OrderMatchingError", event.Data)
+		if err != nil {
+			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderMatchingError", "err", err)
+			return
+		}
+		log.Info("HandleOrderBookEvent", "OrderMatchingError args", args)
+		orderId := parseOrderId(args["orderHash"])
+		if !removed {
+			if err := cep.database.setOrderStatus(orderId, Execution_Failed, event.BlockNumber); err != nil {
+				log.Error("error in setOrderStatus", "method", "OrderMatchingError", "err", err)
+				return
+			}
+		} else {
+			if err := cep.database.revertLastStatus(orderId); err != nil {
+				log.Error("error in setOrderStatus", "method", "OrderMatchingError", "removed", true, "err", err)
+				return
+			}
 		}
 	}
 }

@@ -40,28 +40,39 @@ type Status uint8
 
 const (
 	Placed Status = iota
+	FulFilled
 	Cancelled
+	Execution_Failed
 )
+
+type Lifecycle struct {
+	BlockNumber uint64
+	Status      Status
+}
 
 type LimitOrder struct {
 	Id     uint64 `json:"id"`
 	Market Market `json:"market"`
 	// @todo make this an enum
-	PositionType            string   `json:"position_type"`
-	UserAddress             string   `json:"user_address"`
-	BaseAssetQuantity       *big.Int `json:"base_asset_quantity"`
-	FilledBaseAssetQuantity *big.Int `json:"filled_base_asset_quantity"`
-	Salt                    *big.Int `json:"salt"`
-	Price                   *big.Int `json:"price"`
-	Status                  Status   `json:"status"`
-	Signature               []byte   `json:"signature"`
-	BlockNumber             *big.Int `json:"block_number"` // block number order was placed on
-	FulfilmentBlock         uint64
+	PositionType            string      `json:"position_type"`
+	UserAddress             string      `json:"user_address"`
+	BaseAssetQuantity       *big.Int    `json:"base_asset_quantity"`
+	FilledBaseAssetQuantity *big.Int    `json:"filled_base_asset_quantity"`
+	Salt                    *big.Int    `json:"salt"`
+	Price                   *big.Int    `json:"price"`
+	LifecycleList           []Lifecycle `json:"lifecycle_list"`
+	Signature               []byte      `json:"signature"`
+	BlockNumber             *big.Int    `json:"block_number"` // block number order was placed on
 	RawOrder                interface{} `json:"-"`
 }
 
 func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
 	return big.NewInt(0).Sub(order.BaseAssetQuantity, order.FilledBaseAssetQuantity)
+}
+
+func (order LimitOrder) getOrderStatus() Lifecycle {
+	lifecycle := order.LifecycleList
+	return lifecycle[len(lifecycle)-1]
 }
 
 type Position struct {
@@ -96,7 +107,8 @@ type LimitOrderDatabase interface {
 	GetAllTraders() map[common.Address]Trader
 	GetOrderBookData() InMemoryDatabase
 	Accept(blockNumber uint64)
-	setOrderStatus(orderId common.Hash, status Status) error
+	setOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error
+	revertLastStatus(orderId common.Hash) error
 }
 
 type InMemoryDatabase struct {
@@ -122,20 +134,36 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 
 func (db *InMemoryDatabase) Accept(blockNumber uint64) {
 	for orderId, order := range db.OrderMap {
-		if order.FulfilmentBlock > 0 && order.FulfilmentBlock <= blockNumber {
+		lifecycle := order.getOrderStatus()
+		if lifecycle.Status != Placed && lifecycle.BlockNumber <= blockNumber {
 			delete(db.OrderMap, orderId)
 		}
 	}
 }
 
-func (db *InMemoryDatabase) setOrderStatus(orderId common.Hash, status Status) error {
+func (db *InMemoryDatabase) setOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	if db.OrderMap[orderId] == nil {
 		return errors.New(fmt.Sprintf("Invalid orderId %s", orderId.Hex()))
 	}
-	db.OrderMap[orderId].Status = status
+	db.OrderMap[orderId].LifecycleList = append(db.OrderMap[orderId].LifecycleList, Lifecycle{blockNumber, status})
+	return nil
+}
+
+func (db *InMemoryDatabase) revertLastStatus(orderId common.Hash) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if db.OrderMap[orderId] == nil {
+		return errors.New(fmt.Sprintf("Invalid orderId %s", orderId.Hex()))
+	}
+
+	lifeCycleList := db.OrderMap[orderId].LifecycleList
+	if len(lifeCycleList) > 0 {
+		db.OrderMap[orderId].LifecycleList = lifeCycleList[:len(lifeCycleList)-1]
+	}
 	return nil
 }
 
@@ -154,6 +182,7 @@ func (db *InMemoryDatabase) Add(orderId common.Hash, order *LimitOrder) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
+	order.LifecycleList = append(order.LifecycleList, Lifecycle{order.BlockNumber.Uint64(), Placed})
 	db.OrderMap[orderId] = order
 }
 
@@ -164,15 +193,12 @@ func (db *InMemoryDatabase) Delete(orderId common.Hash) {
 	delete(db.OrderMap, orderId)
 }
 
-func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, block uint64) {
+func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, blockNumber uint64) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	limitOrder := db.OrderMap[orderId]
 
-	// if db.OrderMap[orderId].Status == Cancelled {
-	// 	return errors.New(fmt.Sprintf("Modifying cancelled order %s", orderId.Hex()))
-	// }
 	if limitOrder.PositionType == "long" {
 		limitOrder.FilledBaseAssetQuantity.Add(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled + quantity
 	}
@@ -181,9 +207,12 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 	}
 
 	if limitOrder.BaseAssetQuantity.Cmp(limitOrder.FilledBaseAssetQuantity) == 0 {
-		limitOrder.FulfilmentBlock = block
-	} else {
-		limitOrder.FulfilmentBlock = 0 // mark as not fulfilled
+		limitOrder.LifecycleList = append(limitOrder.LifecycleList, Lifecycle{blockNumber, FulFilled})
+	}
+
+	if quantity.Cmp(big.NewInt(0)) == -1 && limitOrder.getOrderStatus().Status == FulFilled {
+		// handling reorgs
+		limitOrder.LifecycleList = limitOrder.LifecycleList[:len(limitOrder.LifecycleList)-1]
 	}
 }
 
@@ -200,8 +229,7 @@ func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 	for _, order := range db.OrderMap {
 		if order.PositionType == "long" &&
 			order.Market == market &&
-			order.Status != Cancelled &&
-			order.FulfilmentBlock == 0 {
+			order.getOrderStatus().Status == Placed {
 			longOrders = append(longOrders, *order)
 		}
 	}
@@ -214,8 +242,7 @@ func (db *InMemoryDatabase) GetShortOrders(market Market) []LimitOrder {
 	for _, order := range db.OrderMap {
 		if order.PositionType == "short" &&
 			order.Market == market &&
-			order.Status != Cancelled &&
-			order.FulfilmentBlock == 0 {
+			order.getOrderStatus().Status == Placed {
 			shortOrders = append(shortOrders, *order)
 		}
 	}

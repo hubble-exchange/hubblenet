@@ -35,7 +35,7 @@ func TestAdd(t *testing.T) {
 	assert.Equal(t, limitOrder.UserAddress, returnedOrder.UserAddress)
 	assert.Equal(t, limitOrder.BaseAssetQuantity, returnedOrder.BaseAssetQuantity)
 	assert.Equal(t, limitOrder.Price, returnedOrder.Price)
-	assert.Equal(t, limitOrder.Status, returnedOrder.Status)
+	assert.Equal(t, limitOrder.getOrderStatus().Status, returnedOrder.getOrderStatus().Status)
 	assert.Equal(t, limitOrder.BlockNumber, returnedOrder.BlockNumber)
 }
 
@@ -56,7 +56,7 @@ func TestGetAllOrders(t *testing.T) {
 		assert.Equal(t, userAddress, returnedOrder.UserAddress)
 		assert.Equal(t, baseAssetQuantity, returnedOrder.BaseAssetQuantity)
 		assert.Equal(t, price, returnedOrder.Price)
-		assert.Equal(t, status, returnedOrder.Status)
+		assert.Equal(t, status, returnedOrder.getOrderStatus().Status)
 		assert.Equal(t, blockNumber, returnedOrder.BlockNumber)
 	}
 }
@@ -107,7 +107,7 @@ func TestGetShortOrders(t *testing.T) {
 		assert.Equal(t, "short", returnedOrder.PositionType)
 		assert.Equal(t, userAddress, returnedOrder.UserAddress)
 		assert.Equal(t, baseAssetQuantity, returnedOrder.BaseAssetQuantity)
-		assert.Equal(t, status, returnedOrder.Status)
+		assert.Equal(t, status, returnedOrder.getOrderStatus().Status)
 	}
 
 	//Test returnedShortOrders are sorted by price lowest to highest first and then block number from lowest to highest
@@ -179,7 +179,7 @@ func TestGetLongOrders(t *testing.T) {
 		assert.Equal(t, "long", returnedOrder.PositionType)
 		assert.Equal(t, userAddress, returnedOrder.UserAddress)
 		assert.Equal(t, longOrderBaseAssetQuantity, returnedOrder.BaseAssetQuantity)
-		assert.Equal(t, status, returnedOrder.Status)
+		assert.Equal(t, status, returnedOrder.getOrderStatus().Status)
 	}
 }
 
@@ -230,7 +230,6 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 
 			filledQuantity := big.NewInt(0).Abs(limitOrder.BaseAssetQuantity)
 			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, orderId, 69)
-			assert.Equal(t, uint64(69), limitOrder.FulfilmentBlock)
 			assert.Equal(t, int64(0), limitOrder.GetUnFilledBaseAssetQuantity().Int64())
 
 			allOrders := inMemoryDatabase.GetAllOrders()
@@ -252,7 +251,6 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			filledQuantity := big.NewInt(0).Abs(limitOrder.BaseAssetQuantity)
 			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, orderId, 420)
 
-			assert.Equal(t, uint64(420), limitOrder.FulfilmentBlock)
 			assert.Equal(t, int64(0), limitOrder.GetUnFilledBaseAssetQuantity().Int64())
 
 			allOrders := inMemoryDatabase.GetAllOrders()
@@ -449,7 +447,6 @@ func createLimitOrder(id uint64, positionType string, userAddress string, baseAs
 		FilledBaseAssetQuantity: big.NewInt(0),
 		BaseAssetQuantity:       baseAssetQuantity,
 		Price:                   price,
-		Status:                  Status(status),
 		Salt:                    salt,
 		Signature:               signature,
 		BlockNumber:             blockNumber,
