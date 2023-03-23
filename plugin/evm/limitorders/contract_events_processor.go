@@ -2,6 +2,7 @@ package limitorders
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
@@ -124,6 +125,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log, remov
 
 		order0Id := parseOrderId(args["orderHash"].([2][32]byte)[0])
 		order1Id := parseOrderId(args["orderHash"].([2][32]byte)[1])
+		fmt.Printf("matching order %s and %s", order0Id.String(), order1Id.String())
 		// order1Id := args["orderHash"].([]common.Hash)[1]
 		fillAmount := args["fillAmount"].(*big.Int)
 		if !removed {
