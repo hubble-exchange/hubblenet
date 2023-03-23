@@ -57,5 +57,3 @@ contract-examples/dynamic_rpc.json
 plugins/evm/hubble.db
 
 *.bin
-
-local_status.sh
