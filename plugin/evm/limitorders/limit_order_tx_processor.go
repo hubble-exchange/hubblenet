@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"os"
 
@@ -77,12 +78,9 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 	if validatorPrivateKey == "" {
 		panic("private key is not supplied")
 	}
-	if !isValidPrivateKey(validatorPrivateKey) {
-		panic("private key is invalid")
-	}
 	validatorAddress, err := getAddressFromPrivateKey(validatorPrivateKey)
 	if err != nil {
-		panic("Unable to get address from validator private key")
+		panic(fmt.Sprint("unable to get address from private key with error", err.Error()))
 	}
 
 	return &limitOrderTxProcessor{
@@ -228,9 +226,4 @@ func getAddressFromPrivateKey(key string) (common.Address, error) {
 	}
 	address := crypto.PubkeyToAddress(*publicKeyECDSA)
 	return address, nil
-}
-
-func isValidPrivateKey(key string) bool {
-	_, err := getAddressFromPrivateKey(key)
-	return err == nil
 }
