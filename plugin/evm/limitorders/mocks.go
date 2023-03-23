@@ -16,6 +16,10 @@ func NewMockLimitOrderDatabase() *MockLimitOrderDatabase {
 	return &MockLimitOrderDatabase{}
 }
 
+func (db *MockLimitOrderDatabase) setOrderStatus(orderId common.Hash, status Status) error {
+	return nil
+}
+
 func (db *MockLimitOrderDatabase) Accept(blockNumber uint64) {
 }
 

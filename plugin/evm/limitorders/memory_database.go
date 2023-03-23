@@ -1,6 +1,8 @@
 package limitorders
 
 import (
+	"errors"
+	"fmt"
 	"math/big"
 	"sort"
 	"sync"
@@ -34,13 +36,11 @@ const (
 
 var collateralWeightMap map[Collateral]float64 = map[Collateral]float64{HUSD: 1}
 
-type Status string
+type Status uint8
 
 const (
-	Placed Status = "placed"
-	// Deleted   = "deleted"
-	Filled    Status = "filled"
-	Cancelled Status = "cancelled"
+	Placed Status = iota
+	Cancelled
 )
 
 type LimitOrder struct {
@@ -96,6 +96,7 @@ type LimitOrderDatabase interface {
 	GetAllTraders() map[common.Address]Trader
 	GetOrderBookData() InMemoryDatabase
 	Accept(blockNumber uint64)
+	setOrderStatus(orderId common.Hash, status Status) error
 }
 
 type InMemoryDatabase struct {
@@ -125,6 +126,17 @@ func (db *InMemoryDatabase) Accept(blockNumber uint64) {
 			delete(db.OrderMap, orderId)
 		}
 	}
+}
+
+func (db *InMemoryDatabase) setOrderStatus(orderId common.Hash, status Status) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if db.OrderMap[orderId] == nil {
+		return errors.New(fmt.Sprintf("Invalid orderId %s", orderId.Hex()))
+	}
+	db.OrderMap[orderId].Status = status
+	return nil
 }
 
 func (db *InMemoryDatabase) GetAllOrders() []LimitOrder {
@@ -157,6 +169,10 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 	defer db.mu.Unlock()
 
 	limitOrder := db.OrderMap[orderId]
+
+	// if db.OrderMap[orderId].Status == Cancelled {
+	// 	return errors.New(fmt.Sprintf("Modifying cancelled order %s", orderId.Hex()))
+	// }
 	if limitOrder.PositionType == "long" {
 		limitOrder.FilledBaseAssetQuantity.Add(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled + quantity
 	}
@@ -166,6 +182,8 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 
 	if limitOrder.BaseAssetQuantity.Cmp(limitOrder.FilledBaseAssetQuantity) == 0 {
 		limitOrder.FulfilmentBlock = block
+	} else {
+		limitOrder.FulfilmentBlock = 0 // mark as not fulfilled
 	}
 }
 
@@ -260,6 +278,7 @@ func (db *InMemoryDatabase) UpdateLastPrice(market Market, lastPrice *big.Int) {
 func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {
 	return db.LastPrice[market]
 }
+
 func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 	traderMap := map[common.Address]Trader{}
 	for address, trader := range db.TraderMap {

@@ -2,7 +2,6 @@ package limitorders
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
@@ -110,11 +109,17 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log, remov
 		log.Info("HandleOrderBookEvent", "OrderCancelled args", args, "removed", removed)
 		orderId := parseOrderId(args["orderHash"])
 		if !removed {
-			cep.database.GetOrderBookData().OrderMap[orderId].Status = Cancelled
+			if cep.database.setOrderStatus(orderId, Cancelled) != nil {
+				log.Error("error in setOrderStatus", "method", "OrderCancelled", "err", err)
+				return
+			}
 		} else {
 			// orders that are already fulfilled will be marked Placed as well;
 			// however they will not be used for matching as long as we filter by unfilled base asset quantity for that order
-			cep.database.GetOrderBookData().OrderMap[orderId].Status = Placed
+			if cep.database.setOrderStatus(orderId, Placed) != nil {
+				log.Error("error in setOrderStatus", "method", "OrderCancelled", "removed", true, "err", err)
+				return
+			}
 		}
 	case cep.orderBookABI.Events["OrdersMatched"].ID:
 		err := cep.orderBookABI.UnpackIntoMap(args, "OrdersMatched", event.Data)
@@ -125,8 +130,6 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log, remov
 
 		order0Id := parseOrderId(args["orderHash"].([2][32]byte)[0])
 		order1Id := parseOrderId(args["orderHash"].([2][32]byte)[1])
-		fmt.Printf("matching order %s and %s", order0Id.String(), order1Id.String())
-		// order1Id := args["orderHash"].([]common.Hash)[1]
 		fillAmount := args["fillAmount"].(*big.Int)
 		if !removed {
 			log.Info("#### matched orders", "orderId_0", order0Id.String(), "orderId_1", order1Id, "block", event.BlockHash.String(), "number", event.BlockNumber)
