@@ -198,7 +198,10 @@ func (db *InMemoryDatabase) UpdateNextFundingTime(nextFundingTime uint64) {
 func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 	var longOrders []LimitOrder
 	for _, order := range db.OrderMap {
-		if order.PositionType == "long" && order.Market == market {
+		if order.PositionType == "long" &&
+			order.Market == market &&
+			order.Status != Cancelled &&
+			order.FulfilmentBlock == 0 {
 			longOrders = append(longOrders, *order)
 		}
 	}
@@ -209,7 +212,10 @@ func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 func (db *InMemoryDatabase) GetShortOrders(market Market) []LimitOrder {
 	var shortOrders []LimitOrder
 	for _, order := range db.OrderMap {
-		if order.PositionType == "short" && order.Market == market {
+		if order.PositionType == "short" &&
+			order.Market == market &&
+			order.Status != Cancelled &&
+			order.FulfilmentBlock == 0 {
 			shortOrders = append(shortOrders, *order)
 		}
 	}

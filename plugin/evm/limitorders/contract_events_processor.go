@@ -3,6 +3,7 @@ package limitorders
 import (
 	"encoding/json"
 	"math/big"
+	"sort"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -41,20 +42,41 @@ func NewContractEventsProcessor(database LimitOrderDatabase) *ContractEventsProc
 	}
 }
 
-func (cep *ContractEventsProcessor) ProcessEvents(logs []*types.Log, removed bool) {
-	// removed logs are received in increasing order of block number
-	// but the way that we have written our logic they are best processed in the opposite order
-	if removed {
-		reversedLogs := make([]*types.Log, 0, len(logs))
-		for i := len(logs) - 1; i >= 0; i-- {
-			reversedLogs = append(reversedLogs, logs[i])
+func (cep *ContractEventsProcessor) ProcessEvents(logs []*types.Log) {
+	var (
+		deletedLogs []*types.Log
+		rebirthLogs []*types.Log
+	)
+	for i := 0; i < len(logs); i++ {
+		log := logs[i]
+		if log.Removed {
+			deletedLogs = append(deletedLogs, log)
+		} else {
+			rebirthLogs = append(rebirthLogs, log)
 		}
-		logs = reversedLogs
 	}
+
+	// deletedLogs are in descending order by (blockNumber, LogIndex)
+	// rebirthLogs should be in ascending order by (blockNumber, LogIndex)
+	sort.Slice(deletedLogs, func(i, j int) bool {
+		if deletedLogs[i].BlockNumber == deletedLogs[j].BlockNumber {
+			return deletedLogs[i].Index > deletedLogs[j].Index
+		}
+		return deletedLogs[i].BlockNumber > deletedLogs[j].BlockNumber
+	})
+
+	sort.Slice(rebirthLogs, func(i, j int) bool {
+		if rebirthLogs[i].BlockNumber == rebirthLogs[j].BlockNumber {
+			return rebirthLogs[i].Index < rebirthLogs[j].Index
+		}
+		return rebirthLogs[i].BlockNumber < rebirthLogs[j].BlockNumber
+	})
+
+	logs = append(deletedLogs, rebirthLogs...)
 	for _, event := range logs {
 		switch event.Address {
 		case OrderBookContractAddress:
-			cep.handleOrderBookEvent(event, removed)
+			cep.handleOrderBookEvent(event)
 		case MarginAccountContractAddress:
 			cep.handleMarginAccountEvent(event)
 		case ClearingHouseContractAddress:
@@ -68,7 +90,8 @@ func parseOrderId(orderHash interface{}) common.Hash {
 	return common.BytesToHash(_orderId[:])
 }
 
-func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log, removed bool) {
+func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
+	removed := event.Removed
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
 	case cep.orderBookABI.Events["OrderPlaced"].ID:

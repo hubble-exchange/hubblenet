@@ -77,7 +77,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 				log.Error("ListenAndProcessTransactions - GetLogs failed", "err", err)
 				panic(err)
 			}
-			lop.contractEventProcessor.ProcessEvents(logs, false)
+			lop.contractEventProcessor.ProcessEvents(logs)
 			log.Info("ListenAndProcessTransactions", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs), "err", err)
 
 			toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
@@ -98,7 +98,7 @@ func (lop *limitOrderProcesser) GetOrderBookAPI() *limitorders.OrderBookAPI {
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	logsCh := make(chan []*types.Log)
-	logsSubscription := lop.backend.SubscribeAcceptedLogsEvent(logsCh)
+	logsSubscription := lop.backend.SubscribeHubbleLogsEvent(logsCh)
 	lop.shutdownWg.Add(1)
 	go lop.ctx.Log.RecoverAndPanic(func() {
 		defer lop.shutdownWg.Done()
@@ -107,25 +107,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case logs := <-logsCh:
-				lop.contractEventProcessor.ProcessEvents(logs, false)
-			case <-lop.shutdownChan:
-				return
-			}
-		}
-	})
-
-	// @todo removed logs should be processed before new logs for the reorged chunk are received
-	removedLogsCh := make(chan core.RemovedLogsEvent)
-	removedLogsSubscription := lop.backend.SubscribeRemovedLogsEvent(removedLogsCh)
-	lop.shutdownWg.Add(1)
-	go lop.ctx.Log.RecoverAndPanic(func() {
-		defer lop.shutdownWg.Done()
-		defer removedLogsSubscription.Unsubscribe()
-
-		for {
-			select {
-			case removedLogs := <-removedLogsCh:
-				lop.contractEventProcessor.ProcessEvents(removedLogs.Logs, true)
+				lop.contractEventProcessor.ProcessEvents(logs)
 			case <-lop.shutdownChan:
 				return
 			}
