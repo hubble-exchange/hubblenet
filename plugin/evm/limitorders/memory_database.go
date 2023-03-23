@@ -57,8 +57,7 @@ type LimitOrder struct {
 	Signature               []byte   `json:"signature"`
 	BlockNumber             *big.Int `json:"block_number"` // block number order was placed on
 	FulfilmentBlock         uint64
-	// InProgressBaseAssetQuantity map[common.Hash]*big.Int `json:"in_progress_base_asset_quantity"` // block hash => quantity
-	RawOrder interface{} `json:"-"`
+	RawOrder                interface{} `json:"-"`
 }
 
 func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
@@ -122,7 +121,7 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 
 func (db *InMemoryDatabase) Accept(blockNumber uint64) {
 	for orderId, order := range db.OrderMap {
-		if order.FulfilmentBlock <= blockNumber {
+		if order.FulfilmentBlock > 0 && order.FulfilmentBlock <= blockNumber {
 			delete(db.OrderMap, orderId)
 		}
 	}

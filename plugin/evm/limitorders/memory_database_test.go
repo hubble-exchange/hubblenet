@@ -232,6 +232,12 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, orderId, 69)
 			assert.Equal(t, uint64(69), limitOrder.FulfilmentBlock)
 			assert.Equal(t, int64(0), limitOrder.GetUnFilledBaseAssetQuantity().Int64())
+
+			allOrders := inMemoryDatabase.GetAllOrders()
+			assert.Equal(t, 1, len(allOrders))
+			inMemoryDatabase.Accept(70)
+			allOrders = inMemoryDatabase.GetAllOrders()
+			assert.Equal(t, 0, len(allOrders))
 		})
 		t.Run("When order type is long order", func(t *testing.T) {
 			inMemoryDatabase := NewInMemoryDatabase()
@@ -248,6 +254,12 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 
 			assert.Equal(t, uint64(420), limitOrder.FulfilmentBlock)
 			assert.Equal(t, int64(0), limitOrder.GetUnFilledBaseAssetQuantity().Int64())
+
+			allOrders := inMemoryDatabase.GetAllOrders()
+			assert.Equal(t, 1, len(allOrders))
+			inMemoryDatabase.Accept(420)
+			allOrders = inMemoryDatabase.GetAllOrders()
+			assert.Equal(t, 0, len(allOrders))
 		})
 	})
 }
