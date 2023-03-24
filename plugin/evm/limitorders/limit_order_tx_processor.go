@@ -74,7 +74,7 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 	if err != nil {
 		panic(err)
 	}
-	validatorPrivateKey := os.Getenv("VALIDATOR_PRIVATE_KEY")
+	validatorPrivateKey := os.Getenv("GRPC_VALIDATOR_PRIVATE_KEY")
 	if validatorPrivateKey == "" {
 		panic("private key is not supplied")
 	}
