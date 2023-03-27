@@ -140,11 +140,3 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
 	lop.memoryDb.Accept(block.NumberU64())
 }
-
-func blockHashes(blocks []*types.Block) []string {
-	hashes := []string{}
-	for _, block := range blocks {
-		hashes = append(hashes, block.Hash().String())
-	}
-	return hashes
-}

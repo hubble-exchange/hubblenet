@@ -131,13 +131,13 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 		log.Info("HandleOrderBookEvent", "OrderCancelled args", args, "removed", removed)
 		orderId := parseOrderId(args["orderHash"])
 		if !removed {
-			if err := cep.database.setOrderStatus(orderId, Cancelled, event.BlockNumber); err != nil {
-				log.Error("error in setOrderStatus", "method", "OrderCancelled", "err", err)
+			if err := cep.database.SetOrderStatus(orderId, Cancelled, event.BlockNumber); err != nil {
+				log.Error("error in SetOrderStatus", "method", "OrderCancelled", "err", err)
 				return
 			}
 		} else {
-			if err := cep.database.revertLastStatus(orderId); err != nil {
-				log.Error("error in setOrderStatus", "method", "OrderCancelled", "removed", true, "err", err)
+			if err := cep.database.RevertLastStatus(orderId); err != nil {
+				log.Error("error in SetOrderStatus", "method", "OrderCancelled", "removed", true, "err", err)
 				return
 			}
 		}
@@ -187,13 +187,13 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 		log.Info("HandleOrderBookEvent", "OrderMatchingError args", args)
 		orderId := parseOrderId(args["orderHash"])
 		if !removed {
-			if err := cep.database.setOrderStatus(orderId, Execution_Failed, event.BlockNumber); err != nil {
-				log.Error("error in setOrderStatus", "method", "OrderMatchingError", "err", err)
+			if err := cep.database.SetOrderStatus(orderId, Execution_Failed, event.BlockNumber); err != nil {
+				log.Error("error in SetOrderStatus", "method", "OrderMatchingError", "err", err)
 				return
 			}
 		} else {
-			if err := cep.database.revertLastStatus(orderId); err != nil {
-				log.Error("error in setOrderStatus", "method", "OrderMatchingError", "removed", true, "err", err)
+			if err := cep.database.RevertLastStatus(orderId); err != nil {
+				log.Error("error in SetOrderStatus", "method", "OrderMatchingError", "removed", true, "err", err)
 				return
 			}
 		}

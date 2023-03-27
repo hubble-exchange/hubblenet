@@ -16,11 +16,11 @@ func NewMockLimitOrderDatabase() *MockLimitOrderDatabase {
 	return &MockLimitOrderDatabase{}
 }
 
-func (db *MockLimitOrderDatabase) setOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error {
+func (db *MockLimitOrderDatabase) SetOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error {
 	return nil
 }
 
-func (db *MockLimitOrderDatabase) revertLastStatus(orderId common.Hash) error {
+func (db *MockLimitOrderDatabase) RevertLastStatus(orderId common.Hash) error {
 	return nil
 }
 

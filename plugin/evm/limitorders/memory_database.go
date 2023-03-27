@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -107,8 +106,8 @@ type LimitOrderDatabase interface {
 	GetAllTraders() map[common.Address]Trader
 	GetOrderBookData() InMemoryDatabase
 	Accept(blockNumber uint64)
-	setOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error
-	revertLastStatus(orderId common.Hash) error
+	SetOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error
+	RevertLastStatus(orderId common.Hash) error
 }
 
 type InMemoryDatabase struct {
@@ -141,7 +140,7 @@ func (db *InMemoryDatabase) Accept(blockNumber uint64) {
 	}
 }
 
-func (db *InMemoryDatabase) setOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error {
+func (db *InMemoryDatabase) SetOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -152,7 +151,7 @@ func (db *InMemoryDatabase) setOrderStatus(orderId common.Hash, status Status, b
 	return nil
 }
 
-func (db *InMemoryDatabase) revertLastStatus(orderId common.Hash) error {
+func (db *InMemoryDatabase) RevertLastStatus(orderId common.Hash) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -318,15 +317,6 @@ func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 		traderMap[address] = *trader
 	}
 	return traderMap
-}
-
-func deleteBlockFromSlice(slice []*types.Block, block *types.Block) []*types.Block {
-	for i, other := range slice {
-		if other.Hash() == block.Hash() {
-			return append(slice[:i], slice[i+1:]...)
-		}
-	}
-	return slice
 }
 
 func sortLongOrders(orders []LimitOrder) []LimitOrder {
