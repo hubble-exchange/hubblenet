@@ -138,18 +138,8 @@ func (s *EthereumAPI) Syncing() (interface{}, error) {
 	return false, nil
 }
 
-type GetChainConfigResponse struct {
-	*params.ChainConfig
-	params.UpgradeConfig `json:"upgrades"`
-}
-
-func (s *BlockChainAPI) GetChainConfig(ctx context.Context) GetChainConfigResponse {
-	config := s.b.ChainConfig()
-	resp := GetChainConfigResponse{
-		ChainConfig:   config,
-		UpgradeConfig: config.UpgradeConfig,
-	}
-	return resp
+func (s *BlockChainAPI) GetChainConfig(ctx context.Context) *params.ChainConfigWithUpgradesJSON {
+	return s.b.ChainConfig().ToWithUpgradesJSON()
 }
 
 // TxPoolAPI offers and API for the transaction pool. It only operates on data that is non confidential.
@@ -625,12 +615,13 @@ func (api *BlockChainAPI) ChainId() *hexutil.Big {
 	return (*hexutil.Big)(api.b.ChainConfig().ChainID)
 }
 
-func (s *BlockChainAPI) GetActivePrecompilesAt(ctx context.Context, blockTimestamp *big.Int) params.PrecompileUpgrade {
+// GetActivePrecompilesAt returns the active precompile configs at the given block timestamp.
+func (s *BlockChainAPI) GetActivePrecompilesAt(ctx context.Context, blockTimestamp *big.Int) params.Precompiles {
 	if blockTimestamp == nil {
-		blockTimestampInt := s.b.CurrentHeader().Time
-		blockTimestamp = new(big.Int).SetUint64(blockTimestampInt)
+		blockTimestamp = new(big.Int).SetUint64(s.b.CurrentHeader().Time)
 	}
-	return s.b.ChainConfig().GetActivePrecompiles(blockTimestamp)
+
+	return s.b.ChainConfig().EnabledStatefulPrecompiles(blockTimestamp)
 }
 
 type FeeConfigResult struct {
@@ -1729,7 +1720,7 @@ func (s *TransactionAPI) GetTransactionReceipt(ctx context.Context, hash common.
 	if err != nil {
 		return nil, err
 	}
-	if len(receipts) <= int(index) {
+	if uint64(len(receipts)) <= index {
 		return nil, nil
 	}
 	receipt := receipts[index]
