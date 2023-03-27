@@ -77,6 +77,20 @@ func (cep *ContractEventsProcessor) ProcessEvents(logs []*types.Log) {
 		switch event.Address {
 		case OrderBookContractAddress:
 			cep.handleOrderBookEvent(event)
+		}
+	}
+}
+
+func (cep *ContractEventsProcessor) ProcessAcceptedEvents(logs []*types.Log) {
+	sort.Slice(logs, func(i, j int) bool {
+		if logs[i].BlockNumber == logs[j].BlockNumber {
+			return logs[i].Index < logs[j].Index
+		}
+		return logs[i].BlockNumber < logs[j].BlockNumber
+	})
+
+	for _, event := range logs {
+		switch event.Address {
 		case MarginAccountContractAddress:
 			cep.handleMarginAccountEvent(event)
 		case ClearingHouseContractAddress:

@@ -114,6 +114,23 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		}
 	})
 
+	acceptedLogsCh := make(chan []*types.Log)
+	acceptedLogsSubscription := lop.backend.SubscribeAcceptedLogsEvent(acceptedLogsCh)
+	lop.shutdownWg.Add(1)
+	go lop.ctx.Log.RecoverAndPanic(func() {
+		defer lop.shutdownWg.Done()
+		defer acceptedLogsSubscription.Unsubscribe()
+
+		for {
+			select {
+			case logs := <-acceptedLogsCh:
+				lop.contractEventProcessor.ProcessAcceptedEvents(logs)
+			case <-lop.shutdownChan:
+				return
+			}
+		}
+	})
+
 	chainAcceptedEventCh := make(chan core.ChainEvent)
 	chainAcceptedEventSubscription := lop.backend.SubscribeChainAcceptedEvent(chainAcceptedEventCh)
 	lop.shutdownWg.Add(1)
