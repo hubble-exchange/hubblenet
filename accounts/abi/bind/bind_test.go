@@ -2099,7 +2099,7 @@ func golangBindings(t *testing.T, overload bool) {
 				types = []string{tt.name}
 			}
 			// Generate the binding and create a Go source file in the workspace
-			bind, err := Bind(types, tt.abi, tt.bytecode, tt.fsigs, "bindtest", LangGo, tt.libs, tt.aliases, false)
+			bind, err := Bind(types, tt.abi, tt.bytecode, tt.fsigs, "bindtest", LangGo, tt.libs, tt.aliases)
 			if err != nil {
 				t.Fatalf("test %d: failed to generate binding: %v", i, err)
 			}
@@ -2136,7 +2136,7 @@ func golangBindings(t *testing.T, overload bool) {
 	if out, err := replacer.CombinedOutput(); err != nil {
 		t.Fatalf("failed to replace binding test dependency to current source tree: %v\n%s", err, out)
 	}
-	tidier := exec.Command(gocmd, "mod", "tidy", "-compat=1.18")
+	tidier := exec.Command(gocmd, "mod", "tidy", "-compat=1.19")
 	tidier.Dir = pkg
 	if out, err := tidier.CombinedOutput(); err != nil {
 		t.Fatalf("failed to tidy Go module file: %v\n%s", err, out)
@@ -2529,7 +2529,7 @@ public class Test {
 		},
 	}
 	for i, c := range cases {
-		binding, err := Bind([]string{c.name}, []string{c.abi}, []string{c.bytecode}, nil, "bindtest", LangJava, nil, nil, false)
+		binding, err := Bind([]string{c.name}, []string{c.abi}, []string{c.bytecode}, nil, "bindtest", LangJava, nil, nil)
 		if err != nil {
 			t.Fatalf("test %d: failed to generate binding: %v", i, err)
 		}

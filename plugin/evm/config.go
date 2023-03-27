@@ -47,6 +47,7 @@ const (
 	defaultPopulateMissingTriesParallelism            = 1024
 	defaultStateSyncServerTrieCache                   = 64 // MB
 	defaultAcceptedCacheSize                          = 32 // blocks
+	defaultWarpAPIEnabled                             = true
 
 	// defaultStateSyncMinBlocks is the minimum number of blocks the blockchain
 	// should be ahead of local last accepted to perform state sync.
@@ -84,6 +85,7 @@ type Config struct {
 
 	// Subnet EVM APIs
 	SnowmanAPIEnabled bool   `json:"snowman-api-enabled"`
+	WarpAPIEnabled    bool   `json:"warp-api-enabled"`
 	AdminAPIEnabled   bool   `json:"admin-api-enabled"`
 	AdminAPIDir       string `json:"admin-api-dir"`
 
@@ -223,6 +225,7 @@ func (c *Config) SetDefaults() {
 	c.RPCGasCap = defaultRpcGasCap
 	c.RPCTxFeeCap = defaultRpcTxFeeCap
 	c.MetricsExpensiveEnabled = defaultMetricsExpensiveEnabled
+	c.WarpAPIEnabled = defaultWarpAPIEnabled
 
 	c.TxPoolJournal = core.DefaultTxPoolConfig.Journal
 	c.TxPoolRejournal = Duration{core.DefaultTxPoolConfig.Rejournal}

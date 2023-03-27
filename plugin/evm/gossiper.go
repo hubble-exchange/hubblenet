@@ -62,7 +62,7 @@ type pushGossiper struct {
 
 	// [recentTxs] prevent us from over-gossiping the
 	// same transaction in a short period of time.
-	recentTxs *cache.LRU
+	recentTxs *cache.LRU[common.Hash, interface{}]
 
 	codec  codec.Manager
 	signer types.Signer
@@ -86,7 +86,7 @@ func (vm *VM) createGossiper(stats GossipStats) Gossiper {
 		txsToGossip:          make(map[common.Hash]*types.Transaction),
 		shutdownChan:         vm.shutdownChan,
 		shutdownWg:           &vm.shutdownWg,
-		recentTxs:            &cache.LRU{Size: recentCacheSize},
+		recentTxs:            &cache.LRU[common.Hash, interface{}]{Size: recentCacheSize},
 		codec:                vm.networkCodec,
 		signer:               types.LatestSigner(vm.blockChain.Config()),
 		stats:                stats,
@@ -235,13 +235,17 @@ func (n *pushGossiper) queuePriorityRegossipTxs() types.Transactions {
 func (n *pushGossiper) awaitEthTxGossip() {
 	n.shutdownWg.Add(1)
 	go n.ctx.Log.RecoverAndPanic(func() {
-		defer n.shutdownWg.Done()
-
 		var (
 			gossipTicker           = time.NewTicker(txsGossipInterval)
 			regossipTicker         = time.NewTicker(n.config.RegossipFrequency.Duration)
 			priorityRegossipTicker = time.NewTicker(n.config.PriorityRegossipFrequency.Duration)
 		)
+		defer func() {
+			gossipTicker.Stop()
+			regossipTicker.Stop()
+			priorityRegossipTicker.Stop()
+			n.shutdownWg.Done()
+		}()
 
 		for {
 			select {
