@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -335,9 +334,6 @@ func TestAccept(t *testing.T) {
 		orderId1 := addLimitOrder(inMemoryDatabase)
 		orderId2 := addLimitOrder(inMemoryDatabase)
 
-		log.Info(orderId1.String())
-		log.Info(orderId2.String())
-
 		err := inMemoryDatabase.SetOrderStatus(orderId1, FulFilled, 51)
 		assert.Nil(t, err)
 
@@ -414,7 +410,6 @@ func TestRevertLastStatus(t *testing.T) {
 		assert.Nil(t, err)
 
 		assert.Equal(t, len(inMemoryDatabase.OrderMap[orderId].LifecycleList), 1)
-		log.Info("test", "block", inMemoryDatabase.OrderMap[orderId].LifecycleList[0].BlockNumber)
 		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].LifecycleList[0].BlockNumber, uint64(2))
 	})
 
@@ -596,16 +591,6 @@ func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
 		expectedUnFilledForShortOrder := big.NewInt(-5)
 		assert.Equal(t, expectedUnFilledForShortOrder, shortOrder.GetUnFilledBaseAssetQuantity())
 	})
-}
-
-func getOrderFromLimitOrder(limitOrder LimitOrder) Order {
-	return Order{
-		Trader:            common.HexToAddress(limitOrder.UserAddress),
-		AmmIndex:          big.NewInt(0),
-		BaseAssetQuantity: limitOrder.BaseAssetQuantity,
-		Price:             limitOrder.Price,
-		Salt:              limitOrder.Salt,
-	}
 }
 
 func addLimitOrder(db *InMemoryDatabase) common.Hash {
