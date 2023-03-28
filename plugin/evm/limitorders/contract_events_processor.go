@@ -115,7 +115,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 			return
 		}
 		log.Info("HandleOrderBookEvent", "orderplaced args", args, "removed", removed)
-		orderId := parseOrderId(args["orderHash"])
+		orderId := event.Topics[2]
 		if !removed {
 			order := getOrderFromRawOrder(args["order"])
 			log.Info("#### adding order", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
@@ -143,7 +143,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 			return
 		}
 		log.Info("HandleOrderBookEvent", "OrderCancelled args", args, "removed", removed)
-		orderId := parseOrderId(args["orderHash"])
+		orderId := event.Topics[2]
 		if !removed {
 			if err := cep.database.SetOrderStatus(orderId, Cancelled, event.BlockNumber); err != nil {
 				log.Error("error in SetOrderStatus", "method", "OrderCancelled", "err", err)
@@ -162,8 +162,8 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 			return
 		}
 
-		order0Id := parseOrderId(args["orderHash"].([2][32]byte)[0])
-		order1Id := parseOrderId(args["orderHash"].([2][32]byte)[1])
+		order0Id := event.Topics[1]
+		order1Id := event.Topics[2]
 		fillAmount := args["fillAmount"].(*big.Int)
 		if !removed {
 			log.Info("#### matched orders", "orderId_0", order0Id.String(), "orderId_1", order1Id, "block", event.BlockHash.String(), "number", event.BlockNumber)
@@ -185,7 +185,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 		log.Info("HandleOrderBookEvent", "LiquidationOrderMatched args", args)
 		fillAmount := args["fillAmount"].(*big.Int)
 
-		orderId := parseOrderId(args["orderHash"])
+		orderId := event.Topics[2]
 		// @todo update liquidable position info
 		if !removed {
 			cep.database.UpdateFilledBaseAssetQuantity(fillAmount, orderId, event.BlockNumber)
