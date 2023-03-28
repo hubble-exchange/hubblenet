@@ -609,6 +609,150 @@ func TestHandleClearingHouseEvent(t *testing.T) {
 	})
 }
 
+func TestRemovedEvents(t *testing.T) {
+	traderAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+	traderAddress2 := common.HexToAddress("0xC348509BD9dD348b963B4ae0CB876782387729a0")
+	blockNumber := big.NewInt(12)
+	ammIndex := big.NewInt(0)
+	baseAssetQuantity := big.NewInt(50)
+	salt1 := big.NewInt(1675239557437)
+	salt2 := big.NewInt(1675239557439)
+	orderBookABI := getABIfromJson(orderBookAbi)
+	signature := []byte("longOrder")
+
+	db := NewInMemoryDatabase()
+	cep := newcep(t, db)
+
+	orderPlacedEvent := getEventFromABI(orderBookABI, "OrderPlaced")
+	longOrderPlacedEventTopics := []common.Hash{orderPlacedEvent.ID, traderAddress.Hash()}
+	longOrder := getOrder(ammIndex, traderAddress, baseAssetQuantity, price, salt1)
+	longOrderId := getIdFromOrder(longOrder)
+	longOrderPlacedEventData, _ := orderPlacedEvent.Inputs.NonIndexed().Pack(longOrder, signature, longOrderId)
+
+	shortOrder := getOrder(ammIndex, traderAddress2, big.NewInt(0).Neg(baseAssetQuantity), price, salt2)
+	shortOrderPlacedEventTopics := []common.Hash{orderPlacedEvent.ID, traderAddress2.Hash()}
+	shortOrderId := getIdFromOrder(shortOrder)
+	shortOrderPlacedEventData, _ := orderPlacedEvent.Inputs.NonIndexed().Pack(shortOrder, signature, shortOrderId)
+
+
+	t.Run("delete order when OrderPlaced is removed", func(t *testing.T) {
+		longOrderPlacedEventLog := getEventLog(OrderBookContractAddress, longOrderPlacedEventTopics, longOrderPlacedEventData, blockNumber.Uint64())
+		cep.ProcessEvents([]*types.Log{longOrderPlacedEventLog})
+
+		// order exists in memory now
+		assert.Equal(t, db.OrderMap[longOrderId].Salt, longOrder.Salt)
+
+		// order should be deleted if OrderPlaced log is removed
+		longOrderPlacedEventLog.Removed = true
+		cep.ProcessEvents([]*types.Log{longOrderPlacedEventLog})
+		assert.Nil(t, db.OrderMap[longOrderId])
+	})
+
+	t.Run("un-cancel an order when OrderCancelled is removed", func(t *testing.T) {
+		longOrderPlacedEventLog := getEventLog(OrderBookContractAddress, longOrderPlacedEventTopics, longOrderPlacedEventData, blockNumber.Uint64())
+		cep.ProcessEvents([]*types.Log{longOrderPlacedEventLog})
+
+		// order exists in memory now
+		assert.Equal(t, db.OrderMap[longOrderId].Salt, longOrder.Salt)
+
+		// cancel it
+		orderCancelledEvent := getEventFromABI(orderBookABI, "OrderCancelled")
+		orderCancelledEventTopics := []common.Hash{orderCancelledEvent.ID, traderAddress.Hash()}
+		orderCancelledEventData, _ := orderCancelledEvent.Inputs.NonIndexed().Pack(longOrderId)
+		orderCancelledLog := getEventLog(OrderBookContractAddress, orderCancelledEventTopics, orderCancelledEventData, blockNumber.Uint64()+2)
+		cep.ProcessEvents([]*types.Log{orderCancelledLog})
+
+		assert.Equal(t, db.OrderMap[longOrderId].getOrderStatus().Status, Cancelled)
+
+		// now uncancel it
+		orderCancelledLog.Removed = true
+		cep.ProcessEvents([]*types.Log{orderCancelledLog})
+		assert.Equal(t, db.OrderMap[longOrderId].getOrderStatus().Status, Placed)
+	})
+
+	t.Run("un-fulfill an order when OrdersMatched is removed", func(t *testing.T) {
+		longOrderPlacedEventLog := getEventLog(OrderBookContractAddress, longOrderPlacedEventTopics, longOrderPlacedEventData, blockNumber.Uint64())
+		shortOrderPlacedEventLog := getEventLog(OrderBookContractAddress, shortOrderPlacedEventTopics, shortOrderPlacedEventData, blockNumber.Uint64())
+		cep.ProcessEvents([]*types.Log{longOrderPlacedEventLog, shortOrderPlacedEventLog})
+
+		// orders exist in memory now
+		assert.Equal(t, db.OrderMap[longOrderId].Salt, longOrder.Salt)
+		assert.Equal(t, db.OrderMap[shortOrderId].Salt, shortOrder.Salt)
+
+		// fulfill them
+		ordersMatchedEvent := getEventFromABI(orderBookABI, "OrdersMatched")
+		ordersMatchedEventTopics := []common.Hash{ordersMatchedEvent.ID}
+		relayer := common.HexToAddress("0x710bf5F942331874dcBC7783319123679033b63b")
+		ordersMatchedEventData, _ := ordersMatchedEvent.Inputs.NonIndexed().Pack([]common.Hash{longOrderId, shortOrderId}, baseAssetQuantity, price, relayer)
+		ordersMatchedLog := getEventLog(OrderBookContractAddress, ordersMatchedEventTopics, ordersMatchedEventData, blockNumber.Uint64() + 2)
+		cep.ProcessEvents([]*types.Log{ordersMatchedLog})
+
+
+		assert.Equal(t, db.OrderMap[shortOrderId].getOrderStatus().Status, FulFilled)
+		assert.Equal(t, db.OrderMap[longOrderId].getOrderStatus().Status, FulFilled)
+
+		// now un-fulfill it
+		ordersMatchedLog.Removed = true
+		cep.ProcessEvents([]*types.Log{ordersMatchedLog})
+		assert.Equal(t, db.OrderMap[longOrderId].getOrderStatus().Status, Placed)
+		assert.Equal(t, db.OrderMap[shortOrderId].getOrderStatus().Status, Placed)
+	})
+
+	t.Run("un-fulfill an order when LiquidationOrderMatched is removed", func(t *testing.T) {
+		// change salt to create a new order in memory
+		longOrder.Salt.Add(longOrder.Salt, big.NewInt(10))
+		longOrderId = getIdFromOrder(longOrder)
+		longOrderPlacedEventData, _ = orderPlacedEvent.Inputs.NonIndexed().Pack(longOrder, signature, longOrderId)
+		longOrderPlacedEventLog := getEventLog(OrderBookContractAddress, longOrderPlacedEventTopics, longOrderPlacedEventData, blockNumber.Uint64())
+		cep.ProcessEvents([]*types.Log{longOrderPlacedEventLog})
+
+		// orders exist in memory now
+		assert.Equal(t, db.OrderMap[longOrderId].Salt, longOrder.Salt)
+
+		// fulfill
+		liquidationOrderMatchedEvent := getEventFromABI(orderBookABI, "LiquidationOrderMatched")
+		liquidationOrderMatchedEventTopics := []common.Hash{liquidationOrderMatchedEvent.ID, traderAddress.Hash()}
+		relayer := common.HexToAddress("0x710bf5F942331874dcBC7783319123679033b63b")
+		liquidationOrderMatchedEventData, _ := liquidationOrderMatchedEvent.Inputs.NonIndexed().Pack(longOrderId, signature, baseAssetQuantity, relayer)
+		liquidationOrderMatchedLog := getEventLog(OrderBookContractAddress, liquidationOrderMatchedEventTopics, liquidationOrderMatchedEventData, blockNumber.Uint64() + 2)
+		cep.ProcessEvents([]*types.Log{liquidationOrderMatchedLog})
+
+		assert.Equal(t, db.OrderMap[longOrderId].getOrderStatus().Status, FulFilled)
+
+		// now un-fulfill it
+		liquidationOrderMatchedLog.Removed = true
+		cep.ProcessEvents([]*types.Log{liquidationOrderMatchedLog})
+		assert.Equal(t, db.OrderMap[longOrderId].getOrderStatus().Status, Placed)
+	})
+
+	t.Run("revert state of an order when OrderMatchingError is removed", func(t *testing.T) {
+		// change salt 
+		longOrder.Salt.Add(longOrder.Salt, big.NewInt(20))
+		longOrderId = getIdFromOrder(longOrder)
+		longOrderPlacedEventData, _ = orderPlacedEvent.Inputs.NonIndexed().Pack(longOrder, signature, longOrderId)
+		longOrderPlacedEventLog := getEventLog(OrderBookContractAddress, longOrderPlacedEventTopics, longOrderPlacedEventData, blockNumber.Uint64())
+		cep.ProcessEvents([]*types.Log{longOrderPlacedEventLog})
+
+		// orders exist in memory now
+		assert.Equal(t, db.OrderMap[longOrderId].Salt, longOrder.Salt)
+		assert.Equal(t, db.OrderMap[longOrderId].getOrderStatus().Status, Placed)
+
+		// fail matching
+		orderMatchingError := getEventFromABI(orderBookABI, "OrderMatchingError")
+		orderMatchingErrorTopics := []common.Hash{orderMatchingError.ID, longOrderId}
+		orderMatchingErrorData, _ := orderMatchingError.Inputs.NonIndexed().Pack("INSUFFICIENT_MARGIN")
+		orderMatchingErrorLog := getEventLog(OrderBookContractAddress, orderMatchingErrorTopics, orderMatchingErrorData, blockNumber.Uint64() + 2)
+		cep.ProcessEvents([]*types.Log{orderMatchingErrorLog})
+
+		assert.Equal(t, db.OrderMap[longOrderId].getOrderStatus().Status, Execution_Failed)
+
+		// now un-fail it
+		orderMatchingErrorLog.Removed = true
+		cep.ProcessEvents([]*types.Log{orderMatchingErrorLog})
+		assert.Equal(t, db.OrderMap[longOrderId].getOrderStatus().Status, Placed)
+	})
+}
+
 func newcep(t *testing.T, db LimitOrderDatabase) *ContractEventsProcessor {
 	return NewContractEventsProcessor(db)
 }

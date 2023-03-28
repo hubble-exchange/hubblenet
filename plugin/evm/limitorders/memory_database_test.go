@@ -3,10 +3,12 @@ package limitorders
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -327,6 +329,107 @@ func TestUpdateMargin(t *testing.T) {
 	})
 }
 
+func TestAccept(t *testing.T) {
+	t.Run("Order is fulfilled, should be deleted when block is accepted", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		orderId1 := addLimitOrder(inMemoryDatabase)
+		orderId2 := addLimitOrder(inMemoryDatabase)
+
+		log.Info(orderId1.String())
+		log.Info(orderId2.String())
+
+		err := inMemoryDatabase.SetOrderStatus(orderId1, FulFilled, 51)
+		assert.Nil(t, err)
+
+		inMemoryDatabase.Accept(51)
+
+		// fulfilled order is deleted
+		_, ok := inMemoryDatabase.OrderMap[orderId1]
+		assert.False(t, ok)
+		// unfulfilled order still exists
+		_, ok = inMemoryDatabase.OrderMap[orderId2]
+		assert.True(t, ok)
+	})
+
+	t.Run("Order is fulfilled, should be deleted when a future block is accepted", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		orderId := addLimitOrder(inMemoryDatabase)
+		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 51)
+		assert.Nil(t, err)
+
+		inMemoryDatabase.Accept(52)
+
+		_, ok := inMemoryDatabase.OrderMap[orderId]
+		assert.False(t, ok)
+	})
+
+	t.Run("Order is fulfilled, should not be deleted when a past block is accepted", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		orderId := addLimitOrder(inMemoryDatabase)
+		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 51)
+		assert.Nil(t, err)
+
+		inMemoryDatabase.Accept(50)
+
+		_, ok := inMemoryDatabase.OrderMap[orderId]
+		assert.True(t, ok)
+	})
+
+	t.Run("Order is placed, should not be deleted when a block is accepted", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		orderId := addLimitOrder(inMemoryDatabase)
+		inMemoryDatabase.Accept(50)
+
+		_, ok := inMemoryDatabase.OrderMap[orderId]
+		assert.True(t, ok)
+	})
+}
+
+func TestRevertLastStatus(t *testing.T) {
+	t.Run("revert status for order that doesn't exist - expect error", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		orderId := common.BytesToHash([]byte("order id"))
+		err := inMemoryDatabase.RevertLastStatus(orderId)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("revert status for placed order", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		orderId := addLimitOrder(inMemoryDatabase)
+
+		err := inMemoryDatabase.RevertLastStatus(orderId)
+		assert.Nil(t, err)
+
+		assert.Equal(t, len(inMemoryDatabase.OrderMap[orderId].LifecycleList), 0)
+	})
+
+	t.Run("revert status for fulfilled order", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		orderId := addLimitOrder(inMemoryDatabase)
+		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 3)
+		assert.Nil(t, err)
+
+		err = inMemoryDatabase.RevertLastStatus(orderId)
+		assert.Nil(t, err)
+
+		assert.Equal(t, len(inMemoryDatabase.OrderMap[orderId].LifecycleList), 1)
+		log.Info("test", "block", inMemoryDatabase.OrderMap[orderId].LifecycleList[0].BlockNumber)
+		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].LifecycleList[0].BlockNumber, uint64(2))
+	})
+
+	t.Run("revert status for accepted + fulfilled order - expect error", func(t *testing.T) {
+		inMemoryDatabase := NewInMemoryDatabase()
+		orderId := addLimitOrder(inMemoryDatabase)
+		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 3)
+		assert.Nil(t, err)
+
+		inMemoryDatabase.Accept(3)
+		err = inMemoryDatabase.RevertLastStatus(orderId)
+		assert.Error(t, err)
+	})
+}
+
 func TestUpdateUnrealizedFunding(t *testing.T) {
 	t.Run("When trader has no positions, it does not update anything", func(t *testing.T) {
 		inMemoryDatabase := NewInMemoryDatabase()
@@ -503,4 +606,13 @@ func getOrderFromLimitOrder(limitOrder LimitOrder) Order {
 		Price:             limitOrder.Price,
 		Salt:              limitOrder.Salt,
 	}
+}
+
+func addLimitOrder(db *InMemoryDatabase) common.Hash {
+	signature := []byte("Here is a string....")
+	id := uint64(123)
+	salt := big.NewInt(time.Now().Unix() + int64(rand.Intn(200)))
+	limitOrder, orderId := createLimitOrder(id, positionType, userAddress, big.NewInt(50), price, status, signature, blockNumber, salt)
+	db.Add(orderId, &limitOrder)
+	return orderId
 }
