@@ -119,7 +119,7 @@ func TestRunLiquidations(t *testing.T) {
 				lotp.AssertCalled(t, "ExecuteLiquidation", shortTraderAddress, shortOrder, expectedFillAmount)
 
 				assert.NotEqual(t, shortOrder, modifiedShortOrders[0])
-				assert.Equal(t, expectedFillAmount, shortOrders[0].FilledBaseAssetQuantity)
+				assert.Equal(t, expectedFillAmount, big.NewInt(0).Abs(shortOrders[0].FilledBaseAssetQuantity))
 				shortOrder.FilledBaseAssetQuantity = expectedFillAmount
 				assert.Equal(t, longOrders, modifiedLongOrders)
 			})
