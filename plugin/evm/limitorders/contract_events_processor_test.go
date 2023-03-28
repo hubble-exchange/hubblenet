@@ -14,19 +14,6 @@ import (
 )
 
 func TestProcessEvents(t *testing.T) {
-	// t.Run("when events are from orderbook contract", func(t *testing.T) {
-	// 	TestHandleOrderBookEvent(t)
-	// })
-	// t.Run("when events are from marginAccount contract", func(t *testing.T) {
-	// 	TestHandleMarginAccountEvent(t)
-	// })
-	// t.Run("when events are from clearinghouse contract", func(t *testing.T) {
-	// 	TestHandleClearingHouseEvent(t)
-	// })
-	// t.Run("when events has one orderbook, one marginaccount, one clearing house events", func(t *testing.T) {
-	// 	TestOrderBookMarginAccountClearingHouseEventInLog(t)
-	// })
-
 	// this test is obsolete because we expect the events to automatically come in sorted order
 	t.Run("it sorts events by blockNumber and executes in order", func(t *testing.T) {
 		db := NewInMemoryDatabase()
