@@ -11,7 +11,7 @@ var orderBookAbi = []byte(`{"abi": [
         "type": "address"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes32",
         "name": "orderHash",
         "type": "bytes32"
@@ -42,7 +42,7 @@ var orderBookAbi = []byte(`{"abi": [
         "type": "address"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes32",
         "name": "orderHash",
         "type": "bytes32"
@@ -57,6 +57,12 @@ var orderBookAbi = []byte(`{"abi": [
         "indexed": false,
         "internalType": "uint256",
         "name": "fillAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "openInterestNotional",
         "type": "uint256"
       },
       {
@@ -79,7 +85,7 @@ var orderBookAbi = []byte(`{"abi": [
         "type": "address"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes32",
         "name": "orderHash",
         "type": "bytes32"
@@ -115,6 +121,12 @@ var orderBookAbi = []byte(`{"abi": [
         "internalType": "address",
         "name": "trader",
         "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "orderHash",
+        "type": "bytes32"
       },
       {
         "components": [
@@ -154,12 +166,6 @@ var orderBookAbi = []byte(`{"abi": [
         "internalType": "bytes",
         "name": "signature",
         "type": "bytes"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "orderHash",
-        "type": "bytes32"
       }
     ],
     "name": "OrderPlaced",
@@ -169,10 +175,16 @@ var orderBookAbi = []byte(`{"abi": [
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
-        "internalType": "bytes32[2]",
-        "name": "orderHash",
-        "type": "bytes32[2]"
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "orderHash0",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "orderHash1",
+        "type": "bytes32"
       },
       {
         "indexed": false,
@@ -184,6 +196,12 @@ var orderBookAbi = []byte(`{"abi": [
         "indexed": false,
         "internalType": "uint256",
         "name": "price",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "openInterestNotional",
         "type": "uint256"
       },
       {
