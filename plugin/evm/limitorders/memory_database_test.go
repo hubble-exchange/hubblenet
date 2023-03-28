@@ -26,12 +26,10 @@ func TestAdd(t *testing.T) {
 	baseAssetQuantity := big.NewInt(-10)
 	inMemoryDatabase := NewInMemoryDatabase()
 	signature := []byte("Here is a string....")
-	id := uint64(123)
 	salt := big.NewInt(time.Now().Unix())
-	limitOrder, orderId := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
+	limitOrder, orderId := createLimitOrder(positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
 	inMemoryDatabase.Add(orderId, &limitOrder)
-	returnedOrder := inMemoryDatabase.GetAllOrders()[0]
-	assert.Equal(t, id, returnedOrder.Id)
+	returnedOrder := inMemoryDatabase.OrderMap[orderId]
 	assert.Equal(t, limitOrder.PositionType, returnedOrder.PositionType)
 	assert.Equal(t, limitOrder.UserAddress, returnedOrder.UserAddress)
 	assert.Equal(t, limitOrder.BaseAssetQuantity, returnedOrder.BaseAssetQuantity)
@@ -47,7 +45,7 @@ func TestGetAllOrders(t *testing.T) {
 	for i := uint64(0); i < totalOrders; i++ {
 		signature := []byte("signature")
 		salt := big.NewInt(0).Add(big.NewInt(int64(i)), big.NewInt(time.Now().Unix()))
-		limitOrder, orderId := createLimitOrder(i, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
+		limitOrder, orderId := createLimitOrder(positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
 		inMemoryDatabase.Add(orderId, &limitOrder)
 	}
 	returnedOrders := inMemoryDatabase.GetAllOrders()
@@ -71,7 +69,7 @@ func TestGetShortOrders(t *testing.T) {
 	for i := uint64(0); i < totalLongOrders; i++ {
 		signature := []byte("signature")
 		salt := big.NewInt(0).Add(big.NewInt(int64(i)), big.NewInt(time.Now().Unix()))
-		limitOrder, orderId := createLimitOrder(i, "long", userAddress, longOrderBaseAssetQuantity, longOrderPrice, status, signature, blockNumber, salt)
+		limitOrder, orderId := createLimitOrder("long", userAddress, longOrderBaseAssetQuantity, longOrderPrice, status, signature, blockNumber, salt)
 		inMemoryDatabase.Add(orderId, &limitOrder)
 	}
 	//Short order with price 10 and blockNumber 2
@@ -80,7 +78,7 @@ func TestGetShortOrders(t *testing.T) {
 	price1 := big.NewInt(10)
 	blockNumber1 := big.NewInt(2)
 	salt1 := big.NewInt(time.Now().Unix())
-	shortOrder1, orderId := createLimitOrder(id1, "short", userAddress, baseAssetQuantity, price1, status, signature1, blockNumber1, salt1)
+	shortOrder1, orderId := createLimitOrder("short", userAddress, baseAssetQuantity, price1, status, signature1, blockNumber1, salt1)
 	inMemoryDatabase.Add(orderId, &shortOrder1)
 
 	//Short order with price 9 and blockNumber 2
@@ -89,7 +87,7 @@ func TestGetShortOrders(t *testing.T) {
 	price2 := big.NewInt(9)
 	blockNumber2 := big.NewInt(2)
 	salt2 := big.NewInt(0).Add(salt1, big.NewInt(1))
-	shortOrder2, orderId := createLimitOrder(id2, "short", userAddress, baseAssetQuantity, price2, status, signature2, blockNumber2, salt2)
+	shortOrder2, orderId := createLimitOrder("short", userAddress, baseAssetQuantity, price2, status, signature2, blockNumber2, salt2)
 	inMemoryDatabase.Add(orderId, &shortOrder2)
 
 	//Short order with price 9.01 and blockNumber 3
@@ -98,7 +96,7 @@ func TestGetShortOrders(t *testing.T) {
 	price3 := big.NewInt(9)
 	blockNumber3 := big.NewInt(3)
 	salt3 := big.NewInt(0).Add(salt2, big.NewInt(1))
-	shortOrder3, orderId := createLimitOrder(id3, "short", userAddress, baseAssetQuantity, price3, status, signature3, blockNumber3, salt3)
+	shortOrder3, orderId := createLimitOrder("short", userAddress, baseAssetQuantity, price3, status, signature3, blockNumber3, salt3)
 	inMemoryDatabase.Add(orderId, &shortOrder3)
 
 	returnedShortOrders := inMemoryDatabase.GetShortOrders(AvaxPerp)
@@ -112,13 +110,10 @@ func TestGetShortOrders(t *testing.T) {
 	}
 
 	//Test returnedShortOrders are sorted by price lowest to highest first and then block number from lowest to highest
-	assert.Equal(t, id2, returnedShortOrders[0].Id)
 	assert.Equal(t, price2, returnedShortOrders[0].Price)
 	assert.Equal(t, blockNumber2, returnedShortOrders[0].BlockNumber)
-	assert.Equal(t, id3, returnedShortOrders[1].Id)
 	assert.Equal(t, price3, returnedShortOrders[1].Price)
 	assert.Equal(t, blockNumber3, returnedShortOrders[1].BlockNumber)
-	assert.Equal(t, id1, returnedShortOrders[2].Id)
 	assert.Equal(t, price1, returnedShortOrders[2].Price)
 	assert.Equal(t, blockNumber1, returnedShortOrders[2].BlockNumber)
 
@@ -130,7 +125,7 @@ func TestGetLongOrders(t *testing.T) {
 	for i := uint64(0); i < 3; i++ {
 		signature := []byte("signature")
 		salt := big.NewInt(0).Add(big.NewInt(time.Now().Unix()), big.NewInt(int64(i)))
-		limitOrder, orderId := createLimitOrder(i, "short", userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
+		limitOrder, orderId := createLimitOrder("short", userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
 		inMemoryDatabase.Add(orderId, &limitOrder)
 	}
 
@@ -141,7 +136,7 @@ func TestGetLongOrders(t *testing.T) {
 	price1 := big.NewInt(9)
 	blockNumber1 := big.NewInt(2)
 	salt1 := big.NewInt(time.Now().Unix())
-	longOrder1, orderId := createLimitOrder(id1, "long", userAddress, longOrderBaseAssetQuantity, price1, status, signature1, blockNumber1, salt1)
+	longOrder1, orderId := createLimitOrder("long", userAddress, longOrderBaseAssetQuantity, price1, status, signature1, blockNumber1, salt1)
 	inMemoryDatabase.Add(orderId, &longOrder1)
 
 	//long order with price 9 and blockNumber 3
@@ -150,7 +145,7 @@ func TestGetLongOrders(t *testing.T) {
 	price2 := big.NewInt(9)
 	blockNumber2 := big.NewInt(3)
 	salt2 := big.NewInt(0).Add(salt1, big.NewInt(1))
-	longOrder2, orderId := createLimitOrder(id2, "long", userAddress, longOrderBaseAssetQuantity, price2, status, signature2, blockNumber2, salt2)
+	longOrder2, orderId := createLimitOrder("long", userAddress, longOrderBaseAssetQuantity, price2, status, signature2, blockNumber2, salt2)
 	inMemoryDatabase.Add(orderId, &longOrder2)
 
 	//long order with price 10 and blockNumber 3
@@ -159,20 +154,17 @@ func TestGetLongOrders(t *testing.T) {
 	price3 := big.NewInt(10)
 	blockNumber3 := big.NewInt(3)
 	salt3 := big.NewInt(0).Add(salt2, big.NewInt(1))
-	longOrder3, orderId := createLimitOrder(id3, "long", userAddress, longOrderBaseAssetQuantity, price3, status, signature3, blockNumber3, salt3)
+	longOrder3, orderId := createLimitOrder("long", userAddress, longOrderBaseAssetQuantity, price3, status, signature3, blockNumber3, salt3)
 	inMemoryDatabase.Add(orderId, &longOrder3)
 
 	returnedLongOrders := inMemoryDatabase.GetLongOrders(AvaxPerp)
 	assert.Equal(t, 3, len(returnedLongOrders))
 
 	//Test returnedLongOrders are sorted by price highest to lowest first and then block number from lowest to highest
-	assert.Equal(t, id3, returnedLongOrders[0].Id)
 	assert.Equal(t, price3, returnedLongOrders[0].Price)
 	assert.Equal(t, blockNumber3, returnedLongOrders[0].BlockNumber)
-	assert.Equal(t, id1, returnedLongOrders[1].Id)
 	assert.Equal(t, price1, returnedLongOrders[1].Price)
 	assert.Equal(t, blockNumber1, returnedLongOrders[1].BlockNumber)
-	assert.Equal(t, id2, returnedLongOrders[2].Id)
 	assert.Equal(t, price2, returnedLongOrders[2].Price)
 	assert.Equal(t, blockNumber2, returnedLongOrders[2].BlockNumber)
 
@@ -190,9 +182,8 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 		t.Run("When order type is short order", func(t *testing.T) {
 			inMemoryDatabase := NewInMemoryDatabase()
 			signature := []byte("Here is a string....")
-			id := uint64(123)
 			salt := big.NewInt(time.Now().Unix())
-			limitOrder, orderId := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
+			limitOrder, orderId := createLimitOrder(positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
 			inMemoryDatabase.Add(orderId, &limitOrder)
 
 			filledQuantity := big.NewInt(2)
@@ -206,11 +197,10 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 		t.Run("When order type is long order", func(t *testing.T) {
 			inMemoryDatabase := NewInMemoryDatabase()
 			signature := []byte("Here is a string....")
-			id := uint64(123)
 			positionType = "long"
 			baseAssetQuantity = big.NewInt(10)
 			salt := big.NewInt(time.Now().Unix())
-			limitOrder, orderId := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
+			limitOrder, orderId := createLimitOrder(positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
 			inMemoryDatabase.Add(orderId, &limitOrder)
 
 			filledQuantity := big.NewInt(2)
@@ -224,9 +214,8 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 		t.Run("When order type is short order", func(t *testing.T) {
 			inMemoryDatabase := NewInMemoryDatabase()
 			signature := []byte("Here is a string....")
-			id := uint64(123)
 			salt := big.NewInt(time.Now().Unix())
-			limitOrder, orderId := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
+			limitOrder, orderId := createLimitOrder(positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
 			inMemoryDatabase.Add(orderId, &limitOrder)
 
 			filledQuantity := big.NewInt(0).Abs(limitOrder.BaseAssetQuantity)
@@ -242,11 +231,10 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 		t.Run("When order type is long order", func(t *testing.T) {
 			inMemoryDatabase := NewInMemoryDatabase()
 			signature := []byte("Here is a string....")
-			id := uint64(123)
 			positionType = "long"
 			baseAssetQuantity = big.NewInt(10)
 			salt := big.NewInt(time.Now().Unix())
-			limitOrder, orderId := createLimitOrder(id, positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
+			limitOrder, orderId := createLimitOrder(positionType, userAddress, baseAssetQuantity, price, status, signature, blockNumber, salt)
 			inMemoryDatabase.Add(orderId, &limitOrder)
 
 			filledQuantity := big.NewInt(0).Abs(limitOrder.BaseAssetQuantity)
@@ -336,6 +324,7 @@ func TestAccept(t *testing.T) {
 
 		err := inMemoryDatabase.SetOrderStatus(orderId1, FulFilled, 51)
 		assert.Nil(t, err)
+		assert.Equal(t, inMemoryDatabase.OrderMap[orderId1].getOrderStatus().Status, FulFilled)
 
 		inMemoryDatabase.Accept(51)
 
@@ -352,6 +341,7 @@ func TestAccept(t *testing.T) {
 		orderId := addLimitOrder(inMemoryDatabase)
 		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 51)
 		assert.Nil(t, err)
+		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].getOrderStatus().Status, FulFilled)
 
 		inMemoryDatabase.Accept(52)
 
@@ -364,6 +354,7 @@ func TestAccept(t *testing.T) {
 		orderId := addLimitOrder(inMemoryDatabase)
 		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 51)
 		assert.Nil(t, err)
+		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].getOrderStatus().Status, FulFilled)
 
 		inMemoryDatabase.Accept(50)
 
@@ -537,9 +528,8 @@ func TestGetLastPrice(t *testing.T) {
 	assert.Equal(t, lastPrice, inMemoryDatabase.GetLastPrice(market))
 }
 
-func createLimitOrder(id uint64, positionType string, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, signature []byte, blockNumber *big.Int, salt *big.Int) (LimitOrder, common.Hash) {
+func createLimitOrder(positionType string, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, signature []byte, blockNumber *big.Int, salt *big.Int) (LimitOrder, common.Hash) {
 	lo := LimitOrder{
-		Id:                      id,
 		PositionType:            positionType,
 		UserAddress:             userAddress,
 		FilledBaseAssetQuantity: big.NewInt(0),
@@ -557,7 +547,7 @@ func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
 		baseAssetQuantityLongOrder := big.NewInt(10)
 		signature := []byte("Here is a long order")
 		salt1 := big.NewInt(time.Now().Unix())
-		longOrder, _ := createLimitOrder(uint64(1), "long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityLongOrder, big.NewInt(21), Placed, signature, big.NewInt(2), salt1)
+		longOrder, _ := createLimitOrder("long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityLongOrder, big.NewInt(21), Placed, signature, big.NewInt(2), salt1)
 		longOrder.FilledBaseAssetQuantity = big.NewInt(0)
 		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
 		expectedUnFilledForLongOrder := big.NewInt(10)
@@ -566,7 +556,7 @@ func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
 		signature = []byte("Here is a short order")
 		baseAssetQuantityShortOrder := big.NewInt(-10)
 		salt2 := big.NewInt(0).Add(salt1, big.NewInt(1))
-		shortOrder, _ := createLimitOrder(uint64(1), "short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityShortOrder, big.NewInt(21), Placed, signature, big.NewInt(2), salt2)
+		shortOrder, _ := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityShortOrder, big.NewInt(21), Placed, signature, big.NewInt(2), salt2)
 		shortOrder.FilledBaseAssetQuantity = big.NewInt(0)
 		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
 		expectedUnFilledForShortOrder := big.NewInt(-10)
@@ -576,7 +566,7 @@ func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
 		baseAssetQuantityLongOrder := big.NewInt(10)
 		signature := []byte("Here is a long order")
 		salt1 := big.NewInt(time.Now().Unix())
-		longOrder, _ := createLimitOrder(uint64(1), "long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityLongOrder, big.NewInt(21), Placed, signature, big.NewInt(2), salt1)
+		longOrder, _ := createLimitOrder("long", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityLongOrder, big.NewInt(21), Placed, signature, big.NewInt(2), salt1)
 		longOrder.FilledBaseAssetQuantity = big.NewInt(5)
 		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
 		expectedUnFilledForLongOrder := big.NewInt(5)
@@ -585,7 +575,7 @@ func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
 		signature = []byte("Here is a short order")
 		baseAssetQuantityShortOrder := big.NewInt(-10)
 		salt2 := big.NewInt(0).Add(salt1, big.NewInt(1))
-		shortOrder, _ := createLimitOrder(uint64(1), "short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityShortOrder, big.NewInt(21), Placed, signature, big.NewInt(2), salt2)
+		shortOrder, _ := createLimitOrder("short", "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", baseAssetQuantityShortOrder, big.NewInt(21), Placed, signature, big.NewInt(2), salt2)
 		shortOrder.FilledBaseAssetQuantity = big.NewInt(-5)
 		//baseAssetQuantityLongOrder - filledBaseAssetQuantity
 		expectedUnFilledForShortOrder := big.NewInt(-5)
@@ -595,9 +585,8 @@ func TestGetUnfilledBaseAssetQuantity(t *testing.T) {
 
 func addLimitOrder(db *InMemoryDatabase) common.Hash {
 	signature := []byte("Here is a string....")
-	id := uint64(123)
 	salt := big.NewInt(time.Now().Unix() + int64(rand.Intn(200)))
-	limitOrder, orderId := createLimitOrder(id, positionType, userAddress, big.NewInt(50), price, status, signature, blockNumber, salt)
+	limitOrder, orderId := createLimitOrder(positionType, userAddress, big.NewInt(50), price, status, signature, blockNumber, salt)
 	db.Add(orderId, &limitOrder)
 	return orderId
 }

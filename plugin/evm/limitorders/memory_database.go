@@ -50,7 +50,6 @@ type Lifecycle struct {
 }
 
 type LimitOrder struct {
-	Id     uint64 `json:"id"`
 	Market Market `json:"market"`
 	// @todo make this an enum
 	PositionType            string      `json:"position_type"`

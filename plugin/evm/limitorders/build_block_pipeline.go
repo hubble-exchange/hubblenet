@@ -55,9 +55,9 @@ func (pipeline *BuildBlockPipeline) runLiquidations(market Market, longOrders []
 		var oppositeOrders []LimitOrder
 		switch liquidable.PositionType {
 		case "long":
-			oppositeOrders = shortOrders
-		case "short":
 			oppositeOrders = longOrders
+		case "short":
+			oppositeOrders = shortOrders
 		}
 		if len(oppositeOrders) == 0 {
 			log.Error("no matching order found for liquidation", "trader", liquidable.Address.String(), "size", liquidable.Size)
