@@ -113,12 +113,11 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderPlaced", "err", err)
 			return
 		}
-		log.Info("HandleOrderBookEvent", "orderplaced args", args, "removed", removed)
+		// log.Info("HandleOrderBookEvent", "orderplaced args", args, "removed", removed)
 		orderId := event.Topics[2]
 		if !removed {
 			order := getOrderFromRawOrder(args["order"])
-			log.Info("#### adding order", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
-			cep.database.Add(orderId, &LimitOrder{
+			limitOrder := LimitOrder{
 				Market:                  Market(order.AmmIndex.Int64()),
 				PositionType:            getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
 				UserAddress:             getAddressFromTopicHash(event.Topics[1]).String(),
@@ -129,9 +128,11 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 				Signature:               args["signature"].([]byte),
 				Salt:                    order.Salt,
 				BlockNumber:             big.NewInt(int64(event.BlockNumber)),
-			})
+			}
+			log.Info("#### adding order", "orderId", orderId.String(), "order", limitOrder)
+			cep.database.Add(orderId, &limitOrder)
 		} else {
-			log.Info("#### deleting order", "orderId", orderId, "block", event.BlockHash.String(), "number", event.BlockNumber)
+			log.Info("#### deleting order", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
 			cep.database.Delete(orderId)
 		}
 		SendTxReadySignal() // what does this do?
@@ -165,12 +166,12 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 		order1Id := event.Topics[2]
 		fillAmount := args["fillAmount"].(*big.Int)
 		if !removed {
-			log.Info("#### matched orders", "orderId_0", order0Id.String(), "orderId_1", order1Id, "block", event.BlockHash.String(), "number", event.BlockNumber)
+			log.Info("#### matched orders", "orderId_0", order0Id.String(), "orderId_1", order1Id.String(), "number", event.BlockNumber)
 			cep.database.UpdateFilledBaseAssetQuantity(fillAmount, order0Id, event.BlockNumber)
 			cep.database.UpdateFilledBaseAssetQuantity(fillAmount, order1Id, event.BlockNumber)
 		} else {
 			fillAmount.Neg(fillAmount)
-			log.Info("#### removed matched orders", "orderId_0", order0Id.String(), "orderId_1", order1Id, "block", event.BlockHash.String(), "number", event.BlockNumber)
+			log.Info("#### removed matched orders", "orderId_0", order0Id.String(), "orderId_1", order1Id.String(), "number", event.BlockNumber)
 			cep.database.UpdateFilledBaseAssetQuantity(fillAmount, order0Id, event.BlockNumber)
 			cep.database.UpdateFilledBaseAssetQuantity(fillAmount, order1Id, event.BlockNumber)
 		}

@@ -1,6 +1,7 @@
 package limitorders
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -13,8 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+var _1e18 = big.NewInt(1e18)
+var _1e6 = big.NewInt(1e6)
+
 var maxLiquidationRatio *big.Int = big.NewInt(25 * 10e4)
-var minSizeRequirement *big.Int = big.NewInt(0).Mul(big.NewInt(5), big.NewInt(1e18))
+var minSizeRequirement *big.Int = big.NewInt(0).Mul(big.NewInt(5), _1e18)
 
 type Market int
 
@@ -70,6 +74,10 @@ func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
 func (order LimitOrder) getOrderStatus() Lifecycle {
 	lifecycle := order.LifecycleList
 	return lifecycle[len(lifecycle)-1]
+}
+
+func (order LimitOrder) String() string {
+	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, dividePrecisionSize(order.BaseAssetQuantity), dividePrecisionSize(order.FilledBaseAssetQuantity), order.Salt, divideByBasePrecision(order.Price), hex.EncodeToString(order.Signature), order.BlockNumber)
 }
 
 type Position struct {

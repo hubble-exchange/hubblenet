@@ -107,6 +107,8 @@ func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount *big.Int) error {
+	log.Info("ExecuteMatchedOrdersTx", "LongOrder", incomingOrder, "ShortOrder", matchedOrder, "fillAmount", dividePrecisionSize(fillAmount))
+
 	orders := make([]Order, 2)
 	orders[0], orders[1] = getOrderFromRawOrder(incomingOrder.RawOrder), getOrderFromRawOrder(matchedOrder.RawOrder)
 
