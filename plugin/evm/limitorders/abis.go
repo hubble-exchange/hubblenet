@@ -1265,14 +1265,63 @@ var clearingHouseAbi = []byte(`{"abi": [
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "trader",
-        "type": "address"
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "ammIndex",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "trader",
+            "type": "address"
+          },
+          {
+            "internalType": "int256",
+            "name": "baseAssetQuantity",
+            "type": "int256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "price",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "salt",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IOrderBook.Order",
+        "name": "order",
+        "type": "tuple"
       },
       {
-        "internalType": "uint256",
-        "name": "ammIdx",
-        "type": "uint256"
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "orderHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "blockPlaced",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "isMakerOrder",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct IOrderBook.MatchInfo",
+        "name": "matchInfo",
+        "type": "tuple"
+      },
+      {
+        "internalType": "int256",
+        "name": "liquidationAmount",
+        "type": "int256"
       },
       {
         "internalType": "uint256",
@@ -1280,9 +1329,9 @@ var clearingHouseAbi = []byte(`{"abi": [
         "type": "uint256"
       },
       {
-        "internalType": "int256",
-        "name": "toLiquidate",
-        "type": "int256"
+        "internalType": "address",
+        "name": "trader",
+        "type": "address"
       }
     ],
     "name": "liquidate",
@@ -1372,9 +1421,31 @@ var clearingHouseAbi = []byte(`{"abi": [
             "type": "uint256"
           }
         ],
-        "internalType": "struct IOrderBook.Order",
-        "name": "order",
-        "type": "tuple"
+        "internalType": "struct IOrderBook.Order[2]",
+        "name": "orders",
+        "type": "tuple[2]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "orderHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "blockPlaced",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "isMakerOrder",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct IOrderBook.MatchInfo[2]",
+        "name": "matchInfo",
+        "type": "tuple[2]"
       },
       {
         "internalType": "int256",
@@ -1385,14 +1456,9 @@ var clearingHouseAbi = []byte(`{"abi": [
         "internalType": "uint256",
         "name": "fulfillPrice",
         "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "isMakerOrder",
-        "type": "bool"
       }
     ],
-    "name": "openPosition",
+    "name": "openComplementaryPositions",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
