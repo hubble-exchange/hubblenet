@@ -778,3 +778,13 @@ func getEventLog(contractAddress common.Address, topics []common.Hash, eventData
 		BlockNumber: blockNumber,
 	}
 }
+
+// @todo change this to return the EIP712 hash instead
+func getIdFromOrder(order Order) common.Hash {
+	return crypto.Keccak256Hash([]byte(order.Trader.String() + order.Salt.String()))
+}
+
+// @todo change this to return the EIP712 hash instead
+func getIdFromLimitOrder(order LimitOrder) common.Hash {
+	return crypto.Keccak256Hash([]byte(order.UserAddress + order.Salt.String()))
+}

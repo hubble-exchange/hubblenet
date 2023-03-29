@@ -330,8 +330,3 @@ func getOrdersFromRawOrderList(rawOrders interface{}) [2]Order {
 	_ = json.Unmarshal(marshalledOrders, &orders)
 	return orders
 }
-
-// @todo change this to return the EIP712 hash instead
-func getIdFromOrder(order Order) common.Hash {
-	return crypto.Keccak256Hash([]byte(order.Trader.String() + order.Salt.String()))
-}
