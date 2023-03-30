@@ -99,10 +99,12 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error {
+	log.Info("ExecuteLiquidation", "trader", trader.String(), "matchedOrder", matchedOrder, "fillAmount", dividePrecisionSize(fillAmount))
 	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader.String(), matchedOrder.RawOrder, matchedOrder.Signature, fillAmount)
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
+	log.Info("ExecuteFundingPaymentTx")
 	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "settleFunding")
 }
 
@@ -124,7 +126,7 @@ func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contr
 
 	data, err := contractABI.Pack(method, args...)
 	if err != nil {
-		log.Error("abi.Pack failed", "err", err)
+		log.Error("abi.Pack failed", "method", method, "args", args, "err", err)
 		return err
 	}
 	key, err := crypto.HexToECDSA(lotp.validatorPrivateKey) // admin private key
