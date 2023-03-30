@@ -216,6 +216,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 
 func (cep *ContractEventsProcessor) handleMarginAccountEvent(event *types.Log) {
 	args := map[string]interface{}{}
+	trader := getAddressFromTopicHash(event.Topics[1])
 	switch event.Topics[0] {
 	case cep.marginAccountABI.Events["MarginAdded"].ID:
 		err := cep.marginAccountABI.UnpackIntoMap(args, "MarginAdded", event.Data)
@@ -225,8 +226,8 @@ func (cep *ContractEventsProcessor) handleMarginAccountEvent(event *types.Log) {
 		}
 		collateral := event.Topics[2].Big().Int64()
 		amount := args["amount"].(*big.Int)
-		log.Info("MarginAdded received", "collateral", collateral, "amount", amount.Uint64())
-		cep.database.UpdateMargin(getAddressFromTopicHash(event.Topics[1]), Collateral(collateral), amount)
+		log.Info("MarginAdded:", "trader", trader, "collateral", collateral, "amount", amount.Uint64())
+		cep.database.UpdateMargin(trader, Collateral(collateral), amount)
 	case cep.marginAccountABI.Events["MarginRemoved"].ID:
 		err := cep.marginAccountABI.UnpackIntoMap(args, "MarginRemoved", event.Data)
 		if err != nil {
@@ -235,8 +236,8 @@ func (cep *ContractEventsProcessor) handleMarginAccountEvent(event *types.Log) {
 		}
 		collateral := event.Topics[2].Big().Int64()
 		amount := args["amount"].(*big.Int)
-		log.Info("MarginRemoved received", "collateral", collateral, "amount", amount.Uint64())
-		cep.database.UpdateMargin(getAddressFromTopicHash(event.Topics[1]), Collateral(collateral), big.NewInt(0).Neg(amount))
+		log.Info("MarginRemoved:", "trader", trader, "collateral", collateral, "amount", amount.Uint64())
+		cep.database.UpdateMargin(trader, Collateral(collateral), big.NewInt(0).Neg(amount))
 	case cep.marginAccountABI.Events["PnLRealized"].ID:
 		err := cep.marginAccountABI.UnpackIntoMap(args, "PnLRealized", event.Data)
 		if err != nil {
@@ -245,8 +246,8 @@ func (cep *ContractEventsProcessor) handleMarginAccountEvent(event *types.Log) {
 		}
 		realisedPnL := args["realizedPnl"].(*big.Int)
 
-		log.Info("PnLRealized received", "amount", realisedPnL.Uint64())
-		cep.database.UpdateMargin(getAddressFromTopicHash(event.Topics[1]), HUSD, realisedPnL)
+		log.Info("PnLRealized:", "trader", trader, "amount", realisedPnL.Uint64())
+		cep.database.UpdateMargin(trader, HUSD, realisedPnL)
 	}
 	log.Info("Log found", "log_.Address", event.Address.String(), "log_.BlockNumber", event.BlockNumber, "log_.Index", event.Index, "log_.TxHash", event.TxHash.String())
 }

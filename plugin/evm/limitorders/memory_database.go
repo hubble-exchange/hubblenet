@@ -89,9 +89,8 @@ type Position struct {
 }
 
 type Trader struct {
-	Positions   map[Market]*Position    `json:"positions"` // position for every market
-	Margins     map[Collateral]*big.Int `json:"margins"`   // available margin/balance for every market
-	BlockNumber *big.Int                `json:"block_number"`
+	Positions map[Market]*Position    `json:"positions"` // position for every market
+	Margins   map[Collateral]*big.Int `json:"margins"`   // available margin/balance for every market
 }
 
 type LimitOrderDatabase interface {
