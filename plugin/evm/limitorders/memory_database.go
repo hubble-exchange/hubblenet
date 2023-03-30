@@ -269,6 +269,7 @@ func (db *InMemoryDatabase) UpdateMargin(trader common.Address, collateral Colla
 	}
 
 	db.TraderMap[trader].Margins[collateral].Add(db.TraderMap[trader].Margins[collateral], addAmount)
+	log.Info("UpdateMargin", "trader", trader.String(), "collateral", collateral, "updated margin", db.TraderMap[trader].Margins[collateral].Uint64())
 }
 
 func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool) {

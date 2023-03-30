@@ -78,6 +78,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 				panic(err)
 			}
 			lop.contractEventProcessor.ProcessEvents(logs)
+			lop.contractEventProcessor.ProcessAcceptedEvents(logs)
 			log.Info("ListenAndProcessTransactions", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs), "err", err)
 
 			toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
