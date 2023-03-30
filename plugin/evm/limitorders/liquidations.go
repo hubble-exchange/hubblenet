@@ -5,10 +5,11 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var maintenanceMargin = big.NewInt(1e5)
-var spreadRatioThreshold = big.NewInt(20 * 1e4)
+var spreadRatioThreshold = big.NewInt(1e6)
 var BASE_PRECISION = big.NewInt(1e6)
 var SIZE_BASE_PRECISION = big.NewInt(1e18)
 
@@ -29,6 +30,7 @@ func GetLiquidableTraders(traderMap map[common.Address]Trader, market Market, la
 	markPrice := lastPrice
 
 	overSpreadLimit := isOverSpreadLimit(markPrice, oraclePrice)
+	log.Info("GetLiquidableTraders", "overSpreadLimit", overSpreadLimit)
 
 	for addr, trader := range traderMap {
 		position := trader.Positions[market]
@@ -36,14 +38,17 @@ func GetLiquidableTraders(traderMap map[common.Address]Trader, market Market, la
 			margin := getMarginForTrader(trader, market)
 			marginFraction := getMarginFraction(margin, markPrice, position)
 
+			log.Info("GetLiquidableTraders", "trader", addr.String(), "traderInfo", trader, "marginFraction", marginFraction, "margin", margin.Uint64())
 			if overSpreadLimit {
 				oracleBasedMarginFraction := getMarginFraction(margin, oraclePrice, position)
 				if oracleBasedMarginFraction.Cmp(marginFraction) == 1 {
 					marginFraction = oracleBasedMarginFraction
 				}
+				log.Info("GetLiquidableTraders", "trader", addr.String(), "oracleBasedMarginFraction", oracleBasedMarginFraction)
 			}
 
 			if marginFraction.Cmp(maintenanceMargin) == -1 {
+				log.Info("GetLiquidableTraders - below maintenanceMargin", "trader", addr.String())
 				liquidable := LiquidablePosition{
 					Address:        addr,
 					Size:           position.LiquidationThreshold,
