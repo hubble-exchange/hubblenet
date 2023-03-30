@@ -100,7 +100,7 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 
 func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error {
 	log.Info("ExecuteLiquidation", "trader", trader.String(), "matchedOrder", matchedOrder, "fillAmount", dividePrecisionSize(fillAmount))
-	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader.String(), matchedOrder.RawOrder, matchedOrder.Signature, fillAmount)
+	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader, getOrderFromRawOrder(matchedOrder.RawOrder), matchedOrder.Signature, fillAmount)
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
