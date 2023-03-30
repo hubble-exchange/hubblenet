@@ -113,7 +113,6 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderPlaced", "err", err)
 			return
 		}
-		// log.Info("HandleOrderBookEvent", "orderplaced args", args, "removed", removed)
 		orderId := event.Topics[2]
 		if !removed {
 			order := getOrderFromRawOrder(args["order"])
@@ -216,7 +215,6 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 
 func (cep *ContractEventsProcessor) handleMarginAccountEvent(event *types.Log) {
 	args := map[string]interface{}{}
-	trader := getAddressFromTopicHash(event.Topics[1])
 	switch event.Topics[0] {
 	case cep.marginAccountABI.Events["MarginAdded"].ID:
 		err := cep.marginAccountABI.UnpackIntoMap(args, "MarginAdded", event.Data)
@@ -224,6 +222,7 @@ func (cep *ContractEventsProcessor) handleMarginAccountEvent(event *types.Log) {
 			log.Error("error in marginAccountABI.UnpackIntoMap", "method", "MarginAdded", "err", err)
 			return
 		}
+		trader := getAddressFromTopicHash(event.Topics[1])
 		collateral := event.Topics[2].Big().Int64()
 		amount := args["amount"].(*big.Int)
 		log.Info("MarginAdded:", "trader", trader, "collateral", collateral, "amount", amount.Uint64())
@@ -234,6 +233,7 @@ func (cep *ContractEventsProcessor) handleMarginAccountEvent(event *types.Log) {
 			log.Error("error in marginAccountABI.UnpackIntoMap", "method", "MarginRemoved", "err", err)
 			return
 		}
+		trader := getAddressFromTopicHash(event.Topics[1])
 		collateral := event.Topics[2].Big().Int64()
 		amount := args["amount"].(*big.Int)
 		log.Info("MarginRemoved:", "trader", trader, "collateral", collateral, "amount", amount.Uint64())
@@ -244,12 +244,11 @@ func (cep *ContractEventsProcessor) handleMarginAccountEvent(event *types.Log) {
 			log.Error("error in marginAccountABI.UnpackIntoMap", "method", "PnLRealized", "err", err)
 			return
 		}
+		trader := getAddressFromTopicHash(event.Topics[1])
 		realisedPnL := args["realizedPnl"].(*big.Int)
-
 		log.Info("PnLRealized:", "trader", trader, "amount", realisedPnL.Uint64())
 		cep.database.UpdateMargin(trader, HUSD, realisedPnL)
 	}
-	log.Info("Log found", "log_.Address", event.Address.String(), "log_.BlockNumber", event.BlockNumber, "log_.Index", event.Index, "log_.TxHash", event.TxHash.String())
 }
 
 func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {

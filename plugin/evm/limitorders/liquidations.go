@@ -30,7 +30,7 @@ func GetLiquidableTraders(traderMap map[common.Address]Trader, market Market, la
 	markPrice := lastPrice
 
 	overSpreadLimit := isOverSpreadLimit(markPrice, oraclePrice)
-	log.Info("GetLiquidableTraders", "overSpreadLimit", overSpreadLimit)
+	log.Info("GetLiquidableTraders:", "overSpreadLimit", overSpreadLimit)
 
 	for addr, trader := range traderMap {
 		position := trader.Positions[market]
