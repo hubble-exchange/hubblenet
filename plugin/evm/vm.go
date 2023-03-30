@@ -661,7 +661,7 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 	block, err := vm.miner.GenerateBlock(predicateCtx)
 	vm.builder.handleGenerateBlock()
 	if err != nil {
-		log.Error("buildBlock - GenerateBlock failed", "err", err, "number", block.NumberU64())
+		log.Error("buildBlock - GenerateBlock failed", "err", err)
 		return nil, err
 	}
 
