@@ -34,7 +34,7 @@ func GetLiquidableTraders(traderMap map[common.Address]Trader, market Market, la
 
 	for addr, trader := range traderMap {
 		position := trader.Positions[market]
-		if position != nil {
+		if position != nil && position.Size.Sign() != 0 {
 			margin := getMarginForTrader(trader, market)
 			marginFraction := getMarginFraction(margin, markPrice, position)
 
