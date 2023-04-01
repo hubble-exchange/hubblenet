@@ -33,10 +33,10 @@ type OpenOrdersResponse struct {
 
 type OrderMin struct {
 	Market
-	Price          string
-	Size           string
-	InprogressSize string
-	Hash           string
+	Price   string
+	Size    string
+	Signer  string
+	OrderId string
 }
 
 type OrderForOpenOrders struct {
@@ -76,10 +76,11 @@ func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*O
 
 	for hash, order := range allOrders {
 		orders = append(orders, OrderMin{
-			Market: order.Market,
-			Price:  order.Price.String(),
-			Size:   order.GetUnFilledBaseAssetQuantity().String(),
-			Hash:   hash.String(),
+			Market:  order.Market,
+			Price:   order.Price.String(),
+			Size:    order.GetUnFilledBaseAssetQuantity().String(),
+			Signer:  order.UserAddress,
+			OrderId: hash.String(),
 		})
 	}
 

@@ -1,6 +1,7 @@
 package limitorders
 
 import (
+	"math"
 	"math/big"
 	"sort"
 
@@ -129,7 +130,7 @@ func getMarginFraction(margin *big.Int, price *big.Int, position *Position) *big
 	effectionMargin := big.NewInt(0).Add(margin, unrealisedPnl)
 	mf := big.NewInt(0).Div(multiplyBasePrecision(effectionMargin), notionalPosition)
 	if mf.Sign() == -1 {
-		return big.NewInt(0)
+		return big.NewInt(0) // why?
 	}
 	return mf
 }
@@ -148,4 +149,8 @@ func dividePrecisionSize(number *big.Int) *big.Int {
 
 func divideByBasePrecision(number *big.Int) *big.Int {
 	return big.NewInt(0).Div(number, BASE_PRECISION)
+}
+
+func prettifyScaledBigInt(number *big.Int, precision int8) string {
+	return new(big.Float).Quo(new(big.Float).SetInt(number), big.NewFloat(math.Pow10(int(precision)))).String()
 }

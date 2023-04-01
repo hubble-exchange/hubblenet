@@ -77,7 +77,7 @@ func (order LimitOrder) getOrderStatus() Lifecycle {
 }
 
 func (order LimitOrder) String() string {
-	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, dividePrecisionSize(order.BaseAssetQuantity), dividePrecisionSize(order.FilledBaseAssetQuantity), order.Salt, divideByBasePrecision(order.Price), hex.EncodeToString(order.Signature), order.BlockNumber)
+	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), hex.EncodeToString(order.Signature), order.BlockNumber)
 }
 
 type Position struct {
@@ -290,6 +290,9 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 	if !isLiquidation {
 		db.TraderMap[trader].Positions[market].LiquidationThreshold = getLiquidationThreshold(size)
 	}
+	// adjust the liquidation threshold if > resultant position size (for both isLiquidation = true/false)
+	threshold := utils.BigIntMinAbs(db.TraderMap[trader].Positions[market].LiquidationThreshold, size)
+	db.TraderMap[trader].Positions[market].LiquidationThreshold.Mul(threshold, big.NewInt(int64(size.Sign()))) // same sign as size
 }
 
 func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, cumulativePremiumFraction *big.Int) {
