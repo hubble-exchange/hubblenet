@@ -108,8 +108,8 @@ func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string) OpenO
 	return OpenOrdersResponse{Orders: traderOrders}
 }
 
-// NewOrderBookData send a notification each time a new (header) block is appended to the chain.
-func (api *OrderBookAPI) NewOrderBookData(ctx context.Context) (*rpc.Subscription, error) {
+// NewOrderBookState send a notification each time a new (header) block is appended to the chain.
+func (api *OrderBookAPI) NewOrderBookState(ctx context.Context) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -130,7 +130,7 @@ func (api *OrderBookAPI) NewOrderBookData(ctx context.Context) (*rpc.Subscriptio
 			select {
 			case <-headers:
 				orderBookData := api.GetDetailedOrderBookData(ctx)
-				notifier.Notify(rpcSub.ID, orderBookData)
+				notifier.Notify(rpcSub.ID, &orderBookData)
 			case <-rpcSub.Err():
 				headersSub.Unsubscribe()
 				return
