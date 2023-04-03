@@ -1,7 +1,6 @@
 package limitorders
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -76,9 +75,9 @@ func (order LimitOrder) getOrderStatus() Lifecycle {
 	return lifecycle[len(lifecycle)-1]
 }
 
-func (order LimitOrder) String() string {
-	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), hex.EncodeToString(order.Signature), order.BlockNumber)
-}
+// func (order LimitOrder) String() string {
+// 	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), hex.EncodeToString(order.Signature), order.BlockNumber)
+// }
 
 type Position struct {
 	OpenNotional         *big.Int `json:"open_notional"`
@@ -233,8 +232,8 @@ func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 	for _, order := range db.OrderMap {
 		if order.PositionType == "long" &&
 			order.Market == market &&
-			order.getOrderStatus().Status == Placed &&
-			order.Price.Cmp(big.NewInt(20e6)) <= 0 { // hardcode amm spread check eligibility for now
+			order.getOrderStatus().Status == Placed { // &&
+			// order.Price.Cmp(big.NewInt(20e6)) <= 0 { // hardcode amm spread check eligibility for now
 			longOrders = append(longOrders, *order)
 		}
 	}

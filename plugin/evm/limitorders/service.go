@@ -6,7 +6,6 @@ package limitorders
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -46,7 +45,7 @@ type OrderForOpenOrders struct {
 	FilledSize string
 	Timestamp  uint64
 	Salt       string
-	Hash       string
+	OrderId    string
 }
 
 func (api *OrderBookAPI) GetDetailedOrderBookData(ctx context.Context) InMemoryDatabase {
@@ -66,7 +65,7 @@ func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*O
 		marketOrders := map[common.Hash]*LimitOrder{}
 		for hash, order := range allOrders {
 			if order.Market == Market(market) {
-				if order.PositionType == "short" || order.Price.Cmp(big.NewInt(20e6)) <= 0 {
+				if order.PositionType == "short" /* || order.Price.Cmp(big.NewInt(20e6)) <= 0 */ {
 					marketOrders[hash] = order
 				}
 			}
@@ -98,7 +97,7 @@ func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string) OpenO
 				Size:       order.BaseAssetQuantity.String(),
 				FilledSize: order.FilledBaseAssetQuantity.String(),
 				Salt:       getOrderFromRawOrder(order.RawOrder).Salt.String(),
-				Hash:       hash.String(),
+				OrderId:    hash.String(),
 			})
 		}
 	}
