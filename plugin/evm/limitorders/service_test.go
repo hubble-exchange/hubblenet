@@ -33,8 +33,7 @@ func TestAggregatedOrderBook(t *testing.T) {
 		ctx := context.TODO()
 		response := service.GetAggregatedOrderBookState(ctx, int(AvaxPerp))
 		expectedAggregatedOrderBookState := AggregatedOrderBookState{
-			Market:      AvaxPerp,
-			BlockNumber: big.NewInt(1),
+			Market: AvaxPerp,
 			Longs: map[int64]*big.Int{
 				longOrder1.Price.Int64(): longOrder1.BaseAssetQuantity,
 				longOrder2.Price.Int64(): longOrder2.BaseAssetQuantity,

@@ -137,10 +137,9 @@ func aggregatedOrderBookState(db LimitOrderDatabase, market Market) *AggregatedO
 	longOrders := db.GetLongOrders(market)
 	shortOrders := db.GetShortOrders(market)
 	return &AggregatedOrderBookState{
-		Market:      market,
-		BlockNumber: big.NewInt(1),
-		Longs:       aggregateOrdersByPrice(longOrders),
-		Shorts:      aggregateOrdersByPrice(shortOrders),
+		Market: market,
+		Longs:  aggregateOrdersByPrice(longOrders),
+		Shorts: aggregateOrdersByPrice(shortOrders),
 	}
 }
 
@@ -158,8 +157,7 @@ func aggregateOrdersByPrice(orders []LimitOrder) map[int64]*big.Int {
 }
 
 type AggregatedOrderBookState struct {
-	Market      Market             `json:"market"`
-	BlockNumber *big.Int           `json:"block_number"`
-	Longs       map[int64]*big.Int `json:"longs"`
-	Shorts      map[int64]*big.Int `json:"shorts"`
+	Market Market             `json:"market"`
+	Longs  map[int64]*big.Int `json:"longs"`
+	Shorts map[int64]*big.Int `json:"shorts"`
 }
