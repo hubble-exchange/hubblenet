@@ -4,16 +4,20 @@ import (
 	"context"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/eth/filters"
+	"github.com/ava-labs/subnet-evm/internal/ethapi"
 	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
+	"github.com/ava-labs/subnet-evm/rpc"
 	"github.com/ava-labs/subnet-evm/utils"
 
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -159,4 +163,33 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 	block := event.Block
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
 	lop.memoryDb.Accept(block.NumberU64())
+}
+
+func (lop *limitOrderProcesser) getOraclePrice() error {
+	from := common.HexToAddress("0x36E24b66Cb2a474D20B33eb9EA49c3c39f1b3A90")
+	nonce := hexutil.Uint64(0)
+	maxFeePerGas := big.NewInt(70000000000)
+	data, err := lop.limitOrderTxProcessor.GetOrderBookABI().Pack("getOraclePrice")
+	if err != nil {
+		log.Error("abi.Pack failed", "method", "getOraclePrice", "err", err)
+		return err
+	}
+	to := common.HexToAddress("0x0300000000000000000000000000000000000069")
+	args := ethapi.TransactionArgs{
+		From:         &from,
+		To:           &to,
+		GasPrice:     nil,
+		MaxFeePerGas: (*hexutil.Big)(maxFeePerGas),
+		Nonce:        &nonce,
+		Input:        (*hexutil.Bytes)(&data),
+		ChainID:      (*hexutil.Big)(big.NewInt(321123)),
+	}
+	blockNumber := rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(lop.backend.LastAcceptedBlock().Number().Int64()))
+	res, err := ethapi.DoCall(context.Background(), lop.backend, args, blockNumber, nil, time.Minute, 5000000)
+	if err != nil {
+		log.Error("ethapi.DoCall failed", "err", err)
+		return err
+	}
+	log.Info("ethapi.DoCall", "res", res)
+	return nil
 }

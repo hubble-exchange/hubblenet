@@ -34,6 +34,7 @@ type LimitOrderTxProcessor interface {
 	CheckIfOrderBookContractCall(tx *types.Transaction) bool
 	ExecuteFundingPaymentTx() error
 	ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error
+	GetOrderBookABI() abi.ABI
 }
 
 type limitOrderTxProcessor struct {
@@ -119,6 +120,11 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 	signatures[1] = matchedOrder.Signature
 
 	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "executeMatchedOrders", orders, signatures, fillAmount)
+}
+
+// return orderbookABI
+func (lotp *limitOrderTxProcessor) GetOrderBookABI() abi.ABI {
+	return lotp.orderBookABI
 }
 
 func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contractABI abi.ABI, method string, args ...interface{}) error {
