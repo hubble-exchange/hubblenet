@@ -68,7 +68,6 @@ describe('Submit transaction and compare with EVM state', function () {
         await tx.wait();
 
         const evmState = await getEVMState()
-        console.log(JSON.stringify(evmState, null, 2));
         expect(evmState.trader_map[aliceAddress].margins["0"], 40000000)
         expect(evmState.trader_map[bobAddress].margins["0"], 40000000)
     });
@@ -78,7 +77,6 @@ describe('Submit transaction and compare with EVM state', function () {
         await tx.wait();
 
         const evmState = await getEVMState()
-        console.log(JSON.stringify(evmState, null, 2));
         expect(evmState.trader_map[aliceAddress].margins["0"], 30000000)
         expect(evmState.trader_map[bobAddress].margins["0"], 40000000)
     });
@@ -87,7 +85,6 @@ describe('Submit transaction and compare with EVM state', function () {
         const { hash, order } = await placeOrder(alice, 5, 10)
 
         const evmState = await getEVMState()
-        console.log(JSON.stringify(evmState, null, 2));
         const evmOrder = evmState.order_map[hash]
 
         expectedOrder = {
@@ -97,20 +94,15 @@ describe('Submit transaction and compare with EVM state', function () {
             "base_asset_quantity": 5000000000000000000,
             "filled_base_asset_quantity": 0,
             "price": 10000000,
-            "lifecycle_list": [
-                {
-                    "Status": 0
-                }
-            ],
         }
         expect(evmOrder).to.deep.include(expectedOrder)
+        expect(evmOrder.lifecycle_list[0].Status).to.eq(0)
     });
 
     it('Match order', async function () {
         await placeOrder(bob, -5, 10)
 
         const evmState = await getEVMState()
-        console.log(JSON.stringify(evmState, null, 2));
 
         const expectedAlice = {
             "positions": {
@@ -144,30 +136,22 @@ describe('Submit transaction and compare with EVM state', function () {
         expect(evmState.trader_map[aliceAddress]).to.deep.include(expectedAlice)
         expect(evmState.trader_map[bobAddress]).to.deep.include(expectedBob)
 
-        expect(evmState.last_price).to.eq(10 * 1e6)
+        expect(evmState.last_price["0"]).to.eq(10 * 1e6)
     });
 
     it('Partially match order', async function () {
-        await placeOrder(alice, 5, 10)
-        await placeOrder(bob, -2, 10)
+        const {hash: longHash} = await placeOrder(alice, 5, 10)
+        const {hash: shortHash} = await placeOrder(bob, -2, 10)
 
         const evmState = await getEVMState()
-        console.log(JSON.stringify(evmState, null, 2));
 
-        const expectOrderMap = {
-            "0x615661dec275152456315df6e2d7ac7fb031d44851abf2558e366a64b0a4561e": {
+        const expectOrder = {
                 "market": 0,
                 "position_type": "long",
                 "user_address": "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
                 "base_asset_quantity": 5000000000000000000,
                 "filled_base_asset_quantity": 2000000000000000000,
                 "price": 10000000,
-                "lifecycle_list": [
-                    {
-                        "Status": 0
-                    }
-                ],
-            }
         }
 
         const expectAlice = {
@@ -199,7 +183,8 @@ describe('Submit transaction and compare with EVM state', function () {
             }
         }
 
-        expect(evmState.order_map).to.deep.include(expectOrderMap) // 1 partially filled open order left
+        expect(evmState.order_map[longHash]).to.deep.include(expectOrder) // 1 partially filled open order left
+        expect(evmState.order_map[shortHash]).to.eq(undefined)
         expect(evmState.trader_map[aliceAddress]).to.deep.eq(expectAlice)
         expect(evmState.trader_map[bobAddress]).to.deep.eq(expectedBob)
     });
@@ -211,48 +196,54 @@ describe('Submit transaction and compare with EVM state', function () {
         await tx.wait()
 
         const evmState = await getEVMState()
-        console.log(JSON.stringify(evmState, null, 2));
 
         expect(evmState.order_map[hash]).to.eq(undefined)
-
-        // expect(Object.keys(evmState.order_map).length).to.eq(1) // 1 partially filled open order left
     });
 
     it('Order match error', async function () {
-        await placeOrder(charlie, 50, 12)
-        await placeOrder(bob, 10, 12)
+        const {hash} = await placeOrder(charlie, 50, 12)
+        await placeOrder(bob, -10, 12)
 
         const evmState = await getEVMState()
-        console.log(JSON.stringify(evmState, null, 2));
+        expect(evmState.order_map[hash]).to.eq(undefined) // should be deleted
     });
 
-    it.skip('Liquidate trader', async function () {
+    it('Liquidate trader', async function () {
         await addMargin(charlie, _1e6.mul(100))
         await addMargin(alice, _1e6.mul(200))
         await addMargin(bob, _1e6.mul(200))
 
-        await sleep(5)
-
-        aliceMargin = await marginAccount.connect(alice).margin(0, alice.address)
-        console.log({ aliceMargin: aliceMargin.toString() });
-        bobMargin = await marginAccount.connect(bob).margin(0, bob.address)
-        console.log({ bobMargin: bobMargin.toString() });
-        charlieMargin = await marginAccount.connect(charlie).margin(0, charlie.address)
-        console.log({ charlieMargin: charlieMargin.toString() });
+        await sleep(3)
 
         // large position by charlie
-        await placeOrder(charlie, 48, 10)
-        await placeOrder(bob, -48, 10)
+        await placeOrder(charlie, 49, 10)
+        await placeOrder(bob, -49, 10)
 
         // reduce the price
         await placeOrder(alice, 10, 8)
         await placeOrder(bob, -10, 8)
 
         // long order so that liquidation can run
-        await placeOrder(alice, 10, 8)
+        const {hash} = await placeOrder(alice, 10, 8)
+
+        const expectedCharlie = {
+            "positions": {
+              "0": {
+                "open_notional": 360000000, // 49 - 10 - 3(from a previous order)
+                "size": 36000000000000000000,
+                "unrealised_funding": null,
+                "last_premium_fraction": 0,
+                "liquidation_threshold": 36000000000000000000
+              }
+            },
+            "margins": {
+              "0": 68555000
+            }
+          }
 
         const evmState = await getEVMState()
-        console.log(JSON.stringify(evmState, null, 2));
+        expect(evmState.trader_map[charlieAddress]).to.deep.include(expectedCharlie)
+        expect(evmState.order_map[hash]).to.eq(undefined) // should be completely fulfilled
     });
 });
 
@@ -290,10 +281,6 @@ async function getEVMState() {
     });
 
     return response.data.result
-}
-
-function bnToFloat(num, decimals = 6) {
-    return parseFloat(ethers.utils.formatUnits(num.toString(), decimals))
 }
 
 function sleep(s) {

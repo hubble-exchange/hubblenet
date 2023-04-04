@@ -153,6 +153,7 @@ func (db *InMemoryDatabase) SetOrderStatus(orderId common.Hash, status Status, b
 		return errors.New(fmt.Sprintf("Invalid orderId %s", orderId.Hex()))
 	}
 	db.OrderMap[orderId].LifecycleList = append(db.OrderMap[orderId].LifecycleList, Lifecycle{blockNumber, status})
+	log.Info("SetOrderStatus", "orderId", orderId.String(), "status", status, "updated state", db.OrderMap[orderId].LifecycleList)
 	return nil
 }
 
@@ -314,7 +315,9 @@ func (db *InMemoryDatabase) ResetUnrealisedFunding(market Market, trader common.
 }
 
 func (db *InMemoryDatabase) UpdateLastPrice(market Market, lastPrice *big.Int) {
-	db.LastPrice[market] = lastPrice
+	if lastPrice.Sign() == 1 {
+		db.LastPrice[market] = lastPrice
+	}
 }
 
 func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {
