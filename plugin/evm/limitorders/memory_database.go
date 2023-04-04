@@ -315,9 +315,7 @@ func (db *InMemoryDatabase) ResetUnrealisedFunding(market Market, trader common.
 }
 
 func (db *InMemoryDatabase) UpdateLastPrice(market Market, lastPrice *big.Int) {
-	if lastPrice.Sign() == 1 {
-		db.LastPrice[market] = lastPrice
-	}
+	db.LastPrice[market] = lastPrice
 }
 
 func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {
