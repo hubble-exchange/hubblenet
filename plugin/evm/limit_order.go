@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"sync"
 	"time"
@@ -114,6 +115,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case logs := <-logsCh:
+				lop.getOraclePrice()
 				lop.contractEventProcessor.ProcessEvents(logs)
 			case <-lop.shutdownChan:
 				return
@@ -166,15 +168,15 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 }
 
 func (lop *limitOrderProcesser) getOraclePrice() error {
-	from := common.HexToAddress("0x36E24b66Cb2a474D20B33eb9EA49c3c39f1b3A90")
+	from := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 	nonce := hexutil.Uint64(0)
 	maxFeePerGas := big.NewInt(70000000000)
-	data, err := lop.limitOrderTxProcessor.GetOrderBookABI().Pack("getOraclePrice")
+	data, err := lop.limitOrderTxProcessor.GetClearingHouseABI().Pack("getUnderlyingPrice")
 	if err != nil {
-		log.Error("abi.Pack failed", "method", "getOraclePrice", "err", err)
+		log.Error("abi.Pack failed", "method", "getUnderlyingPrice", "err", err)
 		return err
 	}
-	to := common.HexToAddress("0x0300000000000000000000000000000000000069")
+	to := common.HexToAddress("0x0300000000000000000000000000000000000071")
 	args := ethapi.TransactionArgs{
 		From:         &from,
 		To:           &to,
@@ -190,6 +192,7 @@ func (lop *limitOrderProcesser) getOraclePrice() error {
 		log.Error("ethapi.DoCall failed", "err", err)
 		return err
 	}
-	log.Info("ethapi.DoCall", "res", res)
+	log.Info("oracleeee ethapi.DoCall", "res", res)
+	log.Info("oracleeee ethapi.DoCall", "price", hex.EncodeToString(res.ReturnData))
 	return nil
 }

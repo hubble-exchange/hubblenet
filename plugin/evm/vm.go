@@ -25,7 +25,6 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/eth/ethconfig"
-	"github.com/ava-labs/subnet-evm/internal/ethapi"
 	"github.com/ava-labs/subnet-evm/metrics"
 	subnetEVMPrometheus "github.com/ava-labs/subnet-evm/metrics/prometheus"
 	"github.com/ava-labs/subnet-evm/miner"
