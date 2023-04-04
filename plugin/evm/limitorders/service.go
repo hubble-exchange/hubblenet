@@ -9,7 +9,9 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/ava-labs/subnet-evm/rpc"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -104,4 +106,60 @@ func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string) OpenO
 	}
 
 	return OpenOrdersResponse{Orders: traderOrders}
+}
+
+func (api *OrderBookAPI) GetAggregatedOrderBookState(ctx context.Context, market int) *AggregatedOrderBookState {
+	return aggregatedOrderBookState(api.db, Market(market))
+}
+
+func (api *OrderBookAPI) AggregatedOrderBookState(ctx context.Context, market int) (*rpc.Subscription, error) {
+	notifier, _ := rpc.NotifierFromContext(ctx)
+	rpcSub := notifier.CreateSubscription()
+
+	ticker := time.NewTicker(1 * time.Second)
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				notifier.Notify(rpcSub.ID, aggregatedOrderBookState(api.db, Market(market)))
+			case <-notifier.Closed():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
+	return rpcSub, nil
+}
+
+func aggregatedOrderBookState(db LimitOrderDatabase, market Market) *AggregatedOrderBookState {
+	longOrders := db.GetLongOrders(market)
+	shortOrders := db.GetShortOrders(market)
+	return &AggregatedOrderBookState{
+		Market:      market,
+		BlockNumber: big.NewInt(1),
+		Longs:       aggregateOrdersByPrice(longOrders),
+		Shorts:      aggregateOrdersByPrice(shortOrders),
+	}
+}
+
+func aggregateOrdersByPrice(orders []LimitOrder) map[int64]*big.Int {
+	aggregatedOrders := map[int64]*big.Int{}
+	for _, order := range orders {
+		aggregatedBaseAssetQuantity, ok := aggregatedOrders[order.Price.Int64()]
+		if ok {
+			aggregatedBaseAssetQuantity.Add(aggregatedBaseAssetQuantity, order.BaseAssetQuantity)
+		} else {
+			aggregatedOrders[order.Price.Int64()] = big.NewInt(0).Set(order.BaseAssetQuantity)
+		}
+	}
+	return aggregatedOrders
+}
+
+type AggregatedOrderBookState struct {
+	Market      Market             `json:"market"`
+	BlockNumber *big.Int           `json:"block_number"`
+	Longs       map[int64]*big.Int `json:"longs"`
+	Shorts      map[int64]*big.Int `json:"shorts"`
 }
