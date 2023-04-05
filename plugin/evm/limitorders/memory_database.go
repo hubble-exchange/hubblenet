@@ -17,7 +17,7 @@ import (
 var _1e18 = big.NewInt(1e18)
 var _1e6 = big.NewInt(1e6)
 
-var maxLiquidationRatio *big.Int = big.NewInt(25 * 10e4)
+var maxLiquidationRatio *big.Int = big.NewInt(25 * 1e4) // 25%
 var minSizeRequirement *big.Int = big.NewInt(0).Mul(big.NewInt(5), _1e18)
 
 type Market int

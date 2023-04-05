@@ -161,7 +161,7 @@ describe('Submit transaction and compare with EVM state', function () {
                     "size": 7000000000000000000,
                     "unrealised_funding": null,
                     "last_premium_fraction": 0,
-                    "liquidation_threshold": 7000000000000000000
+                    "liquidation_threshold": 5000000000000000000
                 }
             },
             "margins": {
@@ -175,7 +175,7 @@ describe('Submit transaction and compare with EVM state', function () {
                     "size": -7000000000000000000,
                     "unrealised_funding": null,
                     "last_premium_fraction": 0,
-                    "liquidation_threshold": -7000000000000000000
+                    "liquidation_threshold": -5000000000000000000
                 }
             },
             "margins": {
@@ -201,11 +201,21 @@ describe('Submit transaction and compare with EVM state', function () {
     });
 
     it('Order match error', async function () {
-        const {hash} = await placeOrder(charlie, 50, 12)
-        await placeOrder(bob, -10, 12)
+        const {hash: charlieHash} = await placeOrder(charlie, 50, 12)
+        const {hash: bobHash} = await placeOrder(bob, -10, 12)
 
+        const expectedBobOrder = {
+            "market": 0,
+            "position_type": "short",
+            "user_address": "0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4",
+            "base_asset_quantity": -10000000000000000000,
+            "filled_base_asset_quantity": 0,
+            "price": 12000000,
+          }
         const evmState = await getEVMState()
-        expect(evmState.order_map[hash]).to.eq(undefined) // should be deleted
+        expect(evmState.order_map[charlieHash]).to.eq(undefined) // should be deleted
+        expect(evmState.order_map[bobHash]).to.deep.contain(expectedBobOrder) // should be deleted
+        expect(evmState.order_map[bobHash].lifecycle_list[0].Status).to.eq(0)
     });
 
     it('Liquidate trader', async function () {
@@ -216,15 +226,16 @@ describe('Submit transaction and compare with EVM state', function () {
         await sleep(3)
 
         // large position by charlie
-        await placeOrder(charlie, 49, 10)
-        await placeOrder(bob, -49, 10)
+        const {hash: charlieHash} = await placeOrder(charlie, 49, 10) // 46 + 3 is fulfilled
+        const {hash: bobHash1} = await placeOrder(bob, -49, 10) // 46 + 3
 
+        evmState = await getEVMState()
         // reduce the price
-        await placeOrder(alice, 10, 8)
-        await placeOrder(bob, -10, 8)
+        const {hash: aliceHash} =  await placeOrder(alice, 10, 8) // 7 matched; 3 used for liquidation
+        const {hash: bobHash2} = await placeOrder(bob, -10, 8) // 3 + 7
 
         // long order so that liquidation can run
-        const {hash} = await placeOrder(alice, 10, 8)
+        const {hash} = await placeOrder(alice, 10, 8) // 10 used for liquidation
 
         const expectedCharlie = {
             "positions": {
@@ -233,7 +244,7 @@ describe('Submit transaction and compare with EVM state', function () {
                 "size": 36000000000000000000,
                 "unrealised_funding": null,
                 "last_premium_fraction": 0,
-                "liquidation_threshold": 36000000000000000000
+                "liquidation_threshold": 12250000000000000000 // 49/4
               }
             },
             "margins": {
@@ -241,9 +252,13 @@ describe('Submit transaction and compare with EVM state', function () {
             }
           }
 
-        const evmState = await getEVMState()
+        evmState = await getEVMState()
         expect(evmState.trader_map[charlieAddress]).to.deep.include(expectedCharlie)
         expect(evmState.order_map[hash]).to.eq(undefined) // should be completely fulfilled
+        expect(evmState.order_map[charlieHash]).to.eq(undefined)
+        expect(evmState.order_map[bobHash1]).to.eq(undefined)
+        expect(evmState.order_map[bobHash2]).to.eq(undefined)
+        expect(evmState.order_map[aliceHash]).to.eq(undefined)
     });
 });
 
