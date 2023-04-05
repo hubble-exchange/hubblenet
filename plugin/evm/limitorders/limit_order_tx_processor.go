@@ -57,6 +57,7 @@ type Order struct {
 	BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
 	Price             *big.Int       `json:"price"`
 	Salt              *big.Int       `json:"salt"`
+	Expiry            *big.Int       `json:"expiry"`
 }
 
 func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend) LimitOrderTxProcessor {

@@ -62,6 +62,12 @@ var orderBookAbi = []byte(`{"abi": [
       {
         "indexed": false,
         "internalType": "uint256",
+        "name": "price",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
         "name": "openInterestNotional",
         "type": "uint256"
       },
@@ -154,6 +160,11 @@ var orderBookAbi = []byte(`{"abi": [
             "internalType": "uint256",
             "name": "salt",
             "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expiry",
+            "type": "uint256"
           }
         ],
         "indexed": false,
@@ -242,6 +253,11 @@ var orderBookAbi = []byte(`{"abi": [
             "internalType": "uint256",
             "name": "salt",
             "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expiry",
+            "type": "uint256"
           }
         ],
         "internalType": "struct IOrderBook.Order[2]",
@@ -309,6 +325,11 @@ var orderBookAbi = []byte(`{"abi": [
           {
             "internalType": "uint256",
             "name": "salt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expiry",
             "type": "uint256"
           }
         ],

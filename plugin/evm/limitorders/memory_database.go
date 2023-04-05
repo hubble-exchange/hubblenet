@@ -61,6 +61,7 @@ type LimitOrder struct {
 	FilledBaseAssetQuantity *big.Int    `json:"filled_base_asset_quantity"`
 	Salt                    *big.Int    `json:"salt"`
 	Price                   *big.Int    `json:"price"`
+	Expiry                  *big.Int    `json:"expiry"`
 	LifecycleList           []Lifecycle `json:"lifecycle_list"`
 	Signature               []byte      `json:"signature"`
 	BlockNumber             *big.Int    `json:"block_number"` // block number order was placed on
@@ -77,7 +78,7 @@ func (order LimitOrder) getOrderStatus() Lifecycle {
 }
 
 func (order LimitOrder) String() string {
-	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), hex.EncodeToString(order.Signature), order.BlockNumber)
+	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, Expiry: %v, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.Expiry, hex.EncodeToString(order.Signature), order.BlockNumber)
 }
 
 type Position struct {
@@ -98,8 +99,7 @@ type LimitOrderDatabase interface {
 	Add(orderId common.Hash, order *LimitOrder)
 	Delete(orderId common.Hash)
 	UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, blockNumber uint64)
-	GetLongOrders(market Market) []LimitOrder
-	GetShortOrders(market Market) []LimitOrder
+	GetFulfillableOrders(market Market, lastBlockTime uint64) (longOrders []LimitOrder, shortOrders []LimitOrder)
 	UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool)
 	UpdateMargin(trader common.Address, collateral Collateral, addAmount *big.Int)
 	UpdateUnrealisedFunding(market Market, cumulativePremiumFraction *big.Int)
@@ -228,31 +228,37 @@ func (db *InMemoryDatabase) UpdateNextFundingTime(nextFundingTime uint64) {
 	db.NextFundingTime = nextFundingTime
 }
 
-func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
+func (db *InMemoryDatabase) GetFulfillableOrders(market Market, lastBlockTime uint64) ([]LimitOrder, []LimitOrder) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	var longOrders []LimitOrder
-	for _, order := range db.OrderMap {
+	var shortOrders []LimitOrder
+	for orderId, order := range db.OrderMap {
+		if order.Expiry.Uint64() <= lastBlockTime {
+			deleteOrder(db, orderId)
+			continue
+		}
+
 		if order.PositionType == "long" &&
 			order.Market == market &&
 			order.getOrderStatus().Status == Placed { // &&
 			// order.Price.Cmp(big.NewInt(20e6)) <= 0 { // hardcode amm spread check eligibility for now
 			longOrders = append(longOrders, *order)
 		}
-	}
-	sortLongOrders(longOrders)
-	return longOrders
-}
 
-func (db *InMemoryDatabase) GetShortOrders(market Market) []LimitOrder {
-	var shortOrders []LimitOrder
-	for _, order := range db.OrderMap {
 		if order.PositionType == "short" &&
 			order.Market == market &&
-			order.getOrderStatus().Status == Placed {
+			order.getOrderStatus().Status == Placed &&
+			order.Price.Cmp(big.NewInt(20e6)) <= 0 { // hardcode amm spread check eligibility for now{
 			shortOrders = append(shortOrders, *order)
 		}
 	}
+
+	sortLongOrders(longOrders)
 	sortShortOrders(shortOrders)
-	return shortOrders
+
+	return longOrders, shortOrders
 }
 
 func (db *InMemoryDatabase) UpdateMargin(trader common.Address, collateral Collateral, addAmount *big.Int) {

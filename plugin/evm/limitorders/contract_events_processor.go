@@ -123,6 +123,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 				BaseAssetQuantity:       order.BaseAssetQuantity,
 				FilledBaseAssetQuantity: big.NewInt(0),
 				Price:                   order.Price,
+				Expiry:                  order.Expiry,
 				RawOrder:                args["order"],
 				Signature:               args["signature"].([]byte),
 				Salt:                    order.Salt,
