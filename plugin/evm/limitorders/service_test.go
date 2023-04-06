@@ -5,13 +5,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestAggregatedOrderBook(t *testing.T) {
 	t.Run("it aggregates long and short orders by price and returns aggregated data in json format with blockNumber", func(t *testing.T) {
 		db := NewInMemoryDatabase()
-		service := NewOrderBookAPI(db)
+		service := NewOrderBookAPI(db, &eth.EthAPIBackend{})
 
 		longOrder1 := getLongOrder()
 		db.Add(getIdFromLimitOrder(longOrder1), &longOrder1)
@@ -34,13 +35,13 @@ func TestAggregatedOrderBook(t *testing.T) {
 		response := service.GetAggregatedOrderBookState(ctx, int(AvaxPerp))
 		expectedAggregatedOrderBookState := AggregatedOrderBookState{
 			Market: AvaxPerp,
-			Longs: map[int64]*big.Int{
-				longOrder1.Price.Int64(): longOrder1.BaseAssetQuantity,
-				longOrder2.Price.Int64(): longOrder2.BaseAssetQuantity,
+			Longs: map[string]string{
+				longOrder1.Price.String(): longOrder1.BaseAssetQuantity.String(),
+				longOrder2.Price.String(): longOrder2.BaseAssetQuantity.String(),
 			},
-			Shorts: map[int64]*big.Int{
-				shortOrder1.Price.Int64(): shortOrder1.BaseAssetQuantity,
-				shortOrder2.Price.Int64(): shortOrder2.BaseAssetQuantity,
+			Shorts: map[string]string{
+				shortOrder1.Price.String(): shortOrder1.BaseAssetQuantity.String(),
+				shortOrder2.Price.String(): shortOrder2.BaseAssetQuantity.String(),
 			},
 		}
 		assert.Equal(t, expectedAggregatedOrderBookState, *response)
