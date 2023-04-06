@@ -3,17 +3,22 @@ package limitorders
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
 	"os"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
+	"github.com/ava-labs/subnet-evm/internal/ethapi"
+	"github.com/ava-labs/subnet-evm/rpc"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -22,19 +27,13 @@ var OrderBookContractAddress = common.HexToAddress("0x03000000000000000000000000
 var MarginAccountContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000070")
 var ClearingHouseContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000071")
 
-// func SetContractFilesLocation(orderBook string, marginAccount string, clearingHouse string) {
-// 	orderBookContractFileLocation = orderBook
-// 	marginAccountContractFileLocation = marginAccount
-// 	clearingHouseContractFileLocation = clearingHouse
-// }
-
 type LimitOrderTxProcessor interface {
 	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount *big.Int) error
 	PurgeLocalTx()
 	CheckIfOrderBookContractCall(tx *types.Transaction) bool
 	ExecuteFundingPaymentTx() error
 	ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error
-	GetClearingHouseABI() abi.ABI
+	GetUnderlyingPrice(market Market) (*big.Int, error)
 }
 
 type limitOrderTxProcessor struct {
@@ -122,11 +121,6 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "executeMatchedOrders", orders, signatures, fillAmount)
 }
 
-// return orderbookABI
-func (lotp *limitOrderTxProcessor) GetClearingHouseABI() abi.ABI {
-	return lotp.clearingHouseABI
-}
-
 func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contractABI abi.ABI, method string, args ...interface{}) error {
 	nonce := lotp.txPool.GetOrderBookTxNonce(common.HexToAddress(lotp.validatorAddress.Hex())) // admin address
 
@@ -169,6 +163,34 @@ func (lotp *limitOrderTxProcessor) PurgeLocalTx() {
 		}
 	}
 	lotp.txPool.PurgeOrderBookTxs()
+}
+
+func (lotp *limitOrderTxProcessor) GetUnderlyingPrice(market Market) (*big.Int, error) {
+	from := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+	nonce := hexutil.Uint64(0)
+	maxFeePerGas := big.NewInt(70000000000)
+	data, err := lotp.clearingHouseABI.Pack("getUnderlyingPrice")
+	if err != nil {
+		log.Error("abi.Pack failed", "method", "getUnderlyingPrice", "err", err)
+		return nil, err
+	}
+	args := ethapi.TransactionArgs{
+		From:         &from,
+		To:           &lotp.clearingHouseContractAddress,
+		GasPrice:     nil,
+		MaxFeePerGas: (*hexutil.Big)(maxFeePerGas),
+		Nonce:        &nonce,
+		Input:        (*hexutil.Bytes)(&data),
+		ChainID:      (*hexutil.Big)(big.NewInt(321123)),
+	}
+	blockNumber := rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(lotp.backend.LastAcceptedBlock().Number().Int64()))
+	res, err := ethapi.DoCall(context.Background(), lotp.backend, args, blockNumber, nil, time.Minute, 5000000)
+	if err != nil {
+		log.Error("ethapi.DoCall failed", "err", err)
+		return nil, err
+	}
+	log.Info("oracleeee ethapi.DoCall", "price", hex.EncodeToString(res.ReturnData))
+	return new(big.Int).SetBytes(res.ReturnData), nil
 }
 
 func (lotp *limitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transaction) bool {

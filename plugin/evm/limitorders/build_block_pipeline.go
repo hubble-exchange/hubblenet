@@ -37,9 +37,40 @@ func (pipeline *BuildBlockPipeline) Run(lastBlockTime uint64) {
 
 func (pipeline *BuildBlockPipeline) runLiquidationsAndMatchingForMarket(market Market) {
 	log.Info("BuildBlockPipeline - runLiquidationsAndMatchingForMarket")
-	longOrders := pipeline.db.GetLongOrders(market)
-	shortOrders := pipeline.db.GetShortOrders(market)
+
+	// 1. Filter orders to avoid AMM_price_increase_not_allowed or AMM_price_decrease_not_allowed
+	underlyingPrice, err := pipeline.lotp.GetUnderlyingPrice(market)
+	if err != nil {
+		//
+	}
+
+	// 2. Get long orders
+	longCutOffPrice := big.NewInt(0).Div(
+		big.NewInt(0).Mul(
+			underlyingPrice,
+			big.NewInt(0).Add(_1e6, spreadRatioThreshold),
+		),
+		_1e6,
+	)
+	longOrders := pipeline.db.GetLongOrders(market, longCutOffPrice)
+
+	// 3. Get short orders
+	shortCutOffPrice := big.NewInt(0)
+	if _1e6.Cmp(spreadRatioThreshold) > 0 {
+		shortCutOffPrice = big.NewInt(0).Div(
+			big.NewInt(0).Mul(
+				underlyingPrice,
+				big.NewInt(0).Sub(_1e6, spreadRatioThreshold),
+			),
+			_1e6,
+		)
+	}
+	shortOrders := pipeline.db.GetShortOrders(market, shortCutOffPrice)
+
+	// 4. Run liquidations
 	modifiedLongOrders, modifiedShortOrders := pipeline.runLiquidations(market, longOrders, shortOrders)
+
+	// 5. Run matching engine
 	runMatchingEngine(pipeline.lotp, modifiedLongOrders, modifiedShortOrders)
 }
 
