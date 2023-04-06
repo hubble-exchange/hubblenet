@@ -143,21 +143,22 @@ func aggregatedOrderBookState(db LimitOrderDatabase, market Market) *AggregatedO
 	}
 }
 
-func aggregateOrdersByPrice(orders []LimitOrder) map[int64]*big.Int {
-	aggregatedOrders := map[int64]*big.Int{}
+func aggregateOrdersByPrice(orders []LimitOrder) map[string]string {
+	aggregatedOrders := map[string]string{}
 	for _, order := range orders {
-		aggregatedBaseAssetQuantity, ok := aggregatedOrders[order.Price.Int64()]
+		aggregatedBaseAssetQuantity, ok := aggregatedOrders[order.Price.String()]
 		if ok {
-			aggregatedBaseAssetQuantity.Add(aggregatedBaseAssetQuantity, order.BaseAssetQuantity)
+			quantity, _ := big.NewInt(0).SetString(aggregatedBaseAssetQuantity, 10)
+			quantity.Add(quantity, order.BaseAssetQuantity)
 		} else {
-			aggregatedOrders[order.Price.Int64()] = big.NewInt(0).Set(order.BaseAssetQuantity)
+			aggregatedOrders[order.Price.String()] = order.BaseAssetQuantity.String()
 		}
 	}
 	return aggregatedOrders
 }
 
 type AggregatedOrderBookState struct {
-	Market Market             `json:"market"`
-	Longs  map[int64]*big.Int `json:"longs"`
-	Shorts map[int64]*big.Int `json:"shorts"`
+	Market Market            `json:"market"`
+	Longs  map[string]string `json:"longs"`
+	Shorts map[string]string `json:"shorts"`
 }
