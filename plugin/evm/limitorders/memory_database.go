@@ -2,10 +2,12 @@ package limitorders
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,8 +55,22 @@ type Lifecycle struct {
 }
 
 type LimitOrder struct {
-	Market Market `json:"market"`
+	Market Market
 	// @todo make this an enum
+	PositionType            string
+	UserAddress             string
+	BaseAssetQuantity       *big.Int
+	FilledBaseAssetQuantity *big.Int
+	Salt                    *big.Int
+	Price                   *big.Int
+	LifecycleList           []Lifecycle
+	Signature               []byte
+	BlockNumber             *big.Int    // block number order was placed on
+	RawOrder                interface{} `json:"-"`
+}
+
+type LimitOrderJson struct {
+	Market                  Market      `json:"market"`
 	PositionType            string      `json:"position_type"`
 	UserAddress             string      `json:"user_address"`
 	BaseAssetQuantity       *big.Int    `json:"base_asset_quantity"`
@@ -62,9 +78,24 @@ type LimitOrder struct {
 	Salt                    *big.Int    `json:"salt"`
 	Price                   *big.Int    `json:"price"`
 	LifecycleList           []Lifecycle `json:"lifecycle_list"`
-	Signature               []byte      `json:"signature"`
+	Signature               string      `json:"signature"`
 	BlockNumber             *big.Int    `json:"block_number"` // block number order was placed on
-	RawOrder                interface{} `json:"-"`
+}
+
+func (order *LimitOrder) MarshalJSON() ([]byte, error) {
+	limitOrderJson := LimitOrderJson{
+		Market:                  order.Market,
+		PositionType:            order.PositionType,
+		UserAddress:             strings.ToLower(order.UserAddress),
+		BaseAssetQuantity:       order.BaseAssetQuantity,
+		FilledBaseAssetQuantity: order.FilledBaseAssetQuantity,
+		Salt:                    order.Salt,
+		Price:                   order.Price,
+		LifecycleList:           order.LifecycleList,
+		Signature:               hex.EncodeToString(order.Signature),
+		BlockNumber:             order.BlockNumber,
+	}
+	return json.Marshal(limitOrderJson)
 }
 
 func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
