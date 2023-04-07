@@ -41,14 +41,9 @@ func (db *MockLimitOrderDatabase) UpdateFilledBaseAssetQuantity(quantity *big.In
 func (db *MockLimitOrderDatabase) Delete(id common.Hash) {
 }
 
-func (db *MockLimitOrderDatabase) GetLongOrders(market Market) []LimitOrder {
+func (db *MockLimitOrderDatabase) GetFulfillableOrders(market Market, lastBlockTime uint64) (longOrders []LimitOrder, shortOrders []LimitOrder) {
 	args := db.Called()
-	return args.Get(0).([]LimitOrder)
-}
-
-func (db *MockLimitOrderDatabase) GetShortOrders(market Market) []LimitOrder {
-	args := db.Called()
-	return args.Get(0).([]LimitOrder)
+	return args.Get(0).([]LimitOrder), args.Get(1).([]LimitOrder)
 }
 
 func (db *MockLimitOrderDatabase) UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool) {
