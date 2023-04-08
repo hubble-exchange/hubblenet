@@ -265,8 +265,8 @@ func (db *InMemoryDatabase) GetLongOrders(market Market) []LimitOrder {
 	for _, order := range db.OrderMap {
 		if order.PositionType == "long" &&
 			order.Market == market &&
-			order.getOrderStatus().Status == Placed &&
-			order.Price.Cmp(big.NewInt(20e6)) <= 0 { // hardcode amm spread check eligibility for now
+			order.getOrderStatus().Status == Placed { // &&
+			// order.Price.Cmp(big.NewInt(20e6)) <= 0 { // hardcode amm spread check eligibility for now
 			longOrders = append(longOrders, *order)
 		}
 	}

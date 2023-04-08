@@ -11,6 +11,7 @@ import (
 
 var maintenanceMargin = big.NewInt(1e5)
 var spreadRatioThreshold = big.NewInt(1e6)
+
 var BASE_PRECISION = big.NewInt(1e6)
 var SIZE_BASE_PRECISION = big.NewInt(1e18)
 
@@ -31,7 +32,7 @@ func GetLiquidableTraders(traderMap map[common.Address]Trader, market Market, la
 	markPrice := lastPrice
 
 	overSpreadLimit := isOverSpreadLimit(markPrice, oraclePrice)
-	log.Info("GetLiquidableTraders:", "overSpreadLimit", overSpreadLimit)
+	log.Info("GetLiquidableTraders:", "markPrice", markPrice, "oraclePrice", oraclePrice, "overSpreadLimit", overSpreadLimit)
 
 	for addr, trader := range traderMap {
 		position := trader.Positions[market]
@@ -127,6 +128,7 @@ func getUnrealisedPnl(price *big.Int, position *Position, notionalPosition *big.
 func getMarginFraction(margin *big.Int, price *big.Int, position *Position) *big.Int {
 	notionalPosition := getNotionalPosition(price, position.Size)
 	unrealisedPnl := getUnrealisedPnl(price, position, notionalPosition)
+	log.Info("getMarginFraction:", "notionalPosition", notionalPosition, "unrealisedPnl", unrealisedPnl)
 	effectionMargin := big.NewInt(0).Add(margin, unrealisedPnl)
 	mf := big.NewInt(0).Div(multiplyBasePrecision(effectionMargin), notionalPosition)
 	if mf.Sign() == -1 {
