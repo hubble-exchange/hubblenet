@@ -32,8 +32,8 @@ func TestAggregatedOrderBook(t *testing.T) {
 		db.Add(getIdFromLimitOrder(shortOrder2), &shortOrder2)
 
 		ctx := context.TODO()
-		response := service.GetAggregatedOrderBookState(ctx, int(AvaxPerp))
-		expectedAggregatedOrderBookState := AggregatedOrderBookState{
+		response := service.GetDepthForMarket(ctx, int(AvaxPerp))
+		expectedAggregatedOrderBookState := MarketDepth{
 			Market: AvaxPerp,
 			Longs: map[string]string{
 				longOrder1.Price.String(): longOrder1.BaseAssetQuantity.String(),
@@ -45,5 +45,39 @@ func TestAggregatedOrderBook(t *testing.T) {
 			},
 		}
 		assert.Equal(t, expectedAggregatedOrderBookState, *response)
+	})
+	t.Run("when event is the first event after subscribe", func(t *testing.T) {
+		t.Run("when orderbook has no orders", func(t *testing.T) {
+		})
+		t.Run("when orderbook has either long or short orders with same price", func(t *testing.T) {
+			t.Run("when order is longOrder", func(t *testing.T) {
+			})
+			t.Run("when order is shortOrder", func(t *testing.T) {
+			})
+			t.Run("when order is one long and one short order", func(t *testing.T) {
+			})
+			t.Run("when orderbook has more than one order of long or short", func(t *testing.T) {
+				t.Run("when orderbook has more than one long orders", func(t *testing.T) {
+				})
+				t.Run("when orderbook has more than one short orders", func(t *testing.T) {
+				})
+				t.Run("when orderbook has more than one long and short orders", func(t *testing.T) {
+				})
+			})
+		})
+		t.Run("when orderbook has orders of same type with different price", func(t *testing.T) {
+			t.Run("when orderbook has long orders of different price", func(t *testing.T) {
+			})
+			t.Run("when orderbook has short orders of different price", func(t *testing.T) {
+			})
+			t.Run("when orderbook has long and short orders of different price", func(t *testing.T) {
+			})
+		})
+	})
+	t.Run("for all events received after first event after subscribe", func(t *testing.T) {
+		t.Run("when there are no changes in orderbook like cancel/matching", func(t *testing.T) {
+		})
+		t.Run("if there are changes in orderbook like cancel/matching", func(t *testing.T) {
+		})
 	})
 }
