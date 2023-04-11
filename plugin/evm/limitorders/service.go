@@ -52,6 +52,7 @@ type OrderForOpenOrders struct {
 	Timestamp  uint64
 	Salt       string
 	OrderId    string
+	ExpireAt   uint64
 }
 
 func (api *OrderBookAPI) GetDetailedOrderBookData(ctx context.Context) InMemoryDatabase {
@@ -104,6 +105,7 @@ func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string) OpenO
 				FilledSize: order.FilledBaseAssetQuantity.String(),
 				Salt:       getOrderFromRawOrder(order.RawOrder).Salt.String(),
 				OrderId:    hash.String(),
+				ExpireAt:   order.Expiry.Uint64(),
 			})
 		}
 	}
