@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
-
-	// "encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
