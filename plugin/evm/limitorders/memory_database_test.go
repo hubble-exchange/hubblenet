@@ -190,17 +190,22 @@ func TestGetFulfillableOrders(t *testing.T) {
 		inMemoryDatabase.Add(orderId, &shortOrder1)
 
 		signature2 := []byte(fmt.Sprintf("Signature short order is %d", 2))
-		longOrder1, longOrderId := createLimitOrder("long", userAddress, big.NewInt(10), price1, status, signature2, blockNumber1, big.NewInt(102), time.Second * 5)
+		longOrder1, longOrderId := createLimitOrder("long", userAddress, big.NewInt(10), price1, status, signature2, blockNumber1, big.NewInt(102), time.Second*5)
 		inMemoryDatabase.Add(longOrderId, &longOrder1)
+
+		// make sure that both long and short orders are returned at this point since they are not expired
+		longOrders, shortOrders := inMemoryDatabase.GetFulfillableOrders(AvaxPerp, uint64(time.Now().Unix()))
+		assert.Equal(t, len(longOrders), 1)
+		assert.Equal(t, len(shortOrders), 1)
 
 		time.Sleep(time.Second)
 
-		longOrders, shortOrders := inMemoryDatabase.GetFulfillableOrders(AvaxPerp, uint64(time.Now().Unix()))
+		// make sure that only the long order is returned since the short order is expired
+		longOrders, shortOrders = inMemoryDatabase.GetFulfillableOrders(AvaxPerp, uint64(time.Now().Unix()))
 		assert.Equal(t, len(longOrders), 1)
 		assert.Equal(t, len(shortOrders), 0)
 	})
 }
-
 
 func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 	baseAssetQuantity := big.NewInt(-10)

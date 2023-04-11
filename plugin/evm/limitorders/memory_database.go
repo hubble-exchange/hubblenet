@@ -249,8 +249,8 @@ func (db *InMemoryDatabase) GetFulfillableOrders(market Market, lastBlockTime ui
 
 		if order.PositionType == "short" &&
 			order.Market == market &&
-			order.getOrderStatus().Status == Placed &&
-			order.Price.Cmp(big.NewInt(20e6)) <= 0 { // hardcode amm spread check eligibility for now{
+			order.getOrderStatus().Status == Placed { // &&
+			// order.Price.Cmp(big.NewInt(20e6)) <= 0 { // hardcode amm spread check eligibility for now
 			shortOrders = append(shortOrders, *order)
 		}
 	}
