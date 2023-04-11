@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+
+	// "encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -33,7 +35,7 @@ type LimitOrderTxProcessor interface {
 	CheckIfOrderBookContractCall(tx *types.Transaction) bool
 	ExecuteFundingPaymentTx() error
 	ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error
-	GetUnderlyingPrice(market Market) (*big.Int, error)
+	GetUnderlyingPrice() ([]*big.Int, error)
 }
 
 type limitOrderTxProcessor struct {
@@ -165,32 +167,38 @@ func (lotp *limitOrderTxProcessor) PurgeLocalTx() {
 	lotp.txPool.PurgeOrderBookTxs()
 }
 
-func (lotp *limitOrderTxProcessor) GetUnderlyingPrice(market Market) (*big.Int, error) {
-	from := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
-	nonce := hexutil.Uint64(0)
-	maxFeePerGas := big.NewInt(70000000000)
+func (lotp *limitOrderTxProcessor) GetUnderlyingPrice() ([]*big.Int, error) {
 	data, err := lotp.clearingHouseABI.Pack("getUnderlyingPrice")
 	if err != nil {
 		log.Error("abi.Pack failed", "method", "getUnderlyingPrice", "err", err)
 		return nil, err
 	}
 	args := ethapi.TransactionArgs{
-		From:         &from,
-		To:           &lotp.clearingHouseContractAddress,
-		GasPrice:     nil,
-		MaxFeePerGas: (*hexutil.Big)(maxFeePerGas),
-		Nonce:        &nonce,
-		Input:        (*hexutil.Bytes)(&data),
-		ChainID:      (*hexutil.Big)(big.NewInt(321123)),
+		To:      &lotp.clearingHouseContractAddress,
+		Input:   (*hexutil.Bytes)(&data),
+		ChainID: (*hexutil.Big)(lotp.backend.ChainConfig().ChainID),
 	}
 	blockNumber := rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(lotp.backend.LastAcceptedBlock().Number().Int64()))
 	res, err := ethapi.DoCall(context.Background(), lotp.backend, args, blockNumber, nil, time.Minute, 5000000)
 	if err != nil {
-		log.Error("ethapi.DoCall failed", "err", err)
 		return nil, err
 	}
-	log.Info("oracleeee ethapi.DoCall", "price", hex.EncodeToString(res.ReturnData))
-	return new(big.Int).SetBytes(res.ReturnData), nil
+	rawData, err := hexutil.Decode("0x" + hex.EncodeToString(res.ReturnData))
+	if err != nil {
+		return nil, err
+	}
+	uintArray, err := lotp.clearingHouseABI.Unpack("getUnderlyingPrice", rawData)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(uintArray) != 0 {
+		underlyingPrices := uintArray[0].([]*big.Int)
+		if len(underlyingPrices) != 0 {
+			return underlyingPrices, nil
+		}
+	}
+	return nil, fmt.Errorf("Contracts have not yet initialized")
 }
 
 func (lotp *limitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transaction) bool {

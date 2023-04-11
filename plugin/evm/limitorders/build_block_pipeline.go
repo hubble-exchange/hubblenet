@@ -22,27 +22,27 @@ func NewBuildBlockPipeline(db LimitOrderDatabase, lotp LimitOrderTxProcessor) *B
 func (pipeline *BuildBlockPipeline) Run(lastBlockTime uint64) {
 	pipeline.lotp.PurgeLocalTx()
 	if isFundingPaymentTime(lastBlockTime, pipeline.db) {
-		log.Info("BuildBlockPipeline - isFundingPaymentTime")
+		log.Info("BuildBlockPipeline:isFundingPaymentTime")
 		// just execute the funding payment and skip running the matching engine
 		err := executeFundingPayment(pipeline.lotp)
 		if err != nil {
 			log.Error("Funding payment job failed", "err", err)
 		}
 	} else {
-		for _, market := range GetActiveMarkets() {
-			pipeline.runLiquidationsAndMatchingForMarket(market)
+		// fetch the underlying price and run the matching engine
+		underlyingPrices, err := pipeline.lotp.GetUnderlyingPrice()
+		if err != nil {
+			log.Error("could not fetch underlying price", "err", err)
+		} else {
+			for i, market := range GetActiveMarkets() {
+				pipeline.runLiquidationsAndMatchingForMarket(market, underlyingPrices[i])
+			}
 		}
 	}
 }
 
-func (pipeline *BuildBlockPipeline) runLiquidationsAndMatchingForMarket(market Market) {
-	log.Info("BuildBlockPipeline - runLiquidationsAndMatchingForMarket")
-
-	// 1. Filter orders to avoid AMM_price_increase_not_allowed or AMM_price_decrease_not_allowed
-	underlyingPrice, err := pipeline.lotp.GetUnderlyingPrice(market)
-	if err != nil {
-		//
-	}
+func (pipeline *BuildBlockPipeline) runLiquidationsAndMatchingForMarket(market Market, underlyingPrice *big.Int) {
+	log.Info("BuildBlockPipeline:runLiquidationsAndMatchingForMarket", "underlyingPrice", prettifyScaledBigInt(underlyingPrice, 6))
 
 	// 2. Get long orders
 	longCutOffPrice := big.NewInt(0).Div(

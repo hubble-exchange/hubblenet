@@ -135,6 +135,6 @@ func (lotp *MockLimitOrderTxProcessor) HandleMarginAccountEvent(event *types.Log
 func (lotp *MockLimitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log) {
 }
 
-func (lotp *MockLimitOrderTxProcessor) GetUnderlyingPrice(market Market) (*big.Int, error) {
+func (lotp *MockLimitOrderTxProcessor) GetUnderlyingPrice() ([]*big.Int, error) {
 	return nil, nil
 }

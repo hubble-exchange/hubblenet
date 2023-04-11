@@ -968,6 +968,12 @@ var clearingHouseAbi = []byte(`{"abi": [
       },
       {
         "indexed": false,
+        "internalType": "int256",
+        "name": "fee",
+        "type": "int256"
+      },
+      {
+        "indexed": false,
         "internalType": "uint256",
         "name": "timestamp",
         "type": "uint256"
@@ -1020,6 +1026,12 @@ var clearingHouseAbi = []byte(`{"abi": [
         "internalType": "uint256",
         "name": "openNotional",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "int256",
+        "name": "fee",
+        "type": "int256"
       },
       {
         "indexed": false,
@@ -1248,9 +1260,9 @@ var clearingHouseAbi = []byte(`{"abi": [
     "name": "getUnderlyingPrice",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
+        "internalType": "uint256[]",
+        "name": "prices",
+        "type": "uint256[]"
       }
     ],
     "stateMutability": "view",
@@ -1303,6 +1315,11 @@ var clearingHouseAbi = []byte(`{"abi": [
             "internalType": "uint256",
             "name": "salt",
             "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expiry",
+            "type": "uint256"
           }
         ],
         "internalType": "struct IOrderBook.Order",
@@ -1322,9 +1339,9 @@ var clearingHouseAbi = []byte(`{"abi": [
             "type": "uint256"
           },
           {
-            "internalType": "bool",
-            "name": "isMakerOrder",
-            "type": "bool"
+            "internalType": "enum IOrderBook.OrderExecutionMode",
+            "name": "mode",
+            "type": "uint8"
           }
         ],
         "internalType": "struct IOrderBook.MatchInfo",
@@ -1383,9 +1400,9 @@ var clearingHouseAbi = []byte(`{"abi": [
     "name": "makerFee",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "int256",
         "name": "",
-        "type": "uint256"
+        "type": "int256"
       }
     ],
     "stateMutability": "view",
@@ -1432,6 +1449,11 @@ var clearingHouseAbi = []byte(`{"abi": [
             "internalType": "uint256",
             "name": "salt",
             "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expiry",
+            "type": "uint256"
           }
         ],
         "internalType": "struct IOrderBook.Order[2]",
@@ -1451,9 +1473,9 @@ var clearingHouseAbi = []byte(`{"abi": [
             "type": "uint256"
           },
           {
-            "internalType": "bool",
-            "name": "isMakerOrder",
-            "type": "bool"
+            "internalType": "enum IOrderBook.OrderExecutionMode",
+            "name": "mode",
+            "type": "uint8"
           }
         ],
         "internalType": "struct IOrderBook.MatchInfo[2]",
@@ -1488,9 +1510,9 @@ var clearingHouseAbi = []byte(`{"abi": [
     "name": "takerFee",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "int256",
         "name": "",
-        "type": "uint256"
+        "type": "int256"
       }
     ],
     "stateMutability": "view",
