@@ -45,6 +45,7 @@ const (
 	FulFilled
 	Cancelled
 	Execution_Failed
+	Expired
 )
 
 type Lifecycle struct {
@@ -99,7 +100,7 @@ type LimitOrderDatabase interface {
 	Add(orderId common.Hash, order *LimitOrder)
 	Delete(orderId common.Hash)
 	UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, blockNumber uint64)
-	GetFulfillableOrders(market Market, lastBlockTime uint64) (longOrders []LimitOrder, shortOrders []LimitOrder)
+	GetFulfillableOrders(market Market, currentHeadBlockNumber uint64) (longOrders []LimitOrder, shortOrders []LimitOrder)
 	UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool)
 	UpdateMargin(trader common.Address, collateral Collateral, addAmount *big.Int)
 	UpdateUnrealisedFunding(market Market, cumulativePremiumFraction *big.Int)
@@ -149,11 +150,7 @@ func (db *InMemoryDatabase) SetOrderStatus(orderId common.Hash, status Status, b
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	if db.OrderMap[orderId] == nil {
-		return errors.New(fmt.Sprintf("Invalid orderId %s", orderId.Hex()))
-	}
-	db.OrderMap[orderId].LifecycleList = append(db.OrderMap[orderId].LifecycleList, Lifecycle{blockNumber, status})
-	return nil
+	return db.setOrderStatus(orderId, status, blockNumber)
 }
 
 func (db *InMemoryDatabase) RevertLastStatus(orderId common.Hash) error {
@@ -228,15 +225,16 @@ func (db *InMemoryDatabase) UpdateNextFundingTime(nextFundingTime uint64) {
 	db.NextFundingTime = nextFundingTime
 }
 
-func (db *InMemoryDatabase) GetFulfillableOrders(market Market, lastBlockTime uint64) ([]LimitOrder, []LimitOrder) {
+func (db *InMemoryDatabase) GetFulfillableOrders(market Market, currentHeadBlockNumber uint64) ([]LimitOrder, []LimitOrder) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	var longOrders []LimitOrder
 	var shortOrders []LimitOrder
 	for orderId, order := range db.OrderMap {
-		if order.Expiry.Uint64() <= lastBlockTime {
-			deleteOrder(db, orderId)
+		if order.Expiry.Uint64() <= uint64(time.Now().Unix()) {
+			// using + 1 because currentHeadBlockNumber+1 is the block number of the block being produced right now
+			db.setOrderStatus(orderId, Expired, currentHeadBlockNumber+1)
 			continue
 		}
 
@@ -333,6 +331,14 @@ func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 		traderMap[address] = *trader
 	}
 	return traderMap
+}
+
+func (db *InMemoryDatabase) setOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error {
+	if db.OrderMap[orderId] == nil {
+		return errors.New(fmt.Sprintf("Invalid orderId %s", orderId.Hex()))
+	}
+	db.OrderMap[orderId].LifecycleList = append(db.OrderMap[orderId].LifecycleList, Lifecycle{blockNumber, status})
+	return nil
 }
 
 func sortLongOrders(orders []LimitOrder) []LimitOrder {

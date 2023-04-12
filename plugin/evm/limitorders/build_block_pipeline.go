@@ -19,7 +19,7 @@ func NewBuildBlockPipeline(db LimitOrderDatabase, lotp LimitOrderTxProcessor) *B
 	}
 }
 
-func (pipeline *BuildBlockPipeline) Run(lastBlockTime uint64) {
+func (pipeline *BuildBlockPipeline) Run(lastBlockTime uint64, currentHeadBlockNumber uint64) {
 	pipeline.lotp.PurgeLocalTx()
 	if isFundingPaymentTime(lastBlockTime, pipeline.db) {
 		log.Info("BuildBlockPipeline - isFundingPaymentTime")
@@ -30,14 +30,14 @@ func (pipeline *BuildBlockPipeline) Run(lastBlockTime uint64) {
 		}
 	} else {
 		for _, market := range GetActiveMarkets() {
-			pipeline.runLiquidationsAndMatchingForMarket(market, lastBlockTime)
+			pipeline.runLiquidationsAndMatchingForMarket(market, currentHeadBlockNumber)
 		}
 	}
 }
 
-func (pipeline *BuildBlockPipeline) runLiquidationsAndMatchingForMarket(market Market, lastBlockTime uint64) {
+func (pipeline *BuildBlockPipeline) runLiquidationsAndMatchingForMarket(market Market, currentHeadBlockNumber uint64) {
 	log.Info("BuildBlockPipeline - runLiquidationsAndMatchingForMarket")
-	longOrders, shortOrders := pipeline.db.GetFulfillableOrders(market, lastBlockTime)
+	longOrders, shortOrders := pipeline.db.GetFulfillableOrders(market, currentHeadBlockNumber)
 	modifiedLongOrders, modifiedShortOrders := pipeline.runLiquidations(market, longOrders, shortOrders)
 	runMatchingEngine(pipeline.lotp, modifiedLongOrders, modifiedShortOrders)
 }

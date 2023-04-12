@@ -92,7 +92,8 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 }
 
 func (lop *limitOrderProcesser) RunBuildBlockPipeline(lastBlockTime uint64) {
-	lop.buildBlockPipeline.Run(lastBlockTime)
+	currentHeadBlockNumber := lop.backend.CurrentBlock().NumberU64()
+	lop.buildBlockPipeline.Run(lastBlockTime, currentHeadBlockNumber)
 }
 
 func (lop *limitOrderProcesser) GetOrderBookAPI() *limitorders.OrderBookAPI {
