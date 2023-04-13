@@ -995,6 +995,10 @@ func (bc *BlockChain) setPreference(block *types.Block) error {
 	// Send a ChainHeadEvent if we end up altering
 	// the head block. Many internal aysnc processes rely on
 	// receiving these events (i.e. the TxPool).
+	logs := bc.collectLogs(block.Hash(), false)
+	if len(logs) > 0 {
+		bc.hubbleFeed.Send(logs)
+	}
 	bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
 	return nil
 }
