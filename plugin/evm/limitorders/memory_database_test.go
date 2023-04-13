@@ -99,7 +99,7 @@ func TestGetFulfillableOrders(t *testing.T) {
 		longOrder3, orderId := createLimitOrder("long", userAddress, longOrderBaseAssetQuantity, price3, status, signature3, blockNumber3, salt3, time.Minute)
 		inMemoryDatabase.Add(orderId, &longOrder3)
 
-		returnedLongOrders, _ := inMemoryDatabase.GetFulfillableOrders(AvaxPerp, blockNumber3.Uint64())
+		returnedLongOrders, _ := inMemoryDatabase.GetFulfillableOrders(AvaxPerp, uint64(time.Now().Unix()), blockNumber3.Uint64())
 		assert.Equal(t, 3, len(returnedLongOrders))
 
 		//Test returnedLongOrders are sorted by price highest to lowest first and then block number from lowest to highest
@@ -157,7 +157,7 @@ func TestGetFulfillableOrders(t *testing.T) {
 		shortOrder3, orderId := createLimitOrder("short", userAddress, baseAssetQuantity, price3, status, signature3, blockNumber3, salt3, time.Minute)
 		inMemoryDatabase.Add(orderId, &shortOrder3)
 
-		_, returnedShortOrders := inMemoryDatabase.GetFulfillableOrders(AvaxPerp, blockNumber3.Uint64())
+		_, returnedShortOrders := inMemoryDatabase.GetFulfillableOrders(AvaxPerp, uint64(time.Now().Unix()), blockNumber3.Uint64())
 		assert.Equal(t, 3, len(returnedShortOrders))
 
 		for _, returnedOrder := range returnedShortOrders {
@@ -194,14 +194,14 @@ func TestGetFulfillableOrders(t *testing.T) {
 		inMemoryDatabase.Add(longOrderId, &longOrder1)
 
 		// make sure that both long and short orders are returned at this point since they are not expired
-		longOrders, shortOrders := inMemoryDatabase.GetFulfillableOrders(AvaxPerp, blockNumber1.Uint64())
+		longOrders, shortOrders := inMemoryDatabase.GetFulfillableOrders(AvaxPerp, uint64(time.Now().Unix()), blockNumber1.Uint64())
 		assert.Equal(t, len(longOrders), 1)
 		assert.Equal(t, len(shortOrders), 1)
 
 		time.Sleep(time.Second)
 
 		// make sure that only the long order is returned since the short order is expired
-		longOrders, shortOrders = inMemoryDatabase.GetFulfillableOrders(AvaxPerp, blockNumber1.Uint64())
+		longOrders, shortOrders = inMemoryDatabase.GetFulfillableOrders(AvaxPerp, uint64(time.Now().Unix()), blockNumber1.Uint64())
 		assert.Equal(t, len(longOrders), 1)
 		assert.Equal(t, len(shortOrders), 0)
 	})

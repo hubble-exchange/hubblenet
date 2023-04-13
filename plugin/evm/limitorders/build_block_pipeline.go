@@ -30,14 +30,14 @@ func (pipeline *BuildBlockPipeline) Run(lastBlockTime uint64, currentHeadBlockNu
 		}
 	} else {
 		for _, market := range GetActiveMarkets() {
-			pipeline.runLiquidationsAndMatchingForMarket(market, currentHeadBlockNumber)
+			pipeline.runLiquidationsAndMatchingForMarket(market, lastBlockTime, currentHeadBlockNumber)
 		}
 	}
 }
 
-func (pipeline *BuildBlockPipeline) runLiquidationsAndMatchingForMarket(market Market, currentHeadBlockNumber uint64) {
+func (pipeline *BuildBlockPipeline) runLiquidationsAndMatchingForMarket(market Market, lastBlockTime uint64, currentHeadBlockNumber uint64) {
 	log.Info("BuildBlockPipeline - runLiquidationsAndMatchingForMarket")
-	longOrders, shortOrders := pipeline.db.GetFulfillableOrders(market, currentHeadBlockNumber)
+	longOrders, shortOrders := pipeline.db.GetFulfillableOrders(market, lastBlockTime, currentHeadBlockNumber)
 	modifiedLongOrders, modifiedShortOrders := pipeline.runLiquidations(market, longOrders, shortOrders)
 	runMatchingEngine(pipeline.lotp, modifiedLongOrders, modifiedShortOrders)
 }
