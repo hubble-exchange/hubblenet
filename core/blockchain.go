@@ -995,11 +995,16 @@ func (bc *BlockChain) setPreference(block *types.Block) error {
 	// Send a ChainHeadEvent if we end up altering
 	// the head block. Many internal aysnc processes rely on
 	// receiving these events (i.e. the TxPool).
+	bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
+
+	// when a reorg is triggered, rebirth logs for the new head are not emitted
+	// this can be confirmed in blockchain .reorg, where the loop for collecting rebirth logs is written as:
+	// for i := len(newChain) - 1; i >= 1; i-- {
+	// hence we emit them here
 	logs := bc.collectLogs(block.Hash(), false)
 	if len(logs) > 0 {
 		bc.hubbleFeed.Send(logs)
 	}
-	bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
 	return nil
 }
 
