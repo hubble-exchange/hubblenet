@@ -113,11 +113,11 @@ func getMarginForTrader(trader Trader, market Market) *big.Int {
 }
 
 func getNotionalPosition(price *big.Int, size *big.Int) *big.Int {
-	//notional position is base precision 1e6
-	return big.NewInt(0).Abs(dividePrecisionSize(big.NewInt(0).Mul(size, price)))
+	// notional position is base precision 1e6
+	return dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Abs(size), price))
 }
 
-func getUnrealisedPnl(price *big.Int, position *Position, notionalPosition *big.Int) *big.Int {
+func getUnrealisedPnl(position *Position, notionalPosition *big.Int) *big.Int {
 	if position.Size.Sign() == 1 {
 		return big.NewInt(0).Sub(notionalPosition, position.OpenNotional)
 	} else {
@@ -127,7 +127,7 @@ func getUnrealisedPnl(price *big.Int, position *Position, notionalPosition *big.
 
 func getMarginFraction(margin *big.Int, price *big.Int, position *Position) *big.Int {
 	notionalPosition := getNotionalPosition(price, position.Size)
-	unrealisedPnl := getUnrealisedPnl(price, position, notionalPosition)
+	unrealisedPnl := getUnrealisedPnl(position, notionalPosition)
 	log.Info("getMarginFraction:", "notionalPosition", notionalPosition, "unrealisedPnl", unrealisedPnl)
 	effectionMargin := big.NewInt(0).Add(margin, unrealisedPnl)
 	mf := big.NewInt(0).Div(multiplyBasePrecision(effectionMargin), notionalPosition)

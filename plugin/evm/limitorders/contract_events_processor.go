@@ -288,10 +288,7 @@ func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {
 		}
 
 		market := Market(int(event.Topics[2].Big().Int64()))
-		baseAsset := args["baseAsset"].(*big.Int)
-		quoteAsset := args["quoteAsset"].(*big.Int)
-		lastPrice := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, big.NewInt(1e18)), baseAsset)
-		lastPrice.Abs(lastPrice)
+		lastPrice := args["price"].(*big.Int)
 		cep.database.UpdateLastPrice(market, lastPrice)
 
 		openNotional := args["openNotional"].(*big.Int)
@@ -306,9 +303,7 @@ func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {
 		}
 
 		market := Market(int(event.Topics[2].Big().Int64()))
-		baseAsset := args["baseAsset"].(*big.Int)
-		quoteAsset := args["quoteAsset"].(*big.Int)
-		lastPrice := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, big.NewInt(1e18)), baseAsset)
+		lastPrice := args["price"].(*big.Int)
 		cep.database.UpdateLastPrice(market, lastPrice)
 
 		openNotional := args["openNotional"].(*big.Int)
