@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
+	"github.com/ava-labs/subnet-evm/consensus/dummy"
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/internal/ethapi"
+	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/rpc"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -48,6 +50,7 @@ type limitOrderTxProcessor struct {
 	backend                      *eth.EthAPIBackend
 	validatorAddress             common.Address
 	validatorPrivateKey          string
+	chainConfig                  *params.ChainConfig
 }
 
 // Order type is copy of Order struct defined in Orderbook contract
@@ -59,7 +62,7 @@ type Order struct {
 	Salt              *big.Int       `json:"salt"`
 }
 
-func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend) LimitOrderTxProcessor {
+func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend, chainConfig *params.ChainConfig) LimitOrderTxProcessor {
 	orderBookABI, err := abi.FromSolidityJson(string(orderBookAbi))
 	if err != nil {
 		panic(err)
@@ -95,6 +98,7 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 		backend:                      backend,
 		validatorAddress:             validatorAddress,
 		validatorPrivateKey:          validatorPrivateKey,
+		chainConfig:                  chainConfig,
 	}
 }
 
@@ -134,7 +138,12 @@ func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contr
 		log.Error("HexToECDSA failed", "err", err)
 		return err
 	}
-	tx := types.NewTransaction(nonce, contract, big.NewInt(0), 5000000, big.NewInt(70000000000), data)
+	baseFeeEstimate, err := lotp.getUpdatedBaseFee()
+	log.Info("in lotp", "base fee estimates", baseFeeEstimate, "error", err)
+	if err != nil {
+		baseFeeEstimate = big.NewInt(70000000000)
+	}
+	tx := types.NewTransaction(nonce, contract, big.NewInt(0), 5000000, baseFeeEstimate, data)
 	signer := types.NewLondonSigner(lotp.backend.ChainConfig().ChainID)
 	signedTx, err := types.SignTx(tx, signer, key)
 	if err != nil {
@@ -148,6 +157,18 @@ func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contr
 	log.Info("executeLocalTx - AddOrderBookTx success", "tx", signedTx.Hash().String(), "nonce", nonce)
 
 	return nil
+}
+func (lotp *limitOrderTxProcessor) getUpdatedBaseFee() (*big.Int, error) {
+	head := lotp.backend.CurrentBlock().Header()
+	feeConfig, _, err := lotp.backend.GetFeeConfigAt(head)
+	if err != nil {
+		return nil, err
+	}
+	_, baseFeeEstimate, err := dummy.EstimateNextBaseFee(lotp.chainConfig, feeConfig, head, uint64(time.Now().Unix()))
+	if err != nil {
+		return nil, err
+	}
+	return baseFeeEstimate, nil
 }
 
 func (lotp *limitOrderTxProcessor) PurgeLocalTx() {

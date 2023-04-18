@@ -973,7 +973,7 @@ func attachEthService(handler *rpc.Server, apis []rpc.API, names []string) error
 
 func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
 	memoryDb := limitorders.NewInMemoryDatabase()
-	lotp := limitorders.NewLimitOrderTxProcessor(vm.txPool, memoryDb, vm.eth.APIBackend)
+	lotp := limitorders.NewLimitOrderTxProcessor(vm.txPool, memoryDb, vm.eth.APIBackend, vm.chainConfig)
 
 	return NewLimitOrderProcesser(
 		vm.ctx,
