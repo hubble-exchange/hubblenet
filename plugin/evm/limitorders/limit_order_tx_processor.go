@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
-	"github.com/ava-labs/subnet-evm/consensus/dummy"
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
@@ -139,9 +138,9 @@ func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contr
 		return err
 	}
 	baseFeeEstimate, err := lotp.getUpdatedBaseFee()
-	log.Info("in lotp", "base fee estimates", baseFeeEstimate, "error", err)
 	if err != nil {
-		baseFeeEstimate = big.NewInt(70000000000)
+		baseFeeEstimate = big.NewInt(0).Abs(lotp.backend.CurrentHeader().BaseFee)
+		log.Info("Error in calculating updated bassFee, using last header's baseFee", "baseFeeEstimate", baseFeeEstimate)
 	}
 	tx := types.NewTransaction(nonce, contract, big.NewInt(0), 5000000, baseFeeEstimate, data)
 	signer := types.NewLondonSigner(lotp.backend.ChainConfig().ChainID)
@@ -159,12 +158,7 @@ func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contr
 	return nil
 }
 func (lotp *limitOrderTxProcessor) getUpdatedBaseFee() (*big.Int, error) {
-	head := lotp.backend.CurrentBlock().Header()
-	feeConfig, _, err := lotp.backend.GetFeeConfigAt(head)
-	if err != nil {
-		return nil, err
-	}
-	_, baseFeeEstimate, err := dummy.EstimateNextBaseFee(lotp.chainConfig, feeConfig, head, uint64(time.Now().Unix()))
+	baseFeeEstimate, err := lotp.backend.EstimateBaseFee(context.TODO())
 	if err != nil {
 		return nil, err
 	}
