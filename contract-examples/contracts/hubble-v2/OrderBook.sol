@@ -52,10 +52,10 @@ contract OrderBook is IOrderBook, EIP712Upgradeable {
     )   external
     {
         // Checks and Effects
-        // require(orders[0].baseAssetQuantity > 0, "OB_order_0_is_not_long");
-        // require(orders[1].baseAssetQuantity < 0, "OB_order_1_is_not_short");
-        // require(fillAmount > 0, "OB_fillAmount_is_neg");
-        // require(orders[0].price /* buy */ >= orders[1].price /* sell */, "OB_orders_do_not_match");
+        require(orders[0].baseAssetQuantity > 0, "OB_order_0_is_not_long");
+        require(orders[1].baseAssetQuantity < 0, "OB_order_1_is_not_short");
+        require(fillAmount > 0, "OB_fillAmount_is_neg");
+        require(orders[0].price /* buy */ >= orders[1].price /* sell */, "OB_orders_do_not_match");
         // (bytes32 orderHash0, uint blockPlaced0) = _verifyOrder(orders[0], signatures[0], fillAmount);
         // (bytes32 orderHash1, uint blockPlaced1) = _verifyOrder(orders[1], signatures[1], -fillAmount);
         (, bytes32 orderHash0) = verifySigner(orders[0], signatures[0]);
@@ -63,8 +63,8 @@ contract OrderBook is IOrderBook, EIP712Upgradeable {
         // // @todo min fillAmount and min order.baseAsset check
 
         // // Effects
-        // _updateOrder(orderHash0, fillAmount, orders[0].baseAssetQuantity);
-        // _updateOrder(orderHash1, -fillAmount, orders[1].baseAssetQuantity);
+        _updateOrder(orderHash0, fillAmount, orders[0].baseAssetQuantity);
+        _updateOrder(orderHash1, -fillAmount, orders[1].baseAssetQuantity);
 
         // // Interactions
         uint fulfillPrice = orders[0].price; // if prices are equal or long blockPlaced <= short blockPlaced
@@ -72,8 +72,8 @@ contract OrderBook is IOrderBook, EIP712Upgradeable {
         //     fulfillPrice = orders[1].price;
         // }
 
-        // _openPosition(orders[0], fillAmount, fulfillPrice);
-        // _openPosition(orders[1], -fillAmount, fulfillPrice);
+        _openPosition(orders[0], fillAmount, fulfillPrice);
+        _openPosition(orders[1], -fillAmount, fulfillPrice);
 
         emit OrdersMatched(orderHash0, orderHash1, fillAmount.toUint256(), fulfillPrice, fillAmount.toUint256() * fulfillPrice, msg.sender);
     }
