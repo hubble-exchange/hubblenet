@@ -15,7 +15,6 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/internal/ethapi"
-	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/rpc"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -49,7 +48,6 @@ type limitOrderTxProcessor struct {
 	backend                      *eth.EthAPIBackend
 	validatorAddress             common.Address
 	validatorPrivateKey          string
-	chainConfig                  *params.ChainConfig
 }
 
 // Order type is copy of Order struct defined in Orderbook contract
@@ -61,7 +59,7 @@ type Order struct {
 	Salt              *big.Int       `json:"salt"`
 }
 
-func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend, chainConfig *params.ChainConfig) LimitOrderTxProcessor {
+func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend) LimitOrderTxProcessor {
 	orderBookABI, err := abi.FromSolidityJson(string(orderBookAbi))
 	if err != nil {
 		panic(err)
@@ -97,7 +95,6 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 		backend:                      backend,
 		validatorAddress:             validatorAddress,
 		validatorPrivateKey:          validatorPrivateKey,
-		chainConfig:                  chainConfig,
 	}
 }
 
