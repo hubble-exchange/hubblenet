@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ava-labs/avalanchego/snow/choices"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
@@ -84,21 +83,24 @@ func createPlaceOrderTx(t *testing.T, vm *VM, trader common.Address, privateKey 
 // block A is accepted
 // vm1 proposes block B containing order 2
 // vm1 and vm2 set preference to block B
-// vm2 proposes block C containing order 2
+// vm2 proposes block C containing order 2 & order 3
 // vm1 and vm2 set preference to block C
-// vm1 proposes block D containing matching tx of order 1 and 2
-func Test2Vms(t *testing.T) {
+// vm2 proposes block D containing matching tx of order 1 and 2
+// vm1 and vm2 set preference to block D
+// reorg happens when vm1 accepts block D
+func TestHubbleLogs(t *testing.T) {
 	// Create two VMs which will agree on block A and then
 	// build the two distinct preferred chains above
+	ctx := context.Background()
 	issuer1, vm1, _, _ := GenesisVM(t, true, genesisJSON, "{\"pruning-enabled\":true}", "")
 	issuer2, vm2, _, _ := GenesisVM(t, true, genesisJSON, "{\"pruning-enabled\":true}", "")
 
 	defer func() {
-		if err := vm1.Shutdown(context.Background()); err != nil {
+		if err := vm1.Shutdown(ctx); err != nil {
 			t.Fatal(err)
 		}
 
-		if err := vm2.Shutdown(context.Background()); err != nil {
+		if err := vm2.Shutdown(ctx); err != nil {
 			t.Fatal(err)
 		}
 	}()
@@ -106,15 +108,16 @@ func Test2Vms(t *testing.T) {
 	// long and short order
 	createPlaceOrderTx(t, vm1, alice, aliceKey, big.NewInt(5), big.NewInt(10), big.NewInt(101))
 	<-issuer1
-	// include alice's order
+	// include alice's long order
 	blocksA := buildBlockAndSetPreference(t, vm1, vm2) // block A - both vms accept
 	accept(t, blocksA...)
 
 	createPlaceOrderTx(t, vm1, bob, bobKey, big.NewInt(-5), big.NewInt(10), big.NewInt(102))
 	<-issuer1
-	// bob's order
+	// bob's short order
 	buildBlockAndSetPreference(t, vm1) // block B - vm1 only
 
+	// build block C parallel to block B
 	createPlaceOrderTx(t, vm2, bob, bobKey, big.NewInt(-5), big.NewInt(10), big.NewInt(102))
 	createPlaceOrderTx(t, vm2, alice, aliceKey, big.NewInt(5), big.NewInt(11), big.NewInt(104))
 	<-issuer2
@@ -125,20 +128,33 @@ func Test2Vms(t *testing.T) {
 	accept(t, vm1BlockC)
 	accept(t, vm2BlockC)
 
-	time.Sleep(1 * time.Second)
-
 	detail1 := vm1.limitOrderProcesser.GetOrderBookAPI().GetDetailedOrderBookData(context.Background())
 	detail2 := vm2.limitOrderProcesser.GetOrderBookAPI().GetDetailedOrderBookData(context.Background())
 	t.Logf("VM1 Orders: %+v", detail1)
 	t.Logf("VM2 Orders: %+v", detail2)
 
 	// order matching tx
-	// calling buildBlock on vm1 cuz orders from block C don't exist in vm1 because of the bug
 	vm2BlockD := buildBlockAndSetPreference(t, vm2)[0]
 	vm1BlockD := parseBlock(t, vm1, vm2BlockD)
 	setPreference(t, vm1BlockD, vm1)
 	accept(t, vm1BlockD)
 	accept(t, vm2BlockD)
+
+	vm1LastAccepted, err := vm1.LastAccepted(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vm1LastAccepted != vm1BlockD.ID() {
+		t.Fatalf("VM1 last accepted block is not block D")
+	}
+
+	vm2LastAccepted, err := vm2.LastAccepted(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vm2LastAccepted != vm2BlockD.ID() {
+		t.Fatalf("VM2 last accepted block is not block D")
+	}
 
 	// Verify the Canonical Chain for Both VMs
 	if err := vm2.blockChain.ValidateCanonicalChain(); err != nil {
