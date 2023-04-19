@@ -139,7 +139,7 @@ func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contr
 		baseFeeEstimate = big.NewInt(0).Abs(lotp.backend.CurrentHeader().BaseFee)
 		log.Info("Error in calculating updated bassFee, using last header's baseFee", "baseFeeEstimate", baseFeeEstimate)
 	}
-	tx := types.NewTransaction(nonce, contract, big.NewInt(0), 5000000, baseFeeEstimate, data)
+	tx := types.NewTransaction(nonce, contract, big.NewInt(0), 1000000, baseFeeEstimate, data)
 	signer := types.NewLondonSigner(lotp.backend.ChainConfig().ChainID)
 	signedTx, err := types.SignTx(tx, signer, key)
 	if err != nil {
