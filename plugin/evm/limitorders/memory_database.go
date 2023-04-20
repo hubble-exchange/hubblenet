@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -428,21 +427,10 @@ func sortShortOrders(orders []LimitOrder) []LimitOrder {
 	return orders
 }
 
-func getNextHour() time.Time {
-	now := time.Now().UTC()
-	nextHour := now.Round(time.Hour)
-	if time.Since(nextHour) >= 0 {
-		nextHour = nextHour.Add(time.Hour)
-	}
-	return nextHour
-}
-
-func deleteOrder(db *InMemoryDatabase, id common.Hash) {
-	log.Info("#### deleting order", "orderId", id)
-	delete(db.OrderMap, id)
-}
-
 func (db *InMemoryDatabase) GetOrderBookData() InMemoryDatabase {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
 	return *db
 }
 
