@@ -112,10 +112,7 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 		LiquidationThreshold: liquidationThreshold,
 	}
 	originalMargin := multiplyBasePrecision(big.NewInt(100))
-	trader := &Trader{
-		Margins:   map[Collateral]*big.Int{collateral: big.NewInt(0).Set(originalMargin)},
-		Positions: map[Market]*Position{market: position},
-	}
+	trader := getBlankTrader()
 	db.TraderMap[traderAddress] = trader
 
 	//OrderBook Contract log
@@ -174,7 +171,7 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 	assert.Equal(t, expectedUnrealisedFunding, db.TraderMap[traderAddress].Positions[market].UnrealisedFunding)
 
 	//MarginAccount log - marginAdded
-	actualMargin := db.GetOrderBookData().TraderMap[traderAddress].Margins[collateral]
+	actualMargin := db.GetOrderBookData().TraderMap[traderAddress].Margin.Deposited[collateral]
 	assert.Equal(t, big.NewInt(0).Add(marginAdded, originalMargin), actualMargin)
 
 }
@@ -372,7 +369,7 @@ func TestHandleMarginAccountEvent(t *testing.T) {
 			marginAddedEventData, _ := event.Inputs.NonIndexed().Pack(marginAdded, timestamp)
 			log := getEventLog(MarginAccountContractAddress, topics, marginAddedEventData, blockNumber)
 			cep.ProcessAcceptedEvents([]*types.Log{log})
-			actualMargin := db.GetOrderBookData().TraderMap[traderAddress].Margins[collateral]
+			actualMargin := db.GetOrderBookData().TraderMap[traderAddress].Margin.Deposited[collateral]
 			assert.Equal(t, marginAdded, actualMargin)
 		})
 	})
@@ -392,7 +389,7 @@ func TestHandleMarginAccountEvent(t *testing.T) {
 			marginRemovedEventData, _ := event.Inputs.NonIndexed().Pack(marginRemoved, timestamp)
 			log := getEventLog(MarginAccountContractAddress, topics, marginRemovedEventData, blockNumber)
 			cep.ProcessAcceptedEvents([]*types.Log{log})
-			actualMargin := db.GetOrderBookData().TraderMap[traderAddress].Margins[collateral]
+			actualMargin := db.GetOrderBookData().TraderMap[traderAddress].Margin.Deposited[collateral]
 			assert.Equal(t, big.NewInt(0).Neg(marginRemoved), actualMargin)
 		})
 	})
@@ -412,7 +409,7 @@ func TestHandleMarginAccountEvent(t *testing.T) {
 			pnlRealizedEventData, _ := event.Inputs.NonIndexed().Pack(pnlRealized, timestamp)
 			log := getEventLog(MarginAccountContractAddress, topics, pnlRealizedEventData, blockNumber)
 			cep.ProcessAcceptedEvents([]*types.Log{log})
-			actualMargin := db.GetOrderBookData().TraderMap[traderAddress].Margins[collateral]
+			actualMargin := db.GetOrderBookData().TraderMap[traderAddress].Margin.Deposited[collateral]
 			assert.Equal(t, pnlRealized, actualMargin)
 		})
 	})
@@ -441,7 +438,7 @@ func TestHandleClearingHouseEvent(t *testing.T) {
 			LiquidationThreshold: liquidationThreshold,
 		}
 		trader := &Trader{
-			Margins:   map[Collateral]*big.Int{collateral: big.NewInt(100)},
+			Margin:    Margin{Deposited: map[Collateral]*big.Int{collateral: big.NewInt(100)}},
 			Positions: map[Market]*Position{market: position},
 		}
 		db.TraderMap[traderAddress] = trader
@@ -479,7 +476,7 @@ func TestHandleClearingHouseEvent(t *testing.T) {
 			LiquidationThreshold: liquidationThreshold,
 		}
 		trader := &Trader{
-			Margins:   map[Collateral]*big.Int{collateral: big.NewInt(100)},
+			Margin:    Margin{Deposited: map[Collateral]*big.Int{collateral: big.NewInt(100)}},
 			Positions: map[Market]*Position{market: position},
 		}
 		db.TraderMap[traderAddress] = trader
@@ -515,7 +512,7 @@ func TestHandleClearingHouseEvent(t *testing.T) {
 			LiquidationThreshold: liquidationThreshold,
 		}
 		trader := &Trader{
-			Margins:   map[Collateral]*big.Int{collateral: big.NewInt(100)},
+			Margin:    Margin{Deposited: map[Collateral]*big.Int{collateral: big.NewInt(100)}},
 			Positions: map[Market]*Position{market: position},
 		}
 		db.TraderMap[traderAddress] = trader
@@ -561,7 +558,7 @@ func TestHandleClearingHouseEvent(t *testing.T) {
 			LiquidationThreshold: liquidationThreshold,
 		}
 		trader := &Trader{
-			Margins:   map[Collateral]*big.Int{collateral: big.NewInt(100)},
+			Margin:    Margin{Deposited: map[Collateral]*big.Int{collateral: big.NewInt(100)}},
 			Positions: map[Market]*Position{market: position},
 		}
 		db.TraderMap[traderAddress] = trader

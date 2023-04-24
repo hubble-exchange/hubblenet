@@ -287,7 +287,7 @@ func TestUpdateMargin(t *testing.T) {
 		var collateral Collateral = 1
 		amount := big.NewInt(20.00)
 		inMemoryDatabase.UpdateMargin(address, collateral, amount)
-		margin := inMemoryDatabase.TraderMap[address].Margins[collateral]
+		margin := inMemoryDatabase.TraderMap[address].Margin.Deposited[collateral]
 		assert.Equal(t, amount, margin)
 	})
 	t.Run("When more margin is added, it updates margin in tradermap", func(t *testing.T) {
@@ -299,7 +299,7 @@ func TestUpdateMargin(t *testing.T) {
 
 		removedMargin := big.NewInt(15.00)
 		inMemoryDatabase.UpdateMargin(address, collateral, removedMargin)
-		margin := inMemoryDatabase.TraderMap[address].Margins[collateral]
+		margin := inMemoryDatabase.TraderMap[address].Margin.Deposited[collateral]
 		assert.Equal(t, big.NewInt(0).Add(amount, removedMargin), margin)
 	})
 	t.Run("When margin is removed, it updates margin in tradermap", func(t *testing.T) {
@@ -311,7 +311,7 @@ func TestUpdateMargin(t *testing.T) {
 
 		removedMargin := big.NewInt(-15.00)
 		inMemoryDatabase.UpdateMargin(address, collateral, removedMargin)
-		margin := inMemoryDatabase.TraderMap[address].Margins[collateral]
+		margin := inMemoryDatabase.TraderMap[address].Margin.Deposited[collateral]
 		assert.Equal(t, big.NewInt(0).Add(amount, removedMargin), margin)
 	})
 }
