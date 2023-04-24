@@ -112,7 +112,10 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 		LiquidationThreshold: liquidationThreshold,
 	}
 	originalMargin := multiplyBasePrecision(big.NewInt(100))
-	trader := getBlankTrader()
+	trader := &Trader{
+		Margin:    Margin{Deposited: map[Collateral]*big.Int{collateral: big.NewInt(0).Set(originalMargin)}},
+		Positions: map[Market]*Position{market: position},
+	}
 	db.TraderMap[traderAddress] = trader
 
 	//OrderBook Contract log
