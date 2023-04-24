@@ -62,6 +62,12 @@ var orderBookAbi = []byte(`{"abi": [
       {
         "indexed": false,
         "internalType": "uint256",
+        "name": "price",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
         "name": "openInterestNotional",
         "type": "uint256"
       },
@@ -444,6 +450,25 @@ var marginAccountAbi = []byte(`{"abi": [
         "type": "address"
       },
       {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "MarginReleased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "trader",
+        "type": "address"
+      },
+      {
         "indexed": true,
         "internalType": "uint256",
         "name": "idx",
@@ -463,6 +488,25 @@ var marginAccountAbi = []byte(`{"abi": [
       }
     ],
     "name": "MarginRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "trader",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "MarginReserved",
     "type": "event"
   },
   {
@@ -560,6 +604,25 @@ var marginAccountAbi = []byte(`{"abi": [
     "name": "addMarginFor",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "trader",
+        "type": "address"
+      }
+    ],
+    "name": "getAvailableMargin",
+    "outputs": [
+      {
+        "internalType": "int256",
+        "name": "availableMargin",
+        "type": "int256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -720,6 +783,24 @@ var marginAccountAbi = []byte(`{"abi": [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "trader",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "releaseMargin",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "idx",
         "type": "uint256"
@@ -756,6 +837,43 @@ var marginAccountAbi = []byte(`{"abi": [
     "name": "removeMarginFor",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "trader",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "reserveMargin",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "trader",
+        "type": "address"
+      }
+    ],
+    "name": "reservedMargin",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -969,7 +1087,7 @@ var clearingHouseAbi = []byte(`{"abi": [
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "quoteAsset",
+        "name": "price",
         "type": "uint256"
       },
       {
@@ -1030,7 +1148,7 @@ var clearingHouseAbi = []byte(`{"abi": [
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "quoteAsset",
+        "name": "price",
         "type": "uint256"
       },
       {
@@ -1229,6 +1347,30 @@ var clearingHouseAbi = []byte(`{"abi": [
   {
     "inputs": [
       {
+        "internalType": "int256",
+        "name": "baseAssetQuantity",
+        "type": "int256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "price",
+        "type": "uint256"
+      }
+    ],
+    "name": "getRequiredMargin",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "marginRequired",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "trader",
         "type": "address"
@@ -1338,11 +1480,6 @@ var clearingHouseAbi = []byte(`{"abi": [
           {
             "internalType": "uint256",
             "name": "salt",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "expiry",
             "type": "uint256"
           }
         ],
@@ -1473,11 +1610,6 @@ var clearingHouseAbi = []byte(`{"abi": [
             "internalType": "uint256",
             "name": "salt",
             "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "expiry",
-            "type": "uint256"
           }
         ],
         "internalType": "struct IOrderBook.Order[2]",
@@ -1520,6 +1652,19 @@ var clearingHouseAbi = []byte(`{"abi": [
     "name": "openComplementaryPositions",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "orderBook",
+    "outputs": [
+      {
+        "internalType": "contract IOrderBook",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
