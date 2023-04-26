@@ -147,6 +147,9 @@ func getAvailableMargin(trader Trader, priceMap map[Market]*big.Int) *big.Int {
 	totalUnrealisedFunding := big.NewInt(0)
 	totalUnrealisedPnL := big.NewInt(0)
 	for _, market := range GetActiveMarkets() {
+		if _, ok := trader.Positions[market]; !ok {
+			continue
+		}
 		notionalPosition := getNotionalPosition(priceMap[market], trader.Positions[market].Size)
 		unrealisedPnL := getUnrealisedPnl(priceMap[market], trader.Positions[market], notionalPosition)
 
@@ -155,7 +158,7 @@ func getAvailableMargin(trader Trader, priceMap map[Market]*big.Int) *big.Int {
 		totalUnrealisedPnL = big.NewInt(0).Add(totalUnrealisedPnL, unrealisedPnL)
 	}
 
-	utilisedMargin := divideByBasePrecision(big.NewInt(0).Mul(totalNotionalPosition, maintenanceMargin))
+	utilisedMargin := big.NewInt(0).Div(totalNotionalPosition, maxLeverage)
 
 	// available margin =  depositedMargin + totalUnrealisedPnL - totalUnrealisedFunding - utilisedMargin - trader.Margin.Reserved
 	netMargin := big.NewInt(0).Add(getNormalisedMargin(trader), totalUnrealisedPnL)
@@ -163,6 +166,7 @@ func getAvailableMargin(trader Trader, priceMap map[Market]*big.Int) *big.Int {
 
 	availableMargin := big.NewInt(0).Sub(netMargin, utilisedMargin)
 	availableMargin = availableMargin.Sub(availableMargin, trader.Margin.Reserved)
+	log.Info("#### getAvailableMargin", "netMargin", netMargin, "totalUnrealisedPnL", totalUnrealisedPnL, "totalUnrealisedFunding", totalUnrealisedFunding, "utilisedMargin", utilisedMargin, "trader.Margin.Reserved", trader.Margin.Reserved, "availableMargin", availableMargin)
 	return availableMargin
 }
 

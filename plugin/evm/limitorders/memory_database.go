@@ -358,6 +358,10 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 	if !isLiquidation {
 		db.TraderMap[trader].Positions[market].LiquidationThreshold = getLiquidationThreshold(size)
 	}
+
+	if db.TraderMap[trader].Positions[market].UnrealisedFunding == nil {
+		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
+	}
 	// adjust the liquidation threshold if > resultant position size (for both isLiquidation = true/false)
 	threshold := utils.BigIntMinAbs(db.TraderMap[trader].Positions[market].LiquidationThreshold, size)
 	db.TraderMap[trader].Positions[market].LiquidationThreshold.Mul(threshold, big.NewInt(int64(size.Sign()))) // same sign as size
@@ -416,6 +420,7 @@ func (db *InMemoryDatabase) GetOrdersToCancel(oraclePrice map[Market]*big.Int) m
 	ordersToCancel := map[common.Address][]common.Hash{}
 	for addr, trader := range db.TraderMap {
 		availableMargin := getAvailableMargin(*trader, oraclePrice)
+		log.Info("GetOrdersToCancel", "trader", addr.String(), "availableMargin", availableMargin)
 		if availableMargin.Cmp(big.NewInt(0)) == -1 {
 			log.Info("GetOrdersToCancel - negative available margin", "trader", addr.String(), "availableMargin", availableMargin)
 			traderOrders := db.getTraderOrders(addr)
