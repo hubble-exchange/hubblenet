@@ -60,6 +60,7 @@ type LimitOrder struct {
 	FilledBaseAssetQuantity *big.Int
 	Salt                    *big.Int
 	Price                   *big.Int
+	ReduceOnly              bool
 	LifecycleList           []Lifecycle
 	Signature               []byte
 	BlockNumber             *big.Int    // block number order was placed on
@@ -283,7 +284,8 @@ func (db *InMemoryDatabase) GetLongOrders(market Market, cutoff *big.Int) []Limi
 		if order.PositionType == "long" &&
 			order.Market == market &&
 			order.getOrderStatus().Status == Placed &&
-			(cutoff == nil || order.Price.Cmp(cutoff) <= 0) {
+			(cutoff == nil || order.Price.Cmp(cutoff) <= 0) &&
+			(!order.ReduceOnly || db.willReducePosition(order)) {
 			longOrders = append(longOrders, *order)
 		}
 	}
@@ -300,7 +302,8 @@ func (db *InMemoryDatabase) GetShortOrders(market Market, cutoff *big.Int) []Lim
 		if order.PositionType == "short" &&
 			order.Market == market &&
 			order.getOrderStatus().Status == Placed &&
-			(cutoff == nil || order.Price.Cmp(cutoff) >= 0) {
+			(cutoff == nil || order.Price.Cmp(cutoff) >= 0) &&
+			(!order.ReduceOnly || db.willReducePosition(order)) {
 			shortOrders = append(shortOrders, *order)
 		}
 	}
@@ -450,6 +453,25 @@ func (db *InMemoryDatabase) getTraderOrders(trader common.Address) []LimitOrder 
 		}
 	}
 	return traderOrders
+}
+
+func (db *InMemoryDatabase) willReducePosition(order *LimitOrder) bool {
+	trader := common.HexToAddress(order.UserAddress)
+	positions := db.TraderMap[trader].Positions
+	if position, ok := positions[order.Market]; ok {
+		finalSize := big.NewInt(0).Add(position.Size, order.BaseAssetQuantity)
+		if big.NewInt(0).Abs(finalSize).Cmp(big.NewInt(0).Abs(position.Size)) != -1 {
+			// abosulte position will increase
+			return false
+		}
+		if finalSize.Sign() != position.Size.Sign() {
+			// position will change sign
+			return false
+		}
+		return true
+	} else {
+		return false
+	}
 }
 
 func sortLongOrders(orders []LimitOrder) []LimitOrder {

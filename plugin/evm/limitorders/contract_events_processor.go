@@ -126,6 +126,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 				RawOrder:                args["order"],
 				Signature:               args["signature"].([]byte),
 				Salt:                    order.Salt,
+				ReduceOnly:              order.ReduceOnly,
 				BlockNumber:             big.NewInt(int64(event.BlockNumber)),
 			}
 			log.Info("#### adding order", "orderId", orderId.String(), "order", limitOrder)
