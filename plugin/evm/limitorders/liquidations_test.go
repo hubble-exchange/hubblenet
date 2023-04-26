@@ -501,7 +501,7 @@ func TestGetUnrealizedPnl(t *testing.T) {
 			}
 			expectedPnl := dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(newPrice, entryPrice), size))
 			newNotional := getNotionalPosition(newPrice, size)
-			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position, newNotional))
+			assert.Equal(t, expectedPnl, getUnrealisedPnl(position, newNotional))
 		})
 		t.Run("When size is negative", func(t *testing.T) {
 			size := multiplyPrecisionSize(big.NewInt(-10))
@@ -513,7 +513,7 @@ func TestGetUnrealizedPnl(t *testing.T) {
 			}
 			expectedPnl := dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(newPrice, entryPrice), size))
 			newNotional := getNotionalPosition(newPrice, size)
-			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position, newNotional))
+			assert.Equal(t, expectedPnl, getUnrealisedPnl(position, newNotional))
 		})
 	})
 	t.Run("When newPrice is < entryPrice", func(t *testing.T) {
@@ -527,7 +527,7 @@ func TestGetUnrealizedPnl(t *testing.T) {
 			}
 			expectedPnl := dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(newPrice, entryPrice), size))
 			newNotional := getNotionalPosition(newPrice, size)
-			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position, newNotional))
+			assert.Equal(t, expectedPnl, getUnrealisedPnl(position, newNotional))
 		})
 		t.Run("When size is negative", func(t *testing.T) {
 			size := multiplyPrecisionSize(big.NewInt(-10))
@@ -539,7 +539,7 @@ func TestGetUnrealizedPnl(t *testing.T) {
 			}
 			expectedPnl := dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(newPrice, entryPrice), size))
 			newNotional := getNotionalPosition(newPrice, size)
-			assert.Equal(t, expectedPnl, getUnrealisedPnl(newPrice, position, newNotional))
+			assert.Equal(t, expectedPnl, getUnrealisedPnl(position, newNotional))
 		})
 	})
 }
@@ -566,7 +566,7 @@ func TestGetMarginFraction(t *testing.T) {
 			OpenNotional: getNotionalPosition(entryPrice, size),
 		}
 		newNotional := getNotionalPosition(newPrice, size)
-		expectedMarginFraction := big.NewInt(0).Div(multiplyBasePrecision(big.NewInt(0).Add(margin, getUnrealisedPnl(newPrice, position, newNotional))), getNotionalPosition(newPrice, size))
+		expectedMarginFraction := big.NewInt(0).Div(multiplyBasePrecision(big.NewInt(0).Add(margin, getUnrealisedPnl(position, newNotional))), getNotionalPosition(newPrice, size))
 		assert.Equal(t, expectedMarginFraction, getMarginFraction(margin, newPrice, position))
 	})
 }
