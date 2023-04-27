@@ -205,7 +205,7 @@ func TestGetLongOrders(t *testing.T) {
 
 func TestGetCancellableOrders(t *testing.T) {
 	getReservedMargin := func(order LimitOrder) *big.Int {
-		notional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.BaseAssetQuantity, order.Price), _1e12))
+		notional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.BaseAssetQuantity, order.Price), _1e18))
 		return divideByBasePrecision(big.NewInt(0).Mul(notional, minAllowableMargin))
 	}
 
@@ -213,7 +213,7 @@ func TestGetCancellableOrders(t *testing.T) {
 	id1 := uint64(1)
 	signature1 := []byte(fmt.Sprintf("Signature long order is %d", id1))
 	blockNumber1 := big.NewInt(2)
-	baseAssetQuantity := big.NewInt(0).Mul(big.NewInt(-3), _1e12)
+	baseAssetQuantity := big.NewInt(0).Mul(big.NewInt(-3), _1e18)
 
 	salt1 := big.NewInt(101)
 	price1 := multiplyBasePrecision(big.NewInt(10))

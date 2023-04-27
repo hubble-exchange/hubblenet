@@ -16,7 +16,6 @@ import (
 )
 
 var _1e18 = big.NewInt(1e18)
-var _1e12 = big.NewInt(1e12)
 var _1e6 = big.NewInt(1e6)
 
 type Market int
@@ -79,6 +78,7 @@ type LimitOrderJson struct {
 	LifecycleList           []Lifecycle `json:"lifecycle_list"`
 	Signature               string      `json:"signature"`
 	BlockNumber             *big.Int    `json:"block_number"` // block number order was placed on
+	ReduceOnly              bool        `json:"reduce_only"`
 }
 
 func (order *LimitOrder) MarshalJSON() ([]byte, error) {
@@ -93,6 +93,7 @@ func (order *LimitOrder) MarshalJSON() ([]byte, error) {
 		LifecycleList:           order.LifecycleList,
 		Signature:               hex.EncodeToString(order.Signature),
 		BlockNumber:             order.BlockNumber,
+		ReduceOnly:              order.ReduceOnly,
 	}
 	return json.Marshal(limitOrderJson)
 }
@@ -125,7 +126,7 @@ type Margin struct {
 
 type Trader struct {
 	Positions map[Market]*Position `json:"positions"` // position for every market
-	Margin    Margin               `json:"margins"`   // available margin/balance for every market
+	Margin    Margin               `json:"margin"`    // available margin/balance for every market
 }
 
 type LimitOrderDatabase interface {
@@ -437,7 +438,7 @@ func (db *InMemoryDatabase) GetOrdersToCancel(oraclePrice map[Market]*big.Int) m
 				ordersToCancel[addr] = []common.Hash{}
 				for _, order := range traderOrders {
 					ordersToCancel[addr] = append(ordersToCancel[addr], order.Id)
-					orderNotional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.GetUnFilledBaseAssetQuantity(), order.Price), _1e12)) // | size * current price |
+					orderNotional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.GetUnFilledBaseAssetQuantity(), order.Price), _1e18)) // | size * current price |
 					marginReleased := divideByBasePrecision(big.NewInt(0).Mul(orderNotional, minAllowableMargin))
 					availableMargin.Add(availableMargin, marginReleased)
 					log.Info("in loop", "availableMargin", availableMargin, "marginReleased", marginReleased, "orderNotional", orderNotional)

@@ -332,16 +332,16 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		fillAmount := big.NewInt(10)
 		topics := []common.Hash{event.ID, traderAddress.Hash(), orderId}
 		t.Run("When data in log unpack fails", func(t *testing.T) {
-			ordersMatchedEventData := []byte{}
-			log := getEventLog(OrderBookContractAddress, topics, ordersMatchedEventData, blockNumber)
+			liquidationOrdersMatchedEventData := []byte{}
+			log := getEventLog(OrderBookContractAddress, topics, liquidationOrdersMatchedEventData, blockNumber)
 			cep.ProcessEvents([]*types.Log{log})
 			actualLimitOrder := db.GetOrderBookData().OrderMap[orderId]
 			assert.Equal(t, longOrder, actualLimitOrder)
 		})
 		t.Run("When data in log unpack succeeds", func(t *testing.T) {
 			// order := getOrder(ammIndex, traderAddress, longOrder.BaseAssetQuantity, price, salt)
-			ordersMatchedEventData, _ := event.Inputs.NonIndexed().Pack(signature, fillAmount, price, big.NewInt(0).Mul(fillAmount, price), relayer, timestamp)
-			log := getEventLog(OrderBookContractAddress, topics, ordersMatchedEventData, blockNumber)
+			liquidationOrdersMatchedEventData, _ := event.Inputs.NonIndexed().Pack(signature, fillAmount, price, big.NewInt(0).Mul(fillAmount, price), relayer, timestamp)
+			log := getEventLog(OrderBookContractAddress, topics, liquidationOrdersMatchedEventData, blockNumber)
 			cep.ProcessEvents([]*types.Log{log})
 			assert.Equal(t, fillAmount, db.OrderMap[orderId].FilledBaseAssetQuantity)
 		})
