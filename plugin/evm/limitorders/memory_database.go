@@ -464,6 +464,9 @@ func (db *InMemoryDatabase) getTraderOrders(trader common.Address) []LimitOrder 
 
 func (db *InMemoryDatabase) willReducePosition(order *LimitOrder) bool {
 	trader := common.HexToAddress(order.UserAddress)
+	if db.TraderMap[trader] == nil {
+		return false
+	}
 	positions := db.TraderMap[trader].Positions
 	if position, ok := positions[order.Market]; ok {
 		finalSize := big.NewInt(0).Add(position.Size, order.BaseAssetQuantity)

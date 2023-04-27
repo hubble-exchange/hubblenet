@@ -13,6 +13,7 @@ import (
 
 var positionType = "short"
 var userAddress = "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
+var trader = common.HexToAddress(userAddress)
 var price = big.NewInt(20)
 var status Status = Placed
 var blockNumber = big.NewInt(2)
@@ -61,11 +62,11 @@ func TestGetAllOrders(t *testing.T) {
 }
 
 func TestGetShortOrders(t *testing.T) {
-	baseAssetQuantity := big.NewInt(-10)
+	baseAssetQuantity := big.NewInt(0).Mul(big.NewInt(-3), _1e18)
 	inMemoryDatabase := NewInMemoryDatabase()
 	totalLongOrders := uint64(2)
 	longOrderPrice := big.NewInt(0).Add(price, big.NewInt(1))
-	longOrderBaseAssetQuantity := big.NewInt(10)
+	longOrderBaseAssetQuantity := big.NewInt(0).Mul(big.NewInt(10), _1e18)
 	for i := uint64(0); i < totalLongOrders; i++ {
 		signature := []byte("signature")
 		salt := big.NewInt(0).Add(big.NewInt(int64(i)), big.NewInt(time.Now().Unix()))
@@ -99,6 +100,16 @@ func TestGetShortOrders(t *testing.T) {
 	shortOrder3, orderId := createLimitOrder("short", userAddress, baseAssetQuantity, price3, status, signature3, blockNumber3, salt3)
 	inMemoryDatabase.Add(orderId, &shortOrder3)
 
+	//Short order with price 9.01 and blockNumber 3
+	id4 := uint64(4)
+	signature4 := []byte(fmt.Sprintf("Signature short order is %d", id4))
+	price4 := big.NewInt(9)
+	blockNumber4 := big.NewInt(4)
+	salt4 := big.NewInt(0).Add(salt3, big.NewInt(1))
+	shortOrder4, orderId := createLimitOrder("short", userAddress, baseAssetQuantity, price4, status, signature4, blockNumber4, salt4)
+	shortOrder4.ReduceOnly = true
+	inMemoryDatabase.Add(orderId, &shortOrder4)
+
 	returnedShortOrders := inMemoryDatabase.GetShortOrders(AvaxPerp, nil)
 	assert.Equal(t, 3, len(returnedShortOrders))
 
@@ -117,6 +128,22 @@ func TestGetShortOrders(t *testing.T) {
 	assert.Equal(t, price1, returnedShortOrders[2].Price)
 	assert.Equal(t, blockNumber1, returnedShortOrders[2].BlockNumber)
 
+	// now test with one reduceOnly order when there's a long position
+
+	size := big.NewInt(0).Mul(big.NewInt(10), _1e18)
+	inMemoryDatabase.UpdatePosition(trader, AvaxPerp, size, big.NewInt(0).Mul(big.NewInt(100), _1e6), false)
+
+	returnedShortOrders = inMemoryDatabase.GetShortOrders(AvaxPerp, nil)
+	assert.Equal(t, 4, len(returnedShortOrders))
+
+	// at least one of the orders should be reduce only
+	reduceOnlyOrderCount := 0
+	for _, order := range returnedShortOrders {
+		if order.ReduceOnly {
+			reduceOnlyOrderCount += 1
+		}
+	}
+	assert.Equal(t, 1, reduceOnlyOrderCount)
 }
 
 func TestGetLongOrders(t *testing.T) {
@@ -185,7 +212,6 @@ func TestGetCancellableOrders(t *testing.T) {
 	inMemoryDatabase := NewInMemoryDatabase()
 	id1 := uint64(1)
 	signature1 := []byte(fmt.Sprintf("Signature long order is %d", id1))
-	trader := common.HexToAddress(userAddress)
 	blockNumber1 := big.NewInt(2)
 	baseAssetQuantity := big.NewInt(0).Mul(big.NewInt(-3), _1e12)
 
