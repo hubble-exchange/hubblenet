@@ -79,6 +79,7 @@ func (pipeline *BuildBlockPipeline) runLiquidationsAndMatchingForMarket(market M
 func (pipeline *BuildBlockPipeline) cancelOrders(oraclePrices map[Market]*big.Int) map[common.Hash]struct{} {
 	cancellableOrders := pipeline.db.GetOrdersToCancel(oraclePrices)
 	cancellableOrderIds := map[common.Hash]struct{}{}
+	// @todo: if there are too many cancellable orders, they might not fit in a single block. Need to adjust for that.
 	for _, orderIds := range cancellableOrders {
 		err := pipeline.lotp.ExecuteOrderCancel(orderIds)
 		if err != nil {

@@ -12,7 +12,7 @@ import (
 )
 
 var positionType = "short"
-var userAddress = "random-address"
+var userAddress = "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"
 var price = big.NewInt(20)
 var status Status = Placed
 var blockNumber = big.NewInt(2)
@@ -174,6 +174,58 @@ func TestGetLongOrders(t *testing.T) {
 		assert.Equal(t, longOrderBaseAssetQuantity, returnedOrder.BaseAssetQuantity)
 		assert.Equal(t, status, returnedOrder.getOrderStatus().Status)
 	}
+}
+
+func TestGetCancellableOrders(t *testing.T) {
+	getReservedMargin := func(order LimitOrder) *big.Int {
+		notional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.BaseAssetQuantity, order.Price), _1e12))
+		return divideByBasePrecision(big.NewInt(0).Mul(notional, minAllowableMargin))
+	}
+
+	inMemoryDatabase := NewInMemoryDatabase()
+	id1 := uint64(1)
+	signature1 := []byte(fmt.Sprintf("Signature long order is %d", id1))
+	trader := common.HexToAddress(userAddress)
+	blockNumber1 := big.NewInt(2)
+	baseAssetQuantity := big.NewInt(0).Mul(big.NewInt(-3), _1e12)
+
+	salt1 := big.NewInt(101)
+	price1 := multiplyBasePrecision(big.NewInt(10))
+	shortOrder1, orderId1 := createLimitOrder("short", userAddress, baseAssetQuantity, price1, status, signature1, blockNumber1, salt1)
+
+	salt2 := big.NewInt(102)
+	price2 := multiplyBasePrecision(big.NewInt(9))
+	shortOrder2, orderId2 := createLimitOrder("short", userAddress, baseAssetQuantity, price2, status, signature1, blockNumber1, salt2)
+
+	salt3 := big.NewInt(103)
+	price3 := multiplyBasePrecision(big.NewInt(8))
+	shortOrder3, orderId3 := createLimitOrder("short", userAddress, baseAssetQuantity, price3, status, signature1, blockNumber1, salt3)
+
+	inMemoryDatabase.UpdateMargin(trader, HUSD, multiplyBasePrecision(big.NewInt(40)))
+
+	// 3 different short orders with price = 10, 9, 8
+	inMemoryDatabase.Add(orderId1, &shortOrder1)
+	inMemoryDatabase.UpdateReservedMargin(trader, getReservedMargin(shortOrder1))
+	inMemoryDatabase.Add(orderId2, &shortOrder2)
+	inMemoryDatabase.UpdateReservedMargin(trader, getReservedMargin(shortOrder2))
+	inMemoryDatabase.Add(orderId3, &shortOrder3)
+	inMemoryDatabase.UpdateReservedMargin(trader, getReservedMargin(shortOrder3))
+
+	// 1 fulfilled order at price = 10, size = 9
+	size := big.NewInt(0).Mul(big.NewInt(-9), _1e18)
+	inMemoryDatabase.UpdatePosition(trader, AvaxPerp, size, big.NewInt(90000000), false)
+
+	// price has moved from 10 to 11 now
+	priceMap := map[Market]*big.Int{
+		AvaxPerp: multiplyBasePrecision(big.NewInt(11)),
+	}
+	ordersToCancel := inMemoryDatabase.GetOrdersToCancel(priceMap)
+
+	// t.Log("####", "ordersToCancel", ordersToCancel)
+	assert.Equal(t, 1, len(ordersToCancel))         // only one trader
+	assert.Equal(t, 2, len(ordersToCancel[trader])) // 2 orders
+	assert.Equal(t, ordersToCancel[trader][0], orderId3)
+	assert.Equal(t, ordersToCancel[trader][1], orderId2)
 }
 
 func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
@@ -528,6 +580,19 @@ func TestGetLastPrice(t *testing.T) {
 	assert.Equal(t, lastPrice, inMemoryDatabase.GetLastPrice(market))
 }
 
+func TestUpdateReservedMargin(t *testing.T) {
+	address := common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa")
+	amount := big.NewInt(20 * 1e6)
+	inMemoryDatabase := NewInMemoryDatabase()
+	inMemoryDatabase.UpdateReservedMargin(address, amount)
+	assert.Equal(t, amount, inMemoryDatabase.TraderMap[address].Margin.Reserved)
+
+	// subtract some amount
+	amount = big.NewInt(-5 * 1e6)
+	inMemoryDatabase.UpdateReservedMargin(address, amount)
+	assert.Equal(t, big.NewInt(15*1e6), inMemoryDatabase.TraderMap[address].Margin.Reserved)
+}
+
 func createLimitOrder(positionType string, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, signature []byte, blockNumber *big.Int, salt *big.Int) (LimitOrder, common.Hash) {
 	lo := LimitOrder{
 		Market:                  GetActiveMarkets()[0],
@@ -539,6 +604,7 @@ func createLimitOrder(positionType string, userAddress string, baseAssetQuantity
 		Salt:                    salt,
 		Signature:               signature,
 		BlockNumber:             blockNumber,
+		ReduceOnly:              false,
 	}
 	return lo, getIdFromLimitOrder(lo)
 }

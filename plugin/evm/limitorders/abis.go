@@ -77,12 +77,12 @@ var orderBookAbi = []byte(`{"abi": [
         "name": "relayer",
         "type": "address"
       },
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
     ],
     "name": "LiquidationOrderMatched",
     "type": "event"
@@ -102,12 +102,12 @@ var orderBookAbi = []byte(`{"abi": [
         "name": "orderHash",
         "type": "bytes32"
       },
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
     ],
     "name": "OrderCancelled",
     "type": "event"
@@ -172,6 +172,11 @@ var orderBookAbi = []byte(`{"abi": [
             "internalType": "uint256",
             "name": "salt",
             "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "reduceOnly",
+            "type": "bool"
           }
         ],
         "indexed": false,
@@ -185,12 +190,12 @@ var orderBookAbi = []byte(`{"abi": [
         "name": "signature",
         "type": "bytes"
       },
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
     ],
     "name": "OrderPlaced",
     "type": "event"
@@ -234,15 +239,28 @@ var orderBookAbi = []byte(`{"abi": [
         "name": "relayer",
         "type": "address"
       },
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
     ],
     "name": "OrdersMatched",
     "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "orderHashes",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "cancelMultipleOrders",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
     "inputs": [
@@ -272,6 +290,11 @@ var orderBookAbi = []byte(`{"abi": [
             "internalType": "uint256",
             "name": "salt",
             "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "reduceOnly",
+            "type": "bool"
           }
         ],
         "internalType": "struct IOrderBook.Order[2]",
@@ -340,6 +363,11 @@ var orderBookAbi = []byte(`{"abi": [
             "internalType": "uint256",
             "name": "salt",
             "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "reduceOnly",
+            "type": "bool"
           }
         ],
         "internalType": "struct IOrderBook.Order",

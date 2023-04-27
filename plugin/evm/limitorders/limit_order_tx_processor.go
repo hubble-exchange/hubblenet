@@ -133,8 +133,8 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder LimitOrd
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteOrderCancel(orderIds []common.Hash) error {
-	log.Info("ExecuteCancelOrder", "orderIds", orderIds)
-	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelMultipleOrders", formatHashSlice(orderIds))
+	log.Info("ExecuteOrderCancel", "orderIds", formatHashSlice(orderIds))
+	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelMultipleOrders", orderIds)
 }
 
 func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contractABI abi.ABI, method string, args ...interface{}) error {

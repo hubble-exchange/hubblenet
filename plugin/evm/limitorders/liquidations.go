@@ -158,7 +158,7 @@ func getAvailableMargin(trader Trader, priceMap map[Market]*big.Int) *big.Int {
 		totalUnrealisedPnL = big.NewInt(0).Add(totalUnrealisedPnL, unrealisedPnL)
 	}
 
-	utilisedMargin := big.NewInt(0).Div(totalNotionalPosition, maxLeverage)
+	utilisedMargin := divideByBasePrecision(big.NewInt(0).Mul(totalNotionalPosition, minAllowableMargin))
 
 	// available margin =  depositedMargin + totalUnrealisedPnL - totalUnrealisedFunding - utilisedMargin - trader.Margin.Reserved
 	netMargin := big.NewInt(0).Add(getNormalisedMargin(trader), totalUnrealisedPnL)

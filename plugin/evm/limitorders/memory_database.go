@@ -16,6 +16,7 @@ import (
 )
 
 var _1e18 = big.NewInt(1e18)
+var _1e12 = big.NewInt(1e12)
 var _1e6 = big.NewInt(1e6)
 
 type Market int
@@ -106,7 +107,7 @@ func (order LimitOrder) getOrderStatus() Lifecycle {
 }
 
 func (order LimitOrder) String() string {
-	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), hex.EncodeToString(order.Signature), order.BlockNumber)
+	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, hex.EncodeToString(order.Signature), order.BlockNumber)
 }
 
 type Position struct {
@@ -436,9 +437,10 @@ func (db *InMemoryDatabase) GetOrdersToCancel(oraclePrice map[Market]*big.Int) m
 				ordersToCancel[addr] = []common.Hash{}
 				for _, order := range traderOrders {
 					ordersToCancel[addr] = append(ordersToCancel[addr], order.Id)
-					orderNotional := big.NewInt(0).Abs(big.NewInt(0).Mul(order.BaseAssetQuantity, oraclePrice[order.Market])) // | size * current price |
-					marginReleased := divideByBasePrecision(big.NewInt(0).Mul(orderNotional, maintenanceMargin))
+					orderNotional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.GetUnFilledBaseAssetQuantity(), order.Price), _1e12)) // | size * current price |
+					marginReleased := divideByBasePrecision(big.NewInt(0).Mul(orderNotional, minAllowableMargin))
 					availableMargin.Add(availableMargin, marginReleased)
+					log.Info("in loop", "availableMargin", availableMargin, "marginReleased", marginReleased, "orderNotional", orderNotional)
 					if availableMargin.Cmp(big.NewInt(0)) >= 0 {
 						break
 					}

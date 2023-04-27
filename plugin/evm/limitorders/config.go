@@ -3,9 +3,9 @@ package limitorders
 import "math/big"
 
 var (
-	maxLeverage                   = big.NewInt(5)
-	maintenanceMargin             = big.NewInt(1e5)
-	spreadRatioThreshold          = big.NewInt(1e6)
-	maxLiquidationRatio  *big.Int = big.NewInt(25 * 1e4) // 25%
-	minSizeRequirement   *big.Int = big.NewInt(0).Mul(big.NewInt(5), _1e18)
+	minAllowableMargin   = big.NewInt(2 * 1e5) // 5x
+	maintenanceMargin    = big.NewInt(1e5)
+	spreadRatioThreshold = big.NewInt(1e6)
+	maxLiquidationRatio  = big.NewInt(25 * 1e4) // 25%
+	minSizeRequirement   = big.NewInt(0).Mul(big.NewInt(5), _1e18)
 )
