@@ -14,6 +14,7 @@ var SIZE_BASE_PRECISION = _1e18
 
 type LiquidablePosition struct {
 	Address        common.Address
+	Market         Market
 	Size           *big.Int
 	MarginFraction *big.Int
 	FilledSize     *big.Int
@@ -24,49 +25,14 @@ func (liq LiquidablePosition) GetUnfilledSize() *big.Int {
 	return big.NewInt(0).Sub(liq.Size, liq.FilledSize)
 }
 
-func GetLiquidableTraders(traderMap map[common.Address]Trader, market Market, lastPrice *big.Int, oraclePrice *big.Int) []LiquidablePosition {
-	liquidablePositions := []LiquidablePosition{}
-	markPrice := lastPrice
-
-	overSpreadLimit := isOverSpreadLimit(markPrice, oraclePrice)
-	log.Info("GetLiquidableTraders:", "markPrice", markPrice, "oraclePrice", oraclePrice, "overSpreadLimit", overSpreadLimit)
-
-	for addr, trader := range traderMap {
-		position := trader.Positions[market]
-		if position != nil && position.Size.Sign() != 0 {
-			margin := getMarginForTrader(trader, market)
-			marginFraction := getMarginFraction(margin, markPrice, position)
-
-			log.Info("GetLiquidableTraders", "trader", addr.String(), "traderInfo", trader, "marginFraction", marginFraction, "margin", margin.Uint64())
-			if overSpreadLimit {
-				oracleBasedMarginFraction := getMarginFraction(margin, oraclePrice, position)
-				if oracleBasedMarginFraction.Cmp(marginFraction) == 1 {
-					marginFraction = oracleBasedMarginFraction
-				}
-				log.Info("GetLiquidableTraders", "trader", addr.String(), "oracleBasedMarginFraction", oracleBasedMarginFraction)
-			}
-
-			if marginFraction.Cmp(maintenanceMargin) == -1 {
-				log.Info("GetLiquidableTraders - below maintenanceMargin", "trader", addr.String(), "marginFraction", marginFraction)
-				liquidable := LiquidablePosition{
-					Address:        addr,
-					Size:           position.LiquidationThreshold,
-					MarginFraction: marginFraction,
-					FilledSize:     big.NewInt(0),
-				}
-				if position.Size.Sign() == -1 {
-					liquidable.PositionType = "short"
-				} else {
-					liquidable.PositionType = "long"
-				}
-				liquidablePositions = append(liquidablePositions, liquidable)
-			}
-		}
+func calcMarginFraction(trader *Trader, pendingFunding *big.Int, marginMode MarginMode, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int) *big.Int {
+	margin := new(big.Int).Sub(getNormalisedMargin(trader), pendingFunding)
+	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices)
+	if notionalPosition.Sign() == 0 {
+		return big.NewInt(math.MaxInt64)
 	}
-
-	// lower margin fraction positions should be liquidated first
-	sortLiquidableSliceByMarginFraction(liquidablePositions)
-	return liquidablePositions
+	margin.Add(margin, unrealizePnL)
+	return new(big.Int).Div(multiplyBasePrecision(margin), notionalPosition)
 }
 
 func sortLiquidableSliceByMarginFraction(positions []LiquidablePosition) []LiquidablePosition {
@@ -78,37 +44,20 @@ func sortLiquidableSliceByMarginFraction(positions []LiquidablePosition) []Liqui
 
 func getNormalisedMargin(trader *Trader) *big.Int {
 	return trader.Margin.Deposited[HUSD]
-
-	// this will change after multi collateral
-	// var normalisedMargin *big.Int
-	// for coll, margin := range trader.Margins {
-	// 	normalisedMargin += margin * priceMap[coll] * collateralWeightMap[coll]
-	// }
-
-	// return normalisedMargin
+	// @todo: Write for multi-collateral
 }
 
 func getTotalFunding(trader *Trader) *big.Int {
-	totalFunding := big.NewInt(0)
-	for _, position := range trader.Positions {
-		if position.UnrealisedFunding != nil {
-			totalFunding.Add(totalFunding, position.UnrealisedFunding)
+	totalPendingFunding := big.NewInt(0)
+	for _, market := range GetActiveMarkets() {
+		if trader.Positions[market].UnrealisedFunding != nil {
+			totalPendingFunding.Add(totalPendingFunding, trader.Positions[market].UnrealisedFunding)
 		}
 	}
-	return totalFunding
+	return totalPendingFunding
 }
 
-// func getMarginForTrader(trader Trader, market Market) *big.Int {
-// 	if position, ok := trader.Positions[market]; ok {
-// 		if position.UnrealisedFunding != nil {
-// 			return big.NewInt(0).Sub(getNormalisedMargin(trader), position.UnrealisedFunding)
-// 		}
-// 	}
-// 	return getNormalisedMargin(trader)
-// }
-
 func getNotionalPosition(price *big.Int, size *big.Int) *big.Int {
-	// notional position is base precision 1e6
 	return big.NewInt(0).Abs(dividePrecisionSize(big.NewInt(0).Mul(size, price)))
 }
 
@@ -119,11 +68,11 @@ const (
 	Min_Allowable_Margin
 )
 
-func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, marginMode MarginMode, oraclePriceMap map[Market]*big.Int, lastPriceMap map[Market]*big.Int) (*big.Int, *big.Int) {
+func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, marginMode MarginMode, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int) (*big.Int, *big.Int) {
 	notionalPosition := big.NewInt(0)
 	unrealizedPnl := big.NewInt(0)
 	for _, market := range GetActiveMarkets() {
-		_notionalPosition, _unrealizedPnl := getOptimalPnl(market, oraclePriceMap[market], lastPriceMap[market], trader, margin, marginMode)
+		_notionalPosition, _unrealizedPnl := getOptimalPnl(market, oraclePrices[market], lastPrices[market], trader, margin, marginMode)
 		notionalPosition.Add(notionalPosition, _notionalPosition)
 		unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
 	}
@@ -194,9 +143,9 @@ func getMarginFraction(margin *big.Int, price *big.Int, position *Position) *big
 	return mf
 }
 
-func getAvailableMargin(trader *Trader, pendingFunding *big.Int, oraclePriceMap map[Market]*big.Int, lastPriceMap map[Market]*big.Int) *big.Int {
+func getAvailableMargin(trader *Trader, pendingFunding *big.Int, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int) *big.Int {
 	margin := new(big.Int).Sub(getNormalisedMargin(trader), pendingFunding)
-	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, Min_Allowable_Margin, oraclePriceMap, lastPriceMap)
+	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices)
 	utilisedMargin := divideByBasePrecision(new(big.Int).Mul(notionalPosition, minAllowableMargin))
 	return new(big.Int).Sub(
 		new(big.Int).Add(margin, unrealizePnL),

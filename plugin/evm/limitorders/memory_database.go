@@ -145,12 +145,13 @@ type LimitOrderDatabase interface {
 	GetNextFundingTime() uint64
 	UpdateLastPrice(market Market, lastPrice *big.Int)
 	GetLastPrice(market Market) *big.Int
-	GetOrdersToCancel(oraclePrice map[Market]*big.Int) map[common.Address][]common.Hash
+	GetLastPrices() map[Market]*big.Int
 	GetAllTraders() map[common.Address]Trader
 	GetOrderBookData() InMemoryDatabase
 	Accept(blockNumber uint64)
 	SetOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error
 	RevertLastStatus(orderId common.Hash) error
+	GetNaughtyTraders(oraclePrices map[Market]*big.Int) ([]LiquidablePosition, map[common.Address][]common.Hash)
 }
 
 type InMemoryDatabase struct {
@@ -407,6 +408,13 @@ func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {
 	return db.LastPrice[market]
 }
 
+func (db *InMemoryDatabase) GetLastPrices() map[Market]*big.Int {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return db.LastPrice
+}
+
 func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -418,53 +426,82 @@ func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 	return traderMap
 }
 
-func (db *InMemoryDatabase) GetTotalPendingFunding(trader *Trader) *big.Int {
-	totalPendingFunding := big.NewInt(0)
+func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFraction *big.Int) LiquidablePosition {
+	liquidable := LiquidablePosition{}
+	// iterate through the markets and return the first one with an open position
+	// @todo when we introduce multiple markets, we will have to implement a more sophisticated liquidation strategy
 	for _, market := range GetActiveMarkets() {
-		if trader.Positions[market].UnrealisedFunding != nil {
-			totalPendingFunding.Add(totalPendingFunding, trader.Positions[market].UnrealisedFunding)
+		position := trader.Positions[market]
+		if position == nil || position.Size.Sign() == 0 {
+			continue
+		}
+		liquidable = LiquidablePosition{
+			Address:        addr,
+			Market:         market,
+			Size:           position.LiquidationThreshold,
+			MarginFraction: marginFraction,
+			FilledSize:     big.NewInt(0),
+		}
+		if position.Size.Sign() == -1 {
+			liquidable.PositionType = "short"
+		} else {
+			liquidable.PositionType = "long"
 		}
 	}
-	return totalPendingFunding
+	return liquidable
 }
 
-func (db *InMemoryDatabase) GetOrdersToCancel(oraclePrice map[Market]*big.Int) map[common.Address][]common.Hash {
+func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int) ([]LiquidablePosition, map[common.Address][]common.Hash) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
+	liquidablePositions := []LiquidablePosition{}
 	ordersToCancel := map[common.Address][]common.Hash{}
-	for addr, trader := range db.TraderMap {
-		pendingFunding := db.GetTotalPendingFunding(trader)
-		availableMargin := getAvailableMargin(trader, pendingFunding, oraclePrice, db.LastPrice)
-		log.Info("GetOrdersToCancel", "trader", addr.String(), "availableMargin", availableMargin)
-		if availableMargin.Cmp(big.NewInt(0)) == -1 {
-			log.Info("GetOrdersToCancel - negative available margin", "trader", addr.String(), "availableMargin", availableMargin)
-			traderOrders := db.getTraderOrders(addr)
-			sort.Slice(traderOrders, func(i, j int) bool {
-				// higher diff comes first
-				iDiff := big.NewInt(0).Abs(big.NewInt(0).Sub(traderOrders[i].Price, oraclePrice[traderOrders[i].Market]))
-				jDiff := big.NewInt(0).Abs(big.NewInt(0).Sub(traderOrders[j].Price, oraclePrice[traderOrders[j].Market]))
-				return iDiff.Cmp(jDiff) > 0
-			})
 
-			if len(traderOrders) > 0 {
-				// cancel orders until available margin is positive
-				ordersToCancel[addr] = []common.Hash{}
-				for _, order := range traderOrders {
-					ordersToCancel[addr] = append(ordersToCancel[addr], order.Id)
-					orderNotional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.GetUnFilledBaseAssetQuantity(), order.Price), _1e18)) // | size * current price |
-					marginReleased := divideByBasePrecision(big.NewInt(0).Mul(orderNotional, minAllowableMargin))
-					availableMargin.Add(availableMargin, marginReleased)
-					log.Info("in loop", "availableMargin", availableMargin, "marginReleased", marginReleased, "orderNotional", orderNotional)
-					if availableMargin.Cmp(big.NewInt(0)) >= 0 {
-						break
-					}
-				}
-			}
+	for addr, trader := range db.TraderMap {
+		pendingFunding := getTotalFunding(trader)
+		marginFraction := calcMarginFraction(trader, pendingFunding, Maintenance_Margin, oraclePrices, db.LastPrice)
+		if marginFraction.Cmp(maintenanceMargin) != -1 {
+			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", marginFraction)
+			liquidablePositions = append(liquidablePositions, determinePositionToLiquidate(trader, addr, marginFraction))
+			continue // we do not check for their open orders yet. Maybe liquidating them first will make available margin positive
+		}
+		availableMargin := getAvailableMargin(trader, pendingFunding, oraclePrices, db.LastPrice)
+		if availableMargin.Cmp(big.NewInt(0)) == -1 {
+			log.Info("negative available margin", "trader", addr.String(), "availableMargin", availableMargin)
+			db.determineOrdersToCancel(addr, trader, *availableMargin, oraclePrices, ordersToCancel)
 		}
 	}
 
-	return ordersToCancel
+	// lower margin fraction positions should be liquidated first
+	sortLiquidableSliceByMarginFraction(liquidablePositions)
+	return liquidablePositions, ordersToCancel
+}
+
+// assumes db.mu.RLock has been held by the caller
+func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader *Trader, availableMargin big.Int, oraclePrices map[Market]*big.Int, ordersToCancel map[common.Address][]common.Hash) {
+	traderOrders := db.getTraderOrders(addr)
+	sort.Slice(traderOrders, func(i, j int) bool {
+		// higher diff comes first
+		iDiff := big.NewInt(0).Abs(big.NewInt(0).Sub(traderOrders[i].Price, oraclePrices[traderOrders[i].Market]))
+		jDiff := big.NewInt(0).Abs(big.NewInt(0).Sub(traderOrders[j].Price, oraclePrices[traderOrders[j].Market]))
+		return iDiff.Cmp(jDiff) > 0
+	})
+
+	if len(traderOrders) > 0 {
+		// cancel orders until available margin is positive
+		ordersToCancel[addr] = []common.Hash{}
+		for _, order := range traderOrders {
+			ordersToCancel[addr] = append(ordersToCancel[addr], order.Id)
+			orderNotional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.GetUnFilledBaseAssetQuantity(), order.Price), _1e18)) // | size * current price |
+			marginReleased := divideByBasePrecision(big.NewInt(0).Mul(orderNotional, minAllowableMargin))
+			availableMargin.Add(&availableMargin, marginReleased)
+			log.Info("in loop", "availableMargin", availableMargin, "marginReleased", marginReleased, "orderNotional", orderNotional)
+			if availableMargin.Cmp(big.NewInt(0)) >= 0 {
+				break
+			}
+		}
+	}
 }
 
 func (db *InMemoryDatabase) getTraderOrders(trader common.Address) []LimitOrder {
