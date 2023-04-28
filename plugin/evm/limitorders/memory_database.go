@@ -418,10 +418,24 @@ func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 	return traderMap
 }
 
+func (db *InMemoryDatabase) GetTotalPendingFunding(trader *Trader) *big.Int {
+	totalPendingFunding := big.NewInt(0)
+	for _, market := range GetActiveMarkets() {
+		if trader.Positions[market].UnrealisedFunding != nil {
+			totalPendingFunding.Add(totalPendingFunding, trader.Positions[market].UnrealisedFunding)
+		}
+	}
+	return totalPendingFunding
+}
+
 func (db *InMemoryDatabase) GetOrdersToCancel(oraclePrice map[Market]*big.Int) map[common.Address][]common.Hash {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
 	ordersToCancel := map[common.Address][]common.Hash{}
 	for addr, trader := range db.TraderMap {
-		availableMargin := getAvailableMargin(*trader, oraclePrice)
+		pendingFunding := db.GetTotalPendingFunding(trader)
+		availableMargin := getAvailableMargin(trader, pendingFunding, oraclePrice, db.LastPrice)
 		log.Info("GetOrdersToCancel", "trader", addr.String(), "availableMargin", availableMargin)
 		if availableMargin.Cmp(big.NewInt(0)) == -1 {
 			log.Info("GetOrdersToCancel - negative available margin", "trader", addr.String(), "availableMargin", availableMargin)
