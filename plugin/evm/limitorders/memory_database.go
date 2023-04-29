@@ -34,8 +34,6 @@ const (
 	HUSD Collateral = iota
 )
 
-var collateralWeightMap map[Collateral]float64 = map[Collateral]float64{HUSD: 1}
-
 type Status uint8
 
 const (
@@ -173,6 +171,11 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 		NextFundingTime: 0,
 		LastPrice:       lastPrice,
 	}
+}
+
+// assumes db.mu.RLock() is held
+func (db *InMemoryDatabase) GetTraderMap() map[common.Address]*Trader {
+	return db.TraderMap
 }
 
 func (db *InMemoryDatabase) Accept(blockNumber uint64) {
@@ -458,18 +461,19 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int) 
 	liquidablePositions := []LiquidablePosition{}
 	ordersToCancel := map[common.Address][]common.Hash{}
 
-	for addr, trader := range db.TraderMap {
+	for addr, trader := range db.GetTraderMap() {
 		pendingFunding := getTotalFunding(trader)
-		marginFraction := calcMarginFraction(trader, pendingFunding, Maintenance_Margin, oraclePrices, db.LastPrice)
-		if marginFraction.Cmp(maintenanceMargin) != -1 {
-			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", marginFraction)
+		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, db.GetLastPrices())
+		if marginFraction.Cmp(maintenanceMargin) == -1 {
+			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", prettifyScaledBigInt(marginFraction, 6))
 			liquidablePositions = append(liquidablePositions, determinePositionToLiquidate(trader, addr, marginFraction))
 			continue // we do not check for their open orders yet. Maybe liquidating them first will make available margin positive
 		}
 		availableMargin := getAvailableMargin(trader, pendingFunding, oraclePrices, db.LastPrice)
+		log.Info("getAvailableMargin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
 		if availableMargin.Cmp(big.NewInt(0)) == -1 {
-			log.Info("negative available margin", "trader", addr.String(), "availableMargin", availableMargin)
-			db.determineOrdersToCancel(addr, trader, *availableMargin, oraclePrices, ordersToCancel)
+			log.Info("negative available margin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
+			db.determineOrdersToCancel(addr, trader, availableMargin, oraclePrices, ordersToCancel)
 		}
 	}
 
@@ -479,7 +483,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int) 
 }
 
 // assumes db.mu.RLock has been held by the caller
-func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader *Trader, availableMargin big.Int, oraclePrices map[Market]*big.Int, ordersToCancel map[common.Address][]common.Hash) {
+func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader *Trader, availableMargin *big.Int, oraclePrices map[Market]*big.Int, ordersToCancel map[common.Address][]common.Hash) {
 	traderOrders := db.getTraderOrders(addr)
 	sort.Slice(traderOrders, func(i, j int) bool {
 		// higher diff comes first
@@ -488,6 +492,7 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 		return iDiff.Cmp(jDiff) > 0
 	})
 
+	_availableMargin := new(big.Int).Set(availableMargin)
 	if len(traderOrders) > 0 {
 		// cancel orders until available margin is positive
 		ordersToCancel[addr] = []common.Hash{}
@@ -495,9 +500,9 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 			ordersToCancel[addr] = append(ordersToCancel[addr], order.Id)
 			orderNotional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.GetUnFilledBaseAssetQuantity(), order.Price), _1e18)) // | size * current price |
 			marginReleased := divideByBasePrecision(big.NewInt(0).Mul(orderNotional, minAllowableMargin))
-			availableMargin.Add(&availableMargin, marginReleased)
-			log.Info("in loop", "availableMargin", availableMargin, "marginReleased", marginReleased, "orderNotional", orderNotional)
-			if availableMargin.Cmp(big.NewInt(0)) >= 0 {
+			_availableMargin.Add(_availableMargin, marginReleased)
+			log.Info("in determineOrdersToCancel loop", "availableMargin", prettifyScaledBigInt(_availableMargin, 6), "marginReleased", prettifyScaledBigInt(marginReleased, 6), "orderNotional", prettifyScaledBigInt(orderNotional, 6))
+			if _availableMargin.Cmp(big.NewInt(0)) >= 0 {
 				break
 			}
 		}
