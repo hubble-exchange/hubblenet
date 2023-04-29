@@ -307,7 +307,7 @@ func (vm *VM) Initialize(
 	vm.syntacticBlockValidator = NewBlockValidator()
 
 	if g.Config.FeeConfig == commontype.EmptyFeeConfig {
-		log.Warn("No fee config given in genesis, setting default fee config", "DefaultFeeConfig", params.DefaultFeeConfig)
+		log.Info("No fee config given in genesis, setting default fee config", "DefaultFeeConfig", params.DefaultFeeConfig)
 		g.Config.FeeConfig = params.DefaultFeeConfig
 	}
 
@@ -372,7 +372,7 @@ func (vm *VM) Initialize(
 		log.Info("Setting fee recipient", "address", address)
 		vm.ethConfig.Miner.Etherbase = address
 	} else {
-		log.Warn("Config has not specified any coinbase address. Defaulting to the blackhole address.")
+		log.Info("Config has not specified any coinbase address. Defaulting to the blackhole address.")
 		vm.ethConfig.Miner.Etherbase = constants.BlackholeAddr
 	}
 
@@ -509,15 +509,16 @@ func (vm *VM) initializeStateSyncClient(lastAcceptedHeight uint64) error {
 				BlockParser:      vm,
 			},
 		),
-		enabled:            vm.config.StateSyncEnabled,
-		skipResume:         vm.config.StateSyncSkipResume,
-		stateSyncMinBlocks: vm.config.StateSyncMinBlocks,
-		lastAcceptedHeight: lastAcceptedHeight, // TODO clean up how this is passed around
-		chaindb:            vm.chaindb,
-		metadataDB:         vm.metadataDB,
-		acceptedBlockDB:    vm.acceptedBlockDB,
-		db:                 vm.db,
-		toEngine:           vm.toEngine,
+		enabled:              vm.config.StateSyncEnabled,
+		skipResume:           vm.config.StateSyncSkipResume,
+		stateSyncMinBlocks:   vm.config.StateSyncMinBlocks,
+		stateSyncRequestSize: vm.config.StateSyncRequestSize,
+		lastAcceptedHeight:   lastAcceptedHeight, // TODO clean up how this is passed around
+		chaindb:              vm.chaindb,
+		metadataDB:           vm.metadataDB,
+		acceptedBlockDB:      vm.acceptedBlockDB,
+		db:                   vm.db,
+		toEngine:             vm.toEngine,
 	})
 
 	// If StateSync is disabled, clear any ongoing summary so that we will not attempt to resume
@@ -636,7 +637,9 @@ func (vm *VM) Shutdown(context.Context) error {
 	}
 	close(vm.shutdownChan)
 	vm.eth.Stop()
+	log.Info("Ethereum backend stop completed")
 	vm.shutdownWg.Wait()
+	log.Info("Subnet-EVM Shutdown completed")
 	return nil
 }
 
@@ -681,7 +684,6 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 	// to the blk state root in the triedb when we are going to call verify
 	// again from the consensus engine with writes enabled.
 	if err := blk.verify(predicateCtx, false /*=writes*/); err != nil {
-		log.Error("buildBlock - verify failed", "err", err, "number", block.NumberU64())
 		return nil, fmt.Errorf("block failed verification due to: %w", err)
 	}
 
@@ -822,6 +824,13 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]*commonEng.HTTPHandler
 	}
 	if err := handler.RegisterName("orderbook", vm.limitOrderProcesser.GetOrderBookAPI()); err != nil {
 		return nil, err
+	}
+
+	if vm.config.WarpAPIEnabled {
+		if err := handler.RegisterName("warp", &warp.WarpAPI{Backend: vm.warpBackend}); err != nil {
+			return nil, err
+		}
+		enabledAPIs = append(enabledAPIs, "warp")
 	}
 
 	if vm.config.WarpAPIEnabled {
