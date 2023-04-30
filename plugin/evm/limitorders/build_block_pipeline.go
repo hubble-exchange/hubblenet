@@ -179,6 +179,7 @@ func matchLongAndShortOrder(lotp LimitOrderTxProcessor, longOrder LimitOrder, sh
 }
 
 func isFundingPaymentTime(lastBlockTime uint64, db LimitOrderDatabase) bool {
+	log.Info("isFundingPaymentTime", "lastBlockTime", lastBlockTime, "nextFundingTime", db.GetNextFundingTime())
 	if db.GetNextFundingTime() == 0 {
 		return false
 	}
