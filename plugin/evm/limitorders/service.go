@@ -74,9 +74,7 @@ func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*O
 		marketOrders := map[common.Hash]*LimitOrder{}
 		for hash, order := range allOrders {
 			if order.Market == Market(market) {
-				if order.PositionType == "short" /* || order.Price.Cmp(big.NewInt(20e6)) <= 0 */ {
-					marketOrders[hash] = order
-				}
+				marketOrders[hash] = order
 			}
 		}
 		allOrders = marketOrders
