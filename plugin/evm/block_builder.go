@@ -31,7 +31,8 @@ const (
 	// a second time without changing the contents of the mempool.
 	minBlockBuildingRetryDelay = 500 * time.Millisecond
 
-	buildTickerDuration = 1 * time.Minute
+	// ticker frequency for calling signalTxsReady
+	buildTickerDuration = 1 * time.Second
 )
 
 type blockBuilder struct {
@@ -170,7 +171,7 @@ func (b *blockBuilder) awaitSubmittedTxs() {
 			select {
 			case ethTxsEvent := <-txSubmitChan:
 				log.Trace("New tx detected, trying to generate a block")
-				// reset the ticker cuz consensus if being notified here
+				// signalTxsReady is being called here, so the ticker should be reset
 				b.buildTicker.Reset(buildTickerDuration)
 				b.signalTxsReady()
 
