@@ -470,7 +470,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int) 
 			continue // we do not check for their open orders yet. Maybe liquidating them first will make available margin positive
 		}
 		availableMargin := getAvailableMargin(trader, pendingFunding, oraclePrices, db.LastPrice)
-		log.Info("getAvailableMargin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
+		// log.Info("getAvailableMargin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
 		if availableMargin.Cmp(big.NewInt(0)) == -1 {
 			log.Info("negative available margin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
 			db.determineOrdersToCancel(addr, trader, availableMargin, oraclePrices, ordersToCancel)

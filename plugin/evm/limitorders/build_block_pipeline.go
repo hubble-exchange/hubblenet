@@ -24,7 +24,7 @@ func (pipeline *BuildBlockPipeline) Run(lastBlockTime uint64) {
 	pipeline.lotp.PurgeLocalTx()
 
 	if isFundingPaymentTime(lastBlockTime, pipeline.db) {
-		log.Info("BuildBlockPipeline:isFundingPaymentTime")
+		log.Info("BuildBlockPipeline - FundingPaymentTime")
 		// just execute the funding payment and skip running the matching engine
 		err := executeFundingPayment(pipeline.lotp)
 		if err != nil {
