@@ -135,7 +135,6 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 			log.Info("#### deleting order", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
 			cep.database.Delete(orderId)
 		}
-		SendTxReadySignal() // what does this do?
 	case cep.orderBookABI.Events["OrderCancelled"].ID:
 		err := cep.orderBookABI.UnpackIntoMap(args, "OrderCancelled", event.Data)
 		if err != nil {

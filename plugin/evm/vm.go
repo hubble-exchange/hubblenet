@@ -596,9 +596,9 @@ func (vm *VM) initBlockBuilding() {
 	vm.gossiper = vm.createGossiper(gossipStats)
 	vm.builder = vm.NewBlockBuilder(vm.toEngine)
 	vm.builder.awaitSubmittedTxs()
+	vm.builder.awaitBuildTimer()
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
 
-	limitorders.SetToEngine(vm.builder.notifyBuildBlockChan)
 	vm.limitOrderProcesser.ListenAndProcessTransactions()
 }
 
