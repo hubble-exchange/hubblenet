@@ -2,6 +2,7 @@ package limitorders
 
 import (
 	"math/big"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,11 +21,11 @@ func NewBuildBlockPipeline(db LimitOrderDatabase, lotp LimitOrderTxProcessor) *B
 	}
 }
 
-func (pipeline *BuildBlockPipeline) Run(lastBlockTime uint64) {
+func (pipeline *BuildBlockPipeline) Run() {
 	pipeline.lotp.PurgeLocalTx()
 
-	if isFundingPaymentTime(lastBlockTime, pipeline.db) {
-		log.Info("BuildBlockPipeline - FundingPaymentTime")
+	if isFundingPaymentTime(pipeline.db.GetNextFundingTime()) {
+		log.Info("BuildBlockPipeline:isFundingPaymentTime")
 		// just execute the funding payment and skip running the matching engine
 		err := executeFundingPayment(pipeline.lotp)
 		if err != nil {
@@ -178,12 +179,13 @@ func matchLongAndShortOrder(lotp LimitOrderTxProcessor, longOrder LimitOrder, sh
 	return longOrder, shortOrder, false
 }
 
-func isFundingPaymentTime(lastBlockTime uint64, db LimitOrderDatabase) bool {
-	log.Info("isFundingPaymentTime", "lastBlockTime", lastBlockTime, "nextFundingTime", db.GetNextFundingTime())
-	if db.GetNextFundingTime() == 0 {
+func isFundingPaymentTime(nextFundingTime uint64) bool {
+	if nextFundingTime == 0 {
 		return false
 	}
-	return lastBlockTime >= db.GetNextFundingTime()
+
+	now := uint64(time.Now().Unix())
+	return now >= nextFundingTime
 }
 
 func executeFundingPayment(lotp LimitOrderTxProcessor) error {
