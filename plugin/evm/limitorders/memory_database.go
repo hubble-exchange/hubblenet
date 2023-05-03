@@ -497,6 +497,10 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 		// cancel orders until available margin is positive
 		ordersToCancel[addr] = []common.Hash{}
 		for _, order := range traderOrders {
+			// cannot cancel ReduceOnly orders because no margin is reserved for them
+			if order.ReduceOnly {
+				continue
+			}
 			ordersToCancel[addr] = append(ordersToCancel[addr], order.Id)
 			orderNotional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.GetUnFilledBaseAssetQuantity(), order.Price), _1e18)) // | size * current price |
 			marginReleased := divideByBasePrecision(big.NewInt(0).Mul(orderNotional, minAllowableMargin))
