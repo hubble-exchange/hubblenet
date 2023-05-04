@@ -150,6 +150,7 @@ type LimitOrderDatabase interface {
 	SetOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error
 	RevertLastStatus(orderId common.Hash) error
 	GetNaughtyTraders(oraclePrices map[Market]*big.Int) ([]LiquidablePosition, map[common.Address][]common.Hash)
+	GetOpenOrdersForTrader(trader common.Address) []LimitOrder
 }
 
 type InMemoryDatabase struct {
@@ -427,6 +428,13 @@ func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 		traderMap[address] = *trader
 	}
 	return traderMap
+}
+
+func (db *InMemoryDatabase) GetOpenOrdersForTrader(trader common.Address) []LimitOrder {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return db.getTraderOrders(trader)
 }
 
 func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFraction *big.Int) LiquidablePosition {

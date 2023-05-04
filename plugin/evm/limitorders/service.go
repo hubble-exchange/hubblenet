@@ -63,7 +63,7 @@ func (api *OrderBookAPI) GetDetailedOrderBookData(ctx context.Context) InMemoryD
 
 func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*OrderBookResponse, error) {
 	// market is a string cuz it's an optional param
-	allOrders := api.db.GetOrderBookData().OrderMap
+	allOrders := api.db.GetAllOrders()
 	orders := []OrderMin{}
 
 	if len(marketStr) > 0 {
@@ -71,22 +71,22 @@ func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*O
 		if err != nil {
 			return nil, fmt.Errorf("invalid market")
 		}
-		marketOrders := map[common.Hash]*LimitOrder{}
-		for hash, order := range allOrders {
+		marketOrders := []LimitOrder{}
+		for _, order := range allOrders {
 			if order.Market == Market(market) {
-				marketOrders[hash] = order
+				marketOrders = append(marketOrders, order)
 			}
 		}
 		allOrders = marketOrders
 	}
 
-	for hash, order := range allOrders {
+	for _, order := range allOrders {
 		orders = append(orders, OrderMin{
 			Market:  order.Market,
 			Price:   order.Price.String(),
 			Size:    order.GetUnFilledBaseAssetQuantity().String(),
 			Signer:  order.UserAddress,
-			OrderId: hash.String(),
+			OrderId: order.Id.String(),
 		})
 	}
 
@@ -95,8 +95,9 @@ func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*O
 
 func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string) OpenOrdersResponse {
 	traderOrders := []OrderForOpenOrders{}
-	orderMap := api.db.GetOrderBookData().OrderMap
-	for hash, order := range orderMap {
+	traderHash := common.HexToAddress(trader)
+	orders := api.db.GetOpenOrdersForTrader(traderHash)
+	for _, order := range orders {
 		if strings.EqualFold(order.UserAddress, trader) {
 			traderOrders = append(traderOrders, OrderForOpenOrders{
 				Market:     order.Market,
@@ -104,7 +105,7 @@ func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string) OpenO
 				Size:       order.BaseAssetQuantity.String(),
 				FilledSize: order.FilledBaseAssetQuantity.String(),
 				Salt:       getOrderFromRawOrder(order.RawOrder).Salt.String(),
-				OrderId:    hash.String(),
+				OrderId:    order.Id.String(),
 				ReduceOnly: order.ReduceOnly,
 			})
 		}
