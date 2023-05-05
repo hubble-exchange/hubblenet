@@ -154,7 +154,7 @@ type LimitOrderDatabase interface {
 }
 
 type InMemoryDatabase struct {
-	mu              sync.RWMutex                `json:"-"`
+	mu              *sync.RWMutex               `json:"-"`
 	OrderMap        map[common.Hash]*LimitOrder `json:"order_map"`  // ID => order
 	TraderMap       map[common.Address]*Trader  `json:"trader_map"` // address => trader info
 	NextFundingTime uint64                      `json:"next_funding_time"`
@@ -171,12 +171,8 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 		TraderMap:       traderMap,
 		NextFundingTime: 0,
 		LastPrice:       lastPrice,
+		mu:              &sync.RWMutex{},
 	}
-}
-
-// assumes db.mu.RLock() is held
-func (db *InMemoryDatabase) GetTraderMap() map[common.Address]*Trader {
-	return db.TraderMap
 }
 
 func (db *InMemoryDatabase) Accept(blockNumber uint64) {
@@ -469,9 +465,9 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int) 
 	liquidablePositions := []LiquidablePosition{}
 	ordersToCancel := map[common.Address][]common.Hash{}
 
-	for addr, trader := range db.GetTraderMap() {
+	for addr, trader := range db.TraderMap {
 		pendingFunding := getTotalFunding(trader)
-		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, db.GetLastPrices())
+		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, db.LastPrice)
 		if marginFraction.Cmp(maintenanceMargin) == -1 {
 			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", prettifyScaledBigInt(marginFraction, 6))
 			liquidablePositions = append(liquidablePositions, determinePositionToLiquidate(trader, addr, marginFraction))
