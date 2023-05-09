@@ -63,33 +63,23 @@ func (api *OrderBookAPI) GetDetailedOrderBookData(ctx context.Context) InMemoryD
 
 func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*OrderBookResponse, error) {
 	// market is a string cuz it's an optional param
-	allOrders := api.db.GetAllOrders()
-	orders := []OrderMin{}
-
+	var market *int
 	if len(marketStr) > 0 {
-		market, err := strconv.Atoi(marketStr)
-		if err != nil {
+		var err error
+		_market, err := strconv.Atoi(marketStr)
+		if err != nil || _market < len(GetActiveMarkets())-1 {
 			return nil, fmt.Errorf("invalid market")
 		}
-		marketOrders := []LimitOrder{}
-		for _, order := range allOrders {
-			if order.Market == Market(market) {
-				marketOrders = append(marketOrders, order)
-			}
-		}
-		allOrders = marketOrders
+		market = &_market
 	}
 
+	allOrders := api.db.GetAllOrders()
+	orders := []OrderMin{}
 	for _, order := range allOrders {
-		orders = append(orders, OrderMin{
-			Market:  order.Market,
-			Price:   order.Price.String(),
-			Size:    order.GetUnFilledBaseAssetQuantity().String(),
-			Signer:  order.UserAddress,
-			OrderId: order.Id.String(),
-		})
+		if market == nil || order.Market == Market(*market) {
+			orders = append(orders, order.ToOrderMin())
+		}
 	}
-
 	return &OrderBookResponse{Orders: orders}, nil
 }
 

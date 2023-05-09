@@ -109,6 +109,16 @@ func (order LimitOrder) String() string {
 	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, hex.EncodeToString(order.Signature), order.BlockNumber)
 }
 
+func (order LimitOrder) ToOrderMin() OrderMin {
+	return OrderMin{
+		Market:  order.Market,
+		Price:   order.Price.String(),
+		Size:    order.GetUnFilledBaseAssetQuantity().String(),
+		Signer:  order.UserAddress,
+		OrderId: order.Id.String(),
+	}
+}
+
 type Position struct {
 	OpenNotional         *big.Int `json:"open_notional"`
 	Size                 *big.Int `json:"size"`
