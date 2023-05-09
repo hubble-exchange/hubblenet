@@ -109,6 +109,16 @@ func (order LimitOrder) String() string {
 	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, hex.EncodeToString(order.Signature), order.BlockNumber)
 }
 
+func (order LimitOrder) ToOrderMin() OrderMin {
+	return OrderMin{
+		Market:  order.Market,
+		Price:   order.Price.String(),
+		Size:    order.GetUnFilledBaseAssetQuantity().String(),
+		Signer:  order.UserAddress,
+		OrderId: order.Id.String(),
+	}
+}
+
 type Position struct {
 	OpenNotional         *big.Int `json:"open_notional"`
 	Size                 *big.Int `json:"size"`
@@ -150,10 +160,11 @@ type LimitOrderDatabase interface {
 	SetOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error
 	RevertLastStatus(orderId common.Hash) error
 	GetNaughtyTraders(oraclePrices map[Market]*big.Int) ([]LiquidablePosition, map[common.Address][]common.Hash)
+	GetOpenOrdersForTrader(trader common.Address) []LimitOrder
 }
 
 type InMemoryDatabase struct {
-	mu              sync.RWMutex                `json:"-"`
+	mu              *sync.RWMutex               `json:"-"`
 	OrderMap        map[common.Hash]*LimitOrder `json:"order_map"`  // ID => order
 	TraderMap       map[common.Address]*Trader  `json:"trader_map"` // address => trader info
 	NextFundingTime uint64                      `json:"next_funding_time"`
@@ -170,12 +181,8 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 		TraderMap:       traderMap,
 		NextFundingTime: 0,
 		LastPrice:       lastPrice,
+		mu:              &sync.RWMutex{},
 	}
-}
-
-// assumes db.mu.RLock() is held
-func (db *InMemoryDatabase) GetTraderMap() map[common.Address]*Trader {
-	return db.TraderMap
 }
 
 func (db *InMemoryDatabase) Accept(blockNumber uint64) {
@@ -429,6 +436,13 @@ func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 	return traderMap
 }
 
+func (db *InMemoryDatabase) GetOpenOrdersForTrader(trader common.Address) []LimitOrder {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return db.getTraderOrders(trader)
+}
+
 func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFraction *big.Int) LiquidablePosition {
 	liquidable := LiquidablePosition{}
 	// iterate through the markets and return the first one with an open position
@@ -461,9 +475,9 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int) 
 	liquidablePositions := []LiquidablePosition{}
 	ordersToCancel := map[common.Address][]common.Hash{}
 
-	for addr, trader := range db.GetTraderMap() {
+	for addr, trader := range db.TraderMap {
 		pendingFunding := getTotalFunding(trader)
-		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, db.GetLastPrices())
+		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, db.LastPrice)
 		if marginFraction.Cmp(maintenanceMargin) == -1 {
 			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", prettifyScaledBigInt(marginFraction, 6))
 			liquidablePositions = append(liquidablePositions, determinePositionToLiquidate(trader, addr, marginFraction))
@@ -497,6 +511,10 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 		// cancel orders until available margin is positive
 		ordersToCancel[addr] = []common.Hash{}
 		for _, order := range traderOrders {
+			// cannot cancel ReduceOnly orders because no margin is reserved for them
+			if order.ReduceOnly {
+				continue
+			}
 			ordersToCancel[addr] = append(ordersToCancel[addr], order.Id)
 			orderNotional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.GetUnFilledBaseAssetQuantity(), order.Price), _1e18)) // | size * current price |
 			marginReleased := divideByBasePrecision(big.NewInt(0).Mul(orderNotional, minAllowableMargin))

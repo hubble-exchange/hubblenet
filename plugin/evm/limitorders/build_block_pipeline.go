@@ -63,12 +63,14 @@ func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Ad
 	cancellableOrderIds := map[common.Hash]struct{}{}
 	// @todo: if there are too many cancellable orders, they might not fit in a single block. Need to adjust for that.
 	for _, orderIds := range cancellableOrders {
-		err := pipeline.lotp.ExecuteOrderCancel(orderIds)
-		if err != nil {
-			log.Error("Error in ExecuteOrderCancel", "orderIds", formatHashSlice(orderIds), "err", err)
-		} else {
-			for _, orderId := range orderIds {
-				cancellableOrderIds[orderId] = struct{}{}
+		if len(orderIds) > 0 {
+			err := pipeline.lotp.ExecuteOrderCancel(orderIds)
+			if err != nil {
+				log.Error("Error in ExecuteOrderCancel", "orderIds", formatHashSlice(orderIds), "err", err)
+			} else {
+				for _, orderId := range orderIds {
+					cancellableOrderIds[orderId] = struct{}{}
+				}
 			}
 		}
 	}
