@@ -110,9 +110,9 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 	for i, liquidable := range liquidablePositions {
 		var oppositeOrders []LimitOrder
 		switch liquidable.PositionType {
-		case "long":
+		case LONG:
 			oppositeOrders = orderMap[liquidable.Market].longOrders
-		case "short":
+		case SHORT:
 			oppositeOrders = orderMap[liquidable.Market].shortOrders
 		}
 		if len(oppositeOrders) == 0 {
@@ -132,10 +132,10 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 			pipeline.lotp.ExecuteLiquidation(liquidable.Address, oppositeOrder, fillAmount)
 
 			switch liquidable.PositionType {
-			case "long":
+			case LONG:
 				oppositeOrders[j].FilledBaseAssetQuantity.Add(oppositeOrders[j].FilledBaseAssetQuantity, fillAmount)
 				liquidablePositions[i].FilledSize.Add(liquidablePositions[i].FilledSize, fillAmount)
-			case "short":
+			case SHORT:
 				oppositeOrders[j].FilledBaseAssetQuantity.Sub(oppositeOrders[j].FilledBaseAssetQuantity, fillAmount)
 				liquidablePositions[i].FilledSize.Sub(liquidablePositions[i].FilledSize, fillAmount)
 			}

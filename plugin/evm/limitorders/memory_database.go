@@ -34,6 +34,17 @@ const (
 	HUSD Collateral = iota
 )
 
+type PositionType int
+
+const (
+	LONG PositionType = iota
+	SHORT
+)
+
+func (p PositionType) String() string {
+	return [...]string{"long", "short"}[p]
+}
+
 type Status uint8
 
 const (
@@ -49,10 +60,9 @@ type Lifecycle struct {
 }
 
 type LimitOrder struct {
-	Id     common.Hash
-	Market Market
-	// @todo make this an enum
-	PositionType            string
+	Id                      common.Hash
+	Market                  Market
+	PositionType            PositionType
 	UserAddress             string
 	BaseAssetQuantity       *big.Int
 	FilledBaseAssetQuantity *big.Int
@@ -82,7 +92,7 @@ type LimitOrderJson struct {
 func (order *LimitOrder) MarshalJSON() ([]byte, error) {
 	limitOrderJson := LimitOrderJson{
 		Market:                  order.Market,
-		PositionType:            order.PositionType,
+		PositionType:            order.PositionType.String(),
 		UserAddress:             strings.ToLower(order.UserAddress),
 		BaseAssetQuantity:       order.BaseAssetQuantity,
 		FilledBaseAssetQuantity: order.FilledBaseAssetQuantity,
@@ -257,10 +267,10 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 
 	limitOrder := db.OrderMap[orderId]
 
-	if limitOrder.PositionType == "long" {
+	if limitOrder.PositionType == LONG {
 		limitOrder.FilledBaseAssetQuantity.Add(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled + quantity
 	}
-	if limitOrder.PositionType == "short" {
+	if limitOrder.PositionType == SHORT {
 		limitOrder.FilledBaseAssetQuantity.Sub(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled - quantity
 	}
 
@@ -294,7 +304,7 @@ func (db *InMemoryDatabase) GetLongOrders(market Market, cutoff *big.Int) []Limi
 
 	var longOrders []LimitOrder
 	for _, order := range db.OrderMap {
-		if order.PositionType == "long" &&
+		if order.PositionType == LONG &&
 			order.Market == market &&
 			order.getOrderStatus().Status == Placed &&
 			(cutoff == nil || order.Price.Cmp(cutoff) <= 0) &&
@@ -312,7 +322,7 @@ func (db *InMemoryDatabase) GetShortOrders(market Market, cutoff *big.Int) []Lim
 
 	var shortOrders []LimitOrder
 	for _, order := range db.OrderMap {
-		if order.PositionType == "short" &&
+		if order.PositionType == SHORT &&
 			order.Market == market &&
 			order.getOrderStatus().Status == Placed &&
 			(cutoff == nil || order.Price.Cmp(cutoff) >= 0) &&
@@ -460,9 +470,9 @@ func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFra
 			FilledSize:     big.NewInt(0),
 		}
 		if position.Size.Sign() == -1 {
-			liquidable.PositionType = "short"
+			liquidable.PositionType = SHORT
 		} else {
-			liquidable.PositionType = "long"
+			liquidable.PositionType = LONG
 		}
 	}
 	return liquidable

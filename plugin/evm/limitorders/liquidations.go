@@ -18,7 +18,7 @@ type LiquidablePosition struct {
 	Size           *big.Int
 	MarginFraction *big.Int
 	FilledSize     *big.Int
-	PositionType   string
+	PositionType   PositionType
 }
 
 func (liq LiquidablePosition) GetUnfilledSize() *big.Int {

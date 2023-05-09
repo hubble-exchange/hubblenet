@@ -243,32 +243,11 @@ func (lotp *limitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transa
 	return checkIfOrderBookContractCall(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
 }
 
-func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity *big.Int) string {
+func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity *big.Int) PositionType {
 	if baseAssetQuantity.Sign() == 1 {
-		return "long"
+		return LONG
 	}
-	return "short"
-}
-
-func checkTxStatusSucess(backend eth.EthAPIBackend, hash common.Hash) bool {
-	ctx := context.Background()
-	defer ctx.Done()
-
-	_, blockHash, _, index, err := backend.GetTransaction(ctx, hash)
-	if err != nil {
-		log.Error("err in lop.backend.GetTransaction", "err", err)
-		return false
-	}
-	receipts, err := backend.GetReceipts(ctx, blockHash)
-	if err != nil {
-		log.Error("err in lop.backend.GetReceipts", "err", err)
-		return false
-	}
-	if len(receipts) <= int(index) {
-		return false
-	}
-	receipt := receipts[index]
-	return receipt.Status == uint64(1)
+	return SHORT
 }
 
 func checkIfOrderBookContractCall(tx *types.Transaction, orderBookABI abi.ABI, orderBookContractAddress common.Address) bool {
