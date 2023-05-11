@@ -3,20 +3,27 @@ package limitorders
 import (
 	"math/big"
 
+	"github.com/ava-labs/subnet-evm/core"
+	"github.com/ava-labs/subnet-evm/eth"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/hubbleconfigmanager"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
 
 type BuildBlockPipeline struct {
-	db   LimitOrderDatabase
-	lotp LimitOrderTxProcessor
+	db         LimitOrderDatabase
+	lotp       LimitOrderTxProcessor
+	blockChain *core.BlockChain
+	backend    *eth.EthAPIBackend
 }
 
-func NewBuildBlockPipeline(db LimitOrderDatabase, lotp LimitOrderTxProcessor) *BuildBlockPipeline {
+func NewBuildBlockPipeline(db LimitOrderDatabase, lotp LimitOrderTxProcessor, blockChain *core.BlockChain, backend *eth.EthAPIBackend) *BuildBlockPipeline {
 	return &BuildBlockPipeline{
-		db:   db,
-		lotp: lotp,
+		db:         db,
+		lotp:       lotp,
+		blockChain: blockChain,
+		backend:    backend,
 	}
 }
 
@@ -76,21 +83,15 @@ func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Ad
 
 func (pipeline *BuildBlockPipeline) fetchOrders(market Market, underlyingPrice *big.Int, cancellableOrderIds map[common.Hash]struct{}) *Orders {
 	// 1. Get long orders
-	longCutOffPrice := divideByBasePrecision(big.NewInt(0).Mul(
-		underlyingPrice,
-		big.NewInt(0).Add(_1e6, spreadRatioThreshold),
-	),
-	)
+	spreadRatioThreshold := pipeline.getSpreadRatioThreshold()
+	log.Info("in build block pipeline", "spread ratio threshold is", spreadRatioThreshold)
+	longCutOffPrice := divideByBasePrecision(big.NewInt(0).Mul(underlyingPrice, big.NewInt(0).Add(_1e6, spreadRatioThreshold)))
 	longOrders := pipeline.db.GetLongOrders(market, longCutOffPrice)
 
 	// 2. Get short orders
 	shortCutOffPrice := big.NewInt(0)
 	if _1e6.Cmp(spreadRatioThreshold) > 0 {
-		shortCutOffPrice = divideByBasePrecision(big.NewInt(0).Mul(
-			underlyingPrice,
-			big.NewInt(0).Sub(_1e6, spreadRatioThreshold),
-		),
-		)
+		shortCutOffPrice = divideByBasePrecision(big.NewInt(0).Mul(underlyingPrice, big.NewInt(0).Sub(_1e6, spreadRatioThreshold)))
 	}
 	shortOrders := pipeline.db.GetShortOrders(market, shortCutOffPrice)
 
@@ -207,4 +208,9 @@ func formatHashSlice(hashes []common.Hash) []string {
 		formattedHashes = append(formattedHashes, hash.String())
 	}
 	return formattedHashes
+}
+
+func (pipeline *BuildBlockPipeline) getSpreadRatioThreshold() *big.Int {
+	stateDB, _ := pipeline.blockChain.StateAt(pipeline.backend.CurrentBlock().Root())
+	return hubbleconfigmanager.GetSpreadRatioThreshold(stateDB)
 }
