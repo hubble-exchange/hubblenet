@@ -240,7 +240,7 @@ func (db *InMemoryDatabase) GetAllOrders() []LimitOrder {
 
 	allOrders := []LimitOrder{}
 	for _, order := range db.OrderMap {
-		allOrders = append(allOrders, *order)
+		allOrders = append(allOrders, deepCopyOrder(*order))
 	}
 	return allOrders
 }
@@ -309,7 +309,7 @@ func (db *InMemoryDatabase) GetLongOrders(market Market, cutoff *big.Int) []Limi
 			order.getOrderStatus().Status == Placed &&
 			(cutoff == nil || order.Price.Cmp(cutoff) <= 0) &&
 			(!order.ReduceOnly || db.willReducePosition(order)) {
-			longOrders = append(longOrders, *order)
+			longOrders = append(longOrders, deepCopyOrder(*order))
 		}
 	}
 	sortLongOrders(longOrders)
@@ -327,7 +327,7 @@ func (db *InMemoryDatabase) GetShortOrders(market Market, cutoff *big.Int) []Lim
 			order.getOrderStatus().Status == Placed &&
 			(cutoff == nil || order.Price.Cmp(cutoff) >= 0) &&
 			(!order.ReduceOnly || db.willReducePosition(order)) {
-			shortOrders = append(shortOrders, *order)
+			shortOrders = append(shortOrders, deepCopyOrder(*order))
 		}
 	}
 	sortShortOrders(shortOrders)
@@ -541,7 +541,7 @@ func (db *InMemoryDatabase) getTraderOrders(trader common.Address) []LimitOrder 
 	traderOrders := []LimitOrder{}
 	for _, order := range db.OrderMap {
 		if strings.EqualFold(order.UserAddress, trader.String()) {
-			traderOrders = append(traderOrders, *order)
+			traderOrders = append(traderOrders, deepCopyOrder(*order))
 		}
 	}
 	return traderOrders
@@ -609,8 +609,7 @@ func (db *InMemoryDatabase) GetOrderBookData() InMemoryDatabase {
 func getLiquidationThreshold(size *big.Int) *big.Int {
 	absSize := big.NewInt(0).Abs(size)
 	maxLiquidationSize := divideByBasePrecision(big.NewInt(0).Mul(absSize, maxLiquidationRatio))
-	threshold := big.NewInt(0).Add(maxLiquidationSize, big.NewInt(1))
-	liquidationThreshold := utils.BigIntMax(threshold, minSizeRequirement)
+	liquidationThreshold := utils.BigIntMax(maxLiquidationSize, minSizeRequirement)
 	return big.NewInt(0).Mul(liquidationThreshold, big.NewInt(int64(size.Sign()))) // same sign as size
 }
 
@@ -623,5 +622,25 @@ func getBlankTrader() *Trader {
 				0: big.NewInt(0),
 			},
 		},
+	}
+}
+
+// deepCopyOrder deep copies the LimitOrder struct
+func deepCopyOrder(order LimitOrder) LimitOrder {
+	lifecycleList := &order.LifecycleList
+	return LimitOrder{
+		Id:                      order.Id,
+		Market:                  order.Market,
+		PositionType:            order.PositionType,
+		UserAddress:             order.UserAddress,
+		BaseAssetQuantity:       big.NewInt(0).Set(order.BaseAssetQuantity),
+		FilledBaseAssetQuantity: big.NewInt(0).Set(order.FilledBaseAssetQuantity),
+		Salt:                    big.NewInt(0).Set(order.Salt),
+		Price:                   big.NewInt(0).Set(order.Price),
+		ReduceOnly:              order.ReduceOnly,
+		LifecycleList:           *lifecycleList,
+		Signature:               order.Signature,
+		BlockNumber:             big.NewInt(0).Set(order.BlockNumber),
+		RawOrder:                order.RawOrder,
 	}
 }
