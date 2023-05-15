@@ -26,7 +26,15 @@ const (
 	// There are some predefined gas costs in contract/utils.go that you can use.
 	// This contract also uses AllowList precompile.
 	// You should also increase gas costs of functions that read from AllowList storage.
+	GetMaintenanceMarginGasCost    uint64 = 0                                  // SET A GAS COST HERE
+	GetMaxLiquidationRatioGasCost  uint64 = 0                                  // SET A GAS COST HERE
+	GetMinAllowableMarginGasCost   uint64 = 0                                  // SET A GAS COST HERE
+	GetMinSizeRequirementGasCost   uint64 = 0                                  // SET A GAS COST HERE
 	GetSpreadRatioThresholdGasCost uint64 = 0                                  // SET A GAS COST HERE
+	SetMaintenanceMarginGasCost    uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
+	SetMaxLiquidationRatioGasCost  uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
+	SetMinAllowableMarginGasCost   uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
+	SetMinSizeRequirementGasCost   uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
 	SetSpreadRatioThresholdGasCost uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
 )
 
@@ -40,6 +48,14 @@ var (
 
 // Singleton StatefulPrecompiledContract and signatures.
 var (
+	ErrCannotSetMaintenanceMargin = errors.New("non-enabled cannot call setMaintenanceMargin")
+
+	ErrCannotSetMaxLiquidationRatio = errors.New("non-enabled cannot call setMaxLiquidationRatio")
+
+	ErrCannotSetMinAllowableMargin = errors.New("non-enabled cannot call setMinAllowableMargin")
+
+	ErrCannotSetMinSizeRequirement = errors.New("non-enabled cannot call setMinSizeRequirement")
+
 	ErrCannotSetSpreadRatioThreshold = errors.New("non-enabled cannot call setSpreadRatioThreshold")
 
 	// HubbleConfigManagerRawABI contains the raw ABI of HubbleConfigManager contract.
@@ -50,7 +66,10 @@ var (
 
 	HubbleConfigManagerPrecompile = createHubbleConfigManagerPrecompile()
 	spreadRatioThresholdKey       = common.Hash{'s', 'r', 't'}
-	defaultSpreadRatioThreshold   = big.NewInt(1e6)
+	maintenanceMarginKey          = common.Hash{'m', 'm'}
+	minAllowableMarginKey         = common.Hash{'m', 'a', 'm'}
+	maxLiquidationRatioKey        = common.Hash{'m', 'l', 'r'}
+	minSizeRequirementKey         = common.Hash{'m', 's', 'r'}
 )
 
 // GetHubbleConfigManagerAllowListStatus returns the role of [address] for the HubbleConfigManager list.
@@ -68,16 +87,131 @@ func SetHubbleConfigManagerAllowListStatus(stateDB contract.StateDB, address com
 	allowlist.SetAllowListRole(stateDB, ContractAddress, address, role)
 }
 
+// PackGetMaintenanceMargin packs the include selector (first 4 func signature bytes).
+// This function is mostly used for tests.
+func PackGetMaintenanceMargin() ([]byte, error) {
+	return HubbleConfigManagerABI.Pack("getMaintenanceMargin")
+}
+
+// PackGetMaintenanceMarginOutput attempts to pack given maintenanceMargin of type *big.Int
+// to conform the ABI outputs.
+func PackGetMaintenanceMarginOutput(maintenanceMargin *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.PackOutput("getMaintenanceMargin", maintenanceMargin)
+}
+
+func getMaintenanceMargin(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, GetMaintenanceMarginGasCost); err != nil {
+		return nil, 0, err
+	}
+	// no input provided for this function
+
+	// CUSTOM CODE STARTS HERE
+	output := getMaintenanceMarginFromStateDB(accessibleState.GetStateDB())
+	packedOutput, err := PackGetMaintenanceMarginOutput(output)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
+// PackGetMaxLiquidationRatio packs the include selector (first 4 func signature bytes).
+// This function is mostly used for tests.
+func PackGetMaxLiquidationRatio() ([]byte, error) {
+	return HubbleConfigManagerABI.Pack("getMaxLiquidationRatio")
+}
+
+// PackGetMaxLiquidationRatioOutput attempts to pack given maxLiquidationRatio of type *big.Int
+// to conform the ABI outputs.
+func PackGetMaxLiquidationRatioOutput(maxLiquidationRatio *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.PackOutput("getMaxLiquidationRatio", maxLiquidationRatio)
+}
+
+func getMaxLiquidationRatio(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, GetMaxLiquidationRatioGasCost); err != nil {
+		return nil, 0, err
+	}
+	// no input provided for this function
+
+	output := getMaxLiquidationRatioFromStateDB(accessibleState.GetStateDB())
+	packedOutput, err := PackGetMaxLiquidationRatioOutput(output)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
+// PackGetMinAllowableMargin packs the include selector (first 4 func signature bytes).
+// This function is mostly used for tests.
+func PackGetMinAllowableMargin() ([]byte, error) {
+	return HubbleConfigManagerABI.Pack("getMinAllowableMargin")
+}
+
+// PackGetMinAllowableMarginOutput attempts to pack given minAllowableMargin of type *big.Int
+// to conform the ABI outputs.
+func PackGetMinAllowableMarginOutput(minAllowableMargin *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.PackOutput("getMinAllowableMargin", minAllowableMargin)
+}
+
+func getMinAllowableMargin(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, GetMinAllowableMarginGasCost); err != nil {
+		return nil, 0, err
+	}
+	// no input provided for this function
+
+	// CUSTOM CODE STARTS HERE
+	output := getMinAllowableMarginFromStateDB(accessibleState.GetStateDB())
+	packedOutput, err := PackGetMinAllowableMarginOutput(output)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
+// PackGetMinSizeRequirement packs the include selector (first 4 func signature bytes).
+// This function is mostly used for tests.
+func PackGetMinSizeRequirement() ([]byte, error) {
+	return HubbleConfigManagerABI.Pack("getMinSizeRequirement")
+}
+
+// PackGetMinSizeRequirementOutput attempts to pack given minSizeRequirement of type *big.Int
+// to conform the ABI outputs.
+func PackGetMinSizeRequirementOutput(minSizeRequirement *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.PackOutput("getMinSizeRequirement", minSizeRequirement)
+}
+
+func getMinSizeRequirement(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, GetMinSizeRequirementGasCost); err != nil {
+		return nil, 0, err
+	}
+	// no input provided for this function
+
+	// CUSTOM CODE STARTS HERE
+	output := getMinSizeRequirementFromStateDB(accessibleState.GetStateDB())
+	packedOutput, err := PackGetMinSizeRequirementOutput(output)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
 // PackGetSpreadRatioThreshold packs the include selector (first 4 func signature bytes).
 // This function is mostly used for tests.
 func PackGetSpreadRatioThreshold() ([]byte, error) {
 	return HubbleConfigManagerABI.Pack("getSpreadRatioThreshold")
 }
 
-// PackGetSpreadRatioThresholdOutput attempts to pack given result of type *big.Int
+// PackGetSpreadRatioThresholdOutput attempts to pack given spreadRatioThreshold of type *big.Int
 // to conform the ABI outputs.
-func PackGetSpreadRatioThresholdOutput(result *big.Int) ([]byte, error) {
-	return HubbleConfigManagerABI.PackOutput("getSpreadRatioThreshold", result)
+func PackGetSpreadRatioThresholdOutput(spreadRatioThreshold *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.PackOutput("getSpreadRatioThreshold", spreadRatioThreshold)
 }
 
 func getSpreadRatioThreshold(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
@@ -87,13 +221,223 @@ func getSpreadRatioThreshold(accessibleState contract.AccessibleState, caller co
 	// no input provided for this function
 
 	// CUSTOM CODE STARTS HERE
-	stateDB := accessibleState.GetStateDB()
-	output := getSpreadRatioThresholdFromStateDB(stateDB)
-
+	output := getSpreadRatioThresholdFromStateDB(accessibleState.GetStateDB())
 	packedOutput, err := PackGetSpreadRatioThresholdOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
 	}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
+// UnpackSetMaintenanceMarginInput attempts to unpack [input] into the *big.Int type argument
+// assumes that [input] does not include selector (omits first 4 func signature bytes)
+func UnpackSetMaintenanceMarginInput(input []byte) (*big.Int, error) {
+	res, err := HubbleConfigManagerABI.UnpackInput("setMaintenanceMargin", input)
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	unpacked := *abi.ConvertType(res[0], new(*big.Int)).(**big.Int)
+	return unpacked, nil
+}
+
+// PackSetMaintenanceMargin packs [maintenanceMargin] of type *big.Int into the appropriate arguments for setMaintenanceMargin.
+// the packed bytes include selector (first 4 func signature bytes).
+// This function is mostly used for tests.
+func PackSetMaintenanceMargin(maintenanceMargin *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.Pack("setMaintenanceMargin", maintenanceMargin)
+}
+
+func setMaintenanceMargin(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, SetMaintenanceMarginGasCost); err != nil {
+		return nil, 0, err
+	}
+	if readOnly {
+		return nil, remainingGas, vmerrs.ErrWriteProtection
+	}
+	// attempts to unpack [input] into the arguments to the SetMaintenanceMarginInput.
+	// Assumes that [input] does not include selector
+	// You can use unpacked [inputStruct] variable in your code
+	inputStruct, err := UnpackSetMaintenanceMarginInput(input)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Allow list is enabled and SetMaintenanceMargin is a state-changer function.
+	// This part of the code restricts the function to be called only by enabled/admin addresses in the allow list.
+	// You can modify/delete this code if you don't want this function to be restricted by the allow list.
+	stateDB := accessibleState.GetStateDB()
+	// Verify that the caller is in the allow list and therefore has the right to call this function.
+	callerStatus := allowlist.GetAllowListStatus(stateDB, ContractAddress, caller)
+	if !callerStatus.IsEnabled() {
+		return nil, remainingGas, fmt.Errorf("%w: %s", ErrCannotSetMaintenanceMargin, caller)
+	}
+	// allow list code ends here.
+
+	// CUSTOM CODE STARTS HERE
+	setMaintenanceMarginInStateDB(stateDB, inputStruct)
+	// this function does not return an output, leave this one as is
+	packedOutput := []byte{}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
+// UnpackSetMaxLiquidationRatioInput attempts to unpack [input] into the *big.Int type argument
+// assumes that [input] does not include selector (omits first 4 func signature bytes)
+func UnpackSetMaxLiquidationRatioInput(input []byte) (*big.Int, error) {
+	res, err := HubbleConfigManagerABI.UnpackInput("setMaxLiquidationRatio", input)
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	unpacked := *abi.ConvertType(res[0], new(*big.Int)).(**big.Int)
+	return unpacked, nil
+}
+
+// PackSetMaxLiquidationRatio packs [maxLiquidationRatio] of type *big.Int into the appropriate arguments for setMaxLiquidationRatio.
+// the packed bytes include selector (first 4 func signature bytes).
+// This function is mostly used for tests.
+func PackSetMaxLiquidationRatio(maxLiquidationRatio *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.Pack("setMaxLiquidationRatio", maxLiquidationRatio)
+}
+
+func setMaxLiquidationRatio(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, SetMaxLiquidationRatioGasCost); err != nil {
+		return nil, 0, err
+	}
+	if readOnly {
+		return nil, remainingGas, vmerrs.ErrWriteProtection
+	}
+	// attempts to unpack [input] into the arguments to the SetMaxLiquidationRatioInput.
+	// Assumes that [input] does not include selector
+	// You can use unpacked [inputStruct] variable in your code
+	inputStruct, err := UnpackSetMaxLiquidationRatioInput(input)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Allow list is enabled and SetMaxLiquidationRatio is a state-changer function.
+	// This part of the code restricts the function to be called only by enabled/admin addresses in the allow list.
+	// You can modify/delete this code if you don't want this function to be restricted by the allow list.
+	stateDB := accessibleState.GetStateDB()
+	// Verify that the caller is in the allow list and therefore has the right to call this function.
+	callerStatus := allowlist.GetAllowListStatus(stateDB, ContractAddress, caller)
+	if !callerStatus.IsEnabled() {
+		return nil, remainingGas, fmt.Errorf("%w: %s", ErrCannotSetMaxLiquidationRatio, caller)
+	}
+	// allow list code ends here.
+
+	// CUSTOM CODE STARTS HERE
+	setMaxLiquidationRatioInStateDB(stateDB, inputStruct)
+	// this function does not return an output, leave this one as is
+	packedOutput := []byte{}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
+// UnpackSetMinAllowableMarginInput attempts to unpack [input] into the *big.Int type argument
+// assumes that [input] does not include selector (omits first 4 func signature bytes)
+func UnpackSetMinAllowableMarginInput(input []byte) (*big.Int, error) {
+	res, err := HubbleConfigManagerABI.UnpackInput("setMinAllowableMargin", input)
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	unpacked := *abi.ConvertType(res[0], new(*big.Int)).(**big.Int)
+	return unpacked, nil
+}
+
+// PackSetMinAllowableMargin packs [minAllowableMargin] of type *big.Int into the appropriate arguments for setMinAllowableMargin.
+// the packed bytes include selector (first 4 func signature bytes).
+// This function is mostly used for tests.
+func PackSetMinAllowableMargin(minAllowableMargin *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.Pack("setMinAllowableMargin", minAllowableMargin)
+}
+
+func setMinAllowableMargin(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, SetMinAllowableMarginGasCost); err != nil {
+		return nil, 0, err
+	}
+	if readOnly {
+		return nil, remainingGas, vmerrs.ErrWriteProtection
+	}
+	// attempts to unpack [input] into the arguments to the SetMinAllowableMarginInput.
+	// Assumes that [input] does not include selector
+	// You can use unpacked [inputStruct] variable in your code
+	inputStruct, err := UnpackSetMinAllowableMarginInput(input)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Allow list is enabled and SetMinAllowableMargin is a state-changer function.
+	// This part of the code restricts the function to be called only by enabled/admin addresses in the allow list.
+	// You can modify/delete this code if you don't want this function to be restricted by the allow list.
+	stateDB := accessibleState.GetStateDB()
+	// Verify that the caller is in the allow list and therefore has the right to call this function.
+	callerStatus := allowlist.GetAllowListStatus(stateDB, ContractAddress, caller)
+	if !callerStatus.IsEnabled() {
+		return nil, remainingGas, fmt.Errorf("%w: %s", ErrCannotSetMinAllowableMargin, caller)
+	}
+	// allow list code ends here.
+
+	// CUSTOM CODE STARTS HERE
+	setMinAllowableMarginInStateDB(stateDB, inputStruct)
+	// this function does not return an output, leave this one as is
+	packedOutput := []byte{}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
+// UnpackSetMinSizeRequirementInput attempts to unpack [input] into the *big.Int type argument
+// assumes that [input] does not include selector (omits first 4 func signature bytes)
+func UnpackSetMinSizeRequirementInput(input []byte) (*big.Int, error) {
+	res, err := HubbleConfigManagerABI.UnpackInput("setMinSizeRequirement", input)
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	unpacked := *abi.ConvertType(res[0], new(*big.Int)).(**big.Int)
+	return unpacked, nil
+}
+
+// PackSetMinSizeRequirement packs [minSizeRequirement] of type *big.Int into the appropriate arguments for setMinSizeRequirement.
+// the packed bytes include selector (first 4 func signature bytes).
+// This function is mostly used for tests.
+func PackSetMinSizeRequirement(minSizeRequirement *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.Pack("setMinSizeRequirement", minSizeRequirement)
+}
+
+func setMinSizeRequirement(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, SetMinSizeRequirementGasCost); err != nil {
+		return nil, 0, err
+	}
+	if readOnly {
+		return nil, remainingGas, vmerrs.ErrWriteProtection
+	}
+	// attempts to unpack [input] into the arguments to the SetMinSizeRequirementInput.
+	// Assumes that [input] does not include selector
+	// You can use unpacked [inputStruct] variable in your code
+	inputStruct, err := UnpackSetMinSizeRequirementInput(input)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Allow list is enabled and SetMinSizeRequirement is a state-changer function.
+	// This part of the code restricts the function to be called only by enabled/admin addresses in the allow list.
+	// You can modify/delete this code if you don't want this function to be restricted by the allow list.
+	stateDB := accessibleState.GetStateDB()
+	// Verify that the caller is in the allow list and therefore has the right to call this function.
+	callerStatus := allowlist.GetAllowListStatus(stateDB, ContractAddress, caller)
+	if !callerStatus.IsEnabled() {
+		return nil, remainingGas, fmt.Errorf("%w: %s", ErrCannotSetMinSizeRequirement, caller)
+	}
+	// allow list code ends here.
+
+	// CUSTOM CODE STARTS HERE
+	setMinSizeRequirementInStateDB(stateDB, inputStruct)
+	// this function does not return an output, leave this one as is
+	packedOutput := []byte{}
 
 	// Return the packed output and the remaining gas
 	return packedOutput, remainingGas, nil
@@ -110,11 +454,11 @@ func UnpackSetSpreadRatioThresholdInput(input []byte) (*big.Int, error) {
 	return unpacked, nil
 }
 
-// PackSetSpreadRatioThreshold packs [response] of type *big.Int into the appropriate arguments for setSpreadRatioThreshold.
+// PackSetSpreadRatioThreshold packs [spreadRatioThreshold] of type *big.Int into the appropriate arguments for setSpreadRatioThreshold.
 // the packed bytes include selector (first 4 func signature bytes).
 // This function is mostly used for tests.
-func PackSetSpreadRatioThreshold(response *big.Int) ([]byte, error) {
-	return HubbleConfigManagerABI.Pack("setSpreadRatioThreshold", response)
+func PackSetSpreadRatioThreshold(spreadRatioThreshold *big.Int) ([]byte, error) {
+	return HubbleConfigManagerABI.Pack("setSpreadRatioThreshold", spreadRatioThreshold)
 }
 
 func setSpreadRatioThreshold(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
@@ -159,7 +503,15 @@ func createHubbleConfigManagerPrecompile() contract.StatefulPrecompiledContract 
 	functions = append(functions, allowlist.CreateAllowListFunctions(ContractAddress)...)
 
 	abiFunctionMap := map[string]contract.RunStatefulPrecompileFunc{
+		"getMaintenanceMargin":    getMaintenanceMargin,
+		"getMaxLiquidationRatio":  getMaxLiquidationRatio,
+		"getMinAllowableMargin":   getMinAllowableMargin,
+		"getMinSizeRequirement":   getMinSizeRequirement,
 		"getSpreadRatioThreshold": getSpreadRatioThreshold,
+		"setMaintenanceMargin":    setMaintenanceMargin,
+		"setMaxLiquidationRatio":  setMaxLiquidationRatio,
+		"setMinAllowableMargin":   setMinAllowableMargin,
+		"setMinSizeRequirement":   setMinSizeRequirement,
 		"setSpreadRatioThreshold": setSpreadRatioThreshold,
 	}
 
@@ -182,6 +534,22 @@ func GetSpreadRatioThreshold(stateDB contract.StateDB) *big.Int {
 	return getSpreadRatioThresholdFromStateDB(stateDB)
 }
 
+func GetMaintenanceMargin(stateDB contract.StateDB) *big.Int {
+	return getMaintenanceMarginFromStateDB(stateDB)
+}
+
+func GetMinAllowableMargin(stateDb contract.StateDB) *big.Int {
+	return getMinAllowableMarginFromStateDB(stateDb)
+}
+
+func GetMaxLiquidationRatio(stateDB contract.StateDB) *big.Int {
+	return getMaxLiquidationRatioFromStateDB(stateDB)
+}
+
+func GetMinSizeRequirement(stateDB contract.StateDB) *big.Int {
+	return getMinSizeRequirementFromStateDB(stateDB)
+}
+
 func getSpreadRatioThresholdFromStateDB(stateDB contract.StateDB) *big.Int {
 	value := stateDB.GetState(ContractAddress, spreadRatioThresholdKey)
 	return new(big.Int).SetBytes(value[:])
@@ -189,4 +557,40 @@ func getSpreadRatioThresholdFromStateDB(stateDB contract.StateDB) *big.Int {
 
 func setSpreadRatioThresholdInStateDB(stateDB contract.StateDB, value *big.Int) {
 	stateDB.SetState(ContractAddress, spreadRatioThresholdKey, common.BigToHash(value))
+}
+
+func getMaintenanceMarginFromStateDB(stateDB contract.StateDB) *big.Int {
+	value := stateDB.GetState(ContractAddress, maintenanceMarginKey)
+	return new(big.Int).SetBytes(value[:])
+}
+
+func setMaintenanceMarginInStateDB(stateDB contract.StateDB, value *big.Int) {
+	stateDB.SetState(ContractAddress, maintenanceMarginKey, common.BigToHash(value))
+}
+
+func getMaxLiquidationRatioFromStateDB(stateDB contract.StateDB) *big.Int {
+	value := stateDB.GetState(ContractAddress, maxLiquidationRatioKey)
+	return new(big.Int).SetBytes(value[:])
+}
+
+func setMaxLiquidationRatioInStateDB(stateDB contract.StateDB, value *big.Int) {
+	stateDB.SetState(ContractAddress, maxLiquidationRatioKey, common.BigToHash(value))
+}
+
+func getMinAllowableMarginFromStateDB(stateDB contract.StateDB) *big.Int {
+	value := stateDB.GetState(ContractAddress, minAllowableMarginKey)
+	return new(big.Int).SetBytes(value[:])
+}
+
+func setMinAllowableMarginInStateDB(stateDB contract.StateDB, value *big.Int) {
+	stateDB.SetState(ContractAddress, minAllowableMarginKey, common.BigToHash(value))
+}
+
+func getMinSizeRequirementFromStateDB(stateDB contract.StateDB) *big.Int {
+	value := stateDB.GetState(ContractAddress, minSizeRequirementKey)
+	return new(big.Int).SetBytes(value[:])
+}
+
+func setMinSizeRequirementInStateDB(stateDB contract.StateDB, value *big.Int) {
+	stateDB.SetState(ContractAddress, minSizeRequirementKey, common.BigToHash(value))
 }

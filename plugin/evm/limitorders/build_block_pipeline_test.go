@@ -448,7 +448,5 @@ func setupDependencies(t *testing.T) (*MockLimitOrderDatabase, *MockLimitOrderTx
 	lotp := NewMockLimitOrderTxProcessor()
 	cs := NewMockConfigService()
 	pipeline := NewBuildBlockPipeline(db, lotp, cs)
-
-	cs.On("getSpreadRatioThreshold").Return(1000000)
 	return db, lotp, pipeline
 }

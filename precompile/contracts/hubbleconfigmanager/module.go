@@ -6,6 +6,7 @@ package hubbleconfigmanager
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ava-labs/subnet-evm/precompile/contract"
 	"github.com/ava-labs/subnet-evm/precompile/modules"
@@ -33,6 +34,14 @@ var Module = modules.Module{
 	Configurator: &configurator{},
 }
 
+var (
+	DefaultSpreadRatioThreshold = big.NewInt(1e6)
+	DefaultMinAllowableMargin   = big.NewInt(2 * 1e5) // 5x
+	DefaultMaintenanceMargin    = big.NewInt(1e5)
+	DefaultMaxLiquidationRatio  = big.NewInt(25 * 1e4) // 25%
+	DefaultMinSizeRequirement   = big.NewInt(0).Mul(big.NewInt(5), big.NewInt(1e18))
+)
+
 type configurator struct{}
 
 func init() {
@@ -59,7 +68,11 @@ func (*configurator) Configure(chainConfig contract.ChainConfig, cfg precompilec
 		return fmt.Errorf("incorrect config %T: %v", config, config)
 	}
 	// CUSTOM CODE STARTS HERE
-	setSpreadRatioThresholdInStateDB(state, defaultSpreadRatioThreshold)
+	setSpreadRatioThresholdInStateDB(state, DefaultSpreadRatioThreshold)
+	setMaintenanceMarginInStateDB(state, DefaultMaintenanceMargin)
+	setMaxLiquidationRatioInStateDB(state, DefaultMaxLiquidationRatio)
+	setMinSizeRequirementInStateDB(state, DefaultMinSizeRequirement)
+	setMinAllowableMarginInStateDB(state, DefaultMinAllowableMargin)
 	// AllowList is activated for this precompile. Configuring allowlist addresses here.
 	return config.AllowListConfig.Configure(state, ContractAddress)
 }

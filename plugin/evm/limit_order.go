@@ -39,10 +39,10 @@ type limitOrderProcesser struct {
 
 func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain) LimitOrderProcesser {
 	log.Info("**** NewLimitOrderProcesser")
-	memoryDb := limitorders.NewInMemoryDatabase()
+	configService := limitorders.NewConfigService(blockChain)
+	memoryDb := limitorders.NewInMemoryDatabase(configService)
 	lotp := limitorders.NewLimitOrderTxProcessor(txPool, memoryDb, backend)
 	contractEventProcessor := limitorders.NewContractEventsProcessor(memoryDb)
-	configService := limitorders.NewConfigService(blockChain)
 	buildBlockPipeline := limitorders.NewBuildBlockPipeline(memoryDb, lotp, configService)
 	filterSystem := filters.NewFilterSystem(backend, filters.Config{})
 	filterAPI := filters.NewFilterAPI(filterSystem, true)
