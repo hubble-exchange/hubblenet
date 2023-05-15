@@ -81,11 +81,6 @@ func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Ad
 
 func (pipeline *BuildBlockPipeline) fetchOrders(market Market, underlyingPrice *big.Int, cancellableOrderIds map[common.Hash]struct{}) *Orders {
 	spreadRatioThreshold := pipeline.configService.getSpreadRatioThreshold()
-	maxLiquidationRatio := pipeline.configService.getMaxLiquidationRatio()
-	minAllowableMargin := pipeline.configService.getMinAllowableMargin()
-	maintenanceMargin := pipeline.configService.getMaintenanceMargin()
-	minSizeRequirement := pipeline.configService.getMinSizeRequirement()
-	log.Info("in build block pipeline", "spread ratio threshold is", spreadRatioThreshold, "maxLiquidationRatio", maxLiquidationRatio, "minAllowableMargin", minAllowableMargin, "maintenanceMargin", maintenanceMargin, "minSizeRequirement", minSizeRequirement)
 	// 1. Get long orders
 	longCutOffPrice := divideByBasePrecision(big.NewInt(0).Mul(underlyingPrice, big.NewInt(0).Add(_1e6, spreadRatioThreshold)))
 	longOrders := pipeline.db.GetLongOrders(market, longCutOffPrice)

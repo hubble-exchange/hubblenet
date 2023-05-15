@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ava-labs/subnet-evm/core"
+	"github.com/ava-labs/subnet-evm/core/state"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/hubbleconfigmanager"
 )
 
@@ -26,26 +27,26 @@ func NewConfigService(blockChain *core.BlockChain) IConfigService {
 }
 
 func (cs *ConfigService) getSpreadRatioThreshold() *big.Int {
-	stateDB, _ := cs.blockChain.StateAt(cs.blockChain.CurrentBlock().Root())
-	return hubbleconfigmanager.GetSpreadRatioThreshold(stateDB)
+	return hubbleconfigmanager.GetSpreadRatioThreshold(cs.getStateAtCurrentBlock())
 }
 
 func (cs *ConfigService) getMaxLiquidationRatio() *big.Int {
-	stateDB, _ := cs.blockChain.StateAt(cs.blockChain.CurrentBlock().Root())
-	return hubbleconfigmanager.GetMaxLiquidationRatio(stateDB)
+	return hubbleconfigmanager.GetMaxLiquidationRatio(cs.getStateAtCurrentBlock())
 }
 
 func (cs *ConfigService) getMinAllowableMargin() *big.Int {
-	stateDB, _ := cs.blockChain.StateAt(cs.blockChain.CurrentBlock().Root())
-	return hubbleconfigmanager.GetMinAllowableMargin(stateDB)
+	return hubbleconfigmanager.GetMinAllowableMargin(cs.getStateAtCurrentBlock())
 }
 
 func (cs *ConfigService) getMaintenanceMargin() *big.Int {
-	stateDB, _ := cs.blockChain.StateAt(cs.blockChain.CurrentBlock().Root())
-	return hubbleconfigmanager.GetMaintenanceMargin(stateDB)
+	return hubbleconfigmanager.GetMaintenanceMargin(cs.getStateAtCurrentBlock())
 }
 
 func (cs *ConfigService) getMinSizeRequirement() *big.Int {
+	return hubbleconfigmanager.GetMinSizeRequirement(cs.getStateAtCurrentBlock())
+}
+
+func (cs *ConfigService) getStateAtCurrentBlock() *state.StateDB {
 	stateDB, _ := cs.blockChain.StateAt(cs.blockChain.CurrentBlock().Root())
-	return hubbleconfigmanager.GetMinSizeRequirement(stateDB)
+	return stateDB
 }
