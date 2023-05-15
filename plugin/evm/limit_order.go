@@ -37,10 +37,13 @@ type limitOrderProcesser struct {
 	filterAPI              *filters.FilterAPI
 }
 
-func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, memoryDb limitorders.LimitOrderDatabase, lotp limitorders.LimitOrderTxProcessor) LimitOrderProcesser {
+func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain) LimitOrderProcesser {
 	log.Info("**** NewLimitOrderProcesser")
+	memoryDb := limitorders.NewInMemoryDatabase()
+	lotp := limitorders.NewLimitOrderTxProcessor(txPool, memoryDb, backend)
 	contractEventProcessor := limitorders.NewContractEventsProcessor(memoryDb)
-	buildBlockPipeline := limitorders.NewBuildBlockPipeline(memoryDb, lotp, blockChain, backend)
+	configService := limitorders.NewConfigService(blockChain)
+	buildBlockPipeline := limitorders.NewBuildBlockPipeline(memoryDb, lotp, configService)
 	filterSystem := filters.NewFilterSystem(backend, filters.Config{})
 	filterAPI := filters.NewFilterAPI(filterSystem, true)
 	return &limitOrderProcesser{

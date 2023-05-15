@@ -446,6 +446,9 @@ func getLongOrder() LimitOrder {
 func setupDependencies(t *testing.T) (*MockLimitOrderDatabase, *MockLimitOrderTxProcessor, *BuildBlockPipeline) {
 	db := NewMockLimitOrderDatabase()
 	lotp := NewMockLimitOrderTxProcessor()
-	pipeline := NewBuildBlockPipeline(db, lotp)
+	cs := NewMockConfigService()
+	pipeline := NewBuildBlockPipeline(db, lotp, cs)
+
+	cs.On("getSpreadRatioThreshold").Return(1000000)
 	return db, lotp, pipeline
 }

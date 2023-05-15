@@ -88,7 +88,7 @@ func getSpreadRatioThreshold(accessibleState contract.AccessibleState, caller co
 
 	// CUSTOM CODE STARTS HERE
 	stateDB := accessibleState.GetStateDB()
-	output := GetSpreadRatioThreshold(stateDB)
+	output := getSpreadRatioThresholdFromStateDB(stateDB)
 
 	packedOutput, err := PackGetSpreadRatioThresholdOutput(output)
 	if err != nil {
@@ -179,6 +179,10 @@ func createHubbleConfigManagerPrecompile() contract.StatefulPrecompiledContract 
 }
 
 func GetSpreadRatioThreshold(stateDB contract.StateDB) *big.Int {
+	return getSpreadRatioThresholdFromStateDB(stateDB)
+}
+
+func getSpreadRatioThresholdFromStateDB(stateDB contract.StateDB) *big.Int {
 	value := stateDB.GetState(ContractAddress, spreadRatioThresholdKey)
 	return new(big.Int).SetBytes(value[:])
 }

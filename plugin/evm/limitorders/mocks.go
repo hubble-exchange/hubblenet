@@ -159,3 +159,16 @@ func (lotp *MockLimitOrderTxProcessor) HandleClearingHouseEvent(event *types.Log
 func (lotp *MockLimitOrderTxProcessor) GetUnderlyingPrice() (map[Market]*big.Int, error) {
 	return nil, nil
 }
+
+type MockConfigService struct {
+	mock.Mock
+}
+
+func (mcs *MockConfigService) getSpreadRatioThreshold() *big.Int {
+	args := mcs.Called()
+	return args.Get(0).(*big.Int)
+}
+
+func NewMockConfigService() *MockConfigService {
+	return &MockConfigService{}
+}

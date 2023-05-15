@@ -3,27 +3,22 @@ package limitorders
 import (
 	"math/big"
 
-	"github.com/ava-labs/subnet-evm/core"
-	"github.com/ava-labs/subnet-evm/eth"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/hubbleconfigmanager"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
 
 type BuildBlockPipeline struct {
-	db         LimitOrderDatabase
-	lotp       LimitOrderTxProcessor
-	blockChain *core.BlockChain
-	backend    *eth.EthAPIBackend
+	db            LimitOrderDatabase
+	lotp          LimitOrderTxProcessor
+	configService IConfigService
 }
 
-func NewBuildBlockPipeline(db LimitOrderDatabase, lotp LimitOrderTxProcessor, blockChain *core.BlockChain, backend *eth.EthAPIBackend) *BuildBlockPipeline {
+func NewBuildBlockPipeline(db LimitOrderDatabase, lotp LimitOrderTxProcessor, configService IConfigService) *BuildBlockPipeline {
 	return &BuildBlockPipeline{
-		db:         db,
-		lotp:       lotp,
-		blockChain: blockChain,
-		backend:    backend,
+		db:            db,
+		lotp:          lotp,
+		configService: configService,
 	}
 }
 
@@ -83,7 +78,7 @@ func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Ad
 
 func (pipeline *BuildBlockPipeline) fetchOrders(market Market, underlyingPrice *big.Int, cancellableOrderIds map[common.Hash]struct{}) *Orders {
 	// 1. Get long orders
-	spreadRatioThreshold := pipeline.getSpreadRatioThreshold()
+	spreadRatioThreshold := pipeline.configService.getSpreadRatioThreshold()
 	log.Info("in build block pipeline", "spread ratio threshold is", spreadRatioThreshold)
 	longCutOffPrice := divideByBasePrecision(big.NewInt(0).Mul(underlyingPrice, big.NewInt(0).Add(_1e6, spreadRatioThreshold)))
 	longOrders := pipeline.db.GetLongOrders(market, longCutOffPrice)
@@ -208,9 +203,4 @@ func formatHashSlice(hashes []common.Hash) []string {
 		formattedHashes = append(formattedHashes, hash.String())
 	}
 	return formattedHashes
-}
-
-func (pipeline *BuildBlockPipeline) getSpreadRatioThreshold() *big.Int {
-	stateDB, _ := pipeline.blockChain.StateAt(pipeline.backend.CurrentBlock().Root())
-	return hubbleconfigmanager.GetSpreadRatioThreshold(stateDB)
 }
