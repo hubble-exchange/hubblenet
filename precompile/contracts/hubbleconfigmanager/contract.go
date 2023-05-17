@@ -26,16 +26,16 @@ const (
 	// There are some predefined gas costs in contract/utils.go that you can use.
 	// This contract also uses AllowList precompile.
 	// You should also increase gas costs of functions that read from AllowList storage.
-	GetMaintenanceMarginGasCost    uint64 = 0                                  // SET A GAS COST HERE
-	GetMaxLiquidationRatioGasCost  uint64 = 0                                  // SET A GAS COST HERE
-	GetMinAllowableMarginGasCost   uint64 = 0                                  // SET A GAS COST HERE
-	GetMinSizeRequirementGasCost   uint64 = 0                                  // SET A GAS COST HERE
-	GetSpreadRatioThresholdGasCost uint64 = 0                                  // SET A GAS COST HERE
-	SetMaintenanceMarginGasCost    uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
-	SetMaxLiquidationRatioGasCost  uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
-	SetMinAllowableMarginGasCost   uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
-	SetMinSizeRequirementGasCost   uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
-	SetSpreadRatioThresholdGasCost uint64 = 0 + allowlist.ReadAllowListGasCost // SET A GAS COST HERE
+	GetMaintenanceMarginGasCost    uint64 = contract.ReadGasCostPerSlot + allowlist.ReadAllowListGasCost // read 1 slot + read allow list
+	GetMaxLiquidationRatioGasCost  uint64 = contract.ReadGasCostPerSlot + allowlist.ReadAllowListGasCost // read 1 slot + read allow list
+	GetMinAllowableMarginGasCost   uint64 = contract.ReadGasCostPerSlot + allowlist.ReadAllowListGasCost // read 1 slot + read allow list
+	GetMinSizeRequirementGasCost   uint64 = contract.ReadGasCostPerSlot + allowlist.ReadAllowListGasCost // read 1 slot + read allow list
+	GetSpreadRatioThresholdGasCost uint64 = contract.ReadGasCostPerSlot + allowlist.ReadAllowListGasCost // read 1 slot + read allow list
+	SetMaintenanceMarginGasCost    uint64 = contract.WriteGasCostPerSlot + allowlist.ReadAllowListGasCost // write 1 slot + read allow list
+	SetMaxLiquidationRatioGasCost  uint64 = contract.WriteGasCostPerSlot + allowlist.ReadAllowListGasCost // write 1 slot + read allow list
+	SetMinAllowableMarginGasCost   uint64 = contract.WriteGasCostPerSlot + allowlist.ReadAllowListGasCost // write 1 slot + read allow list
+	SetMinSizeRequirementGasCost   uint64 = contract.WriteGasCostPerSlot + allowlist.ReadAllowListGasCost // write 1 slot + read allow list
+	SetSpreadRatioThresholdGasCost uint64 = contract.WriteGasCostPerSlot + allowlist.ReadAllowListGasCost // write 1 slot + read allow list
 )
 
 // CUSTOM CODE STARTS HERE
