@@ -110,7 +110,7 @@ func TestGetShortOrders(t *testing.T) {
 	shortOrder4.ReduceOnly = true
 	inMemoryDatabase.Add(orderId, &shortOrder4)
 
-	returnedShortOrders := inMemoryDatabase.GetShortOrders(AvaxPerp, nil)
+	returnedShortOrders := inMemoryDatabase.GetShortOrders(Market_0, nil)
 	assert.Equal(t, 3, len(returnedShortOrders))
 
 	for _, returnedOrder := range returnedShortOrders {
@@ -131,9 +131,9 @@ func TestGetShortOrders(t *testing.T) {
 	// now test with one reduceOnly order when there's a long position
 
 	size := big.NewInt(0).Mul(big.NewInt(10), _1e18)
-	inMemoryDatabase.UpdatePosition(trader, AvaxPerp, size, big.NewInt(0).Mul(big.NewInt(100), _1e6), false)
+	inMemoryDatabase.UpdatePosition(trader, Market_0, size, big.NewInt(0).Mul(big.NewInt(100), _1e6), false)
 
-	returnedShortOrders = inMemoryDatabase.GetShortOrders(AvaxPerp, nil)
+	returnedShortOrders = inMemoryDatabase.GetShortOrders(Market_0, nil)
 	assert.Equal(t, 4, len(returnedShortOrders))
 
 	// at least one of the orders should be reduce only
@@ -184,7 +184,7 @@ func TestGetLongOrders(t *testing.T) {
 	longOrder3, orderId := createLimitOrder(LONG, userAddress, longOrderBaseAssetQuantity, price3, status, signature3, blockNumber3, salt3)
 	inMemoryDatabase.Add(orderId, &longOrder3)
 
-	returnedLongOrders := inMemoryDatabase.GetLongOrders(AvaxPerp, nil)
+	returnedLongOrders := inMemoryDatabase.GetLongOrders(Market_0, nil)
 	assert.Equal(t, 3, len(returnedLongOrders))
 
 	//Test returnedLongOrders are sorted by price highest to lowest first and then block number from lowest to highest
@@ -242,12 +242,12 @@ func TestGetCancellableOrders(t *testing.T) {
 	// 1 fulfilled order at price = 10, size = 9
 	size := big.NewInt(0).Mul(big.NewInt(-9), _1e18)
 	fulfilPrice := multiplyBasePrecision(big.NewInt(10))
-	inMemoryDatabase.UpdatePosition(trader, AvaxPerp, size, dividePrecisionSize(new(big.Int).Mul(new(big.Int).Abs(size), fulfilPrice)), false)
-	inMemoryDatabase.UpdateLastPrice(AvaxPerp, fulfilPrice)
+	inMemoryDatabase.UpdatePosition(trader, Market_0, size, dividePrecisionSize(new(big.Int).Mul(new(big.Int).Abs(size), fulfilPrice)), false)
+	inMemoryDatabase.UpdateLastPrice(Market_0, fulfilPrice)
 
 	// price has moved from 10 to 11 now
 	priceMap := map[Market]*big.Int{
-		AvaxPerp: multiplyBasePrecision(big.NewInt(11)),
+		Market_0: multiplyBasePrecision(big.NewInt(11)),
 	}
 	// Setup completed, assertions start here
 	_trader := inMemoryDatabase.TraderMap[trader]

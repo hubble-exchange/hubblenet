@@ -37,20 +37,25 @@ func (pipeline *BuildBlockPipeline) Run() {
 	// fetch the underlying price and run the matching engine
 	underlyingPrices, err := pipeline.lotp.GetUnderlyingPrice()
 	if err != nil {
+		// this happens when contracts are not yet initialized
 		log.Error("could not fetch underlying price", "err", err)
 		return
 	}
 
 	// build trader map
 	liquidablePositions, ordersToCancel := pipeline.db.GetNaughtyTraders(underlyingPrices)
-	cancellableOrderIds := pipeline.cancelOrders(ordersToCancel, underlyingPrices)
+	cancellableOrderIds := pipeline.cancelOrders(ordersToCancel)
 	orderMap := make(map[Market]*Orders)
 	for _, market := range GetActiveMarkets() {
-		orderMap[market] = pipeline.fetchOrders(market, underlyingPrices[market], cancellableOrderIds)
+		if underlyingPrices[market] != nil { // this can happen if the market isn't initialized at the contracts layer yet
+			orderMap[market] = pipeline.fetchOrders(market, underlyingPrices[market], cancellableOrderIds)
+		}
 	}
 	pipeline.runLiquidations(liquidablePositions, orderMap)
 	for _, market := range GetActiveMarkets() {
-		pipeline.runMatchingEngine(pipeline.lotp, orderMap[market].longOrders, orderMap[market].shortOrders)
+		if underlyingPrices[market] != nil { // this can happen if the market isn't initialized at the contracts layer yet
+			pipeline.runMatchingEngine(pipeline.lotp, orderMap[market].longOrders, orderMap[market].shortOrders)
+		}
 	}
 }
 
@@ -59,7 +64,7 @@ type Orders struct {
 	shortOrders []LimitOrder
 }
 
-func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Address][]common.Hash, oraclePrices map[Market]*big.Int) map[common.Hash]struct{} {
+func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Address][]common.Hash) map[common.Hash]struct{} {
 	cancellableOrderIds := map[common.Hash]struct{}{}
 	// @todo: if there are too many cancellable orders, they might not fit in a single block. Need to adjust for that.
 	for _, orderIds := range cancellableOrders {

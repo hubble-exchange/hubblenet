@@ -10,7 +10,7 @@ import (
 
 func TestGetLiquidableTraders(t *testing.T) {
 	spreadRatioThreshold = big.NewInt(2e5) // this assumption has been made in the test cases
-	var market Market = AvaxPerp
+	var market Market = Market_0
 	collateral := HUSD
 	t.Run("When no trader exist", func(t *testing.T) {
 		db := NewInMemoryDatabase()

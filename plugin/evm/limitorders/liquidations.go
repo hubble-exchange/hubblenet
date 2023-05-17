@@ -75,9 +75,11 @@ func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, m
 	notionalPosition := big.NewInt(0)
 	unrealizedPnl := big.NewInt(0)
 	for _, market := range GetActiveMarkets() {
-		_notionalPosition, _unrealizedPnl := getOptimalPnl(market, oraclePrices[market], lastPrices[market], trader, margin, marginMode)
-		notionalPosition.Add(notionalPosition, _notionalPosition)
-		unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
+		if oraclePrices[market] != nil && lastPrices[market] != nil {
+			_notionalPosition, _unrealizedPnl := getOptimalPnl(market, oraclePrices[market], lastPrices[market], trader, margin, marginMode)
+			notionalPosition.Add(notionalPosition, _notionalPosition)
+			unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
+		}
 	}
 	return notionalPosition, unrealizedPnl
 }

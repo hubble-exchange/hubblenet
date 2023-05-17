@@ -103,7 +103,7 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 	lastPremiumFraction := multiplyBasePrecision(big.NewInt(1))
 	liquidationThreshold := multiplyBasePrecision(big.NewInt(1))
 	unrealisedFunding := multiplyBasePrecision(big.NewInt(1))
-	market := AvaxPerp
+	market := Market_0
 	position := &Position{
 		OpenNotional:         openNotional,
 		Size:                 size,
@@ -463,7 +463,7 @@ func TestHandleClearingHouseEvent(t *testing.T) {
 	traderAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 	blockNumber := uint64(12)
 	collateral := HUSD
-	market := AvaxPerp
+	market := Market_0
 	clearingHouseABI := getABIfromJson(clearingHouseAbi)
 	openNotional := multiplyBasePrecision(big.NewInt(100))
 	size := multiplyPrecisionSize(big.NewInt(10))

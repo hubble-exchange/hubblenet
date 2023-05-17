@@ -21,11 +21,13 @@ var _1e6 = big.NewInt(1e6)
 type Market int
 
 const (
-	AvaxPerp Market = iota
+	Market_0 Market = iota
+	Market_1
+	Market_2
 )
 
 func GetActiveMarkets() []Market {
-	return []Market{AvaxPerp}
+	return []Market{Market_0, Market_1, Market_2}
 }
 
 type Collateral int
@@ -183,7 +185,7 @@ type InMemoryDatabase struct {
 
 func NewInMemoryDatabase() *InMemoryDatabase {
 	orderMap := map[common.Hash]*LimitOrder{}
-	lastPrice := map[Market]*big.Int{AvaxPerp: big.NewInt(0)}
+	lastPrice := map[Market]*big.Int{Market_0: big.NewInt(0)}
 	traderMap := map[common.Address]*Trader{}
 
 	return &InMemoryDatabase{

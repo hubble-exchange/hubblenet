@@ -13,7 +13,7 @@ import (
 
 func TestRunLiquidations(t *testing.T) {
 	traderAddress := common.HexToAddress("0x710bf5f942331874dcbc7783319123679033b63b")
-	market := AvaxPerp
+	market := Market_0
 
 	t.Run("when there are no liquidable positions", func(t *testing.T) {
 		_, lotp, pipeline := setupDependencies(t)
