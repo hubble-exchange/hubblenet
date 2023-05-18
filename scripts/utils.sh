@@ -35,11 +35,7 @@ function showLogs() {
             -ci yellow --label "[node4]" -I $(echo $LOGS_PATH | sed -e 's/<i>/4/g')/$CHAIN_ID.log \
             -ci cyan --label "[node5]" -I $(echo $LOGS_PATH | sed -e 's/<i>/5/g')/$CHAIN_ID.log
     else
-        if [ -z "$2" ]; then
-            tail -f "${LOGS_PATH/<i>/$1}/$CHAIN_ID.log"
-        else
-            grep --color=auto -i "$2" "${LOGS_PATH/<i>/$1}/$CHAIN_ID.log"
-        fi
+        tail -f "${LOGS_PATH/<i>/$1}/$CHAIN_ID.log"
     fi
 
 }
