@@ -111,6 +111,7 @@ var (
 	acceptedPrefix  = []byte("snowman_accepted")
 	metadataPrefix  = []byte("metadata")
 	warpPrefix      = []byte("warp")
+	hubbleDBPrefix  = []byte("hubble")
 	ethDBPrefix     = []byte("ethdb")
 )
 
@@ -180,6 +181,10 @@ type VM struct {
 	// [warpDB] is used to store warp message signatures
 	// set to a prefixDB with the prefix [warpPrefix]
 	warpDB database.Database
+
+	// [hubbleDB] is used to store orderbook related data
+	// set to a prefixDB with the prefix [hubbleDBPrefix]
+	hubbleDB database.Database
 
 	toEngine chan<- commonEng.Message
 
@@ -274,6 +279,7 @@ func (vm *VM) Initialize(
 	vm.acceptedBlockDB = prefixdb.New(acceptedPrefix, vm.db)
 	vm.metadataDB = prefixdb.New(metadataPrefix, vm.db)
 	vm.warpDB = prefixdb.New(warpPrefix, vm.db)
+	vm.hubbleDB = prefixdb.New(hubbleDBPrefix, vm.db)
 
 	if vm.config.InspectDatabase {
 		start := time.Now()
@@ -572,8 +578,10 @@ func (vm *VM) SetState(_ context.Context, state snow.State) error {
 	switch state {
 	case snow.StateSyncing:
 		vm.bootstrapped = false
+		log.Info("@@@@ state-sync start")
 		return nil
 	case snow.Bootstrapping:
+		log.Info("@@@@ bootstrap start")
 		vm.bootstrapped = false
 		if err := vm.StateSyncClient.Error(); err != nil {
 			return err
@@ -581,6 +589,7 @@ func (vm *VM) SetState(_ context.Context, state snow.State) error {
 		return nil
 	case snow.NormalOp:
 		// Initialize gossip handling once we enter normal operation as there is no need to handle mempool gossip before this point.
+		log.Info("@@@@ bootstrap done")
 		vm.initBlockBuilding()
 		vm.bootstrapped = true
 		return nil
@@ -592,14 +601,18 @@ func (vm *VM) SetState(_ context.Context, state snow.State) error {
 // initBlockBuilding starts goroutines to manage block building
 func (vm *VM) initBlockBuilding() {
 	// NOTE: gossip network must be initialized first otherwise ETH tx gossip will not work.
+	log.Info("@@@@ initBlockBuilding called")
 	gossipStats := NewGossipStats()
 	vm.gossiper = vm.createGossiper(gossipStats)
 	vm.builder = vm.NewBlockBuilder(vm.toEngine)
 	vm.builder.awaitSubmittedTxs()
+	log.Info("@@@@ awaitSubmittedTxs done")
 	vm.builder.awaitBuildTimer()
+	log.Info("@@@@ awaitBuildTimer done")
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
 
 	vm.limitOrderProcesser.ListenAndProcessTransactions()
+	log.Info("@@@@ everything done")
 }
 
 // setAppRequestHandlers sets the request handlers for the VM to serve state sync
@@ -993,6 +1006,7 @@ func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
 		vm.eth.APIBackend,
 		vm.blockChain,
 		memoryDb,
+		vm.hubbleDB,
 		lotp,
 	)
 }

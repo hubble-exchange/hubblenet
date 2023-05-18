@@ -73,8 +73,8 @@ type LimitOrder struct {
 	ReduceOnly              bool
 	LifecycleList           []Lifecycle
 	Signature               []byte
-	BlockNumber             *big.Int    // block number order was placed on
-	RawOrder                interface{} `json:"-"`
+	BlockNumber             *big.Int // block number order was placed on
+	RawOrder                Order    `json:"-"`
 }
 
 type LimitOrderJson struct {
@@ -150,6 +150,7 @@ type Trader struct {
 }
 
 type LimitOrderDatabase interface {
+	LoadFromSnapshot(snapshot Snapshot) error
 	GetAllOrders() []LimitOrder
 	Add(orderId common.Hash, order *LimitOrder)
 	Delete(orderId common.Hash)
@@ -183,6 +184,11 @@ type InMemoryDatabase struct {
 	LastPrice       map[Market]*big.Int         `json:"last_price"`
 }
 
+type Snapshot struct {
+	Data        InMemoryDatabase
+	BlockNumber *big.Int // data includes this block number too
+}
+
 func NewInMemoryDatabase() *InMemoryDatabase {
 	orderMap := map[common.Hash]*LimitOrder{}
 	lastPrice := map[Market]*big.Int{Market_0: big.NewInt(0)}
@@ -195,6 +201,22 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 		LastPrice:       lastPrice,
 		mu:              &sync.RWMutex{},
 	}
+}
+
+func (db *InMemoryDatabase) LoadFromSnapshot(snapshot Snapshot) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if snapshot.Data.OrderMap == nil || snapshot.Data.TraderMap == nil || snapshot.Data.LastPrice == nil {
+		return fmt.Errorf("invalid snapshot; snapshot=%+v", snapshot)
+	}
+
+	db.OrderMap = snapshot.Data.OrderMap
+	db.TraderMap = snapshot.Data.TraderMap
+	db.LastPrice = snapshot.Data.LastPrice
+	db.NextFundingTime = snapshot.Data.NextFundingTime
+
+	return nil
 }
 
 func (db *InMemoryDatabase) Accept(blockNumber uint64) {
