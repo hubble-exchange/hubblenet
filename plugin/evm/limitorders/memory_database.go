@@ -242,7 +242,7 @@ func (db *InMemoryDatabase) GetAllOrders() []LimitOrder {
 
 	allOrders := []LimitOrder{}
 	for _, order := range db.OrderMap {
-		allOrders = append(allOrders, *order)
+		allOrders = append(allOrders, deepCopyOrder(*order))
 	}
 	return allOrders
 }
@@ -310,8 +310,9 @@ func (db *InMemoryDatabase) GetLongOrders(market Market, cutoff *big.Int) []Limi
 			order.Market == market &&
 			order.getOrderStatus().Status == Placed &&
 			(cutoff == nil || order.Price.Cmp(cutoff) <= 0) &&
+			// this will filter orders that are reduce only but with size > current position size (basically no partial fills) - @todo: think if this is correct
 			(!order.ReduceOnly || db.willReducePosition(order)) {
-			longOrders = append(longOrders, *order)
+			longOrders = append(longOrders, deepCopyOrder(*order))
 		}
 	}
 	sortLongOrders(longOrders)
@@ -328,8 +329,9 @@ func (db *InMemoryDatabase) GetShortOrders(market Market, cutoff *big.Int) []Lim
 			order.Market == market &&
 			order.getOrderStatus().Status == Placed &&
 			(cutoff == nil || order.Price.Cmp(cutoff) >= 0) &&
+			// this will filter orders that are reduce only but with size > current position size (basically no partial fills) - @todo: think if this is correct
 			(!order.ReduceOnly || db.willReducePosition(order)) {
-			shortOrders = append(shortOrders, *order)
+			shortOrders = append(shortOrders, deepCopyOrder(*order))
 		}
 	}
 	sortShortOrders(shortOrders)
@@ -543,7 +545,7 @@ func (db *InMemoryDatabase) getTraderOrders(trader common.Address) []LimitOrder 
 	traderOrders := []LimitOrder{}
 	for _, order := range db.OrderMap {
 		if strings.EqualFold(order.UserAddress, trader.String()) {
-			traderOrders = append(traderOrders, *order)
+			traderOrders = append(traderOrders, deepCopyOrder(*order))
 		}
 	}
 	return traderOrders
@@ -556,16 +558,8 @@ func (db *InMemoryDatabase) willReducePosition(order *LimitOrder) bool {
 	}
 	positions := db.TraderMap[trader].Positions
 	if position, ok := positions[order.Market]; ok {
-		finalSize := big.NewInt(0).Add(position.Size, order.BaseAssetQuantity)
-		if big.NewInt(0).Abs(finalSize).Cmp(big.NewInt(0).Abs(position.Size)) != -1 {
-			// abosulte position will increase
-			return false
-		}
-		if finalSize.Sign() != position.Size.Sign() {
-			// position will change sign
-			return false
-		}
-		return true
+		// position.Size, order.BaseAssetQuantity need to be of opposite sign and abs(position.Size) >= abs(order.BaseAssetQuantity)
+		return position.Size.Sign() != order.BaseAssetQuantity.Sign() && big.NewInt(0).Abs(position.Size).Cmp(big.NewInt(0).Abs(order.BaseAssetQuantity)) != -1
 	} else {
 		return false
 	}
@@ -611,8 +605,7 @@ func (db *InMemoryDatabase) GetOrderBookData() InMemoryDatabase {
 func getLiquidationThreshold(maxLiquidationRatio *big.Int, minSizeRequirement *big.Int, size *big.Int) *big.Int {
 	absSize := big.NewInt(0).Abs(size)
 	maxLiquidationSize := divideByBasePrecision(big.NewInt(0).Mul(absSize, maxLiquidationRatio))
-	threshold := big.NewInt(0).Add(maxLiquidationSize, big.NewInt(1))
-	liquidationThreshold := utils.BigIntMax(threshold, minSizeRequirement)
+	liquidationThreshold := utils.BigIntMax(maxLiquidationSize, minSizeRequirement)
 	return big.NewInt(0).Mul(liquidationThreshold, big.NewInt(int64(size.Sign()))) // same sign as size
 }
 
@@ -639,4 +632,24 @@ func getAvailableMargin(trader *Trader, pendingFunding *big.Int, oraclePrices ma
 		new(big.Int).Add(margin, unrealizePnL),
 		new(big.Int).Add(utilisedMargin, trader.Margin.Reserved),
 	)
+}
+
+// deepCopyOrder deep copies the LimitOrder struct
+func deepCopyOrder(order LimitOrder) LimitOrder {
+	lifecycleList := &order.LifecycleList
+	return LimitOrder{
+		Id:                      order.Id,
+		Market:                  order.Market,
+		PositionType:            order.PositionType,
+		UserAddress:             order.UserAddress,
+		BaseAssetQuantity:       big.NewInt(0).Set(order.BaseAssetQuantity),
+		FilledBaseAssetQuantity: big.NewInt(0).Set(order.FilledBaseAssetQuantity),
+		Salt:                    big.NewInt(0).Set(order.Salt),
+		Price:                   big.NewInt(0).Set(order.Price),
+		ReduceOnly:              order.ReduceOnly,
+		LifecycleList:           *lifecycleList,
+		Signature:               order.Signature,
+		BlockNumber:             big.NewInt(0).Set(order.BlockNumber),
+		RawOrder:                order.RawOrder,
+	}
 }
