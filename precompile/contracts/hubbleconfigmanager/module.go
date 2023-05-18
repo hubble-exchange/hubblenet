@@ -39,7 +39,7 @@ var (
 	DefaultMinAllowableMargin   = big.NewInt(2 * 1e5) // 5x
 	DefaultMaintenanceMargin    = big.NewInt(1e5)
 	DefaultMaxLiquidationRatio  = big.NewInt(25 * 1e4) // 25%
-	DefaultMinSizeRequirement   = big.NewInt(0).Mul(big.NewInt(5), big.NewInt(1e18))
+	DefaultMinSizeRequirement   = big.NewInt(1e16)
 )
 
 type configurator struct{}
