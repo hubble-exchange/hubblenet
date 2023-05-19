@@ -15,7 +15,6 @@ import (
 	_ "embed"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
@@ -23,11 +22,7 @@ const (
 	// You should set a gas cost for each function in your contract.
 	// Generally, you should not set gas costs very low as this may cause your network to be vulnerable to DoS attacks.
 	// There are some predefined gas costs in contract/utils.go that you can use.
-	GetNotionalPositionAndMarginGasCost uint64 = 0 // SET A GAS COST HERE
-)
-
-const (
-	VAR_MARGIN_STORAGE_SLOT int64 = 10
+	GetNotionalPositionAndMarginGasCost uint64 = contract.ReadGasCostPerSlot // we cheat and use the same gas cost as a single read! Infinite scaling!
 )
 
 // CUSTOM CODE STARTS HERE
@@ -97,7 +92,7 @@ func getNotionalPositionAndMargin(accessibleState contract.AccessibleState, call
 	}
 
 	// CUSTOM CODE STARTS HERE
-	output := _getNotionalPositionAndMargin(accessibleState.GetStateDB(), &inputStruct)
+	output := GetNotionalPositionAndMargin(accessibleState.GetStateDB(), &inputStruct)
 	packedOutput, err := PackGetNotionalPositionAndMarginOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
@@ -129,34 +124,4 @@ func createHubbleBibliophilePrecompile() contract.StatefulPrecompiledContract {
 		panic(err)
 	}
 	return statefulContract
-}
-
-func _getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
-	margin := _getNormalizedMargin(stateDB, input.Trader)
-	if input.IncludeFundingPayments {
-		margin.Sub(margin, _getTotalFunding(input.Trader))
-	}
-	notionalPosition, unrealizedPnl := GetTotalNotionalPositionAndUnrealizedPnl(stateDB, &input.Trader, margin, GetMarginMode(input.Mode))
-	return GetNotionalPositionAndMarginOutput{
-		NotionalPosition: notionalPosition,
-		Margin:           new(big.Int).Add(margin, unrealizedPnl),
-	}
-}
-
-func _getNormalizedMargin(stateDB contract.StateDB, trader common.Address) *big.Int {
-	return _lowLevelReadMargin(stateDB, big.NewInt(0), trader)
-}
-
-func _lowLevelReadMargin(stateDB contract.StateDB, collateralIdx *big.Int, trader common.Address) *big.Int {
-	marginStorageSlot := crypto.Keccak256(append(common.LeftPadBytes(collateralIdx.Bytes(), 32), common.LeftPadBytes(big.NewInt(VAR_MARGIN_STORAGE_SLOT).Bytes(), 32)...))
-	marginStorageSlot = crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), marginStorageSlot...))
-	return stateDB.GetState(common.HexToAddress("0x0300000000000000000000000000000000000070"), common.BytesToHash(marginStorageSlot)).Big()
-}
-
-func _getTotalFunding(trader common.Address) *big.Int {
-	return big.NewInt(0)
-}
-
-func _getTotalNotionalPositionAndUnrealizedPnl(trader common.Address, margin *big.Int, mode uint8) (*big.Int, *big.Int) {
-	return big.NewInt(0), big.NewInt(0)
 }

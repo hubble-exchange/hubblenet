@@ -10,57 +10,45 @@ import (
 )
 
 const (
-	VAR_LAST_PRICE_SLOT int64 = 0
-	VAR_POSITIONS_SLOT  int64 = 1 // tbd
+	VAR_LAST_PRICE_SLOT             int64 = 0
+	VAR_POSITIONS_SLOT              int64 = 1 // tbd
+	VAR_CUMULATIVE_PREMIUM_FRACTION int64 = 2 // tbd
 )
 
 // Reader
 
-func getLastPrice(stateDB contract.StateDB, amm *common.Address) *big.Int {
-	return stateDB.GetState(*amm, common.BigToHash(big.NewInt(VAR_LAST_PRICE_SLOT))).Big()
+// AMM State
+func getLastPrice(stateDB contract.StateDB, market *common.Address) *big.Int {
+	return stateDB.GetState(*market, common.BigToHash(big.NewInt(VAR_LAST_PRICE_SLOT))).Big()
 }
 
-func getSize(stateDB contract.StateDB, amm *common.Address, trader *common.Address) *big.Int {
-	return stateDB.GetState(*amm, common.BigToHash(positionsStorageSlot(trader))).Big()
+func getCumulativePremiumFraction(stateDB contract.StateDB, market *common.Address) *big.Int {
+	return stateDB.GetState(*market, common.BigToHash(big.NewInt(VAR_CUMULATIVE_PREMIUM_FRACTION))).Big()
 }
 
-func getOpenNotional(stateDB contract.StateDB, amm *common.Address, trader *common.Address) *big.Int {
-	return stateDB.GetState(*amm, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(1)))).Big()
-}
+// Trader State
 
 func positionsStorageSlot(trader *common.Address) *big.Int {
 	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(VAR_POSITIONS_SLOT).Bytes(), 32)...)))
 }
 
-// utilities
-
-type MarginMode uint8
-
-const (
-	Maintenance_Margin MarginMode = iota
-	Min_Allowable_Margin
-)
-
-func GetMarginMode(marginMode uint8) MarginMode {
-	if marginMode == 0 {
-		return Maintenance_Margin
-	}
-	return Min_Allowable_Margin
+func getSize(stateDB contract.StateDB, market *common.Address, trader *common.Address) *big.Int {
+	return stateDB.GetState(*market, common.BigToHash(positionsStorageSlot(trader))).Big()
 }
 
-func GetTotalNotionalPositionAndUnrealizedPnl(stateDB contract.StateDB, trader *common.Address, margin *big.Int, marginMode MarginMode) (*big.Int, *big.Int) {
-	notionalPosition := big.NewInt(0)
-	unrealizedPnl := big.NewInt(0)
-	markets := []*common.Address{}
-	for _, market := range markets {
-		lastPrice := getLastPrice(stateDB, market)
-		// oraclePrice := getUnderlyingPrice(stateDB, market)
-		oraclePrice := multiply1e6(big.NewInt(1800))
-		_notionalPosition, _unrealizedPnl := getOptimalPnl(stateDB, market, oraclePrice, lastPrice, trader, margin, marginMode)
-		notionalPosition.Add(notionalPosition, _notionalPosition)
-		unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
-	}
-	return notionalPosition, unrealizedPnl
+func getOpenNotional(stateDB contract.StateDB, market *common.Address, trader *common.Address) *big.Int {
+	return stateDB.GetState(*market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(1)))).Big()
+}
+
+func getLastPremiumFraction(stateDB contract.StateDB, market *common.Address, trader *common.Address) *big.Int {
+	return stateDB.GetState(*market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(2)))).Big()
+}
+
+// utilities
+
+func getPendingFundingPayment(stateDB contract.StateDB, market *common.Address, trader *common.Address) *big.Int {
+	cumulativePremiumFraction := getCumulativePremiumFraction(stateDB, market)
+	return divide1e18(new(big.Int).Mul(new(big.Int).Sub(cumulativePremiumFraction, getLastPremiumFraction(stateDB, market, trader)), getSize(stateDB, market, trader)))
 }
 
 func getOptimalPnl(stateDB contract.StateDB, market *common.Address, oraclePrice *big.Int, lastPrice *big.Int, trader *common.Address, margin *big.Int, marginMode MarginMode) (notionalPosition *big.Int, uPnL *big.Int) {
