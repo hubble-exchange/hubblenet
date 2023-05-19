@@ -136,7 +136,7 @@ func _getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalP
 	if input.IncludeFundingPayments {
 		margin.Sub(margin, _getTotalFunding(input.Trader))
 	}
-	notionalPosition, unrealizedPnl := _getTotalNotionalPositionAndUnrealizedPnl(input.Trader, margin, input.Mode)
+	notionalPosition, unrealizedPnl := GetTotalNotionalPositionAndUnrealizedPnl(stateDB, &input.Trader, margin, GetMarginMode(input.Mode))
 	return GetNotionalPositionAndMarginOutput{
 		NotionalPosition: notionalPosition,
 		Margin:           new(big.Int).Add(margin, unrealizedPnl),
@@ -147,8 +147,8 @@ func _getNormalizedMargin(stateDB contract.StateDB, trader common.Address) *big.
 	return _lowLevelReadMargin(stateDB, big.NewInt(0), trader)
 }
 
-func _lowLevelReadMargin(stateDB contract.StateDB, idx *big.Int, trader common.Address) *big.Int {
-	marginStorageSlot := crypto.Keccak256(append(common.LeftPadBytes(idx.Bytes(), 32), common.LeftPadBytes(big.NewInt(VAR_MARGIN_STORAGE_SLOT).Bytes(), 32)...))
+func _lowLevelReadMargin(stateDB contract.StateDB, collateralIdx *big.Int, trader common.Address) *big.Int {
+	marginStorageSlot := crypto.Keccak256(append(common.LeftPadBytes(collateralIdx.Bytes(), 32), common.LeftPadBytes(big.NewInt(VAR_MARGIN_STORAGE_SLOT).Bytes(), 32)...))
 	marginStorageSlot = crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), marginStorageSlot...))
 	return stateDB.GetState(common.HexToAddress("0x0300000000000000000000000000000000000070"), common.BytesToHash(marginStorageSlot)).Big()
 }
