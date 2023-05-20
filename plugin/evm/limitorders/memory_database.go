@@ -174,7 +174,7 @@ type InMemoryDatabase struct {
 
 func NewInMemoryDatabase(configService IConfigService) *InMemoryDatabase {
 	orderMap := map[common.Hash]*LimitOrder{}
-	lastPrice := map[Market]*big.Int{} // AvaxPerp: big.NewInt(0)}
+	lastPrice := map[Market]*big.Int{}
 	traderMap := map[common.Address]*Trader{}
 
 	return &InMemoryDatabase{
