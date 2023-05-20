@@ -7,23 +7,24 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
-	VAR_LAST_PRICE_SLOT             int64 = 0
-	VAR_POSITIONS_SLOT              int64 = 1 // tbd
-	VAR_CUMULATIVE_PREMIUM_FRACTION int64 = 2 // tbd
+	VAR_LAST_PRICE_SLOT             int64 = 1
+	VAR_POSITIONS_SLOT              int64 = 2
+	VAR_CUMULATIVE_PREMIUM_FRACTION int64 = 3
 )
 
 // Reader
 
 // AMM State
-func getLastPrice(stateDB contract.StateDB, market *common.Address) *big.Int {
-	return stateDB.GetState(*market, common.BigToHash(big.NewInt(VAR_LAST_PRICE_SLOT))).Big()
+func getLastPrice(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(VAR_LAST_PRICE_SLOT))).Big()
 }
 
-func getCumulativePremiumFraction(stateDB contract.StateDB, market *common.Address) *big.Int {
-	return stateDB.GetState(*market, common.BigToHash(big.NewInt(VAR_CUMULATIVE_PREMIUM_FRACTION))).Big()
+func getCumulativePremiumFraction(stateDB contract.StateDB, market common.Address) *big.Int {
+	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(VAR_CUMULATIVE_PREMIUM_FRACTION))).Bytes())
 }
 
 // Trader State
@@ -32,26 +33,34 @@ func positionsStorageSlot(trader *common.Address) *big.Int {
 	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(VAR_POSITIONS_SLOT).Bytes(), 32)...)))
 }
 
-func getSize(stateDB contract.StateDB, market *common.Address, trader *common.Address) *big.Int {
-	return stateDB.GetState(*market, common.BigToHash(positionsStorageSlot(trader))).Big()
+func getSize(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(positionsStorageSlot(trader))).Bytes())
 }
 
-func getOpenNotional(stateDB contract.StateDB, market *common.Address, trader *common.Address) *big.Int {
-	return stateDB.GetState(*market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(1)))).Big()
+func fromTwosComplement(b []byte) *big.Int {
+	t := new(big.Int).SetBytes(b)
+	if b[0]&0x80 != 0 {
+		t.Sub(t, new(big.Int).Lsh(big.NewInt(1), uint(len(b)*8)))
+	}
+	return t
 }
 
-func getLastPremiumFraction(stateDB contract.StateDB, market *common.Address, trader *common.Address) *big.Int {
-	return stateDB.GetState(*market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(2)))).Big()
+func getOpenNotional(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(1)))).Big()
+}
+
+func getLastPremiumFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(2)))).Bytes())
 }
 
 // utilities
 
-func getPendingFundingPayment(stateDB contract.StateDB, market *common.Address, trader *common.Address) *big.Int {
+func getPendingFundingPayment(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	cumulativePremiumFraction := getCumulativePremiumFraction(stateDB, market)
 	return divide1e18(new(big.Int).Mul(new(big.Int).Sub(cumulativePremiumFraction, getLastPremiumFraction(stateDB, market, trader)), getSize(stateDB, market, trader)))
 }
 
-func getOptimalPnl(stateDB contract.StateDB, market *common.Address, oraclePrice *big.Int, lastPrice *big.Int, trader *common.Address, margin *big.Int, marginMode MarginMode) (notionalPosition *big.Int, uPnL *big.Int) {
+func getOptimalPnl(stateDB contract.StateDB, market common.Address, oraclePrice *big.Int, lastPrice *big.Int, trader *common.Address, margin *big.Int, marginMode MarginMode) (notionalPosition *big.Int, uPnL *big.Int) {
 	size := getSize(stateDB, market, trader)
 	if size.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0)
