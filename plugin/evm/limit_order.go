@@ -23,7 +23,7 @@ import (
 
 const (
 	memoryDBSnapshotKey string = "memoryDBSnapshot"
-	snapshotInterval    uint64 = 10 // save snapshot every 1000 blocks
+	snapshotInterval    uint64 = 1000 // save snapshot every 1000 blocks
 )
 
 type LimitOrderProcesser interface {
@@ -74,7 +74,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	if lastAccepted.Sign() > 0 {
 		fromBlock := big.NewInt(0)
 
-		// first load the last snapshot containing finalised data till block x and unfinalised data will block y
+		// first load the last snapshot containing finalised data till block x and query the logs of [x+1, latest]
 		acceptedBlockNumber, err := lop.loadMemoryDBSnapshot()
 		if err != nil {
 			log.Error("ListenAndProcessTransactions - error in loading snapshot", "err", err)
