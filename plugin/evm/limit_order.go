@@ -23,7 +23,7 @@ import (
 
 const (
 	memoryDBSnapshotKey string = "memoryDBSnapshot"
-	snapshotInterval    uint64 = 1000 // save snapshot every 1000 blocks
+	snapshotInterval    uint64 = 10 // save snapshot every 1000 blocks
 )
 
 type LimitOrderProcesser interface {
@@ -34,6 +34,7 @@ type LimitOrderProcesser interface {
 
 type limitOrderProcesser struct {
 	ctx                    *snow.Context
+	mu                     *sync.Mutex
 	txPool                 *core.TxPool
 	shutdownChan           <-chan struct{}
 	shutdownWg             *sync.WaitGroup
@@ -55,6 +56,7 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan
 	filterAPI := filters.NewFilterAPI(filterSystem, true)
 	return &limitOrderProcesser{
 		ctx:                    ctx,
+		mu:                     &sync.Mutex{},
 		txPool:                 txPool,
 		shutdownChan:           shutdownChan,
 		shutdownWg:             shutdownWg,
@@ -70,6 +72,8 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan
 }
 
 func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
+	lop.mu.Lock()
+
 	lastAccepted := lop.blockChain.LastAcceptedBlock().Number()
 	if lastAccepted.Sign() > 0 {
 		fromBlock := big.NewInt(0)
@@ -103,6 +107,8 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 		lop.memoryDb.Accept(lastAccepted.Uint64()) // will delete stale orders from the memorydb
 	}
 
+	lop.mu.Unlock()
+
 	lop.listenAndStoreLimitOrderTransactions()
 }
 
@@ -125,7 +131,14 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case logs := <-logsCh:
+				// lop.handleHubbleLogEvent(logs)
+				log.Info("@@@@ taking lock before ProcessEvents")
+				lop.mu.Lock()
+
 				lop.contractEventProcessor.ProcessEvents(logs)
+
+				lop.mu.Unlock()
+				log.Info("@@@@ released lock after ProcessEvents")
 			case <-lop.shutdownChan:
 				return
 			}
@@ -142,7 +155,13 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case logs := <-acceptedLogsCh:
+				log.Info("@@@@ taking lock before ProcessAcceptedEvents")
+				lop.mu.Lock()
+
 				lop.contractEventProcessor.ProcessAcceptedEvents(logs)
+
+				lop.mu.Unlock()
+				log.Info("@@@@ released lock after ProcessAcceptedEvents")
 			case <-lop.shutdownChan:
 				return
 			}
@@ -167,11 +186,14 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
+// func (lop *limitOrderProcesser) handleHubbleLogEvent(logs []*types.Log) {
+// }
+
 func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) {
-	// it is very important to hold the lock here so that there are no updates to the DB
-	// between Accept() and saveMemoryDBSnapshot()
-	lop.memoryDb.Lock()
-	defer lop.memoryDb.Unlock()
+	log.Info("@@@@ taking lock before handleChainAcceptedEvent")
+	lop.mu.Lock()
+	defer lop.mu.Unlock()
+	defer log.Info("@@@@ releasing lock after handleChainAcceptedEvent")
 
 	block := event.Block
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())

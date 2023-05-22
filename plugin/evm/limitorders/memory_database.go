@@ -152,8 +152,6 @@ type Trader struct {
 }
 
 type LimitOrderDatabase interface {
-	Lock()
-	Unlock()
 	LoadFromSnapshot(snapshot Snapshot) error
 	GetAllOrders() []LimitOrder
 	Add(orderId common.Hash, order *LimitOrder)
@@ -208,14 +206,6 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 	}
 }
 
-func (db *InMemoryDatabase) Lock() {
-	db.mu.Lock()
-}
-
-func (db *InMemoryDatabase) Unlock() {
-	db.mu.Unlock()
-}
-
 func (db *InMemoryDatabase) LoadFromSnapshot(snapshot Snapshot) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -234,6 +224,9 @@ func (db *InMemoryDatabase) LoadFromSnapshot(snapshot Snapshot) error {
 
 // assumes that lock is held by the caller
 func (db *InMemoryDatabase) Accept(blockNumber uint64) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	for orderId, order := range db.OrderMap {
 		lifecycle := order.getOrderStatus()
 		if lifecycle.Status != Placed && lifecycle.BlockNumber <= blockNumber {
@@ -636,6 +629,9 @@ func (db *InMemoryDatabase) GetOrderBookData() InMemoryDatabase {
 }
 
 func (db *InMemoryDatabase) GetOrderBookDataCopy() *InMemoryDatabase {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
 	var buf bytes.Buffer
 	gob.NewEncoder(&buf).Encode(db)
 
