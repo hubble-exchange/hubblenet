@@ -3,7 +3,6 @@ package limitorders
 import (
 	"bytes"
 	"encoding/gob"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -62,7 +61,6 @@ type LimitOrder struct {
 	Price                   *big.Int
 	ReduceOnly              bool
 	LifecycleList           []Lifecycle
-	Signature               []byte
 	BlockNumber             *big.Int // block number order was placed on
 	RawOrder                Order    `json:"-"`
 }
@@ -91,7 +89,6 @@ func (order *LimitOrder) MarshalJSON() ([]byte, error) {
 		Salt:                    order.Salt,
 		Price:                   order.Price,
 		LifecycleList:           order.LifecycleList,
-		Signature:               hex.EncodeToString(order.Signature),
 		BlockNumber:             order.BlockNumber,
 		ReduceOnly:              order.ReduceOnly,
 	}
@@ -108,7 +105,7 @@ func (order LimitOrder) getOrderStatus() Lifecycle {
 }
 
 func (order LimitOrder) String() string {
-	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, Signature: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, hex.EncodeToString(order.Signature), order.BlockNumber)
+	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, order.BlockNumber)
 }
 
 func (order LimitOrder) ToOrderMin() OrderMin {
@@ -678,7 +675,6 @@ func deepCopyOrder(order LimitOrder) LimitOrder {
 		Price:                   big.NewInt(0).Set(order.Price),
 		ReduceOnly:              order.ReduceOnly,
 		LifecycleList:           *lifecycleList,
-		Signature:               order.Signature,
 		BlockNumber:             big.NewInt(0).Set(order.BlockNumber),
 		RawOrder:                order.RawOrder,
 	}
