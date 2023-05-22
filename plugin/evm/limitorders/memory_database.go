@@ -1,6 +1,8 @@
 package limitorders
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -150,6 +152,7 @@ type Trader struct {
 }
 
 type LimitOrderDatabase interface {
+	GenerateSnapshot(acceptedBlockNumber *big.Int, headBlockNumber *big.Int, headBlockHash common.Hash) ([]byte, error)
 	LoadFromSnapshot(snapshot Snapshot) error
 	GetAllOrders() []LimitOrder
 	Add(orderId common.Hash, order *LimitOrder)
@@ -185,8 +188,10 @@ type InMemoryDatabase struct {
 }
 
 type Snapshot struct {
-	Data        InMemoryDatabase
-	BlockNumber *big.Int // data includes this block number too
+	Data                InMemoryDatabase
+	AcceptedBlockNumber *big.Int // data includes this block number too
+	HeadBlockNumber     *big.Int // data includes this block number too
+	HeadBlockHash       common.Hash
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
@@ -201,6 +206,26 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 		LastPrice:       lastPrice,
 		mu:              &sync.RWMutex{},
 	}
+}
+
+func (db *InMemoryDatabase) GenerateSnapshot(acceptedBlockNumber *big.Int, headBlockNumber *big.Int, headBlockHash common.Hash) ([]byte, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	snapshot := Snapshot{
+		Data:                *db,
+		AcceptedBlockNumber: acceptedBlockNumber,
+		HeadBlockNumber:     headBlockNumber,
+		HeadBlockHash:       headBlockHash,
+	}
+
+	var buf bytes.Buffer
+	err := gob.NewEncoder(&buf).Encode(&snapshot)
+	if err != nil {
+		return nil, fmt.Errorf("Error in gob encoding: err=%v", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (db *InMemoryDatabase) LoadFromSnapshot(snapshot Snapshot) error {
