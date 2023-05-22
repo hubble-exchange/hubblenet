@@ -23,7 +23,7 @@ import (
 
 const (
 	memoryDBSnapshotKey string = "memoryDBSnapshot"
-	snapshotInterval    uint64 = 1000 // save snapshot every 1000 blocks
+	snapshotInterval    uint64 = 10 // save snapshot every 1000 blocks
 )
 
 type LimitOrderProcesser interface {
@@ -75,43 +75,29 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 		fromBlock := big.NewInt(0)
 
 		// first load the last snapshot containing finalised data till block x and unfinalised data will block y
-		acceptedBlockNumber, headBlockNumber, err := lop.loadMemoryDBSnapshot()
+		acceptedBlockNumber, err := lop.loadMemoryDBSnapshot()
 		if err != nil {
 			log.Error("ListenAndProcessTransactions - error in loading snapshot", "err", err)
 		} else {
-			if acceptedBlockNumber > 0 && headBlockNumber > 0 {
-				log.Info("ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber, "headBlockNumber", headBlockNumber)
+			if acceptedBlockNumber > 0 {
+				fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
+				log.Info("ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
 			} else {
 				// not an error, but unlikely after the blockchain is running for some time
 				log.Warn("ListenAndProcessTransactions - no snapshot found")
 			}
 		}
 
-		if acceptedBlockNumber == 0 && headBlockNumber == 0 {
-			// snapshot was not loaded, start from the beginnning and fetch the logs in chunks
-			log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAccepted)
-			toBlock := utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
-			for toBlock.Cmp(fromBlock) > 0 {
-				logs := lop.getLogs(fromBlock, toBlock)
-				log.Info("ListenAndProcessTransactions - fetching log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs), "err", err)
-				lop.contractEventProcessor.ProcessEvents(logs)
-				lop.contractEventProcessor.ProcessAcceptedEvents(logs)
-
-				fromBlock = fromBlock.Add(toBlock, big.NewInt(1))
-				toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
-			}
-		} else {
-			// snapshot was loaded; fetch only the logs after snapshot blocks(separately for both accepted and head block)
-			// no need to break it into chunks cuz the remaining blocks should be few
-			fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
-			logs := lop.getLogs(fromBlock, lastAccepted)
-			log.Info("ListenAndProcessTransactions - fetched logs since accepted block", "fromBlock", fromBlock.String(), "toBlock", lastAccepted.String(), "number of logs", len(logs), "err", err)
+		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAccepted)
+		toBlock := utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
+		for toBlock.Cmp(fromBlock) > 0 {
+			logs := lop.getLogs(fromBlock, toBlock)
+			log.Info("ListenAndProcessTransactions - fetched log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs), "err", err)
+			lop.contractEventProcessor.ProcessEvents(logs)
 			lop.contractEventProcessor.ProcessAcceptedEvents(logs)
 
-			fromBlock = big.NewInt(int64(headBlockNumber) + 1)
-			logs = lop.getLogs(fromBlock, lastAccepted)
-			log.Info("ListenAndProcessTransactions - fetched logs since head block", "fromBlock", fromBlock.String(), "toBlock", lastAccepted.String(), "number of logs", len(logs), "err", err)
-			lop.contractEventProcessor.ProcessEvents(logs)
+			fromBlock = fromBlock.Add(toBlock, big.NewInt(1))
+			toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
 		}
 
 		lop.memoryDb.Accept(lastAccepted.Uint64()) // will delete stale orders from the memorydb
@@ -182,6 +168,11 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 }
 
 func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) {
+	// it is very important to hold the lock here so that there are no updates to the DB
+	// between Accept() and saveMemoryDBSnapshot()
+	lop.memoryDb.Lock()
+	defer lop.memoryDb.Unlock()
+
 	block := event.Block
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
 	lop.memoryDb.Accept(block.NumberU64())
@@ -191,63 +182,79 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 		if err != nil {
 			log.Error("Error in saving memory DB snapshot", "err", err)
 		}
-
 	}
 }
 
-func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint64, headBlockNumber uint64, err error) {
+func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint64, err error) {
 	snapshotFound, err := lop.hubbleDB.Has([]byte(memoryDBSnapshotKey))
 	if err != nil {
-		return acceptedBlockNumber, headBlockNumber, fmt.Errorf("Error in checking snapshot in hubbleDB: err=%v", err)
+		return acceptedBlockNumber, fmt.Errorf("Error in checking snapshot in hubbleDB: err=%v", err)
 	}
 
 	if !snapshotFound {
-		return acceptedBlockNumber, headBlockNumber, nil
+		return acceptedBlockNumber, nil
 	}
 
 	memorySnapshotBytes, err := lop.hubbleDB.Get([]byte(memoryDBSnapshotKey))
 	if err != nil {
-		return acceptedBlockNumber, headBlockNumber, fmt.Errorf("Error in fetching snapshot from hubbleDB; err=%v", err)
+		return acceptedBlockNumber, fmt.Errorf("Error in fetching snapshot from hubbleDB; err=%v", err)
 	}
 
 	buf := bytes.NewBuffer(memorySnapshotBytes)
 	var snapshot limitorders.Snapshot
 	err = gob.NewDecoder(buf).Decode(&snapshot)
 	if err != nil {
-		return acceptedBlockNumber, headBlockNumber, fmt.Errorf("Error in snapshot parsing; err=%v", err)
-	}
-
-	if snapshot.HeadBlockNumber.Uint64() == 0 || snapshot.AcceptedBlockNumber.Uint64() == 0 {
-		return acceptedBlockNumber, headBlockNumber, fmt.Errorf("Invalid snapshot; accepted block number =%d, head block number =%v",
-			snapshot.AcceptedBlockNumber.Uint64(), snapshot.HeadBlockNumber.Uint64())
-	}
-
-	headBlock := lop.blockChain.GetBlockByNumber(snapshot.HeadBlockNumber.Uint64())
-	if headBlock.Hash() != snapshot.HeadBlockHash {
-		// if the head block at the time of saving the snapshot is not part of the finalised blockchain now,
-		// it means there was a reorg and the snapshot has to be discarded
-		// This should happen very rarely
-		return acceptedBlockNumber, headBlockNumber, fmt.Errorf("HeadBlock mismatch; block number =%d, snapshot head block=%v, blockchain head block=%v",
-			snapshot.HeadBlockNumber.Uint64(), snapshot.HeadBlockHash.String(), headBlock.Hash().String())
+		return acceptedBlockNumber, fmt.Errorf("Error in snapshot parsing; err=%v", err)
 	}
 
 	err = lop.memoryDb.LoadFromSnapshot(snapshot)
 	if err != nil {
-		return acceptedBlockNumber, headBlockNumber, fmt.Errorf("Error in loading from snapshot: err=%v", err)
+		return acceptedBlockNumber, fmt.Errorf("Error in loading from snapshot: err=%v", err)
 	}
 
-	return snapshot.AcceptedBlockNumber.Uint64(), snapshot.HeadBlockNumber.Uint64(), nil
+	return snapshot.AcceptedBlockNumber.Uint64(), nil
 }
 
+// assumes that memory DB lock is held
 func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.Int) error {
 	currentHeadBlock := lop.blockChain.CurrentBlock()
 
-	snapshotBytes, err := lop.memoryDb.GenerateSnapshot(acceptedBlockNumber, currentHeadBlock.Number(), currentHeadBlock.Hash())
-	if err != nil {
-		return fmt.Errorf("Error in generating snapshot: err=%v", err)
+	memoryDBCopy := lop.memoryDb.GetOrderBookDataCopy()
+	if currentHeadBlock.Number().Cmp(acceptedBlockNumber) == 1 {
+		// if current head is ahead of the accepted block, then certain events(OrderBook)
+		// need to be removed from the saved state
+		logsToRemove := []*types.Log{}
+		for {
+			logs := lop.blockChain.GetLogs(currentHeadBlock.Hash(), currentHeadBlock.NumberU64())
+			flattenedLogs := types.FlattenLogs(logs)
+			logsToRemove = append(logsToRemove, flattenedLogs...)
+
+			currentHeadBlock = lop.blockChain.GetBlockByHash(currentHeadBlock.ParentHash())
+			if currentHeadBlock.Number().Cmp(acceptedBlockNumber) == 0 {
+				break
+			}
+		}
+
+		for i := 0; i < len(logsToRemove); i++ {
+			logsToRemove[i].Removed = true
+		}
+
+		cev := limitorders.NewContractEventsProcessor(memoryDBCopy)
+		cev.ProcessEvents(logsToRemove)
 	}
 
-	err = lop.hubbleDB.Put([]byte(memoryDBSnapshotKey), snapshotBytes)
+	snapshot := limitorders.Snapshot{
+		Data:                memoryDBCopy,
+		AcceptedBlockNumber: acceptedBlockNumber,
+	}
+
+	var buf bytes.Buffer
+	err := gob.NewEncoder(&buf).Encode(&snapshot)
+	if err != nil {
+		return fmt.Errorf("error in gob encoding: err=%v", err)
+	}
+
+	err = lop.hubbleDB.Put([]byte(memoryDBSnapshotKey), buf.Bytes())
 	if err != nil {
 		return fmt.Errorf("Error in saving to DB: err=%v", err)
 	}
