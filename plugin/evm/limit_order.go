@@ -23,7 +23,7 @@ import (
 
 const (
 	memoryDBSnapshotKey string = "memoryDBSnapshot"
-	snapshotInterval    uint64 = 10 // save snapshot every 1000 blocks
+	snapshotInterval    uint64 = 1000 // save snapshot every 1000 blocks
 )
 
 type LimitOrderProcesser interface {
@@ -229,12 +229,16 @@ func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint
 		return acceptedBlockNumber, fmt.Errorf("Error in snapshot parsing; err=%v", err)
 	}
 
-	err = lop.memoryDb.LoadFromSnapshot(snapshot)
-	if err != nil {
-		return acceptedBlockNumber, fmt.Errorf("Error in loading from snapshot: err=%v", err)
-	}
+	if snapshot.AcceptedBlockNumber != nil && snapshot.AcceptedBlockNumber.Uint64() > 0 {
+		err = lop.memoryDb.LoadFromSnapshot(snapshot)
+		if err != nil {
+			return acceptedBlockNumber, fmt.Errorf("Error in loading from snapshot: err=%v", err)
+		}
 
-	return snapshot.AcceptedBlockNumber.Uint64(), nil
+		return snapshot.AcceptedBlockNumber.Uint64(), nil
+	} else {
+		return acceptedBlockNumber, nil
+	}
 }
 
 // assumes that memory DB lock is held
