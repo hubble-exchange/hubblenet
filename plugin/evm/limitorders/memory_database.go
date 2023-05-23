@@ -638,6 +638,7 @@ func (db *InMemoryDatabase) GetOrderBookDataCopy() *InMemoryDatabase {
 	buf2 := bytes.NewBuffer(buf.Bytes())
 	var memoryDBCopy *InMemoryDatabase
 	gob.NewDecoder(buf2).Decode(&memoryDBCopy)
+	memoryDBCopy.mu = &sync.RWMutex{}
 	return memoryDBCopy
 }
 

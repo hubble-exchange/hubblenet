@@ -131,14 +131,11 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case logs := <-logsCh:
-				// lop.handleHubbleLogEvent(logs)
-				log.Info("@@@@ taking lock before ProcessEvents")
 				lop.mu.Lock()
 
 				lop.contractEventProcessor.ProcessEvents(logs)
 
 				lop.mu.Unlock()
-				log.Info("@@@@ released lock after ProcessEvents")
 			case <-lop.shutdownChan:
 				return
 			}
@@ -155,13 +152,11 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case logs := <-acceptedLogsCh:
-				log.Info("@@@@ taking lock before ProcessAcceptedEvents")
 				lop.mu.Lock()
 
 				lop.contractEventProcessor.ProcessAcceptedEvents(logs)
 
 				lop.mu.Unlock()
-				log.Info("@@@@ released lock after ProcessAcceptedEvents")
 			case <-lop.shutdownChan:
 				return
 			}
@@ -186,14 +181,9 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	})
 }
 
-// func (lop *limitOrderProcesser) handleHubbleLogEvent(logs []*types.Log) {
-// }
-
 func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) {
-	log.Info("@@@@ taking lock before handleChainAcceptedEvent")
 	lop.mu.Lock()
 	defer lop.mu.Unlock()
-	defer log.Info("@@@@ releasing lock after handleChainAcceptedEvent")
 
 	block := event.Block
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
