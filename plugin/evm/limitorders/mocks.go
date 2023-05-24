@@ -104,7 +104,7 @@ func (db *MockLimitOrderDatabase) GetLastPrices() map[Market]*big.Int {
 	return map[Market]*big.Int{}
 }
 
-func (db *MockLimitOrderDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int) ([]LiquidablePosition, map[common.Address][]common.Hash) {
+func (db *MockLimitOrderDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]common.Hash) {
 	return []LiquidablePosition{}, map[common.Address][]common.Hash{}
 }
 
@@ -199,6 +199,10 @@ func (mcs *MockConfigService) getMaintenanceMargin() *big.Int {
 func (mcs *MockConfigService) getMinSizeRequirement() *big.Int {
 	args := mcs.Called()
 	return args.Get(0).(*big.Int)
+}
+
+func (cs *MockConfigService) GetActiveMarketsCount() int64 {
+	return int64(1)
 }
 
 func NewMockConfigService() *MockConfigService {

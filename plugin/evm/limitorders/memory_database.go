@@ -281,7 +281,8 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 	defer db.mu.Unlock()
 
 	limitOrder := db.OrderMap[orderId]
-
+	log.Info("UpdateFilledBaseAssetQuantity", "limitOrder", limitOrder)
+	fmt.Println("UpdateFilledBaseAssetQuantity", "limitOrder", limitOrder)
 	if limitOrder.PositionType == LONG {
 		limitOrder.FilledBaseAssetQuantity.Add(limitOrder.FilledBaseAssetQuantity, quantity) // filled = filled + quantity
 	}
