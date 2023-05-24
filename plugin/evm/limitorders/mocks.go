@@ -112,6 +112,14 @@ func (db *MockLimitOrderDatabase) GetOrderBookData() InMemoryDatabase {
 	return *&InMemoryDatabase{}
 }
 
+func (db *MockLimitOrderDatabase) GetOrderBookDataCopy() *InMemoryDatabase {
+	return &InMemoryDatabase{}
+}
+
+func (db *MockLimitOrderDatabase) LoadFromSnapshot(snapshot Snapshot) error {
+	return nil
+}
+
 func (db *MockLimitOrderDatabase) GetOpenOrdersForTrader(trader common.Address) []LimitOrder {
 	return nil
 }
