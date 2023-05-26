@@ -25,13 +25,15 @@ type SubnetEVMLogger struct {
 // InitLogger initializes logger with alias and sets the log level and format with the original [os.StdErr] interface
 // along with the context logger.
 func InitLogger(alias string, level string, jsonFormat bool, writer io.Writer) (SubnetEVMLogger, error) {
-	logFormat := SubnetEVMTermFormat(alias)
+	// logFormat := SubnetEVMTermFormat(alias)
+	logFormat := log.LogfmtFormat()
 	if jsonFormat {
 		logFormat = SubnetEVMJSONFormat(alias)
 	}
 
 	// Create handler
 	logHandler := log.StreamHandler(writer, logFormat)
+	logHandler = log.CallerFileHandler(logHandler)
 	c := SubnetEVMLogger{Handler: logHandler}
 
 	if err := c.SetLogLevel(level); err != nil {
