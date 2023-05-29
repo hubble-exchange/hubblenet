@@ -796,7 +796,7 @@ var (
 		  }
 		]
 	  }`
-	orderBookAddress common.Address = common.HexToAddress("0x0300000000000000000000000000000000000069")
+	orderBookAddress common.Address = common.HexToAddress("0x0300000000000000000000000000000000000000")
 	_1e18            *big.Int       = big.NewInt(1e18)
 	_1e6             *big.Int       = big.NewInt(1e6)
 )
