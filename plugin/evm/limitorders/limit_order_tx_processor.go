@@ -33,7 +33,7 @@ type LimitOrderTxProcessor interface {
 	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount *big.Int) error
 	ExecuteFundingPaymentTx() error
 	ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error
-	ExecuteOrderCancel(orderIds []common.Hash) error
+	ExecuteOrderCancel(orderIds []Order) error
 	GetUnderlyingPrice() (map[Market]*big.Int, error)
 }
 
@@ -111,7 +111,7 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 
 func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error {
 	log.Info("ExecuteLiquidation", "trader", trader, "matchedOrder", matchedOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18))
-	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader, getOrderFromRawOrder(matchedOrder.RawOrder), fillAmount)
+	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader, matchedOrder.RawOrder, fillAmount)
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
@@ -121,12 +121,14 @@ func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
 
 func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder LimitOrder, shortOrder LimitOrder, fillAmount *big.Int) error {
 	log.Info("ExecuteMatchedOrdersTx", "LongOrder", longOrder, "ShortOrder", shortOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18))
-	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "executeMatchedOrders", longOrder.Id, shortOrder.Id, fillAmount)
+	orders := make([]Order, 2)
+	orders[0], orders[1] = getOrderFromRawOrder(longOrder.RawOrder), getOrderFromRawOrder(shortOrder.RawOrder)
+	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "executeMatchedOrders", orders, fillAmount)
 }
 
-func (lotp *limitOrderTxProcessor) ExecuteOrderCancel(orderIds []common.Hash) error {
-	log.Info("ExecuteOrderCancel", "orderIds", formatHashSlice(orderIds))
-	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelMultipleOrders", orderIds)
+func (lotp *limitOrderTxProcessor) ExecuteOrderCancel(orders []Order) error {
+	log.Info("ExecuteOrderCancel", "orderIds", orders)
+	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelMultipleOrders", orders)
 }
 
 func (lotp *limitOrderTxProcessor) executeLocalTx(contract common.Address, contractABI abi.ABI, method string, args ...interface{}) error {

@@ -567,7 +567,7 @@ func TestHandleClearingHouseEvent(t *testing.T) {
 			size := multiplyPrecisionSize(big.NewInt(40))
 			price := multiplyBasePrecision(big.NewInt(100)) // baseAsset / quoteAsset
 
-			positionModifiedEvent, err := event.Inputs.NonIndexed().Pack(baseAsset, price, realizedPnl, size, openNotional, big.NewInt(0), timestamp)
+			positionModifiedEvent, err := event.Inputs.NonIndexed().Pack(baseAsset, price, realizedPnl, size, openNotional, big.NewInt(0), uint8(0), timestamp)
 			if err != nil {
 				t.Fatal(err)
 			}

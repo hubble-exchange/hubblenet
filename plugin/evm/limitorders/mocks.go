@@ -104,8 +104,8 @@ func (db *MockLimitOrderDatabase) GetLastPrices() map[Market]*big.Int {
 	return map[Market]*big.Int{}
 }
 
-func (db *MockLimitOrderDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]common.Hash) {
-	return []LiquidablePosition{}, map[common.Address][]common.Hash{}
+func (db *MockLimitOrderDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]LimitOrder) {
+	return []LiquidablePosition{}, map[common.Address][]LimitOrder{}
 }
 
 func (db *MockLimitOrderDatabase) GetOrderBookData() InMemoryDatabase {
@@ -154,7 +154,7 @@ func (lotp *MockLimitOrderTxProcessor) ExecuteLiquidation(trader common.Address,
 	return args.Error(0)
 }
 
-func (lotp *MockLimitOrderTxProcessor) ExecuteOrderCancel(orderIds []common.Hash) error {
+func (lotp *MockLimitOrderTxProcessor) ExecuteOrderCancel(orderIds []Order) error {
 	args := lotp.Called(orderIds)
 	return args.Error(0)
 }

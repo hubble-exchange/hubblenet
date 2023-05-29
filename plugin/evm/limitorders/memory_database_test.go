@@ -282,8 +282,8 @@ func TestGetCancellableOrders(t *testing.T) {
 	// orderId3 will free up 8*3/5 = 4.8
 	// orderId2 will free up 9*3/5 = 5.4
 	assert.Equal(t, 2, len(ordersToCancel[trader])) // 2 orders
-	assert.Equal(t, ordersToCancel[trader][0], orderId3)
-	assert.Equal(t, ordersToCancel[trader][1], orderId2)
+	assert.Equal(t, ordersToCancel[trader][0].Id, orderId3)
+	assert.Equal(t, ordersToCancel[trader][1].Id, orderId2)
 }
 
 func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
