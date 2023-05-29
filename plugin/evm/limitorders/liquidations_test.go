@@ -53,7 +53,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 					Deposited: map[Collateral]*big.Int{collateral: marginLong},
 				},
 				Positions: map[Market]*Position{
-					market: getPosition(market, openNotionalLong, longSize, pendingFundingLong, big.NewInt(0), big.NewInt(0), db.configService.getMaxLiquidationRatio(), db.configService.getMinSizeRequirement()),
+					market: getPosition(market, openNotionalLong, longSize, pendingFundingLong, big.NewInt(0), big.NewInt(0), db.configService.getMaxLiquidationRatio(market), db.configService.getMinSizeRequirement(market)),
 				},
 			}
 			db.TraderMap = map[common.Address]*Trader{
@@ -102,7 +102,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 					Deposited: map[Collateral]*big.Int{collateral: marginLong},
 				},
 				Positions: map[Market]*Position{
-					market: getPosition(market, openNotionalLong, longSize, pendingFundingLong, big.NewInt(0), big.NewInt(0), db.configService.getMaxLiquidationRatio(), db.configService.getMinSizeRequirement()),
+					market: getPosition(market, openNotionalLong, longSize, pendingFundingLong, big.NewInt(0), big.NewInt(0), db.configService.getMaxLiquidationRatio(market), db.configService.getMinSizeRequirement(market)),
 				},
 			}
 			db.TraderMap = map[common.Address]*Trader{
@@ -159,7 +159,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 					Deposited: map[Collateral]*big.Int{collateral: marginShort},
 				},
 				Positions: map[Market]*Position{
-					market: getPosition(market, openNotionalShort, shortSize, pendingFundingShort, big.NewInt(0), big.NewInt(0), db.configService.getMaxLiquidationRatio(), db.configService.getMinSizeRequirement()),
+					market: getPosition(market, openNotionalShort, shortSize, pendingFundingShort, big.NewInt(0), big.NewInt(0), db.configService.getMaxLiquidationRatio(market), db.configService.getMinSizeRequirement(market)),
 				},
 			}
 			db.TraderMap = map[common.Address]*Trader{
@@ -207,7 +207,7 @@ func TestGetLiquidableTraders(t *testing.T) {
 					Deposited: map[Collateral]*big.Int{collateral: marginShort},
 				},
 				Positions: map[Market]*Position{
-					market: getPosition(market, openNotionalShort, shortSize, pendingFundingShort, big.NewInt(0), big.NewInt(0), db.configService.getMaxLiquidationRatio(), db.configService.getMinSizeRequirement()),
+					market: getPosition(market, openNotionalShort, shortSize, pendingFundingShort, big.NewInt(0), big.NewInt(0), db.configService.getMaxLiquidationRatio(market), db.configService.getMinSizeRequirement(market)),
 				},
 			}
 			db.TraderMap = map[common.Address]*Trader{
@@ -358,5 +358,10 @@ func getPosition(market Market, openNotional *big.Int, size *big.Int, unrealized
 
 func getDatabase() *InMemoryDatabase {
 	configService := NewMockConfigService()
+	configService.Mock.On("getMaintenanceMargin").Return(big.NewInt(1e5))
+	configService.Mock.On("getMinAllowableMargin").Return(big.NewInt(2e5))
+	configService.Mock.On("getMaxLiquidationRatio").Return(big.NewInt(1e6))
+	configService.Mock.On("getMinSizeRequirement").Return(big.NewInt(1e16))
+
 	return NewInMemoryDatabase(configService)
 }

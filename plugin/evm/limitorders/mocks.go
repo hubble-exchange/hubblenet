@@ -176,12 +176,12 @@ type MockConfigService struct {
 	mock.Mock
 }
 
-func (mcs *MockConfigService) getSpreadRatioThreshold() *big.Int {
+func (mcs *MockConfigService) getSpreadRatioThreshold(market Market) *big.Int {
 	args := mcs.Called()
 	return args.Get(0).(*big.Int)
 }
 
-func (mcs *MockConfigService) getMaxLiquidationRatio() *big.Int {
+func (mcs *MockConfigService) getMaxLiquidationRatio(market Market) *big.Int {
 	args := mcs.Called()
 	return args.Get(0).(*big.Int)
 }
@@ -196,7 +196,7 @@ func (mcs *MockConfigService) getMaintenanceMargin() *big.Int {
 	return args.Get(0).(*big.Int)
 }
 
-func (mcs *MockConfigService) getMinSizeRequirement() *big.Int {
+func (mcs *MockConfigService) getMinSizeRequirement(market Market) *big.Int {
 	args := mcs.Called()
 	return args.Get(0).(*big.Int)
 }
