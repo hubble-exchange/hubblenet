@@ -61,7 +61,7 @@ const (
 )
 
 var (
-	defaultValidatorPrivateKeyFile = "/home/ubuntu/.avalanche-cli/key/validator_private_key"
+	defaultValidatorPrivateKeyFile = "/home/ubuntu/.avalanche-cli/key/validator.pk"
 	defaultEnabledAPIs             = []string{
 		"eth",
 		"eth-filter",
