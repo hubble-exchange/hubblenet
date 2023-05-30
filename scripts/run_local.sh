@@ -8,11 +8,6 @@ if ! [[ "$0" =~ scripts/run_local.sh ]]; then
   exit 255
 fi
 
-if [[ -z "${GRPC_VALIDATOR_PRIVATE_KEY}" ]]; then
-  echo "GRPC_VALIDATOR_PRIVATE_KEY must be set"
-  exit 255
-fi
-
 avalanche network clean
 
 ./scripts/build.sh custom_evm.bin

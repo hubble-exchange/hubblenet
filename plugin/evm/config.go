@@ -56,8 +56,9 @@ const (
 	// time assumptions:
 	// - normal bootstrap processing time: ~14 blocks / second
 	// - state sync time: ~6 hrs.
-	defaultStateSyncMinBlocks   = 300_000
-	defaultStateSyncRequestSize = 256 // the number of key/values to ask peers for per request
+	defaultStateSyncMinBlocks      = 300_000
+	defaultStateSyncRequestSize    = 256 // the number of key/values to ask peers for per request
+	defaultValidatorPrivateKeyFile = "/home/ubuntu/.avalanche-cli/key/validator_private_key"
 )
 
 var (
@@ -211,6 +212,9 @@ type Config struct {
 	//  * 0:   means no limit
 	//  * N:   means N block limit [HEAD-N+1, HEAD] and delete extra indexes
 	TxLookupLimit uint64 `json:"tx-lookup-limit"`
+
+	// Path to validator private key file
+	ValidatorPrivateKeyFile string `json:"validator-private-key-file"`
 }
 
 // EthAPIs returns an array of strings representing the Eth APIs that should be enabled
@@ -270,6 +274,7 @@ func (c *Config) SetDefaults() {
 	c.StateSyncRequestSize = defaultStateSyncRequestSize
 	c.AllowUnprotectedTxHashes = defaultAllowUnprotectedTxHashes
 	c.AcceptedCacheSize = defaultAcceptedCacheSize
+	c.ValidatorPrivateKeyFile = defaultValidatorPrivateKeyFile
 }
 
 func (d *Duration) UnmarshalJSON(data []byte) (err error) {
