@@ -56,13 +56,13 @@ const (
 	// time assumptions:
 	// - normal bootstrap processing time: ~14 blocks / second
 	// - state sync time: ~6 hrs.
-	defaultStateSyncMinBlocks      = 300_000
-	defaultStateSyncRequestSize    = 256 // the number of key/values to ask peers for per request
-	defaultValidatorPrivateKeyFile = "/home/ubuntu/.avalanche-cli/key/validator_private_key"
+	defaultStateSyncMinBlocks   = 300_000
+	defaultStateSyncRequestSize = 256 // the number of key/values to ask peers for per request
 )
 
 var (
-	defaultEnabledAPIs = []string{
+	defaultValidatorPrivateKeyFile = "/home/ubuntu/.avalanche-cli/key/validator_private_key"
+	defaultEnabledAPIs             = []string{
 		"eth",
 		"eth-filter",
 		"net",
