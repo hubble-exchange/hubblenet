@@ -95,7 +95,7 @@ func GetMinAllowableMargin(stateDB contract.StateDB) *big.Int {
 	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BytesToHash(common.LeftPadBytes(big.NewInt(MIN_ALLOWABLE_MARGIN_SLOT).Bytes(), 32))).Bytes())
 }
 
-func GetPositionSizes(stateDB contract.StateDB, trader *common.Address) []*big.Int {
+func getPosSizes(stateDB contract.StateDB, trader *common.Address) []*big.Int {
 	positionSizes := make([]*big.Int, 0)
 	for _, market := range GetMarkets(stateDB) {
 		positionSizes = append(positionSizes, getSize(stateDB, market, trader))

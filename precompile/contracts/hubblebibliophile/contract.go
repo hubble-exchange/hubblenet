@@ -140,7 +140,7 @@ func getPositionSizes(accessibleState contract.AccessibleState, caller common.Ad
 	}
 
 	// CUSTOM CODE STARTS HERE
-	output := GetPositionSizes(accessibleState.GetStateDB(), &inputStruct)
+	output := getPosSizes(accessibleState.GetStateDB(), &inputStruct)
 	packedOutput, err := PackGetPositionSizesOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
