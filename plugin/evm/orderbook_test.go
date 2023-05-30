@@ -894,8 +894,8 @@ func TestHubbleLogs(t *testing.T) {
 	buildBlockAndSetPreference(t, vm1) // block B - vm1 only
 
 	// build block C parallel to block B
-	createPlaceOrderTx(t, vm2, bob, bobKey, big.NewInt(-5), big.NewInt(10), big.NewInt(102))
-	createPlaceOrderTx(t, vm2, alice, aliceKey, big.NewInt(5), big.NewInt(11), big.NewInt(104))
+	createPlaceOrderTx(t, vm2, bob, bobKey, big.NewInt(-5), big.NewInt(10), big.NewInt(102))    // order 2
+	createPlaceOrderTx(t, vm2, alice, aliceKey, big.NewInt(5), big.NewInt(11), big.NewInt(104)) // order 3
 	<-issuer2
 	vm2BlockC := buildBlockAndSetPreference(t, vm2)[0] // block C - vm2 only for now
 
@@ -910,10 +910,11 @@ func TestHubbleLogs(t *testing.T) {
 	t.Logf("VM1 Orders: %+v", detail1)
 	t.Logf("VM2 Orders: %+v", detail2)
 
-	if _, ok := detail1.OrderMap[common.HexToHash("0xdc30f1521636413ca875cde2bf0b4f0a756b7235af7638737b2279d6613b9540")]; !ok {
+	// verify that order 1 and 2 are in both VMs
+	if order := filterOrderMapBySalt(detail1.OrderMap, big.NewInt(102)); order == nil {
 		t.Fatalf("Order 2 is not in VM1")
 	}
-	if _, ok := detail2.OrderMap[common.HexToHash("0xdc30f1521636413ca875cde2bf0b4f0a756b7235af7638737b2279d6613b9540")]; !ok {
+	if order := filterOrderMapBySalt(detail2.OrderMap, big.NewInt(102)); order == nil {
 		t.Fatalf("Order 2 is not in VM2")
 	}
 
@@ -1043,4 +1044,13 @@ func accept(t *testing.T, blocks ...snowman.Block) {
 			t.Fatalf("VM failed to accept block: %s", err)
 		}
 	}
+}
+
+func filterOrderMapBySalt(orderMap map[common.Hash]*limitorders.LimitOrder, salt *big.Int) *limitorders.LimitOrder {
+	for _, order := range orderMap {
+		if order.Salt.Cmp(salt) == 0 {
+			return order
+		}
+	}
+	return nil
 }
