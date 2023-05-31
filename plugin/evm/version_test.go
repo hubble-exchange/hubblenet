@@ -2,6 +2,7 @@ package evm
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -25,5 +26,6 @@ func TestCompatibility(t *testing.T) {
 
 	rpcChainVMVersion, valueInJSON := parsedCompat.RPCChainVMProtocolVersion[Version]
 	assert.True(t, valueInJSON)
+	fmt.Println("rpcChainVMVersion", rpcChainVMVersion, "Version", version.RPCChainVMProtocol)
 	assert.Equal(t, rpcChainVMVersion, version.RPCChainVMProtocol)
 }
