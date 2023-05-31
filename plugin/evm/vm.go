@@ -838,20 +838,6 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]*commonEng.HTTPHandler
 		enabledAPIs = append(enabledAPIs, "warp")
 	}
 
-	if vm.config.WarpAPIEnabled {
-		if err := handler.RegisterName("warp", &warp.WarpAPI{Backend: vm.warpBackend}); err != nil {
-			return nil, err
-		}
-		enabledAPIs = append(enabledAPIs, "warp")
-	}
-
-	if vm.config.WarpAPIEnabled {
-		if err := handler.RegisterName("warp", &warp.WarpAPI{Backend: vm.warpBackend}); err != nil {
-			return nil, err
-		}
-		enabledAPIs = append(enabledAPIs, "warp")
-	}
-
 	log.Info(fmt.Sprintf("Enabled APIs: %s", strings.Join(enabledAPIs, ", ")))
 	apis[ethRPCEndpoint] = &commonEng.HTTPHandler{
 		LockOptions: commonEng.NoLock,
