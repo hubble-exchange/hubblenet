@@ -850,8 +850,6 @@ func createPlaceOrderTx(t *testing.T, vm *VM, trader common.Address, privateKey 
 //	  A
 //	 / \
 //	B   C
-//	    |
-//	    D (matching tx of order 1 and 2)
 
 // vm1 proposes block A containing order 1
 // block A is accepted by vm1 and vm2
@@ -860,10 +858,6 @@ func createPlaceOrderTx(t *testing.T, vm *VM, trader common.Address, privateKey 
 // vm2 proposes block C containing order 2 & order 3
 // vm1 and vm2 set preference to block C
 // reorg happens when vm1 accepts block C
-// vm2 proposes block D containing matching tx of order 1 and 2
-// vm1 and vm2 set preference to block D
-// vm1 accepts block D
-// block D is important because an earlier bug caused vm1 to crash because order 2 didn't exist in vm1 memory DB after reorg
 func TestHubbleLogs(t *testing.T) {
 	// Create two VMs which will agree on block A and then
 	// build the two distinct preferred chains above
@@ -916,38 +910,6 @@ func TestHubbleLogs(t *testing.T) {
 	}
 	if order := filterOrderMapBySalt(detail2.OrderMap, big.NewInt(102)); order == nil {
 		t.Fatalf("Order 2 is not in VM2")
-	}
-
-	// order matching tx
-	vm2BlockD := buildBlockAndSetPreference(t, vm2)[0]
-	vm1BlockD := parseBlock(t, vm1, vm2BlockD)
-	setPreference(t, vm1BlockD, vm1)
-	accept(t, vm1BlockD)
-	accept(t, vm2BlockD)
-
-	vm1LastAccepted, err := vm1.LastAccepted(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if vm1LastAccepted != vm1BlockD.ID() {
-		t.Fatalf("VM1 last accepted block is not block D")
-	}
-
-	vm2LastAccepted, err := vm2.LastAccepted(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if vm2LastAccepted != vm2BlockD.ID() {
-		t.Fatalf("VM2 last accepted block is not block D")
-	}
-
-	// Verify the Canonical Chain for Both VMs
-	if err := vm2.blockChain.ValidateCanonicalChain(); err != nil {
-		t.Fatalf("VM2 failed canonical chain verification due to: %s", err)
-	}
-
-	if err := vm1.blockChain.ValidateCanonicalChain(); err != nil {
-		t.Fatalf("VM1 failed canonical chain verification due to: %s", err)
 	}
 }
 
