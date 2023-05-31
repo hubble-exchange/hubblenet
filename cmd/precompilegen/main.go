@@ -150,16 +150,11 @@ func precompilegen(c *cli.Context) error {
 		abifilename = "contract.abi"
 		abipath = filepath.Join(outFlagStr, abifilename)
 	}
-<<<<<<< HEAD
-	// Generate the contract precompile
-	configCode, contractCode, moduleCode, err := precompilebind.PrecompileBind(types, abis, bins, sigs, pkg, lang, libs, aliases, abifilename)
-=======
 	// if output is set to stdout, we should not generate the test codes
 	generateTests := !isOutStdout
 
 	// Generate the contract precompile
 	bindedFiles, err := precompilebind.PrecompileBind(types, abis, bins, sigs, pkg, lang, libs, aliases, abifilename, generateTests)
->>>>>>> master
 	if err != nil {
 		utils.Fatalf("Failed to generate precompile: %v", err)
 	}
@@ -169,10 +164,7 @@ func precompilegen(c *cli.Context) error {
 	moduleCode := bindedFiles.Module
 
 	// Either flush it out to a file or display on the standard output
-<<<<<<< HEAD
-=======
 	// Skip displaying test codes here.
->>>>>>> master
 	if isOutStdout {
 		fmt.Print("-----Config Code-----\n")
 		fmt.Printf("%s\n", configCode)
@@ -186,54 +178,30 @@ func precompilegen(c *cli.Context) error {
 	if _, err := os.Stat(outFlagStr); os.IsNotExist(err) {
 		os.MkdirAll(outFlagStr, 0o700) // Create your file
 	}
-<<<<<<< HEAD
-	configCodeOut := filepath.Join(outFlagStr, "config.go")
-
-=======
 
 	// Write the generated config code to the output folder
 	configCodeOut := filepath.Join(outFlagStr, "config.go")
->>>>>>> master
 	if err := os.WriteFile(configCodeOut, []byte(configCode), 0o600); err != nil {
 		utils.Fatalf("Failed to write generated config code: %v", err)
 	}
 
-<<<<<<< HEAD
-	contractCodeOut := filepath.Join(outFlagStr, "contract.go")
-
-=======
 	// Write the generated contract code to the output folder
 	contractCodeOut := filepath.Join(outFlagStr, "contract.go")
->>>>>>> master
 	if err := os.WriteFile(contractCodeOut, []byte(contractCode), 0o600); err != nil {
 		utils.Fatalf("Failed to write generated contract code: %v", err)
 	}
 
-<<<<<<< HEAD
-	moduleCodeOut := filepath.Join(outFlagStr, "module.go")
-
-=======
 	// Write the generated module code to the output folder
 	moduleCodeOut := filepath.Join(outFlagStr, "module.go")
->>>>>>> master
 	if err := os.WriteFile(moduleCodeOut, []byte(moduleCode), 0o600); err != nil {
 		utils.Fatalf("Failed to write generated module code: %v", err)
 	}
 
-<<<<<<< HEAD
-=======
 	// Write the ABI to the output folder
->>>>>>> master
 	if err := os.WriteFile(abipath, []byte(abis[0]), 0o600); err != nil {
 		utils.Fatalf("Failed to write ABI: %v", err)
 	}
 
-<<<<<<< HEAD
-	readmeOut := filepath.Join(outFlagStr, "README.md")
-
-	if err := os.WriteFile(readmeOut, []byte(readme), 0o600); err != nil {
-		utils.Fatalf("Failed to write README: %v", err)
-=======
 	// Write the README to the output folder
 	readmeOut := filepath.Join(outFlagStr, "README.md")
 	if err := os.WriteFile(readmeOut, []byte(readme), 0o600); err != nil {
@@ -253,7 +221,6 @@ func precompilegen(c *cli.Context) error {
 		if err := os.WriteFile(contractTestCodeOut, []byte(contractTestCode), 0o600); err != nil {
 			utils.Fatalf("Failed to write generated test code: %v", err)
 		}
->>>>>>> master
 	}
 
 	fmt.Println("Precompile files generated successfully at: ", outFlagStr)

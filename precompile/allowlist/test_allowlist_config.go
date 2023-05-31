@@ -11,10 +11,6 @@ import (
 	"github.com/ava-labs/subnet-evm/precompile/precompileconfig"
 	"github.com/ava-labs/subnet-evm/precompile/testutils"
 	"github.com/ethereum/go-ethereum/common"
-<<<<<<< HEAD
-	"github.com/stretchr/testify/require"
-=======
->>>>>>> master
 )
 
 // mkConfigWithAllowList creates a new config with the correct type for [module]
