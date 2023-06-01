@@ -579,17 +579,15 @@ func (db *InMemoryDatabase) getReduceOnlyOrderDisplay(order *LimitOrder) *LimitO
 		if position.Size.Sign() == order.BaseAssetQuantity.Sign() {
 			return nil
 		}
-		if position.Size.CmpAbs(order.GetUnFilledBaseAssetQuantity()) == 1 {
+		if position.Size.CmpAbs(order.GetUnFilledBaseAssetQuantity()) >= 0 {
 			// position is bigger than unfilled order size
 			orderCopy := deepCopyOrder(order)
 			return &orderCopy
 		} else {
 			// position is smaller than unfilled order
-			// display only the position size
+			// increase the filled quantity so that unfilled amount is equal to position size
 			orderCopy := deepCopyOrder(order)
-			orderCopy.BaseAssetQuantity = big.NewInt(0).Set(position.Size)
-			orderCopy.BaseAssetQuantity = orderCopy.BaseAssetQuantity.Neg(orderCopy.BaseAssetQuantity)
-			orderCopy.FilledBaseAssetQuantity = big.NewInt(0)
+			orderCopy.FilledBaseAssetQuantity = big.NewInt(0).Add(orderCopy.BaseAssetQuantity, position.Size) // both have opposite sign, therefore we add
 			return &orderCopy
 		}
 	} else {

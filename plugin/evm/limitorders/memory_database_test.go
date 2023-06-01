@@ -146,7 +146,8 @@ func TestGetShortOrders(t *testing.T) {
 		}
 	}
 	assert.Equal(t, reduceOnlyOrder.Salt, salt4)
-	assert.Equal(t, reduceOnlyOrder.BaseAssetQuantity, big.NewInt(0).Neg(size))
+	assert.Equal(t, reduceOnlyOrder.BaseAssetQuantity, baseAssetQuantity)
+	assert.Equal(t, reduceOnlyOrder.FilledBaseAssetQuantity, big.NewInt(0).Neg(_1e18))
 }
 
 func TestGetLongOrders(t *testing.T) {
