@@ -216,7 +216,7 @@ func GenesisVM(t *testing.T,
 	appSender := &commonEng.SenderTest{T: t}
 	appSender.CantSendAppGossip = true
 	appSender.SendAppGossipF = func(context.Context, []byte) error { return nil }
-	createValidatorPrivateKeyIfNotExists(defaultValidatorPrivateKeyFile)
+	createValidatorPrivateKeyIfNotExists()
 	err := vm.Initialize(
 		context.Background(),
 		ctx,
@@ -423,7 +423,7 @@ func TestSubnetEVMUpgradeRequiredAtGenesis(t *testing.T) {
 	for _, test := range genesisTests {
 		ctx, dbManager, genesisBytes, issuer, _ := setupGenesis(t, test.genesisJSON)
 		vm := &VM{}
-		createValidatorPrivateKeyIfNotExists(defaultValidatorPrivateKeyFile)
+		createValidatorPrivateKeyIfNotExists()
 		err := vm.Initialize(
 			context.Background(),
 			ctx,
@@ -542,7 +542,7 @@ func TestBuildEthTxBlock(t *testing.T) {
 	restartedVM := &VM{}
 	genesisBytes := buildGenesisTest(t, genesisJSONSubnetEVM)
 
-	createValidatorPrivateKeyIfNotExists(defaultValidatorPrivateKeyFile)
+	createValidatorPrivateKeyIfNotExists()
 	if err := restartedVM.Initialize(
 		context.Background(),
 		NewContext(),
@@ -2051,7 +2051,7 @@ func TestConfigureLogLevel(t *testing.T) {
 			appSender := &commonEng.SenderTest{T: t}
 			appSender.CantSendAppGossip = true
 			appSender.SendAppGossipF = func(context.Context, []byte) error { return nil }
-			createValidatorPrivateKeyIfNotExists(defaultValidatorPrivateKeyFile)
+			createValidatorPrivateKeyIfNotExists()
 			err := vm.Initialize(
 				context.Background(),
 				ctx,
@@ -3010,7 +3010,7 @@ func TestSkipChainConfigCheckCompatible(t *testing.T) {
 	require.NoError(t, err)
 
 	// this will not be allowed
-	createValidatorPrivateKeyIfNotExists(defaultValidatorPrivateKeyFile)
+	createValidatorPrivateKeyIfNotExists()
 	err = reinitVM.Initialize(context.Background(), vm.ctx, dbManager, genesisWithUpgradeBytes, []byte{}, []byte{}, issuer, []*commonEng.Fx{}, appSender)
 	require.ErrorContains(t, err, "mismatching SubnetEVM fork block timestamp in database")
 
@@ -3210,7 +3210,7 @@ func TestSignatureRequestsToVM(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func createValidatorPrivateKeyIfNotExists(keyFile string) {
+func createValidatorPrivateKeyIfNotExists() {
 	// Create a new validator private key file
 	defaultValidatorPrivateKeyFile = "/tmp/validator.pk"
 	fileContent, _ := os.ReadFile(defaultValidatorPrivateKeyFile)
