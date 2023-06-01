@@ -76,7 +76,7 @@ func (pipeline *BuildBlockPipeline) GetActiveMarkets() []Market {
 
 func (pipeline *BuildBlockPipeline) GetUnderlyingPrices() map[Market]*big.Int {
 	prices := pipeline.configService.GetUnderlyingPrices()
-	log.Info("underlying prices", "prices", prices)
+	log.Info("GetUnderlyingPrices", "prices", prices)
 	underlyingPrices := make(map[Market]*big.Int)
 	for market, price := range prices {
 		underlyingPrices[Market(market)] = price
