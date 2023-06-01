@@ -576,7 +576,7 @@ func (db *InMemoryDatabase) getReduceOnlyOrderDisplay(order *LimitOrder) *LimitO
 	positions := db.TraderMap[trader].Positions
 	if position, ok := positions[order.Market]; ok {
 		// position.Size, order.BaseAssetQuantity need to be of opposite sign and abs(position.Size) >= abs(order.BaseAssetQuantity)
-		if position.Size.Sign() == order.BaseAssetQuantity.Sign() {
+		if position.Size.Sign() == 0 || position.Size.Sign() == order.BaseAssetQuantity.Sign() {
 			return nil
 		}
 		if position.Size.CmpAbs(order.GetUnFilledBaseAssetQuantity()) >= 0 {
