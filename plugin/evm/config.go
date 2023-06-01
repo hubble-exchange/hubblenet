@@ -47,7 +47,6 @@ const (
 	defaultPopulateMissingTriesParallelism            = 1024
 	defaultStateSyncServerTrieCache                   = 64 // MB
 	defaultAcceptedCacheSize                          = 32 // blocks
-	defaultWarpAPIEnabled                             = true
 
 	// defaultStateSyncMinBlocks is the minimum number of blocks the blockchain
 	// should be ahead of local last accepted to perform state sync.
@@ -61,7 +60,8 @@ const (
 )
 
 var (
-	defaultEnabledAPIs = []string{
+	defaultValidatorPrivateKeyFile = "/home/ubuntu/.avalanche-cli/key/validator.pk"
+	defaultEnabledAPIs             = []string{
 		"eth",
 		"eth-filter",
 		"net",
@@ -211,6 +211,9 @@ type Config struct {
 	//  * 0:   means no limit
 	//  * N:   means N block limit [HEAD-N+1, HEAD] and delete extra indexes
 	TxLookupLimit uint64 `json:"tx-lookup-limit"`
+
+	// Path to validator private key file
+	ValidatorPrivateKeyFile string `json:"validator-private-key-file"`
 }
 
 // EthAPIs returns an array of strings representing the Eth APIs that should be enabled
@@ -227,7 +230,6 @@ func (c *Config) SetDefaults() {
 	c.RPCGasCap = defaultRpcGasCap
 	c.RPCTxFeeCap = defaultRpcTxFeeCap
 	c.MetricsExpensiveEnabled = defaultMetricsExpensiveEnabled
-	c.WarpAPIEnabled = defaultWarpAPIEnabled
 
 	c.TxPoolJournal = core.DefaultTxPoolConfig.Journal
 	c.TxPoolRejournal = Duration{core.DefaultTxPoolConfig.Rejournal}
@@ -270,6 +272,7 @@ func (c *Config) SetDefaults() {
 	c.StateSyncRequestSize = defaultStateSyncRequestSize
 	c.AllowUnprotectedTxHashes = defaultAllowUnprotectedTxHashes
 	c.AcceptedCacheSize = defaultAcceptedCacheSize
+	c.ValidatorPrivateKeyFile = defaultValidatorPrivateKeyFile
 }
 
 func (d *Duration) UnmarshalJSON(data []byte) (err error) {
