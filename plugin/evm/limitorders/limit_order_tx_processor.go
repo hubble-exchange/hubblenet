@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
 	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
@@ -67,7 +66,7 @@ type Order struct {
 	ReduceOnly        bool           `json:"reduceOnly"`
 }
 
-func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend) LimitOrderTxProcessor {
+func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend, validatorPrivateKey string) LimitOrderTxProcessor {
 	orderBookABI, err := abi.FromSolidityJson(string(orderBookAbi))
 	if err != nil {
 		panic(err)
@@ -82,7 +81,6 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 	if err != nil {
 		panic(err)
 	}
-	validatorPrivateKey := os.Getenv("GRPC_VALIDATOR_PRIVATE_KEY")
 	if validatorPrivateKey == "" {
 		panic("private key is not supplied")
 	}
