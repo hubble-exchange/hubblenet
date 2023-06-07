@@ -146,7 +146,7 @@ func divide1e6(number *big.Int) *big.Int {
 }
 
 func multiply1e6(number *big.Int) *big.Int {
-	return new(big.Int).Div(number, big.NewInt(1e6))
+	return new(big.Int).Mul(number, big.NewInt(1e6))
 }
 
 func fromTwosComplement(b []byte) *big.Int {
