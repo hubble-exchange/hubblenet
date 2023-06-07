@@ -397,14 +397,17 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 
 	db.TraderMap[trader].Positions[market].Size = size
 	db.TraderMap[trader].Positions[market].OpenNotional = openNotional
-	db.TraderMap[trader].Positions[market].LastPremiumFraction = big.NewInt(0)
 
 	if !isLiquidation {
 		db.TraderMap[trader].Positions[market].LiquidationThreshold = getLiquidationThreshold(db.configService.getMaxLiquidationRatio(market), db.configService.getMinSizeRequirement(market), size)
 	}
 
+	// replace null values with 0
 	if db.TraderMap[trader].Positions[market].UnrealisedFunding == nil {
 		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
+	}
+	if db.TraderMap[trader].Positions[market].LastPremiumFraction == nil {
+		db.TraderMap[trader].Positions[market].LastPremiumFraction = big.NewInt(0)
 	}
 	// adjust the liquidation threshold if > resultant position size (for both isLiquidation = true/false)
 	threshold := utils.BigIntMinAbs(db.TraderMap[trader].Positions[market].LiquidationThreshold, size)
