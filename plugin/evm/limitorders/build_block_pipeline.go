@@ -87,22 +87,22 @@ func (pipeline *BuildBlockPipeline) GetUnderlyingPrices() map[Market]*big.Int {
 func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Address][]LimitOrder) map[common.Hash]struct{} {
 	cancellableOrderIds := map[common.Hash]struct{}{}
 	// @todo: if there are too many cancellable orders, they might not fit in a single block. Need to adjust for that.
-	for _, orders := range cancellableOrders {
-		if len(orders) > 0 {
-			rawOrders := make([]Order, len(orders))
-			for i, order := range orders {
-				rawOrders[i] = order.RawOrder
-			}
-			err := pipeline.lotp.ExecuteOrderCancel(rawOrders)
-			if err != nil {
-				log.Error("Error in ExecuteOrderCancel", "orders", orders, "err", err)
-			} else {
-				for _, order := range orders {
-					cancellableOrderIds[order.Id] = struct{}{}
-				}
-			}
-		}
-	}
+	// for _, orders := range cancellableOrders {
+	// 	if len(orders) > 0 {
+	// 		rawOrders := make([]Order, len(orders))
+	// 		for i, order := range orders {
+	// 			rawOrders[i] = getOrderFromRawOrder(order.RawOrder)
+	// 		}
+	// 		err := pipeline.lotp.ExecuteOrderCancel(rawOrders)
+	// 		if err != nil {
+	// 			log.Error("Error in ExecuteOrderCancel", "orders", orders, "err", err)
+	// 		} else {
+	// 			for _, order := range orders {
+	// 				cancellableOrderIds[order.Id] = struct{}{}
+	// 			}
+	// 		}
+	// 	}
+	// }
 	return cancellableOrderIds
 }
 
