@@ -125,7 +125,7 @@ func (lop *limitOrderProcesser) RunBuildBlockPipeline() {
 }
 
 func (lop *limitOrderProcesser) GetOrderBookAPI() *limitorders.OrderBookAPI {
-	return limitorders.NewOrderBookAPI(lop.memoryDb, lop.backend)
+	return limitorders.NewOrderBookAPI(lop.memoryDb, lop.backend, lop.configService)
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
