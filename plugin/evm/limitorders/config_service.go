@@ -17,7 +17,7 @@ type IConfigService interface {
 	getMinSizeRequirement(market Market) *big.Int
 	GetActiveMarketsCount() int64
 	GetUnderlyingPrices() []*big.Int
-	GetLastPremiumFraction(market common.Address, trader *common.Address) *big.Int
+	GetLastPremiumFraction(market Market, trader *common.Address) *big.Int
 }
 
 type ConfigService struct {
@@ -62,6 +62,7 @@ func (cs *ConfigService) GetActiveMarketsCount() int64 {
 func (cs *ConfigService) GetUnderlyingPrices() []*big.Int {
 	return hubblebibliophile.GetUnderlyingPrices(cs.getStateAtCurrentBlock())
 }
-func (cs *ConfigService) GetLastPremiumFraction(market common.Address, trader *common.Address) *big.Int {
-	return hubblebibliophile.GetLastPremiumFraction(cs.getStateAtCurrentBlock(), market, trader)
+func (cs *ConfigService) GetLastPremiumFraction(market Market, trader *common.Address) *big.Int {
+	markets := hubblebibliophile.GetMarkets(cs.getStateAtCurrentBlock())
+	return hubblebibliophile.GetLastPremiumFraction(cs.getStateAtCurrentBlock(), markets[market], trader)
 }

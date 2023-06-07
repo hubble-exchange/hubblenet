@@ -212,7 +212,7 @@ func (cs *MockConfigService) GetUnderlyingPrices() []*big.Int {
 	return []*big.Int{}
 }
 
-func (cs *MockConfigService) GetLastPremiumFraction(market common.Address, trader *common.Address) *big.Int {
+func (cs *MockConfigService) GetLastPremiumFraction(market Market, trader *common.Address) *big.Int {
 	return big.NewInt(0)
 }
 
