@@ -80,7 +80,7 @@ func getOpenNotional(stateDB contract.StateDB, market common.Address, trader *co
 	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(1)))).Big()
 }
 
-func getLastPremiumFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+func GetLastPremiumFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(2)))).Bytes())
 }
 
@@ -88,7 +88,7 @@ func getLastPremiumFraction(stateDB contract.StateDB, market common.Address, tra
 
 func getPendingFundingPayment(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	cumulativePremiumFraction := getCumulativePremiumFraction(stateDB, market)
-	return divide1e18(new(big.Int).Mul(new(big.Int).Sub(cumulativePremiumFraction, getLastPremiumFraction(stateDB, market, trader)), getSize(stateDB, market, trader)))
+	return divide1e18(new(big.Int).Mul(new(big.Int).Sub(cumulativePremiumFraction, GetLastPremiumFraction(stateDB, market, trader)), getSize(stateDB, market, trader)))
 }
 
 func getOptimalPnl(stateDB contract.StateDB, market common.Address, oraclePrice *big.Int, lastPrice *big.Int, trader *common.Address, margin *big.Int, marginMode MarginMode) (notionalPosition *big.Int, uPnL *big.Int) {

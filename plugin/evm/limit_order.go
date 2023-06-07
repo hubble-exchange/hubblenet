@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -46,6 +47,7 @@ type limitOrderProcesser struct {
 	buildBlockPipeline     *limitorders.BuildBlockPipeline
 	filterAPI              *filters.FilterAPI
 	hubbleDB               database.Database
+	configService          limitorders.IConfigService
 }
 
 func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string) LimitOrderProcesser {
@@ -71,6 +73,7 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan
 		contractEventProcessor: contractEventProcessor,
 		buildBlockPipeline:     buildBlockPipeline,
 		filterAPI:              filterAPI,
+		configService:          configService,
 	}
 }
 
@@ -108,6 +111,8 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 		}
 
 		lop.memoryDb.Accept(lastAccepted.Uint64()) // will delete stale orders from the memorydb
+
+		lop.updateLastPremiumFraction()
 	}
 
 	lop.mu.Unlock()
@@ -296,4 +301,20 @@ func (lop *limitOrderProcesser) getLogs(fromBlock, toBlock *big.Int) []*types.Lo
 		panic(err)
 	}
 	return logs
+}
+
+func (lop *limitOrderProcesser) updateLastPremiumFraction() {
+	traderMap := lop.memoryDb.GetOrderBookData().TraderMap
+	count := 0
+
+	start := time.Now()
+	for traderAddr, trader := range traderMap {
+		for market := range trader.Positions {
+			marketBig := big.NewInt(int64(market))
+			lastPremiumFraction := lop.configService.GetLastPremiumFraction(common.BigToAddress(marketBig), &traderAddr)
+			lop.memoryDb.UpdateLastPremiumFraction(market, traderAddr, lastPremiumFraction)
+			count++
+		}
+	}
+	log.Info("@@@@ updateLastPremiumFraction - update complete", "count", count, "time taken", time.Since(start))
 }
