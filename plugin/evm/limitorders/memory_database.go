@@ -162,7 +162,7 @@ type LimitOrderDatabase interface {
 	RevertLastStatus(orderId common.Hash) error
 	GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]LimitOrder)
 	GetOpenOrdersForTrader(trader common.Address) []LimitOrder
-	UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int)
+	UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int, cumlastPremiumFraction *big.Int)
 }
 
 type InMemoryDatabase struct {
@@ -446,7 +446,7 @@ func (db *InMemoryDatabase) UpdateLastPrice(market Market, lastPrice *big.Int) {
 	db.LastPrice[market] = lastPrice
 }
 
-func (db *InMemoryDatabase) UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int) {
+func (db *InMemoryDatabase) UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int, cumulativePremiumFraction *big.Int) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -459,6 +459,7 @@ func (db *InMemoryDatabase) UpdateLastPremiumFraction(market Market, trader comm
 	}
 
 	db.TraderMap[trader].Positions[market].LastPremiumFraction = lastPremiumFraction
+	db.TraderMap[trader].Positions[market].UnrealisedFunding = dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, lastPremiumFraction), db.TraderMap[trader].Positions[market].Size))
 }
 
 func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {
@@ -685,12 +686,12 @@ func getBlankTrader() *Trader {
 }
 
 func getAvailableMargin(trader *Trader, pendingFunding *big.Int, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, minAllowableMargin *big.Int, markets []Market) *big.Int {
-	// log.Info("in getAvailableMargin", "trader", trader, "pendingFunding", pendingFunding, "oraclePrices", oraclePrices, "lastPrices", lastPrices)
+	log.Info("in getAvailableMargin", "trader", trader, "pendingFunding", pendingFunding, "oraclePrices", oraclePrices, "lastPrices", lastPrices)
 	margin := new(big.Int).Sub(getNormalisedMargin(trader), pendingFunding)
 	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices, markets)
 	utilisedMargin := divideByBasePrecision(new(big.Int).Mul(notionalPosition, minAllowableMargin))
 	// print margin, notionalPosition, unrealizePnL, utilisedMargin
-	// log.Info("stats", "margin", margin, "notionalPosition", notionalPosition, "unrealizePnL", unrealizePnL, "utilisedMargin", utilisedMargin)
+	log.Info("stats", "margin", margin, "notionalPosition", notionalPosition, "unrealizePnL", unrealizePnL, "utilisedMargin", utilisedMargin, "Reserved", trader.Margin.Reserved)
 	return new(big.Int).Sub(
 		new(big.Int).Add(margin, unrealizePnL),
 		new(big.Int).Add(utilisedMargin, trader.Margin.Reserved),

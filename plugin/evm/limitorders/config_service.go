@@ -18,6 +18,7 @@ type IConfigService interface {
 	GetActiveMarketsCount() int64
 	GetUnderlyingPrices() []*big.Int
 	GetLastPremiumFraction(market Market, trader *common.Address) *big.Int
+	GetCumulativePremiumFraction(market Market) *big.Int
 }
 
 type ConfigService struct {
@@ -62,7 +63,13 @@ func (cs *ConfigService) GetActiveMarketsCount() int64 {
 func (cs *ConfigService) GetUnderlyingPrices() []*big.Int {
 	return hubblebibliophile.GetUnderlyingPrices(cs.getStateAtCurrentBlock())
 }
+
 func (cs *ConfigService) GetLastPremiumFraction(market Market, trader *common.Address) *big.Int {
 	markets := hubblebibliophile.GetMarkets(cs.getStateAtCurrentBlock())
 	return hubblebibliophile.GetLastPremiumFraction(cs.getStateAtCurrentBlock(), markets[market], trader)
+}
+
+func (cs *ConfigService) GetCumulativePremiumFraction(market Market) *big.Int {
+	markets := hubblebibliophile.GetMarkets(cs.getStateAtCurrentBlock())
+	return hubblebibliophile.GetCumulativePremiumFraction(cs.getStateAtCurrentBlock(), markets[market])
 }

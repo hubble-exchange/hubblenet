@@ -311,7 +311,8 @@ func (lop *limitOrderProcesser) updateLastPremiumFraction() {
 	for traderAddr, trader := range traderMap {
 		for market := range trader.Positions {
 			lastPremiumFraction := lop.configService.GetLastPremiumFraction(market, &traderAddr)
-			lop.memoryDb.UpdateLastPremiumFraction(market, traderAddr, lastPremiumFraction)
+			cumulativePremiumFraction := lop.configService.GetCumulativePremiumFraction(market)
+			lop.memoryDb.UpdateLastPremiumFraction(market, traderAddr, lastPremiumFraction, cumulativePremiumFraction)
 			count++
 		}
 	}

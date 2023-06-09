@@ -29,7 +29,7 @@ func getLastPrice(stateDB contract.StateDB, market common.Address) *big.Int {
 	return stateDB.GetState(market, common.BigToHash(big.NewInt(MARK_PRICE_TWAP_DATA_SLOT))).Big()
 }
 
-func getCumulativePremiumFraction(stateDB contract.StateDB, market common.Address) *big.Int {
+func GetCumulativePremiumFraction(stateDB contract.StateDB, market common.Address) *big.Int {
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(VAR_CUMULATIVE_PREMIUM_FRACTION))).Bytes())
 }
 
@@ -87,7 +87,7 @@ func GetLastPremiumFraction(stateDB contract.StateDB, market common.Address, tra
 // Utils
 
 func getPendingFundingPayment(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
-	cumulativePremiumFraction := getCumulativePremiumFraction(stateDB, market)
+	cumulativePremiumFraction := GetCumulativePremiumFraction(stateDB, market)
 	return divide1e18(new(big.Int).Mul(new(big.Int).Sub(cumulativePremiumFraction, GetLastPremiumFraction(stateDB, market, trader)), getSize(stateDB, market, trader)))
 }
 
