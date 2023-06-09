@@ -25,8 +25,8 @@ const (
 )
 
 var (
-	// Date and time (GMT): Friday, 9 June 2023 13:45:00
-	V2ActivationDate *big.Int = new(big.Int).SetInt64(1686318300)
+	// Date and time (GMT): riday, 9 June 2023 14:40:00
+	V2ActivationDate *big.Int = new(big.Int).SetInt64(1686321600)
 )
 
 // AMM State
@@ -149,7 +149,7 @@ func divide1e18(number *big.Int) *big.Int {
 }
 
 func multiply1e6(number *big.Int, blockTimestamp *big.Int) *big.Int {
-	if blockTimestamp.Cmp(V2ActivationDate) > 1 {
+	if blockTimestamp.Cmp(V2ActivationDate) == 1 {
 		return multiply1e6v2(number)
 	}
 	return multiply1e6v1(number)
