@@ -165,7 +165,7 @@ func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string, marke
 				Price:      order.Price.String(),
 				Size:       order.BaseAssetQuantity.String(),
 				FilledSize: order.FilledBaseAssetQuantity.String(),
-				Salt:       getOrderFromRawOrder(order.RawOrder).Salt.String(),
+				Salt:       order.RawOrder.Salt.String(),
 				OrderId:    order.Id.String(),
 				ReduceOnly: order.ReduceOnly,
 			})
