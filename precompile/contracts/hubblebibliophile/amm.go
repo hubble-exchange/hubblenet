@@ -25,8 +25,8 @@ const (
 )
 
 var (
-	// unix timestamp of 10th June 2023 GMT 00:00:00
-	V2ActivationDate *big.Int = new(big.Int).SetInt64(1686355200)
+	// Date and time (GMT): Friday, 9 June 2023 13:45:00
+	V2ActivationDate *big.Int = new(big.Int).SetInt64(1686318300)
 )
 
 // AMM State
