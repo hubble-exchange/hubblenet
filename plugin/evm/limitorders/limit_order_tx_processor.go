@@ -115,12 +115,12 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder LimitOrder, 
 	log.Info("ExecuteMatchedOrdersTx", "LongOrder", longOrder, "ShortOrder", shortOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18))
 
 	orders := make([]Order, 2)
-	orders[0], orders[1] = getOrderFromRawOrder(longOrder.RawOrder), getOrderFromRawOrder(shortOrder.RawOrder)
+	orders[0], orders[1] = longOrder.RawOrder, shortOrder.RawOrder
 	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "executeMatchedOrders", orders, fillAmount)
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteOrderCancel(orders []Order) error {
-	log.Info("ExecuteOrderCancel", "orderIds", orders)
+	log.Info("ExecuteOrderCancel", "orders", orders)
 	return lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelOrders", orders)
 }
 

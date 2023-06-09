@@ -141,12 +141,8 @@ func divide1e18(number *big.Int) *big.Int {
 	return big.NewInt(0).Div(number, big.NewInt(1e18))
 }
 
-func divide1e6(number *big.Int) *big.Int {
-	return big.NewInt(0).Div(number, big.NewInt(1e6))
-}
-
 func multiply1e6(number *big.Int) *big.Int {
-	return new(big.Int).Mul(number, big.NewInt(1e6))
+	return new(big.Int).Div(number, big.NewInt(1e6)) // @todo fix
 }
 
 func fromTwosComplement(b []byte) *big.Int {
