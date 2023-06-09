@@ -6,6 +6,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/state"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/hubblebibliophile"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type IConfigService interface {
@@ -16,6 +17,7 @@ type IConfigService interface {
 	getMinSizeRequirement(market Market) *big.Int
 	GetActiveMarketsCount() int64
 	GetUnderlyingPrices() []*big.Int
+	GetLastPremiumFraction(market Market, trader *common.Address) *big.Int
 }
 
 type ConfigService struct {
@@ -59,4 +61,8 @@ func (cs *ConfigService) GetActiveMarketsCount() int64 {
 
 func (cs *ConfigService) GetUnderlyingPrices() []*big.Int {
 	return hubblebibliophile.GetUnderlyingPrices(cs.getStateAtCurrentBlock())
+}
+func (cs *ConfigService) GetLastPremiumFraction(market Market, trader *common.Address) *big.Int {
+	markets := hubblebibliophile.GetMarkets(cs.getStateAtCurrentBlock())
+	return hubblebibliophile.GetLastPremiumFraction(cs.getStateAtCurrentBlock(), markets[market], trader)
 }

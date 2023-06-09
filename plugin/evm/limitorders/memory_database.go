@@ -162,6 +162,7 @@ type LimitOrderDatabase interface {
 	RevertLastStatus(orderId common.Hash) error
 	GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]LimitOrder)
 	GetOpenOrdersForTrader(trader common.Address) []LimitOrder
+	UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int)
 }
 
 type InMemoryDatabase struct {
@@ -443,6 +444,21 @@ func (db *InMemoryDatabase) UpdateLastPrice(market Market, lastPrice *big.Int) {
 	defer db.mu.Unlock()
 
 	db.LastPrice[market] = lastPrice
+}
+
+func (db *InMemoryDatabase) UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if _, ok := db.TraderMap[trader]; !ok {
+		db.TraderMap[trader] = getBlankTrader()
+	}
+
+	if _, ok := db.TraderMap[trader].Positions[market]; !ok {
+		db.TraderMap[trader].Positions[market] = &Position{}
+	}
+
+	db.TraderMap[trader].Positions[market].LastPremiumFraction = lastPremiumFraction
 }
 
 func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {

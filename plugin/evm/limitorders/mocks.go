@@ -124,6 +124,9 @@ func (db *MockLimitOrderDatabase) GetOpenOrdersForTrader(trader common.Address) 
 	return nil
 }
 
+func (db *MockLimitOrderDatabase) UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int) {
+}
+
 type MockLimitOrderTxProcessor struct {
 	mock.Mock
 }
@@ -207,6 +210,10 @@ func (cs *MockConfigService) GetActiveMarketsCount() int64 {
 
 func (cs *MockConfigService) GetUnderlyingPrices() []*big.Int {
 	return []*big.Int{}
+}
+
+func (cs *MockConfigService) GetLastPremiumFraction(market Market, trader *common.Address) *big.Int {
+	return big.NewInt(0)
 }
 
 func NewMockConfigService() *MockConfigService {
