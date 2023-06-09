@@ -534,6 +534,10 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 			liquidablePositions = append(liquidablePositions, determinePositionToLiquidate(trader, addr, marginFraction, markets))
 			continue // we do not check for their open orders yet. Maybe liquidating them first will make available margin positive
 		}
+		if trader.Margin.Reserved.Sign() == 0 {
+			continue
+		}
+		// has orders that might be cancellable
 		availableMargin := getAvailableMargin(trader, pendingFunding, oraclePrices, db.LastPrice, db.configService.getMinAllowableMargin(), markets)
 		// log.Info("getAvailableMargin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
 		if availableMargin.Cmp(big.NewInt(0)) == -1 {
@@ -686,12 +690,12 @@ func getBlankTrader() *Trader {
 }
 
 func getAvailableMargin(trader *Trader, pendingFunding *big.Int, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, minAllowableMargin *big.Int, markets []Market) *big.Int {
-	log.Info("in getAvailableMargin", "trader", trader, "pendingFunding", pendingFunding, "oraclePrices", oraclePrices, "lastPrices", lastPrices)
+	// log.Info("in getAvailableMargin", "trader", trader, "pendingFunding", pendingFunding, "oraclePrices", oraclePrices, "lastPrices", lastPrices)
 	margin := new(big.Int).Sub(getNormalisedMargin(trader), pendingFunding)
 	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices, markets)
 	utilisedMargin := divideByBasePrecision(new(big.Int).Mul(notionalPosition, minAllowableMargin))
 	// print margin, notionalPosition, unrealizePnL, utilisedMargin
-	log.Info("stats", "margin", margin, "notionalPosition", notionalPosition, "unrealizePnL", unrealizePnL, "utilisedMargin", utilisedMargin, "Reserved", trader.Margin.Reserved)
+	// log.Info("stats", "margin", margin, "notionalPosition", notionalPosition, "unrealizePnL", unrealizePnL, "utilisedMargin", utilisedMargin, "Reserved", trader.Margin.Reserved)
 	return new(big.Int).Sub(
 		new(big.Int).Add(margin, unrealizePnL),
 		new(big.Int).Add(utilisedMargin, trader.Margin.Reserved),
