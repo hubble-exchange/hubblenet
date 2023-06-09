@@ -405,11 +405,15 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 
 	// replace null values with 0
 	if db.TraderMap[trader].Positions[market].UnrealisedFunding == nil {
+		// no matter when they open the position, unrealised funding will be 0 because it is settled in the same tx
 		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
 	}
+
 	if db.TraderMap[trader].Positions[market].LastPremiumFraction == nil {
-		db.TraderMap[trader].Positions[market].LastPremiumFraction = big.NewInt(0)
+		// for a new position, this needs to be set properly
+		db.TraderMap[trader].Positions[market].LastPremiumFraction = db.configService.GetCumulativePremiumFraction(market)
 	}
+
 	// adjust the liquidation threshold if > resultant position size (for both isLiquidation = true/false)
 	threshold := utils.BigIntMinAbs(db.TraderMap[trader].Positions[market].LiquidationThreshold, size)
 	db.TraderMap[trader].Positions[market].LiquidationThreshold.Mul(threshold, big.NewInt(int64(size.Sign()))) // same sign as size
