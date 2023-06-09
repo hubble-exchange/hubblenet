@@ -24,6 +24,11 @@ const (
 	TEST_ORACLE_PRICES_MAPPING_SLOT int64 = 53
 )
 
+var (
+	// unix timestamp of 10th June 2023 GMT 00:00:00
+	V2ActivationDate *big.Int = new(big.Int).SetInt64(1686355200)
+)
+
 // AMM State
 func getLastPrice(stateDB contract.StateDB, market common.Address) *big.Int {
 	return stateDB.GetState(market, common.BigToHash(big.NewInt(MARK_PRICE_TWAP_DATA_SLOT))).Big()
@@ -91,7 +96,7 @@ func getPendingFundingPayment(stateDB contract.StateDB, market common.Address, t
 	return divide1e18(new(big.Int).Mul(new(big.Int).Sub(cumulativePremiumFraction, GetLastPremiumFraction(stateDB, market, trader)), getSize(stateDB, market, trader)))
 }
 
-func getOptimalPnl(stateDB contract.StateDB, market common.Address, oraclePrice *big.Int, lastPrice *big.Int, trader *common.Address, margin *big.Int, marginMode MarginMode) (notionalPosition *big.Int, uPnL *big.Int) {
+func getOptimalPnl(stateDB contract.StateDB, market common.Address, oraclePrice *big.Int, lastPrice *big.Int, trader *common.Address, margin *big.Int, marginMode MarginMode, blockTimestamp *big.Int) (notionalPosition *big.Int, uPnL *big.Int) {
 	size := getSize(stateDB, market, trader)
 	if size.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0)
@@ -104,6 +109,7 @@ func getOptimalPnl(stateDB contract.StateDB, market common.Address, oraclePrice 
 		openNotional,
 		size,
 		margin,
+		blockTimestamp,
 	)
 
 	// based on oracle price
@@ -112,6 +118,7 @@ func getOptimalPnl(stateDB contract.StateDB, market common.Address, oraclePrice 
 		openNotional,
 		size,
 		margin,
+		blockTimestamp,
 	)
 
 	if (marginMode == Maintenance_Margin && oracleBasedMF.Cmp(lastPriceBasedMF) == 1) || // for liquidations
@@ -121,7 +128,7 @@ func getOptimalPnl(stateDB contract.StateDB, market common.Address, oraclePrice 
 	return notionalPosition, unrealizedPnl
 }
 
-func getPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, margin *big.Int) (notionalPos *big.Int, uPnl *big.Int, marginFraction *big.Int) {
+func getPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, margin *big.Int, blockTimestamp *big.Int) (notionalPos *big.Int, uPnl *big.Int, marginFraction *big.Int) {
 	notionalPos = divide1e18(new(big.Int).Mul(price, new(big.Int).Abs(size)))
 	if notionalPos.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0), big.NewInt(0)
@@ -131,7 +138,7 @@ func getPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, m
 	} else {
 		uPnl = new(big.Int).Sub(openNotional, notionalPos)
 	}
-	marginFraction = new(big.Int).Div(multiply1e6(new(big.Int).Add(margin, uPnl)), notionalPos)
+	marginFraction = new(big.Int).Div(multiply1e6(new(big.Int).Add(margin, uPnl), blockTimestamp), notionalPos)
 	return notionalPos, uPnl, marginFraction
 }
 
@@ -141,8 +148,22 @@ func divide1e18(number *big.Int) *big.Int {
 	return big.NewInt(0).Div(number, big.NewInt(1e18))
 }
 
-func multiply1e6(number *big.Int) *big.Int {
-	return new(big.Int).Div(number, big.NewInt(1e6)) // @todo fix
+func multiply1e6(number *big.Int, blockTimestamp *big.Int) *big.Int {
+	if blockTimestamp.Cmp(V2ActivationDate) > 1 {
+		return multiply1e6v2(number)
+	}
+	return multiply1e6v1(number)
+}
+
+// multiple1e6 v1
+func multiply1e6v1(number *big.Int) *big.Int {
+	return new(big.Int).Div(number, big.NewInt(1e6))
+
+}
+
+// multiple1e6 v2
+func multiply1e6v2(number *big.Int) *big.Int {
+	return new(big.Int).Mul(number, big.NewInt(1e6))
 }
 
 func fromTwosComplement(b []byte) *big.Int {
