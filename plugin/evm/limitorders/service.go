@@ -64,6 +64,8 @@ type GetDebugDataResponse struct {
 	AvailableMargin  map[common.Address]*big.Int
 	PendingFunding   map[common.Address]*big.Int
 	Margin           map[common.Address]*big.Int
+	UtilisedMargin   map[common.Address]*big.Int
+	ReservedMargin   map[common.Address]*big.Int
 	NotionalPosition map[common.Address]*big.Int
 	UnrealizePnL     map[common.Address]*big.Int
 	LastPrice        map[Market]*big.Int
@@ -79,6 +81,8 @@ func (api *OrderBookAPI) GetDebugData(ctx context.Context, trader string) GetDeb
 		Margin:           map[common.Address]*big.Int{},
 		NotionalPosition: map[common.Address]*big.Int{},
 		UnrealizePnL:     map[common.Address]*big.Int{},
+		UtilisedMargin:   map[common.Address]*big.Int{},
+		ReservedMargin:   map[common.Address]*big.Int{},
 		LastPrice:        map[Market]*big.Int{},
 		OraclePrice:      map[Market]*big.Int{},
 	}
@@ -89,6 +93,8 @@ func (api *OrderBookAPI) GetDebugData(ctx context.Context, trader string) GetDeb
 			traderHash: traderMap[traderHash],
 		}
 	}
+
+	minAllowableMargin := api.configService.getMinAllowableMargin()
 	prices := api.configService.GetUnderlyingPrices()
 	lastPrices := api.db.GetLastPrices()
 	oraclePrices := map[Market]*big.Int{}
@@ -102,16 +108,19 @@ func (api *OrderBookAPI) GetDebugData(ctx context.Context, trader string) GetDeb
 	for addr, trader := range traderMap {
 		pendingFunding := getTotalFunding(&trader, markets)
 		margin := new(big.Int).Sub(getNormalisedMargin(&trader), pendingFunding)
-		notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(&trader, margin, Maintenance_Margin, oraclePrices, lastPrices, markets)
+		notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(&trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices, markets)
 		marginFraction := calcMarginFraction(&trader, pendingFunding, oraclePrices, lastPrices, markets)
 		availableMargin := getAvailableMargin(&trader, pendingFunding, oraclePrices, lastPrices, api.configService.getMinAllowableMargin(), markets)
+		utilisedMargin := divideByBasePrecision(new(big.Int).Mul(notionalPosition, minAllowableMargin))
 
 		response.MarginFraction[addr] = marginFraction
 		response.AvailableMargin[addr] = availableMargin
 		response.PendingFunding[addr] = pendingFunding
 		response.Margin[addr] = getNormalisedMargin(&trader)
+		response.UtilisedMargin[addr] = utilisedMargin
 		response.NotionalPosition[addr] = notionalPosition
 		response.UnrealizePnL[addr] = unrealizePnL
+		response.ReservedMargin[addr] = trader.Margin.Reserved
 	}
 
 	response.LastPrice = lastPrices
