@@ -162,7 +162,7 @@ type LimitOrderDatabase interface {
 	RevertLastStatus(orderId common.Hash) error
 	GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]LimitOrder)
 	GetOpenOrdersForTrader(trader common.Address) []LimitOrder
-	UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int)
+	UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int, cumlastPremiumFraction *big.Int)
 }
 
 type InMemoryDatabase struct {
@@ -405,11 +405,15 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 
 	// replace null values with 0
 	if db.TraderMap[trader].Positions[market].UnrealisedFunding == nil {
+		// no matter when they open the position, unrealised funding will be 0 because it is settled in the same tx
 		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
 	}
+
 	if db.TraderMap[trader].Positions[market].LastPremiumFraction == nil {
-		db.TraderMap[trader].Positions[market].LastPremiumFraction = big.NewInt(0)
+		// for a new position, this needs to be set properly
+		db.TraderMap[trader].Positions[market].LastPremiumFraction = db.configService.GetCumulativePremiumFraction(market)
 	}
+
 	// adjust the liquidation threshold if > resultant position size (for both isLiquidation = true/false)
 	threshold := utils.BigIntMinAbs(db.TraderMap[trader].Positions[market].LiquidationThreshold, size)
 	db.TraderMap[trader].Positions[market].LiquidationThreshold.Mul(threshold, big.NewInt(int64(size.Sign()))) // same sign as size
@@ -446,7 +450,7 @@ func (db *InMemoryDatabase) UpdateLastPrice(market Market, lastPrice *big.Int) {
 	db.LastPrice[market] = lastPrice
 }
 
-func (db *InMemoryDatabase) UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int) {
+func (db *InMemoryDatabase) UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int, cumulativePremiumFraction *big.Int) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -459,6 +463,7 @@ func (db *InMemoryDatabase) UpdateLastPremiumFraction(market Market, trader comm
 	}
 
 	db.TraderMap[trader].Positions[market].LastPremiumFraction = lastPremiumFraction
+	db.TraderMap[trader].Positions[market].UnrealisedFunding = dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, lastPremiumFraction), db.TraderMap[trader].Positions[market].Size))
 }
 
 func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {
@@ -533,6 +538,10 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 			liquidablePositions = append(liquidablePositions, determinePositionToLiquidate(trader, addr, marginFraction, markets))
 			continue // we do not check for their open orders yet. Maybe liquidating them first will make available margin positive
 		}
+		if trader.Margin.Reserved.Sign() == 0 {
+			continue
+		}
+		// has orders that might be cancellable
 		availableMargin := getAvailableMargin(trader, pendingFunding, oraclePrices, db.LastPrice, db.configService.getMinAllowableMargin(), markets)
 		// log.Info("getAvailableMargin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
 		if availableMargin.Cmp(big.NewInt(0)) == -1 {
@@ -690,7 +699,7 @@ func getAvailableMargin(trader *Trader, pendingFunding *big.Int, oraclePrices ma
 	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices, markets)
 	utilisedMargin := divideByBasePrecision(new(big.Int).Mul(notionalPosition, minAllowableMargin))
 	// print margin, notionalPosition, unrealizePnL, utilisedMargin
-	// log.Info("stats", "margin", margin, "notionalPosition", notionalPosition, "unrealizePnL", unrealizePnL, "utilisedMargin", utilisedMargin)
+	// log.Info("stats", "margin", margin, "notionalPosition", notionalPosition, "unrealizePnL", unrealizePnL, "utilisedMargin", utilisedMargin, "Reserved", trader.Margin.Reserved)
 	return new(big.Int).Sub(
 		new(big.Int).Add(margin, unrealizePnL),
 		new(big.Int).Add(utilisedMargin, trader.Margin.Reserved),
