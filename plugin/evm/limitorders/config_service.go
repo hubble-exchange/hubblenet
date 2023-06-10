@@ -10,8 +10,9 @@ import (
 )
 
 type IConfigService interface {
-	getSpreadRatioThreshold(market Market) *big.Int
+	getOracleSpreadThreshold(market Market) *big.Int
 	getMaxLiquidationRatio(market Market) *big.Int
+	getLiquidationSpreadThreshold(market Market) *big.Int
 	getMinAllowableMargin() *big.Int
 	getMaintenanceMargin() *big.Int
 	getMinSizeRequirement(market Market) *big.Int
@@ -31,8 +32,12 @@ func NewConfigService(blockChain *core.BlockChain) IConfigService {
 	}
 }
 
-func (cs *ConfigService) getSpreadRatioThreshold(market Market) *big.Int {
+func (cs *ConfigService) getOracleSpreadThreshold(market Market) *big.Int {
 	return hubblebibliophile.GetMaxOracleSpreadRatioForMarket(cs.getStateAtCurrentBlock(), int64(market))
+}
+
+func (cs *ConfigService) getLiquidationSpreadThreshold(market Market) *big.Int {
+	return hubblebibliophile.GetMaxLiquidationPriceSpreadForMarket(cs.getStateAtCurrentBlock(), int64(market))
 }
 
 func (cs *ConfigService) getMaxLiquidationRatio(market Market) *big.Int {

@@ -179,7 +179,7 @@ type MockConfigService struct {
 	mock.Mock
 }
 
-func (mcs *MockConfigService) getSpreadRatioThreshold(market Market) *big.Int {
+func (mcs *MockConfigService) getOracleSpreadThreshold(market Market) *big.Int {
 	args := mcs.Called()
 	return args.Get(0).(*big.Int)
 }
