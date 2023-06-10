@@ -163,6 +163,12 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 			}
 
 			fillAmount := utils.BigIntMinAbs(liquidable.GetUnfilledSize(), oppositeOrder.GetUnFilledBaseAssetQuantity())
+			log.Info("debug:yoyo", "fillAmount", fillAmount, "market", liquidable.Market, "liquidable.Size", liquidable.Size, "liquidable.GetUnfilledSize", liquidable.GetUnfilledSize(), "oppositeOrder.GetUnFilledBaseAssetQuantity()", oppositeOrder.GetUnFilledBaseAssetQuantity())
+			minSize := pipeline.configService.getMinSizeRequirement(liquidable.Market)
+			// need to dig into why this was required
+			fillAmount.Div(fillAmount, minSize)
+			fillAmount.Mul(fillAmount, minSize)
+			log.Info("debug:yoyo2", "fillAmount", fillAmount, "minSize", minSize)
 			if fillAmount.Sign() == 0 {
 				continue
 			}

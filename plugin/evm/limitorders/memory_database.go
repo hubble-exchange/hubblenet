@@ -529,6 +529,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 
 	liquidablePositions := []LiquidablePosition{}
 	ordersToCancel := map[common.Address][]LimitOrder{}
+	count := 0
 
 	for addr, trader := range db.TraderMap {
 		pendingFunding := getTotalFunding(trader, markets)
@@ -545,18 +546,24 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 		availableMargin := getAvailableMargin(trader, pendingFunding, oraclePrices, db.LastPrice, db.configService.getMinAllowableMargin(), markets)
 		// log.Info("getAvailableMargin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
 		if availableMargin.Cmp(big.NewInt(0)) == -1 {
-			log.Info("negative available margin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
-			db.determineOrdersToCancel(addr, trader, availableMargin, oraclePrices, ordersToCancel)
+			foundCancellableOrders := db.determineOrdersToCancel(addr, trader, availableMargin, oraclePrices, ordersToCancel)
+			if foundCancellableOrders {
+				log.Info("negative available margin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
+			} else {
+				count++
+			}
 		}
 	}
-
+	if count > 0 {
+		log.Info("#traders that have -ve margin but no orders to cancel", "count", count)
+	}
 	// lower margin fraction positions should be liquidated first
 	sortLiquidableSliceByMarginFraction(liquidablePositions)
 	return liquidablePositions, ordersToCancel
 }
 
 // assumes db.mu.RLock has been held by the caller
-func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader *Trader, availableMargin *big.Int, oraclePrices map[Market]*big.Int, ordersToCancel map[common.Address][]LimitOrder) {
+func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader *Trader, availableMargin *big.Int, oraclePrices map[Market]*big.Int, ordersToCancel map[common.Address][]LimitOrder) bool {
 	traderOrders := db.getTraderOrders(addr)
 	sort.Slice(traderOrders, func(i, j int) bool {
 		// higher diff comes first
@@ -584,7 +591,9 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 				break
 			}
 		}
+		return true
 	}
+	return false
 }
 
 func (db *InMemoryDatabase) getTraderOrders(trader common.Address) []LimitOrder {
