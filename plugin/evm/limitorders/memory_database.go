@@ -217,7 +217,7 @@ func (db *InMemoryDatabase) Accept(blockNumber uint64) {
 
 	for orderId, order := range db.OrderMap {
 		lifecycle := order.getOrderStatus()
-		if lifecycle.Status != Placed && lifecycle.BlockNumber <= blockNumber {
+		if (lifecycle.Status == FulFilled || lifecycle.Status == Cancelled) && lifecycle.BlockNumber <= blockNumber {
 			delete(db.OrderMap, orderId)
 		}
 	}

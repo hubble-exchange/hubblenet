@@ -158,7 +158,7 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 			}
 
 			if fulfillPrice.Cmp(upperbound) == 1 || fulfillPrice.Cmp(lowerbound) == -1 {
-				log.Error("liquidation price out of bound", "fulfillPrice", fulfillPrice, "upperbound", upperbound, "lowerbound", lowerbound)
+				// log.Error("liquidation price out of bound", "fulfillPrice", fulfillPrice, "upperbound", upperbound, "lowerbound", lowerbound)
 				continue
 			}
 
