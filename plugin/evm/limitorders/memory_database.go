@@ -570,6 +570,7 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 		// cancel orders until available margin is positive
 		ordersToCancel[addr] = []LimitOrder{}
 		for _, order := range traderOrders {
+			log.Info("in determineOrdersToCancel loop", "order", order)
 			// cannot cancel ReduceOnly orders because no margin is reserved for them
 			if order.ReduceOnly {
 				continue

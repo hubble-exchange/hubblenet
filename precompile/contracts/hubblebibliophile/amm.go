@@ -18,6 +18,7 @@ const (
 	MIN_SIZE_REQUIREMENT_SLOT       int64 = 9
 	ORACLE_SLOT                     int64 = 10
 	UNDERLYING_ASSET_SLOT           int64 = 11
+	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 17
 )
 
 const (
@@ -42,6 +43,12 @@ func GetCumulativePremiumFraction(stateDB contract.StateDB, market common.Addres
 func GetMaxOracleSpreadRatioForMarket(stateDB contract.StateDB, marketID int64) *big.Int {
 	market := getMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_ORACLE_SPREAD_RATIO_SLOT))).Bytes())
+}
+
+// GetMaxOracleSpreadRatioForMarket returns the maxOracleSpreadRatio for a given market
+func GetMaxLiquidationPriceSpreadForMarket(stateDB contract.StateDB, marketID int64) *big.Int {
+	market := getMarketAddressFromMarketID(marketID, stateDB)
+	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_LIQUIDATION_PRICE_SPREAD))).Bytes())
 }
 
 // GetMaxLiquidationRatioForMarket returns the maxLiquidationRatio for a given market

@@ -3,8 +3,8 @@ pragma solidity 0.8.9;
 import "../IAllowList.sol";
 
 interface IHubbleConfigManager is IAllowList{
-  //getSpreadRatioThreshold returns the spreadRatioThreshold stored in evm state
-  function getSpreadRatioThreshold() external view returns (uint256 spreadRatioThreshold);
+  //getOracleSpreadThreshold returns the spreadRatioThreshold stored in evm state
+  function getOracleSpreadThreshold() external view returns (uint256 spreadRatioThreshold);
 
   //setSpreadRatioThreshold stores the spreadRatioThreshold in evm state
   function setSpreadRatioThreshold(uint256 spreadRatioThreshold) external;
