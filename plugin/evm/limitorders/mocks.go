@@ -1,6 +1,7 @@
 package limitorders
 
 import (
+	// "fmt"
 	"math/big"
 
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -184,6 +185,10 @@ func (mcs *MockConfigService) getOracleSpreadThreshold(market Market) *big.Int {
 	return args.Get(0).(*big.Int)
 }
 
+func (mcs *MockConfigService) getLiquidationSpreadThreshold(market Market) *big.Int {
+	return big.NewInt(1e4)
+}
+
 func (mcs *MockConfigService) getMaxLiquidationRatio(market Market) *big.Int {
 	args := mcs.Called()
 	return args.Get(0).(*big.Int)
@@ -200,8 +205,7 @@ func (mcs *MockConfigService) getMaintenanceMargin() *big.Int {
 }
 
 func (mcs *MockConfigService) getMinSizeRequirement(market Market) *big.Int {
-	args := mcs.Called()
-	return args.Get(0).(*big.Int)
+	return big.NewInt(1)
 }
 
 func (cs *MockConfigService) GetActiveMarketsCount() int64 {
