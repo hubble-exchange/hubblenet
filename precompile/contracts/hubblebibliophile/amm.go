@@ -151,8 +151,15 @@ func getPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, m
 
 // Common Utils
 
+var _1e18 = big.NewInt(1e18)
+var _1e6 = big.NewInt(1e6)
+
 func divide1e18(number *big.Int) *big.Int {
-	return big.NewInt(0).Div(number, big.NewInt(1e18))
+	return big.NewInt(0).Div(number, _1e18)
+}
+
+func divide1e6(number *big.Int) *big.Int {
+	return big.NewInt(0).Div(number, _1e6)
 }
 
 func multiply1e6(number *big.Int, blockTimestamp *big.Int) *big.Int {
