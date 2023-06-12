@@ -436,207 +436,110 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 		})
 	})
 
-	t.Run("short order came first", func(t *testing.T) {
-		blockPlaced0 := big.NewInt(70)
-		blockPlaced1 := big.NewInt(69)
-		t.Run("short price < lower bound", func(t *testing.T) {
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(9)), multiply1e6v2(big.NewInt(8)), blockPlaced0, blockPlaced1)
-				assert.Nil(t, output)
-				assert.Equal(t, ErrTooLow, err)
-			})
-
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(7)), multiply1e6v2(big.NewInt(7)), blockPlaced0, blockPlaced1)
-				assert.Nil(t, output)
-				assert.Equal(t, ErrTooLow, err)
-			})
-		})
-
-		t.Run("short price == lower bound", func(t *testing.T) {
-			shortPrice := lowerbound
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(67)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
-
-		t.Run("lowerbound < short price < oracle", func(t *testing.T) {
-			shortPrice := multiply1e6v2(big.NewInt(15))
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(58)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
-
-		t.Run("short price == oracle", func(t *testing.T) {
-			shortPrice := oraclePrice
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(99)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
-
-		t.Run("oracle < short price < upper bound", func(t *testing.T) {
-			shortPrice := multiply1e6v2(big.NewInt(25))
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(453)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
-
-		t.Run("short price == upper bound", func(t *testing.T) {
-			shortPrice := upperbound
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(896)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
-
-		t.Run("upper bound < short price", func(t *testing.T) {
-			shortPrice := new(big.Int).Add(upperbound, big.NewInt(42))
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(896)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, output)
-				assert.Equal(t, ErrTooHigh, err)
-			})
-		})
-	})
-
 	t.Run("both orders came in same block", func(t *testing.T) {
-		blockPlaced0 := big.NewInt(69)
-		blockPlaced1 := big.NewInt(69)
-		t.Run("short price < lower bound", func(t *testing.T) {
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(9)), multiply1e6v2(big.NewInt(8)), blockPlaced0, blockPlaced1)
-				assert.Nil(t, output)
-				assert.Equal(t, ErrTooLow, err)
+		blockPlaced0 := big.NewInt(70)
+		blockPlaced1 := big.NewInt(69) // short order came first
+		for i := 0; i < 2; i++ {
+			if i == 1 {
+				blockPlaced0 = blockPlaced1 // both orders came in same block
+			}
+			t.Run("short price < lower bound", func(t *testing.T) {
+				t.Run("short price < long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(9)), multiply1e6v2(big.NewInt(8)), blockPlaced0, blockPlaced1)
+					assert.Nil(t, output)
+					assert.Equal(t, ErrTooLow, err)
+				})
+
+				t.Run("short price == long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(7)), multiply1e6v2(big.NewInt(7)), blockPlaced0, blockPlaced1)
+					assert.Nil(t, output)
+					assert.Equal(t, ErrTooLow, err)
+				})
 			})
 
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(7)), multiply1e6v2(big.NewInt(7)), blockPlaced0, blockPlaced1)
-				assert.Nil(t, output)
-				assert.Equal(t, ErrTooLow, err)
-			})
-		})
+			t.Run("short price == lower bound", func(t *testing.T) {
+				shortPrice := lowerbound
+				t.Run("short price < long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(67)), shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
 
-		t.Run("short price == lower bound", func(t *testing.T) {
-			shortPrice := lowerbound
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(67)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
-
-		t.Run("lowerbound < short price < oracle", func(t *testing.T) {
-			shortPrice := multiply1e6v2(big.NewInt(15))
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(58)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				t.Run("short price == long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
 			})
 
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
+			t.Run("lowerbound < short price < oracle", func(t *testing.T) {
+				shortPrice := multiply1e6v2(big.NewInt(15))
+				t.Run("short price < long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(58)), shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
 
-		t.Run("short price == oracle", func(t *testing.T) {
-			shortPrice := oraclePrice
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(99)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
-
-		t.Run("oracle < short price < upper bound", func(t *testing.T) {
-			shortPrice := multiply1e6v2(big.NewInt(25))
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(453)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				t.Run("short price == long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
 			})
 
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
+			t.Run("short price == oracle", func(t *testing.T) {
+				shortPrice := oraclePrice
+				t.Run("short price < long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(99)), shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
 
-		t.Run("short price == upper bound", func(t *testing.T) {
-			shortPrice := upperbound
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(896)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				t.Run("short price == long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
 			})
 
-			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, err)
-				assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
-			})
-		})
+			t.Run("oracle < short price < upper bound", func(t *testing.T) {
+				shortPrice := multiply1e6v2(big.NewInt(25))
+				t.Run("short price < long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(453)), shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
 
-		t.Run("upper bound < short price", func(t *testing.T) {
-			shortPrice := new(big.Int).Add(upperbound, big.NewInt(42))
-			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(896)), shortPrice, blockPlaced0, blockPlaced1)
-				assert.Nil(t, output)
-				assert.Equal(t, ErrTooHigh, err)
+				t.Run("short price == long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
 			})
-		})
+
+			t.Run("short price == upper bound", func(t *testing.T) {
+				shortPrice := upperbound
+				t.Run("short price < long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(896)), shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
+
+				t.Run("short price == long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, shortPrice, shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, err)
+					assert.Equal(t, ValidateOrdersAndDetermineFillPriceOutput{shortPrice, Taker, Maker}, *output)
+				})
+			})
+
+			t.Run("upper bound < short price", func(t *testing.T) {
+				shortPrice := new(big.Int).Add(upperbound, big.NewInt(42))
+				t.Run("short price < long price", func(t *testing.T) {
+					output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(896)), shortPrice, blockPlaced0, blockPlaced1)
+					assert.Nil(t, output)
+					assert.Equal(t, ErrTooHigh, err)
+				})
+			})
+		}
 	})
 }
