@@ -107,29 +107,32 @@ func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Ad
 }
 
 func (pipeline *BuildBlockPipeline) fetchOrders(market Market, underlyingPrice *big.Int, cancellableOrderIds map[common.Hash]struct{}) *Orders {
-	spreadRatioThreshold := pipeline.configService.getOracleSpreadThreshold(market)
-	// 1. Get long orders
-	longCutOffPrice := divideByBasePrecision(big.NewInt(0).Mul(underlyingPrice, big.NewInt(0).Add(_1e6, spreadRatioThreshold)))
-	longOrders := pipeline.db.GetLongOrders(market, longCutOffPrice)
+	_, lowerbound := pipeline.configService.GetAcceptableBounds(market)
 
-	// 2. Get short orders
-	shortCutOffPrice := big.NewInt(0)
-	if _1e6.Cmp(spreadRatioThreshold) > 0 {
-		shortCutOffPrice = divideByBasePrecision(big.NewInt(0).Mul(underlyingPrice, big.NewInt(0).Sub(_1e6, spreadRatioThreshold)))
+	// any long orders below the permissible lowerbound are irrelevant, because they won't be matched no matter what
+	// this assumes that all above cancelOrder transactions got executed successfully
+	longOrders := removeOrdersWithIds(pipeline.db.GetLongOrders(market, lowerbound), cancellableOrderIds)
+
+	var shortOrders []LimitOrder
+	// all short orders above price of the highest long order are irrelevant
+	if len(longOrders) > 0 {
+		shortOrders = removeOrdersWithIds(pipeline.db.GetShortOrders(market, longOrders[0].Price /* upperbound */), cancellableOrderIds)
 	}
-	shortOrders := pipeline.db.GetShortOrders(market, shortCutOffPrice)
-
-	// 3. Remove orders that were just cancelled
-	longOrders = removeOrdersWithIds(longOrders, cancellableOrderIds)
-	shortOrders = removeOrdersWithIds(shortOrders, cancellableOrderIds)
-
 	return &Orders{longOrders, shortOrders}
 }
 
 func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []LiquidablePosition, orderMap map[Market]*Orders, underlyingPrices map[Market]*big.Int) {
-	if len(liquidablePositions) > 0 {
-		log.Info("found positions to liquidate", "liquidablePositions", liquidablePositions)
+	if len(liquidablePositions) == 0 {
+		return
 	}
+
+	log.Info("found positions to liquidate", "liquidablePositions", liquidablePositions)
+	// filter counter orders that are within the permissible liquidation spread
+	// @todo do this only for markets that have liquidable positions in
+	// markets := pipeline.GetActiveMarkets()
+	// for _, market := range markets {
+	// 	upperbound, lowerbound := pipeline.configService.GetAcceptableBoundsForLiquidation(market)
+	// }
 
 	for i, liquidable := range liquidablePositions {
 		var oppositeOrders []LimitOrder
@@ -140,7 +143,7 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 			oppositeOrders = orderMap[liquidable.Market].shortOrders
 		}
 		if len(oppositeOrders) == 0 {
-			log.Error("no matching order found for liquidation", "trader", liquidable.Address.String(), "size", liquidable.Size)
+			log.Error("no matching order found for liquidation", "liquidable", liquidable)
 			continue // so that all other liquidable positions get logged
 		}
 		for j, oppositeOrder := range oppositeOrders {

@@ -309,7 +309,7 @@ func TestRun(t *testing.T) {
 }
 
 func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
-	oraclePrice := multiply1e6v2(big.NewInt(20))                                                // $10
+	oraclePrice := multiply1e6(big.NewInt(20))                                                  // $10
 	spreadLimit := new(big.Int).Mul(big.NewInt(50), big.NewInt(1e4))                            // 50%
 	upperbound := divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Add(_1e6, spreadLimit))) // $10
 	lowerbound := divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Sub(_1e6, spreadLimit))) // $30
@@ -321,13 +321,13 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 		blockPlaced1 := big.NewInt(70)
 		t.Run("long price < lower bound", func(t *testing.T) {
 			t.Run("short price < long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(9)), multiply1e6v2(big.NewInt(8)), blockPlaced0, blockPlaced1)
+				output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6(big.NewInt(9)), multiply1e6(big.NewInt(8)), blockPlaced0, blockPlaced1)
 				assert.Nil(t, output)
 				assert.Equal(t, ErrTooLow, err)
 			})
 
 			t.Run("short price == long price", func(t *testing.T) {
-				output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(7)), multiply1e6v2(big.NewInt(7)), blockPlaced0, blockPlaced1)
+				output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6(big.NewInt(7)), multiply1e6(big.NewInt(7)), blockPlaced0, blockPlaced1)
 				assert.Nil(t, output)
 				assert.Equal(t, ErrTooLow, err)
 			})
@@ -349,7 +349,7 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 		})
 
 		t.Run("lowerbound < long price < oracle", func(t *testing.T) {
-			longPrice := multiply1e6v2(big.NewInt(15))
+			longPrice := multiply1e6(big.NewInt(15))
 			t.Run("short price < long price", func(t *testing.T) {
 				output, err := determineFillPrice(oraclePrice, spreadLimit, longPrice, new(big.Int).Sub(longPrice, big.NewInt(1)), blockPlaced0, blockPlaced1)
 				assert.Nil(t, err)
@@ -379,7 +379,7 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 		})
 
 		t.Run("oracle < long price < upper bound", func(t *testing.T) {
-			longPrice := multiply1e6v2(big.NewInt(25))
+			longPrice := multiply1e6(big.NewInt(25))
 			t.Run("short price < long price", func(t *testing.T) {
 				output, err := determineFillPrice(oraclePrice, spreadLimit, longPrice, new(big.Int).Sub(longPrice, big.NewInt(1)), blockPlaced0, blockPlaced1)
 				assert.Nil(t, err)
@@ -445,13 +445,13 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 			}
 			t.Run("short price < lower bound", func(t *testing.T) {
 				t.Run("short price < long price", func(t *testing.T) {
-					output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(9)), multiply1e6v2(big.NewInt(8)), blockPlaced0, blockPlaced1)
+					output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6(big.NewInt(9)), multiply1e6(big.NewInt(8)), blockPlaced0, blockPlaced1)
 					assert.Nil(t, output)
 					assert.Equal(t, ErrTooLow, err)
 				})
 
 				t.Run("short price == long price", func(t *testing.T) {
-					output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6v2(big.NewInt(7)), multiply1e6v2(big.NewInt(7)), blockPlaced0, blockPlaced1)
+					output, err := determineFillPrice(oraclePrice, spreadLimit, multiply1e6(big.NewInt(7)), multiply1e6(big.NewInt(7)), blockPlaced0, blockPlaced1)
 					assert.Nil(t, output)
 					assert.Equal(t, ErrTooLow, err)
 				})
@@ -473,7 +473,7 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 			})
 
 			t.Run("lowerbound < short price < oracle", func(t *testing.T) {
-				shortPrice := multiply1e6v2(big.NewInt(15))
+				shortPrice := multiply1e6(big.NewInt(15))
 				t.Run("short price < long price", func(t *testing.T) {
 					output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(58)), shortPrice, blockPlaced0, blockPlaced1)
 					assert.Nil(t, err)
@@ -503,7 +503,7 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 			})
 
 			t.Run("oracle < short price < upper bound", func(t *testing.T) {
-				shortPrice := multiply1e6v2(big.NewInt(25))
+				shortPrice := multiply1e6(big.NewInt(25))
 				t.Run("short price < long price", func(t *testing.T) {
 					output, err := determineFillPrice(oraclePrice, spreadLimit, new(big.Int).Add(shortPrice, big.NewInt(453)), shortPrice, blockPlaced0, blockPlaced1)
 					assert.Nil(t, err)

@@ -52,25 +52,42 @@ func ValidateOrdersAndDetermineFillPrice(stateDB contract.StateDB, inputStruct *
 	}
 
 	market := getMarketAddressFromMarketID(longOrder.AmmIndex.Int64(), stateDB)
-	minSize := GetMinSizeRequirementForMarket(stateDB, longOrder.AmmIndex.Int64())
+	minSize := GetMinSizeRequirement(stateDB, longOrder.AmmIndex.Int64())
 	if new(big.Int).Mod(inputStruct.FillAmount, minSize).Cmp(big.NewInt(0)) != 0 {
 		return nil, ErrNotMultiple
 	}
 
 	oraclePrice := getUnderlyingPrice(stateDB, market)
-	spreadLimit := GetMaxOracleSpreadRatioForMarket(stateDB, longOrder.AmmIndex.Int64())
+	spreadLimit := GetMaxOracleSpreadRatio(stateDB, longOrder.AmmIndex.Int64())
 	blockPlaced0 := getBlockPlaced(stateDB, inputStruct.OrderHashes[0])
 	blockPlaced1 := getBlockPlaced(stateDB, inputStruct.OrderHashes[1])
 
 	return determineFillPrice(oraclePrice, spreadLimit, longOrder.Price, shortOrder.Price, blockPlaced0, blockPlaced1)
 }
 
-func determineFillPrice(oraclePrice, spreadLimit, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
+func GetAcceptableBounds(stateDB contract.StateDB, marketID int64) (upperBound, lowerBound *big.Int) {
+	spreadLimit := GetMaxOracleSpreadRatio(stateDB, marketID)
+	oraclePrice := getUnderlyingPriceForMarket(stateDB, marketID)
+	return _calculateBounds(spreadLimit, oraclePrice)
+}
+
+func GetAcceptableBoundsForLiquidation(stateDB contract.StateDB, marketID int64) (upperBound, lowerBound *big.Int) {
+	spreadLimit := GetMaxLiquidationPriceSpread(stateDB, marketID)
+	oraclePrice := getUnderlyingPriceForMarket(stateDB, marketID)
+	return _calculateBounds(spreadLimit, oraclePrice)
+}
+
+func _calculateBounds(spreadLimit, oraclePrice *big.Int) (*big.Int, *big.Int) {
 	upperbound := divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Add(_1e6, spreadLimit)))
 	lowerbound := big.NewInt(0)
 	if spreadLimit.Cmp(_1e6) == -1 {
 		lowerbound = divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Sub(_1e6, spreadLimit)))
 	}
+	return upperbound, lowerbound
+}
+
+func determineFillPrice(oraclePrice, spreadLimit, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
+	upperbound, lowerbound := _calculateBounds(spreadLimit, oraclePrice)
 	if longOrderPrice.Cmp(lowerbound) == -1 {
 		return nil, ErrTooLow
 	}
