@@ -238,11 +238,12 @@ func TestRunMatchingEngine(t *testing.T) {
 				db.On("GetLongOrders").Return(longOrders)
 				db.On("GetShortOrders").Return(shortOrders)
 				lotp.On("PurgeLocalTx").Return(nil)
+				log.Info("longOrder1", "longOrder1", longOrder1)
 				pipeline.runMatchingEngine(lotp, longOrders, shortOrders)
+				log.Info("longOrder1", "longOrder1", longOrder1)
 
 				//During 1st  matching iteration
 				longOrder1UnfulfilledQuantity := longOrder1.GetUnFilledBaseAssetQuantity()
-				log.Info("longOrder1", "longOrder1", longOrder1)
 				shortOrder1UnfulfilledQuantity := shortOrder1.GetUnFilledBaseAssetQuantity()
 				fillAmount := utils.BigIntMinAbs(longOrder1UnfulfilledQuantity, shortOrder1UnfulfilledQuantity)
 				lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount)

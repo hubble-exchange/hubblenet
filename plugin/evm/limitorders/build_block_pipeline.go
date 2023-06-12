@@ -34,12 +34,10 @@ func (pipeline *BuildBlockPipeline) Run() {
 
 	if isFundingPaymentTime(pipeline.db.GetNextFundingTime()) {
 		log.Info("BuildBlockPipeline:isFundingPaymentTime")
-		// just execute the funding payment and skip running the matching engine
 		err := executeFundingPayment(pipeline.lotp)
 		if err != nil {
 			log.Error("Funding payment job failed", "err", err)
 		}
-		return
 	}
 
 	// fetch the underlying price and run the matching engine
@@ -131,7 +129,6 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 
 	// we need to retreive permissible bounds for liquidations in each market
 	markets := pipeline.GetActiveMarkets()
-	log.Info("markets", "markets", markets)
 	type S struct {
 		Upperbound *big.Int
 		Lowerbound *big.Int
@@ -140,7 +137,6 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 	for _, market := range markets {
 		upperbound, lowerbound := pipeline.configService.GetAcceptableBoundsForLiquidation(market)
 		liquidationBounds[market] = S{Upperbound: upperbound, Lowerbound: lowerbound}
-		log.Info("liquidationBounds", "market", market, "upperbound", upperbound, "lowerbound", lowerbound)
 	}
 
 	for _, liquidable := range liquidablePositions {
@@ -150,7 +146,6 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 		switch liquidable.PositionType {
 		case LONG:
 			for _, order := range orderMap[market].longOrders {
-				log.Info("liquidating with long order", "order", order, "liquidable", liquidable, "liquidationBounds[market].Lowerbound", liquidationBounds[market].Lowerbound)
 				if order.Price.Cmp(liquidationBounds[market].Lowerbound) == -1 {
 					// further orders are not not eligible to liquidate with
 					break
@@ -199,13 +194,10 @@ func (pipeline *BuildBlockPipeline) runMatchingEngine(lotp LimitOrderTxProcessor
 
 	matchingComplete := false
 	for i := 0; i < len(longOrders); i++ {
-		longOrder := longOrders[i]
 		numOrdersExhausted := 0
 		for j := 0; j < len(shortOrders); j++ {
-			// for j, shortOrder := range shortOrders {
 			var ordersMatched bool
 			longOrders[i], shortOrders[j], ordersMatched = matchLongAndShortOrder(lotp, longOrders[i], shortOrders[j])
-			// longOrder, shortOrder, ordersMatched = matchLongAndShortOrder(lotp, longOrder, shortOrder)
 			if !ordersMatched {
 				matchingComplete = true
 				break
@@ -214,7 +206,7 @@ func (pipeline *BuildBlockPipeline) runMatchingEngine(lotp LimitOrderTxProcessor
 			if shortOrders[j].GetUnFilledBaseAssetQuantity().Sign() == 0 {
 				numOrdersExhausted++
 			}
-			if longOrder.GetUnFilledBaseAssetQuantity().Sign() == 0 {
+			if longOrders[i].GetUnFilledBaseAssetQuantity().Sign() == 0 {
 				break
 			}
 		}
@@ -226,15 +218,15 @@ func (pipeline *BuildBlockPipeline) runMatchingEngine(lotp LimitOrderTxProcessor
 }
 
 func matchLongAndShortOrder(lotp LimitOrderTxProcessor, longOrder, shortOrder LimitOrder) (LimitOrder, LimitOrder, bool) {
-	if longOrder.Price.Cmp(shortOrder.Price) == -1 {
+	fillAmount := utils.BigIntMinAbs(longOrder.GetUnFilledBaseAssetQuantity(), shortOrder.GetUnFilledBaseAssetQuantity())
+	if longOrder.Price.Cmp(shortOrder.Price) == -1 || fillAmount.Sign() == 0 {
 		return longOrder, shortOrder, false
 	}
-	fillAmount := utils.BigIntMinAbs(longOrder.GetUnFilledBaseAssetQuantity(), shortOrder.GetUnFilledBaseAssetQuantity()) // can't be 0, checks at end of loop
 	if err := lotp.ExecuteMatchedOrdersTx(longOrder, shortOrder, fillAmount); err != nil {
 		return longOrder, shortOrder, false
 	}
-	longOrder.FilledBaseAssetQuantity.Add(longOrder.FilledBaseAssetQuantity, fillAmount)
-	shortOrder.FilledBaseAssetQuantity.Sub(shortOrder.FilledBaseAssetQuantity, fillAmount)
+	longOrder.FilledBaseAssetQuantity = big.NewInt(0).Add(longOrder.FilledBaseAssetQuantity, fillAmount)
+	shortOrder.FilledBaseAssetQuantity = big.NewInt(0).Sub(shortOrder.FilledBaseAssetQuantity, fillAmount)
 	return longOrder, shortOrder, true
 }
 
