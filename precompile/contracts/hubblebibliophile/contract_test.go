@@ -308,7 +308,7 @@ func TestRun(t *testing.T) {
 	}
 }
 
-func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
+func TestDetermineFillPrice(t *testing.T) {
 	oraclePrice := multiply1e6(big.NewInt(20))                                                  // $10
 	spreadLimit := new(big.Int).Mul(big.NewInt(50), big.NewInt(1e4))                            // 50%
 	upperbound := divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Add(_1e6, spreadLimit))) // $10
@@ -436,7 +436,7 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 		})
 	})
 
-	t.Run("both orders came in same block", func(t *testing.T) {
+	t.Run("short order came first and both came in same block", func(t *testing.T) {
 		blockPlaced0 := big.NewInt(70)
 		blockPlaced1 := big.NewInt(69) // short order came first
 		for i := 0; i < 2; i++ {
@@ -541,5 +541,107 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 				})
 			})
 		}
+	})
+}
+
+func TestDetermineLiquidationFillPrice(t *testing.T) {
+	oraclePrice := multiply1e6(big.NewInt(20))                                  // $10
+	liquidationSpreadLimit := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e4)) // 10%
+	liqUpperBound, liqLowerBound := multiply1e6(big.NewInt(22)), multiply1e6(big.NewInt(18))
+
+	spreadLimit := new(big.Int).Mul(big.NewInt(50), big.NewInt(1e4)) // 50%
+	upperbound := multiply1e6(big.NewInt(30))                        // $30
+	lowerbound := multiply1e6(big.NewInt(10))                        // $10
+
+	t.Run("test calculateBounds for liquidation spread", func(t *testing.T) {
+		a, b := calculateBounds(liquidationSpreadLimit, oraclePrice)
+		assert.Equal(t, liqUpperBound, a)
+		assert.Equal(t, liqLowerBound, b)
+	})
+
+	t.Run("test calculateBounds for oracle spread", func(t *testing.T) {
+		a, b := calculateBounds(spreadLimit, oraclePrice)
+		assert.Equal(t, upperbound, a)
+		assert.Equal(t, lowerbound, b)
+	})
+
+	t.Run("long position is being liquidated", func(t *testing.T) {
+		t.Run("order price < liqLowerBound", func(t *testing.T) {
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(5), Price: new(big.Int).Sub(liqLowerBound, big.NewInt(1))}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, output)
+			assert.Equal(t, ErrTooLow, err)
+		})
+
+		t.Run("order price == liqLowerBound", func(t *testing.T) {
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(5), Price: liqLowerBound}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, err)
+			assert.Equal(t, liqLowerBound, output)
+		})
+
+		t.Run("liqLowerBound < order price < upper bound", func(t *testing.T) {
+			price := new(big.Int).Add(liqLowerBound, big.NewInt(99))
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(5), Price: price}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, err)
+			assert.Equal(t, price, output)
+		})
+
+		t.Run("order price == upper bound", func(t *testing.T) {
+			price := upperbound
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(5), Price: price}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, err)
+			assert.Equal(t, upperbound, output)
+		})
+
+		t.Run("order price > upper bound", func(t *testing.T) {
+			price := new(big.Int).Add(upperbound, big.NewInt(99))
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(5), Price: price}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, err)
+			assert.Equal(t, upperbound, output)
+		})
+	})
+
+	t.Run("short position is being liquidated", func(t *testing.T) {
+		t.Run("order price > liqUpperBound", func(t *testing.T) {
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(-5), Price: new(big.Int).Add(liqUpperBound, big.NewInt(1))}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, output)
+			assert.Equal(t, ErrTooHigh, err)
+		})
+
+		t.Run("order price == liqUpperBound", func(t *testing.T) {
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(-5), Price: liqUpperBound}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, err)
+			assert.Equal(t, liqUpperBound, output)
+		})
+
+		t.Run("liqUpperBound > order price > lower bound", func(t *testing.T) {
+			price := new(big.Int).Sub(liqUpperBound, big.NewInt(99))
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(-5), Price: price}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, err)
+			assert.Equal(t, price, output)
+		})
+
+		t.Run("order price == lower bound", func(t *testing.T) {
+			price := lowerbound
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(-5), Price: price}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, err)
+			assert.Equal(t, lowerbound, output)
+		})
+
+		t.Run("order price < lower bound", func(t *testing.T) {
+			price := new(big.Int).Sub(lowerbound, big.NewInt(99))
+			order := IHubbleBibliophileOrder{BaseAssetQuantity: big.NewInt(-5), Price: price}
+			output, err := determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+			assert.Nil(t, err)
+			assert.Equal(t, lowerbound, output)
+		})
 	})
 }

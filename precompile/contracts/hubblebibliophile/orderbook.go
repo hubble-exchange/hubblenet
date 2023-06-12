@@ -27,6 +27,23 @@ var (
 	ErrTooHigh       = errors.New("OB_short_order_price_too_high")
 )
 
+// State Reader
+func getBlockPlaced(stateDB contract.StateDB, orderHash [32]byte) *big.Int {
+	orderInfo := orderInfoMappingStorageSlot(orderHash)
+	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(orderInfo)).Bytes())
+}
+
+func getOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
+	orderInfo := orderInfoMappingStorageSlot(orderHash)
+	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(orderInfo, big.NewInt(3)))).Bytes()).Int64()
+}
+
+func orderInfoMappingStorageSlot(orderHash [32]byte) *big.Int {
+	return new(big.Int).SetBytes(crypto.Keccak256(append(orderHash[:], common.LeftPadBytes(big.NewInt(ORDER_INFO_SLOT).Bytes(), 32)...)))
+}
+
+// Business Logic
+
 func ValidateOrdersAndDetermineFillPrice(stateDB contract.StateDB, inputStruct *ValidateOrdersAndDetermineFillPriceInput) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
 	longOrder := inputStruct.Orders[0]
 	shortOrder := inputStruct.Orders[1]
@@ -58,36 +75,15 @@ func ValidateOrdersAndDetermineFillPrice(stateDB contract.StateDB, inputStruct *
 	}
 
 	oraclePrice := getUnderlyingPrice(stateDB, market)
-	spreadLimit := GetMaxOracleSpreadRatio(stateDB, longOrder.AmmIndex.Int64())
+	spreadLimit := GetMaxOraclePriceSpread(stateDB, longOrder.AmmIndex.Int64())
 	blockPlaced0 := getBlockPlaced(stateDB, inputStruct.OrderHashes[0])
 	blockPlaced1 := getBlockPlaced(stateDB, inputStruct.OrderHashes[1])
 
 	return determineFillPrice(oraclePrice, spreadLimit, longOrder.Price, shortOrder.Price, blockPlaced0, blockPlaced1)
 }
 
-func GetAcceptableBounds(stateDB contract.StateDB, marketID int64) (upperBound, lowerBound *big.Int) {
-	spreadLimit := GetMaxOracleSpreadRatio(stateDB, marketID)
-	oraclePrice := getUnderlyingPriceForMarket(stateDB, marketID)
-	return _calculateBounds(spreadLimit, oraclePrice)
-}
-
-func GetAcceptableBoundsForLiquidation(stateDB contract.StateDB, marketID int64) (upperBound, lowerBound *big.Int) {
-	spreadLimit := GetMaxLiquidationPriceSpread(stateDB, marketID)
-	oraclePrice := getUnderlyingPriceForMarket(stateDB, marketID)
-	return _calculateBounds(spreadLimit, oraclePrice)
-}
-
-func _calculateBounds(spreadLimit, oraclePrice *big.Int) (*big.Int, *big.Int) {
-	upperbound := divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Add(_1e6, spreadLimit)))
-	lowerbound := big.NewInt(0)
-	if spreadLimit.Cmp(_1e6) == -1 {
-		lowerbound = divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Sub(_1e6, spreadLimit)))
-	}
-	return upperbound, lowerbound
-}
-
 func determineFillPrice(oraclePrice, spreadLimit, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
-	upperbound, lowerbound := _calculateBounds(spreadLimit, oraclePrice)
+	upperbound, lowerbound := calculateBounds(spreadLimit, oraclePrice)
 	if longOrderPrice.Cmp(lowerbound) == -1 {
 		return nil, ErrTooLow
 	}
@@ -110,16 +106,65 @@ func determineFillPrice(oraclePrice, spreadLimit, longOrderPrice, shortOrderPric
 	return &output, nil
 }
 
-func getBlockPlaced(stateDB contract.StateDB, orderHash [32]byte) *big.Int {
-	orderInfo := orderInfoMappingStorageSlot(orderHash)
-	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(orderInfo)).Bytes())
+func ValidateLiquidationOrderAndDetermineFillPrice(stateDB contract.StateDB, inputStruct *ValidateLiquidationOrderAndDetermineFillPriceInput) (*big.Int, error) {
+	order := inputStruct.Order
+
+	market := getMarketAddressFromMarketID(order.AmmIndex.Int64(), stateDB)
+	minSize := GetMinSizeRequirement(stateDB, order.AmmIndex.Int64())
+	if new(big.Int).Mod(inputStruct.FillAmount, minSize).Cmp(big.NewInt(0)) != 0 {
+		return nil, ErrNotMultiple
+	}
+
+	oraclePrice := getUnderlyingPrice(stateDB, market)
+	liquidationSpreadLimit := GetMaxLiquidationPriceSpread(stateDB, order.AmmIndex.Int64())
+	liqUpperBound, liqLowerBound := calculateBounds(liquidationSpreadLimit, oraclePrice)
+
+	oracleSpreadLimit := GetMaxOraclePriceSpread(stateDB, order.AmmIndex.Int64())
+	upperbound, lowerbound := calculateBounds(oracleSpreadLimit, oraclePrice)
+	return determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
 }
 
-func getOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
-	orderInfo := orderInfoMappingStorageSlot(orderHash)
-	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(orderInfo, big.NewInt(3)))).Bytes()).Int64()
+func determineLiquidationFillPrice(order IHubbleBibliophileOrder, liqUpperBound, liqLowerBound, upperbound, lowerbound *big.Int) (*big.Int, error) {
+	isLongOrder := true
+	if order.BaseAssetQuantity.Cmp(big.NewInt(0)) == -1 {
+		isLongOrder = false
+	}
+
+	if isLongOrder {
+		// we are liquidating a long position
+		// do not allow liquidation if order.Price < liqLowerBound, because that gives scope for malicious activity to a validator
+		if order.Price.Cmp(liqLowerBound) == -1 {
+			return nil, ErrTooLow
+		}
+		return utils.BigIntMin(order.Price, upperbound /* oracle spread upper bound */), nil
+	}
+
+	// short order
+	if order.Price.Cmp(liqUpperBound) == 1 {
+		return nil, ErrTooHigh
+	}
+	return utils.BigIntMax(order.Price, lowerbound /* oracle spread lower bound */), nil
 }
 
-func orderInfoMappingStorageSlot(orderHash [32]byte) *big.Int {
-	return new(big.Int).SetBytes(crypto.Keccak256(append(orderHash[:], common.LeftPadBytes(big.NewInt(ORDER_INFO_SLOT).Bytes(), 32)...)))
+// Helper functions
+
+func GetAcceptableBounds(stateDB contract.StateDB, marketID int64) (upperBound, lowerBound *big.Int) {
+	spreadLimit := GetMaxOraclePriceSpread(stateDB, marketID)
+	oraclePrice := getUnderlyingPriceForMarket(stateDB, marketID)
+	return calculateBounds(spreadLimit, oraclePrice)
+}
+
+func GetAcceptableBoundsForLiquidation(stateDB contract.StateDB, marketID int64) (upperBound, lowerBound *big.Int) {
+	spreadLimit := GetMaxLiquidationPriceSpread(stateDB, marketID)
+	oraclePrice := getUnderlyingPriceForMarket(stateDB, marketID)
+	return calculateBounds(spreadLimit, oraclePrice)
+}
+
+func calculateBounds(spreadLimit, oraclePrice *big.Int) (*big.Int, *big.Int) {
+	upperbound := divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Add(_1e6, spreadLimit)))
+	lowerbound := big.NewInt(0)
+	if spreadLimit.Cmp(_1e6) == -1 {
+		lowerbound = divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Sub(_1e6, spreadLimit)))
+	}
+	return upperbound, lowerbound
 }

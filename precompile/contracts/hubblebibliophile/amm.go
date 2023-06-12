@@ -39,8 +39,8 @@ func GetCumulativePremiumFraction(stateDB contract.StateDB, market common.Addres
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(VAR_CUMULATIVE_PREMIUM_FRACTION))).Bytes())
 }
 
-// GetMaxOracleSpreadRatio returns the maxOracleSpreadRatio for a given market
-func GetMaxOracleSpreadRatio(stateDB contract.StateDB, marketID int64) *big.Int {
+// GetMaxOraclePriceSpread returns the maxOracleSpreadRatio for a given market
+func GetMaxOraclePriceSpread(stateDB contract.StateDB, marketID int64) *big.Int {
 	market := getMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_ORACLE_SPREAD_RATIO_SLOT))).Bytes())
 }
