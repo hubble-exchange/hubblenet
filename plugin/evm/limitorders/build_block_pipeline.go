@@ -147,8 +147,6 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 			if liquidable.GetUnfilledSize().Sign() == 0 {
 				break
 			}
-			// @todo: add a restriction on the price range that liquidation will occur on.
-			// An illiquid market can be very adverse for trader being liquidated.
 			fulfillPrice := oppositeOrder.Price
 			spreadLimit := pipeline.configService.getLiquidationSpreadThreshold(liquidable.Market)
 			upperbound := divideByBasePrecision(new(big.Int).Mul(underlyingPrices[liquidable.Market], new(big.Int).Add(_1e6, spreadLimit)))
@@ -166,11 +164,6 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 			if fillAmount.Sign() == 0 {
 				continue
 			}
-			// while setting liquidation threshold of a position, we do not ensure whether it is a multiple of minSize.
-			// we will take care of that here
-			minSize := pipeline.configService.getMinSizeRequirement(liquidable.Market)
-			fillAmount.Div(fillAmount, minSize)
-			fillAmount.Mul(fillAmount, minSize)
 
 			pipeline.lotp.ExecuteLiquidation(liquidable.Address, oppositeOrder, fillAmount)
 

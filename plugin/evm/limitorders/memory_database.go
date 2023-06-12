@@ -498,11 +498,11 @@ func (db *InMemoryDatabase) GetOpenOrdersForTrader(trader common.Address) []Limi
 	return db.getTraderOrders(trader)
 }
 
-func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFraction *big.Int, markets []Market) LiquidablePosition {
+func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFraction *big.Int, markets []Market, minSizes []*big.Int) LiquidablePosition {
 	liquidable := LiquidablePosition{}
 	// iterate through the markets and return the first one with an open position
 	// @todo when we introduce multiple markets, we will have to implement a more sophisticated liquidation strategy
-	for _, market := range markets {
+	for i, market := range markets {
 		position := trader.Positions[market]
 		if position == nil || position.Size.Sign() == 0 {
 			continue
@@ -514,6 +514,10 @@ func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFra
 			MarginFraction: marginFraction,
 			FilledSize:     big.NewInt(0),
 		}
+		// while setting liquidation threshold of a position, we do not ensure whether it is a multiple of minSize.
+		// we will take care of that here
+		liquidable.Size.Div(liquidable.Size, minSizes[i])
+		liquidable.Size.Mul(liquidable.Size, minSizes[i])
 		if position.Size.Sign() == -1 {
 			liquidable.PositionType = SHORT
 		} else {
@@ -531,12 +535,20 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 	ordersToCancel := map[common.Address][]LimitOrder{}
 	count := 0
 
+	// will be updated lazily only if liquidablePositions are found
+	minSizes := []*big.Int{}
+
 	for addr, trader := range db.TraderMap {
 		pendingFunding := getTotalFunding(trader, markets)
 		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, db.LastPrice, markets)
 		if marginFraction.Cmp(db.configService.getMaintenanceMargin()) == -1 {
 			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", prettifyScaledBigInt(marginFraction, 6))
-			liquidablePositions = append(liquidablePositions, determinePositionToLiquidate(trader, addr, marginFraction, markets))
+			if len(minSizes) == 0 {
+				for _, market := range markets {
+					minSizes = append(minSizes, db.configService.getMinSizeRequirement(market))
+				}
+			}
+			liquidablePositions = append(liquidablePositions, determinePositionToLiquidate(trader, addr, marginFraction, markets, minSizes))
 			continue // we do not check for their open orders yet. Maybe liquidating them first will make available margin positive
 		}
 		if trader.Margin.Reserved.Sign() == 0 {
