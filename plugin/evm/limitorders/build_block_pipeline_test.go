@@ -7,6 +7,7 @@ import (
 
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -14,6 +15,8 @@ import (
 func TestRunLiquidations(t *testing.T) {
 	traderAddress := common.HexToAddress("0x710bf5f942331874dcbc7783319123679033b63b")
 	market := Market(0)
+	liqUpperBound := big.NewInt(22)
+	liqLowerBound := big.NewInt(18)
 
 	t.Run("when there are no liquidable positions", func(t *testing.T) {
 		_, lotp, pipeline, underlyingPrices, _ := setupDependencies(t)
@@ -32,26 +35,29 @@ func TestRunLiquidations(t *testing.T) {
 			Address:      traderAddress,
 			Market:       market,
 			PositionType: LONG,
-			Size:         multiplyPrecisionSize(big.NewInt(7)),
+			Size:         big.NewInt(7),
 			FilledSize:   big.NewInt(0),
 		}}
 		t.Run("when no long orders are present in database for matching", func(t *testing.T) {
-			_, lotp, pipeline, underlyingPrices, _ := setupDependencies(t)
+			_, lotp, pipeline, underlyingPrices, cs := setupDependencies(t)
 			longOrders := []LimitOrder{}
 			shortOrders := []LimitOrder{getShortOrder()}
 
 			orderMap := map[Market]*Orders{market: {longOrders, shortOrders}}
 
+			cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
 			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices)
 			assert.Equal(t, longOrders, orderMap[market].longOrders)
 			assert.Equal(t, shortOrders, orderMap[market].shortOrders)
 			lotp.AssertNotCalled(t, "ExecuteLiquidation", mock.Anything, mock.Anything, mock.Anything)
+			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
 		})
 		t.Run("when long orders are present in database for matching", func(t *testing.T) {
-			_, lotp, pipeline, underlyingPrices, _ := setupDependencies(t)
+			_, lotp, pipeline, underlyingPrices, cs := setupDependencies(t)
 			longOrder := getLongOrder()
 			shortOrder := getShortOrder()
 			expectedFillAmount := utils.BigIntMinAbs(longOrder.BaseAssetQuantity, liquidablePositions[0].Size)
+			cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
 			lotp.On("ExecuteLiquidation", traderAddress, longOrder, expectedFillAmount).Return(nil)
 
 			orderMap := map[Market]*Orders{market: {[]LimitOrder{longOrder}, []LimitOrder{shortOrder}}}
@@ -59,7 +65,7 @@ func TestRunLiquidations(t *testing.T) {
 			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices)
 
 			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, longOrder, expectedFillAmount)
-
+			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
 			assert.Equal(t, shortOrder, orderMap[market].shortOrders[0])
 			assert.Equal(t, expectedFillAmount.Uint64(), orderMap[market].longOrders[0].FilledBaseAssetQuantity.Uint64())
 		})
@@ -70,33 +76,36 @@ func TestRunLiquidations(t *testing.T) {
 			Address:      traderAddress,
 			Market:       market,
 			PositionType: SHORT,
-			Size:         multiplyPrecisionSize(big.NewInt(-7)),
+			Size:         big.NewInt(-7),
 			FilledSize:   big.NewInt(0),
 		}}
 		t.Run("when no short orders are present in database for matching", func(t *testing.T) {
-			_, lotp, pipeline, underlyingPrices, _ := setupDependencies(t)
+			_, lotp, pipeline, underlyingPrices, cs := setupDependencies(t)
 			shortOrders := []LimitOrder{}
 			longOrders := []LimitOrder{getLongOrder()}
 
 			orderMap := map[Market]*Orders{market: {longOrders, shortOrders}}
 
+			cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
 			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices)
 			assert.Equal(t, longOrders, orderMap[market].longOrders)
 			assert.Equal(t, shortOrders, orderMap[market].shortOrders)
 			lotp.AssertNotCalled(t, "ExecuteLiquidation", mock.Anything, mock.Anything, mock.Anything)
+			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
 		})
 		t.Run("when short orders are present in database for matching", func(t *testing.T) {
-			_, lotp, pipeline, underlyingPrices, _ := setupDependencies(t)
+			_, lotp, pipeline, underlyingPrices, cs := setupDependencies(t)
 			longOrder := getLongOrder()
 			shortOrder := getShortOrder()
 			expectedFillAmount := utils.BigIntMinAbs(shortOrder.BaseAssetQuantity, liquidablePositions[0].Size)
 			lotp.On("ExecuteLiquidation", traderAddress, shortOrder, expectedFillAmount).Return(nil)
+			cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
 
 			orderMap := map[Market]*Orders{market: {[]LimitOrder{longOrder}, []LimitOrder{shortOrder}}}
-
 			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices)
 
 			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, shortOrder, expectedFillAmount)
+			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
 
 			assert.Equal(t, longOrder, orderMap[market].longOrders[0])
 			assert.Equal(t, expectedFillAmount.Uint64(), orderMap[market].shortOrders[0].FilledBaseAssetQuantity.Uint64())
@@ -104,6 +113,9 @@ func TestRunLiquidations(t *testing.T) {
 	})
 }
 
+// cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
+//
+//	cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
 func TestRunMatchingEngine(t *testing.T) {
 	t.Run("when either long or short orders are not present in memorydb", func(t *testing.T) {
 		t.Run("when no short and long orders are present", func(t *testing.T) {
@@ -230,6 +242,7 @@ func TestRunMatchingEngine(t *testing.T) {
 
 				//During 1st  matching iteration
 				longOrder1UnfulfilledQuantity := longOrder1.GetUnFilledBaseAssetQuantity()
+				log.Info("longOrder1", "longOrder1", longOrder1)
 				shortOrder1UnfulfilledQuantity := shortOrder1.GetUnFilledBaseAssetQuantity()
 				fillAmount := utils.BigIntMinAbs(longOrder1UnfulfilledQuantity, shortOrder1UnfulfilledQuantity)
 				lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount)
