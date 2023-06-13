@@ -142,7 +142,6 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 	for _, liquidable := range liquidablePositions {
 		market := liquidable.Market
 		numOrdersExhausted := 0
-
 		switch liquidable.PositionType {
 		case LONG:
 			for _, order := range orderMap[market].longOrders {

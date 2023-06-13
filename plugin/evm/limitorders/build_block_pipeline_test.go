@@ -14,6 +14,7 @@ import (
 
 func TestRunLiquidations(t *testing.T) {
 	traderAddress := common.HexToAddress("0x710bf5f942331874dcbc7783319123679033b63b")
+	traderAddress1 := common.HexToAddress("0x376c47978271565f56DEB45495afa69E59c16Ab2")
 	market := Market(0)
 	liqUpperBound := big.NewInt(22)
 	liqLowerBound := big.NewInt(18)
@@ -31,13 +32,6 @@ func TestRunLiquidations(t *testing.T) {
 	})
 
 	t.Run("when liquidable position is long", func(t *testing.T) {
-		liquidablePositions := []LiquidablePosition{{
-			Address:      traderAddress,
-			Market:       market,
-			PositionType: LONG,
-			Size:         big.NewInt(7),
-			FilledSize:   big.NewInt(0),
-		}}
 		t.Run("when no long orders are present in database for matching", func(t *testing.T) {
 			_, lotp, pipeline, underlyingPrices, cs := setupDependencies(t)
 			longOrders := []LimitOrder{}
@@ -46,13 +40,14 @@ func TestRunLiquidations(t *testing.T) {
 			orderMap := map[Market]*Orders{market: {longOrders, shortOrders}}
 
 			cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
-			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices)
+			pipeline.runLiquidations([]LiquidablePosition{getLiquidablePos(traderAddress, LONG, 7)}, orderMap, underlyingPrices)
 			assert.Equal(t, longOrders, orderMap[market].longOrders)
 			assert.Equal(t, shortOrders, orderMap[market].shortOrders)
 			lotp.AssertNotCalled(t, "ExecuteLiquidation", mock.Anything, mock.Anything, mock.Anything)
 			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
 		})
 		t.Run("when long orders are present in database for matching", func(t *testing.T) {
+			liquidablePositions := []LiquidablePosition{getLiquidablePos(traderAddress, LONG, 7)}
 			_, lotp, pipeline, underlyingPrices, cs := setupDependencies(t)
 			longOrder := getLongOrder()
 			shortOrder := getShortOrder()
@@ -68,6 +63,68 @@ func TestRunLiquidations(t *testing.T) {
 			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
 			assert.Equal(t, shortOrder, orderMap[market].shortOrders[0])
 			assert.Equal(t, expectedFillAmount.Uint64(), orderMap[market].longOrders[0].FilledBaseAssetQuantity.Uint64())
+		})
+		t.Run("2nd long order < liqLowerBound", func(t *testing.T) {
+			liquidablePositions := []LiquidablePosition{getLiquidablePos(traderAddress, LONG, 7)}
+			_, lotp, pipeline, underlyingPrices, cs := setupDependencies(t)
+			longOrder := getLongOrder()
+			longOrder.BaseAssetQuantity = big.NewInt(5) // 5 < liquidable.Size (7)
+
+			longOrder2 := getLongOrder()
+			longOrder2.Price = big.NewInt(17) // 17 < lower bound (18)
+
+			expectedFillAmount := utils.BigIntMinAbs(longOrder.BaseAssetQuantity, liquidablePositions[0].Size)
+			cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
+			lotp.On("ExecuteLiquidation", traderAddress, longOrder, expectedFillAmount).Return(nil)
+
+			orderMap := map[Market]*Orders{market: {[]LimitOrder{longOrder, longOrder2}, []LimitOrder{}}}
+
+			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices)
+
+			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, longOrder, expectedFillAmount)
+			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
+			assert.Equal(t, 1, len(orderMap[market].longOrders))              // 0th order was consumed
+			assert.Equal(t, longOrder2, orderMap[market].longOrders[0])       // untouched
+			assert.Equal(t, big.NewInt(5), liquidablePositions[0].FilledSize) // 7 - 5
+		})
+
+		t.Run("4 liquidable positions", func(t *testing.T) {
+			liquidablePositions := []LiquidablePosition{getLiquidablePos(traderAddress, LONG, 7), getLiquidablePos(traderAddress, SHORT, -8), getLiquidablePos(traderAddress1, LONG, 9), getLiquidablePos(traderAddress1, SHORT, -2)}
+			_, lotp, pipeline, underlyingPrices, cs := setupDependencies(t)
+			longOrder0 := buildLongOrder(20, 5)
+			longOrder1 := buildLongOrder(19, 12)
+
+			shortOrder0 := buildShortOrder(19, -9)
+			shortOrder1 := buildShortOrder(liqLowerBound.Int64()-1, -8)
+			orderMap := map[Market]*Orders{market: {[]LimitOrder{longOrder0, longOrder1}, []LimitOrder{shortOrder0, shortOrder1}}}
+
+			cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
+			lotp.On("ExecuteLiquidation", traderAddress, orderMap[market].longOrders[0], big.NewInt(5)).Return(nil)
+			lotp.On("ExecuteLiquidation", traderAddress, orderMap[market].longOrders[1], big.NewInt(2)).Return(nil)
+			lotp.On("ExecuteLiquidation", traderAddress1, orderMap[market].longOrders[1], big.NewInt(9)).Return(nil)
+			lotp.On("ExecuteLiquidation", traderAddress, orderMap[market].shortOrders[0], big.NewInt(8)).Return(nil)
+			lotp.On("ExecuteLiquidation", traderAddress1, orderMap[market].shortOrders[0], big.NewInt(1)).Return(nil)
+			lotp.On("ExecuteLiquidation", traderAddress1, orderMap[market].shortOrders[1], big.NewInt(1)).Return(nil)
+
+			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices)
+			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
+
+			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, longOrder0, big.NewInt(5))
+			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, longOrder0, big.NewInt(5))
+			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress1, longOrder1, big.NewInt(9))
+			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, shortOrder0, big.NewInt(8))
+			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress1, shortOrder0, big.NewInt(1))
+			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress1, shortOrder1, big.NewInt(1))
+
+			assert.Equal(t, 1, len(orderMap[market].longOrders)) // 0th order was consumed
+			assert.Equal(t, big.NewInt(11), orderMap[market].longOrders[0].FilledBaseAssetQuantity)
+			assert.Equal(t, big.NewInt(7), liquidablePositions[0].FilledSize)
+			assert.Equal(t, big.NewInt(9), liquidablePositions[2].FilledSize)
+
+			assert.Equal(t, 1, len(orderMap[market].shortOrders))
+			assert.Equal(t, big.NewInt(-1), orderMap[market].shortOrders[0].FilledBaseAssetQuantity)
+			assert.Equal(t, big.NewInt(-8), liquidablePositions[1].FilledSize)
+			assert.Equal(t, big.NewInt(-2), liquidablePositions[3].FilledSize)
 		})
 	})
 
@@ -113,9 +170,6 @@ func TestRunLiquidations(t *testing.T) {
 	})
 }
 
-// cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
-//
-//	cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
 func TestRunMatchingEngine(t *testing.T) {
 	t.Run("when either long or short orders are not present in memorydb", func(t *testing.T) {
 		t.Run("when no short and long orders are present", func(t *testing.T) {
@@ -449,6 +503,30 @@ func getLongOrder() LimitOrder {
 	salt := big.NewInt(time.Now().Unix())
 	longOrder, _ := createLimitOrder(LONG, "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", big.NewInt(10), big.NewInt(20.0), Placed, signature, big.NewInt(2), salt)
 	return longOrder
+}
+
+func buildLongOrder(price, q int64) LimitOrder {
+	signature := []byte("Here is a long order")
+	salt := big.NewInt(time.Now().Unix())
+	longOrder, _ := createLimitOrder(LONG, "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", big.NewInt(q), big.NewInt(price), Placed, signature, big.NewInt(2), salt)
+	return longOrder
+}
+
+func buildShortOrder(price, q int64) LimitOrder {
+	signature := []byte("Here is a long order")
+	salt := big.NewInt(time.Now().Unix())
+	order, _ := createLimitOrder(SHORT, "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", big.NewInt(q), big.NewInt(price), Placed, signature, big.NewInt(2), salt)
+	return order
+}
+
+func getLiquidablePos(address common.Address, posType PositionType, size int64) LiquidablePosition {
+	return LiquidablePosition{
+		Address:      address,
+		Market:       market,
+		PositionType: posType,
+		Size:         big.NewInt(size),
+		FilledSize:   big.NewInt(0),
+	}
 }
 
 func setupDependencies(t *testing.T) (*MockLimitOrderDatabase, *MockLimitOrderTxProcessor, *BuildBlockPipeline, map[Market]*big.Int, *MockConfigService) {
