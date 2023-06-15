@@ -43,6 +43,7 @@ const (
 	FulFilled
 	Cancelled
 	Execution_Failed
+	Below_Minimum_Allowable_Margin
 )
 
 type Lifecycle struct {
@@ -335,9 +336,10 @@ func (db *InMemoryDatabase) GetLongOrders(market Market, lowerbound *big.Int) []
 
 	var longOrders []LimitOrder
 	for _, order := range db.OrderMap {
+		orderStatus := order.getOrderStatus().Status
 		if order.PositionType == LONG &&
 			order.Market == market &&
-			order.getOrderStatus().Status == Placed && // note that Execution_Failed orders are being ignored atm however, it's possible that they could be executed
+			(orderStatus == Placed || orderStatus == Execution_Failed) &&
 			(lowerbound == nil || order.Price.Cmp(lowerbound) >= 0) {
 			if order.ReduceOnly {
 				if reduceOnlyOrder := db.getReduceOnlyOrderDisplay(order); reduceOnlyOrder != nil {
@@ -358,9 +360,10 @@ func (db *InMemoryDatabase) GetShortOrders(market Market, upperbound *big.Int) [
 
 	var shortOrders []LimitOrder
 	for _, order := range db.OrderMap {
+		orderStatus := order.getOrderStatus().Status
 		if order.PositionType == SHORT &&
 			order.Market == market &&
-			order.getOrderStatus().Status == Placed &&
+			(orderStatus == Placed || orderStatus == Execution_Failed) &&
 			(upperbound == nil || order.Price.Cmp(upperbound) <= 0) {
 			if order.ReduceOnly {
 				if reduceOnlyOrder := db.getReduceOnlyOrderDisplay(order); reduceOnlyOrder != nil {
