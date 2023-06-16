@@ -76,7 +76,22 @@ func getUnderlyingPriceForMarket(stateDB contract.StateDB, marketID int64) *big.
 	return getUnderlyingPrice(stateDB, market)
 }
 
+func getRedStoneAdapterAddress(stateDB contract.StateDB, market common.Address) common.Address {
+	return common.BytesToAddress(stateDB.GetState(market, common.BigToHash(big.NewInt(RED_STONE_ADAPTER_SLOT))).Bytes())
+}
+
+func getRedStoneFeedId(stateDB contract.StateDB, market common.Address) []byte {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(RED_STONE_FEED_ID_SLOT))).Bytes()
+}
+
 func getUnderlyingPrice(stateDB contract.StateDB, market common.Address) *big.Int {
+	// first we check the redStoneAdapter, if it is set, it should imply we are using a redstone oracle
+	redStoneAdapter := getRedStoneAdapterAddress(stateDB, market)
+	if redStoneAdapter.Hash().Big().Cmp(big.NewInt(0)) != 0 {
+		// redstone oracle is configured for this market
+		return getRedStonePrice(stateDB, redStoneAdapter, getRedStoneFeedId(stateDB, market))
+	}
+	// red stone oracle is not enabled for this market, we use the default TestOracle
 	oracle := getOracleAddress(stateDB, market)
 	underlying := getUnderlyingAssetAddress(stateDB, market)
 	slot := crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.LeftPadBytes(big.NewInt(TEST_ORACLE_PRICES_MAPPING_SLOT).Bytes(), 32)...))

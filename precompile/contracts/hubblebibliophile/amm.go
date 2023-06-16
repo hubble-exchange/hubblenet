@@ -19,6 +19,8 @@ const (
 	ORACLE_SLOT                     int64 = 10
 	UNDERLYING_ASSET_SLOT           int64 = 11
 	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 17
+	RED_STONE_ADAPTER_SLOT          int64 = 21
+	RED_STONE_FEED_ID_SLOT          int64 = 22
 )
 
 const (
@@ -69,13 +71,6 @@ func getOracleAddress(stateDB contract.StateDB, market common.Address) common.Ad
 
 func getUnderlyingAssetAddress(stateDB contract.StateDB, market common.Address) common.Address {
 	return common.BytesToAddress(stateDB.GetState(market, common.BigToHash(big.NewInt(UNDERLYING_ASSET_SLOT))).Bytes())
-}
-
-func getUnderlyingPrice(stateDB contract.StateDB, market common.Address) *big.Int {
-	oracle := getOracleAddress(stateDB, market)
-	underlying := getUnderlyingAssetAddress(stateDB, market)
-	slot := crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.LeftPadBytes(big.NewInt(TEST_ORACLE_PRICES_MAPPING_SLOT).Bytes(), 32)...))
-	return fromTwosComplement(stateDB.GetState(oracle, common.BytesToHash(slot)).Bytes())
 }
 
 // Trader State
