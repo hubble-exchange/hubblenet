@@ -105,7 +105,7 @@ func (order LimitOrder) getOrderStatus() Lifecycle {
 }
 
 func (order LimitOrder) String() string {
-	return fmt.Sprintf("LimitOrder: Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, BlockNumber: %s", order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, order.BlockNumber)
+	return fmt.Sprintf("LimitOrder: Id: %s, Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, BlockNumber: %s", order.Id, order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, order.BlockNumber)
 }
 
 func (order LimitOrder) ToOrderMin() OrderMin {
@@ -163,6 +163,8 @@ type LimitOrderDatabase interface {
 	GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]LimitOrder)
 	GetOpenOrdersForTrader(trader common.Address) []LimitOrder
 	UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int, cumlastPremiumFraction *big.Int)
+	GetOrderById(orderId common.Hash) *LimitOrder
+	GetTraderInfo(trader common.Address) *Trader
 }
 
 type InMemoryDatabase struct {
@@ -470,7 +472,7 @@ func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
-	return db.LastPrice[market]
+	return big.NewInt(0).Set(db.LastPrice[market])
 }
 
 func (db *InMemoryDatabase) GetLastPrices() map[Market]*big.Int {
@@ -496,6 +498,32 @@ func (db *InMemoryDatabase) GetOpenOrdersForTrader(trader common.Address) []Limi
 	defer db.mu.RUnlock()
 
 	return db.getTraderOrders(trader)
+}
+
+func (db *InMemoryDatabase) GetOrderById(orderId common.Hash) *LimitOrder {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	order := db.OrderMap[orderId]
+	if order == nil {
+		return nil
+	}
+
+	orderCopy := deepCopyOrder(order)
+	return &orderCopy
+}
+
+func (db *InMemoryDatabase) GetTraderInfo(trader common.Address) *Trader {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	traderInfo := db.TraderMap[trader]
+	if traderInfo == nil {
+		return nil
+	}
+
+	traderCopy := deepCopyTrader(traderInfo)
+	return traderCopy
 }
 
 func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFraction *big.Int, markets []Market, minSizes []*big.Int) LiquidablePosition {
@@ -744,5 +772,30 @@ func deepCopyOrder(order *LimitOrder) LimitOrder {
 		LifecycleList:           *lifecycleList,
 		BlockNumber:             big.NewInt(0).Set(order.BlockNumber),
 		RawOrder:                order.RawOrder,
+	}
+}
+
+func deepCopyTrader(order *Trader) *Trader {
+	positions := map[Market]*Position{}
+	for market, position := range order.Positions {
+		positions[market] = &Position{
+			OpenNotional:         big.NewInt(0).Set(position.OpenNotional),
+			Size:                 big.NewInt(0).Set(position.Size),
+			UnrealisedFunding:    big.NewInt(0).Set(position.UnrealisedFunding),
+			LastPremiumFraction:  big.NewInt(0).Set(position.LastPremiumFraction),
+			LiquidationThreshold: big.NewInt(0).Set(position.LiquidationThreshold),
+		}
+	}
+
+	margin := Margin{
+		Reserved:  big.NewInt(0).Set(order.Margin.Reserved),
+		Deposited: map[Collateral]*big.Int{},
+	}
+	for collateral, amount := range order.Margin.Deposited {
+		margin.Deposited[collateral] = big.NewInt(0).Set(amount)
+	}
+	return &Trader{
+		Positions: positions,
+		Margin:    margin,
 	}
 }
