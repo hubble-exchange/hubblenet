@@ -106,17 +106,17 @@ func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Ad
 }
 
 func (pipeline *BuildBlockPipeline) fetchOrders(market Market, underlyingPrice *big.Int, cancellableOrderIds map[common.Hash]struct{}) *Orders {
-	_, lowerbound := pipeline.configService.GetAcceptableBounds(market)
-
+	_, lowerBoundForLongs := pipeline.configService.GetAcceptableBounds(market)
 	// any long orders below the permissible lowerbound are irrelevant, because they won't be matched no matter what.
 	// this assumes that all above cancelOrder transactions got executed successfully
-	longOrders := removeOrdersWithIds(pipeline.db.GetLongOrders(market, lowerbound), cancellableOrderIds)
+	longOrders := removeOrdersWithIds(pipeline.db.GetLongOrders(market, lowerBoundForLongs), cancellableOrderIds)
 
-	var shortOrders []LimitOrder
-	// all short orders above price of the highest long order are irrelevant
+	upperBoundforShorts, _ := pipeline.configService.GetAcceptableBoundsForLiquidation(market)
 	if len(longOrders) > 0 {
-		shortOrders = removeOrdersWithIds(pipeline.db.GetShortOrders(market, longOrders[0].Price /* upperbound */), cancellableOrderIds)
+		upperBoundforShorts = utils.BigIntMax(longOrders[0].Price, upperBoundforShorts)
 	}
+	// while longOrders[0].Price would have been enough for the matching engine alone, but we include orders within the allowable liqupperbound, to allow for liquidations to happen
+	shortOrders := removeOrdersWithIds(pipeline.db.GetShortOrders(market, upperBoundforShorts), cancellableOrderIds)
 	return &Orders{longOrders, shortOrders}
 }
 
@@ -140,6 +140,7 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 	}
 
 	for _, liquidable := range liquidablePositions {
+		log.Info("liquidation bounds", "bounds", liquidationBounds[liquidable.Market], "liquidable", liquidable)
 		market := liquidable.Market
 		numOrdersExhausted := 0
 		switch liquidable.PositionType {
@@ -163,6 +164,7 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 			orderMap[market].longOrders = orderMap[market].longOrders[numOrdersExhausted:]
 		case SHORT:
 			for _, order := range orderMap[market].shortOrders {
+				log.Info("liquidating short order", "order", order, "liquidable", liquidable)
 				if order.Price.Cmp(liquidationBounds[market].Upperbound) == 1 {
 					// further orders are not not eligible to liquidate with
 					break
