@@ -85,7 +85,7 @@ func (order *LimitOrder) MarshalJSON() ([]byte, error) {
 		UserAddress:             strings.ToLower(order.UserAddress),
 		BaseAssetQuantity:       order.BaseAssetQuantity.String(),
 		FilledBaseAssetQuantity: order.FilledBaseAssetQuantity.String(),
-		Salt:                    "0x" + order.Salt.Text(16),
+		Salt:                    order.Salt.String(),
 		Price:                   order.Price.String(),
 		LifecycleList:           order.LifecycleList,
 		BlockNumber:             order.BlockNumber.String(),
