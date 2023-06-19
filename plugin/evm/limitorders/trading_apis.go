@@ -33,37 +33,33 @@ type TradingOrderBookDepthResponse struct {
 	LastUpdateID int        `json:"lastUpdateId"`
 	E            int64      `json:"E"`
 	T            int64      `json:"T"`
+	Symbol       int64      `json:"symbol"`
 	Bids         [][]string `json:"bids"`
 	Asks         [][]string `json:"asks"`
+}
+
+type TradingOrderBookDepthUpdateResponse struct {
+	T      int64      `json:"T"`
+	Symbol int64      `json:"s"`
+	Bids   [][]string `json:"b"`
+	Asks   [][]string `json:"a"`
 }
 
 // found at https://binance-docs.github.io/apidocs/futures/en/#query-order-user_data
 // commented field values are from the binance docs
 type OrderStatusResponse struct {
-	AvgPrice      string   `json:"avgPrice"`      // "0.00000"
-	ClientOrderID string   `json:"clientOrderId"` // "abc"
-	CumQuote      string   `json:"cumQuote"`      // "0"
-	ExecutedQty   string   `json:"executedQty"`   // "0"
-	OrderID       string   `json:"orderId"`       // 1917641
-	OrigQty       string   `json:"origQty"`       // "0.40"
-	OrigType      string   `json:"origType"`      // "TRAILING_STOP_MARKET"
-	Price         string   `json:"price"`         // "0"
-	ReduceOnly    bool     `json:"reduceOnly"`    // false
-	Side          string   `json:"side"`          // "BUY"
-	PositionSide  string   `json:"positionSide"`  // "SHORT"
-	Status        string   `json:"status"`        // "NEW"
-	StopPrice     string   `json:"stopPrice"`     // "9300"
-	ClosePosition bool     `json:"closePosition"` // false
-	Symbol        int64    `json:"symbol"`        // "BTCUSDT"
-	Time          int64    `json:"time"`          // 1579276756075
-	TimeInForce   string   `json:"timeInForce"`   // "GTC"
-	Type          string   `json:"type"`          // "TRAILING_STOP_MARKET"
-	ActivatePrice string   `json:"activatePrice"` // "9020"
-	PriceRate     string   `json:"priceRate"`     // "0.3"
-	UpdateTime    int64    `json:"updateTime"`    // 1579276756075
-	WorkingType   string   `json:"workingType"`   // "CONTRACT_PRICE"
-	PriceProtect  bool     `json:"priceProtect"`  // false
-	Salt          *big.Int `json:"salt"`
+	ExecutedQty  string   `json:"executedQty"`  // "0"
+	OrderID      string   `json:"orderId"`      // 1917641
+	OrigQty      string   `json:"origQty"`      // "0.40"
+	Price        string   `json:"price"`        // "0"
+	ReduceOnly   bool     `json:"reduceOnly"`   // false
+	PositionSide string   `json:"positionSide"` // "SHORT"
+	Status       string   `json:"status"`       // "NEW"
+	Symbol       int64    `json:"symbol"`       // "BTCUSDT"
+	Time         int64    `json:"time"`         // 1579276756075
+	Type         string   `json:"type"`         // "LIMIT"
+	UpdateTime   int64    `json:"updateTime"`   // 1579276756075
+	Salt         *big.Int `json:"salt"`
 }
 
 type TraderPosition struct {
@@ -99,24 +95,7 @@ func (api *TradingAPI) GetTradingOrderBookDepth(ctx context.Context, market int8
 	}
 	depth := getDepthForMarket(api.db, Market(market))
 
-	for price, quantity := range depth.Longs {
-		bigPrice, _ := big.NewInt(0).SetString(price, 10)
-		bigQuantity, _ := big.NewInt(0).SetString(quantity, 10)
-		response.Bids = append(response.Bids, []string{
-			utils.BigIntToDecimal(bigPrice, 6, 8),
-			utils.BigIntToDecimal(bigQuantity, 18, 8),
-		})
-	}
-
-	for price, quantity := range depth.Shorts {
-		bigPrice, _ := big.NewInt(0).SetString(price, 10)
-		bigQuantity, _ := big.NewInt(0).SetString(quantity, 10)
-		response.Asks = append(response.Asks, []string{
-			utils.BigIntToDecimal(bigPrice, 6, 8),
-			utils.BigIntToDecimal(bigQuantity, 18, 8),
-		})
-	}
-
+	response = transformMarketDepth(depth)
 	response.T = time.Now().Unix()
 
 	return response
@@ -158,30 +137,18 @@ func (api *TradingAPI) GetOrderStatus(ctx context.Context, orderId common.Hash) 
 	}
 
 	response = OrderStatusResponse{
-		AvgPrice:      "",
-		ClientOrderID: "", // ?
-		CumQuote:      "", // ?
-		ExecutedQty:   utils.BigIntToDecimal(limitOrder.FilledBaseAssetQuantity, 18, 8),
-		OrderID:       limitOrder.Id.String(),
-		OrigQty:       utils.BigIntToDecimal(limitOrder.BaseAssetQuantity, 18, 8),
-		OrigType:      "",
-		Price:         utils.BigIntToDecimal(limitOrder.Price, 6, 8),
-		ReduceOnly:    limitOrder.ReduceOnly,
-		Side:          "", // ?
-		PositionSide:  positionSide,
-		Status:        status,
-		StopPrice:     "",    // N/A
-		ClosePosition: false, // N/A - "if Close-All"
-		Symbol:        int64(limitOrder.Market),
-		Time:          time,
-		TimeInForce:   "", // ?
-		Type:          "LIMIT_ORDER",
-		ActivatePrice: "", // "activation price, only return with TRAILING_STOP_MARKET order" - N/A
-		PriceRate:     "", // "callback rate, only return with TRAILING_STOP_MARKET order"
-		UpdateTime:    updateTime,
-		WorkingType:   "", // ?
-		PriceProtect:  false,
-		Salt:          limitOrder.Salt,
+		ExecutedQty:  utils.BigIntToDecimal(limitOrder.FilledBaseAssetQuantity, 18, 8),
+		OrderID:      limitOrder.Id.String(),
+		OrigQty:      utils.BigIntToDecimal(limitOrder.BaseAssetQuantity, 18, 8),
+		Price:        utils.BigIntToDecimal(limitOrder.Price, 6, 8),
+		ReduceOnly:   limitOrder.ReduceOnly,
+		PositionSide: positionSide,
+		Status:       status,
+		Symbol:       int64(limitOrder.Market),
+		Time:         time,
+		Type:         "LIMIT_ORDER",
+		UpdateTime:   updateTime,
+		Salt:         limitOrder.Salt,
 	}
 
 	return response, nil
@@ -227,4 +194,60 @@ func (api *TradingAPI) GetMarginAndPositions(ctx context.Context, trader string)
 	}
 
 	return response, nil
+}
+
+func (api *TradingAPI) StreamDepthUpdateForMarket(ctx context.Context, market int) (*rpc.Subscription, error) {
+	notifier, _ := rpc.NotifierFromContext(ctx)
+	rpcSub := notifier.CreateSubscription()
+
+	ticker := time.NewTicker(1 * time.Second)
+
+	var oldMarketDepth = &MarketDepth{}
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				newMarketDepth := getDepthForMarket(api.db, Market(market))
+				depthUpdate := getUpdateInDepth(newMarketDepth, oldMarketDepth)
+				transformedDepthUpdate := transformMarketDepth(depthUpdate)
+				response := TradingOrderBookDepthUpdateResponse{
+					T:      time.Now().Unix(),
+					Symbol: int64(market),
+					Bids:   transformedDepthUpdate.Bids,
+					Asks:   transformedDepthUpdate.Asks,
+				}
+				notifier.Notify(rpcSub.ID, response)
+				oldMarketDepth = newMarketDepth
+			case <-notifier.Closed():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
+	return rpcSub, nil
+}
+
+func transformMarketDepth(depth *MarketDepth) TradingOrderBookDepthResponse {
+	response := TradingOrderBookDepthResponse{}
+	for price, quantity := range depth.Longs {
+		bigPrice, _ := big.NewInt(0).SetString(price, 10)
+		bigQuantity, _ := big.NewInt(0).SetString(quantity, 10)
+		response.Bids = append(response.Bids, []string{
+			utils.BigIntToDecimal(bigPrice, 6, 8),
+			utils.BigIntToDecimal(bigQuantity, 18, 8),
+		})
+	}
+
+	for price, quantity := range depth.Shorts {
+		bigPrice, _ := big.NewInt(0).SetString(price, 10)
+		bigQuantity, _ := big.NewInt(0).SetString(quantity, 10)
+		response.Asks = append(response.Asks, []string{
+			utils.BigIntToDecimal(bigPrice, 6, 8),
+			utils.BigIntToDecimal(bigQuantity, 18, 8),
+		})
+	}
+
+	return response
 }
