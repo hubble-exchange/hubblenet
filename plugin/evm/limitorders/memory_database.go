@@ -125,6 +125,22 @@ type Position struct {
 	LiquidationThreshold *big.Int `json:"liquidation_threshold"`
 }
 
+func (p *Position) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		OpenNotional         string `json:"open_notional"`
+		Size                 string `json:"size"`
+		UnrealisedFunding    string `json:"unrealised_funding"`
+		LastPremiumFraction  string `json:"last_premium_fraction"`
+		LiquidationThreshold string `json:"liquidation_threshold"`
+	}{
+		OpenNotional:         p.OpenNotional.String(),
+		Size:                 p.Size.String(),
+		UnrealisedFunding:    p.UnrealisedFunding.String(),
+		LastPremiumFraction:  p.LastPremiumFraction.String(),
+		LiquidationThreshold: p.LiquidationThreshold.String(),
+	})
+}
+
 type Margin struct {
 	Reserved  *big.Int                `json:"reserved"`
 	Deposited map[Collateral]*big.Int `json:"deposited"`
