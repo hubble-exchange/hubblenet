@@ -242,7 +242,7 @@ func (db *InMemoryDatabase) SetOrderStatus(orderId common.Hash, status Status, i
 	defer db.mu.Unlock()
 
 	if db.OrderMap[orderId] == nil {
-		return fmt.Errorf("Invalid orderId %s", orderId.Hex())
+		return fmt.Errorf("nvalid orderId %s", orderId.Hex())
 	}
 	db.OrderMap[orderId].LifecycleList = append(db.OrderMap[orderId].LifecycleList, Lifecycle{blockNumber, status, info})
 	return nil
@@ -378,7 +378,10 @@ func (db *InMemoryDatabase) getCleanOrder(order *LimitOrder, blockNumber *big.In
 		if blockNumber != nil && orderStatus.BlockNumber+100 <= blockNumber.Uint64() {
 			eligibleForExecution = true
 		} else {
-			log.Warn("eligible order is in Execution_Failed state", "orderId", order.String(), "retryInBlocks", orderStatus.BlockNumber+100-blockNumber.Uint64())
+			if blockNumber.Uint64()%10 == 0 {
+				// to not make the log too noisy
+				log.Warn("eligible order is in Execution_Failed state", "orderId", order.String(), "retryInBlocks", orderStatus.BlockNumber+100-blockNumber.Uint64())
+			}
 		}
 	}
 
