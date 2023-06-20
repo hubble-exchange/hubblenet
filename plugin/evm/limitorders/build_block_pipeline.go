@@ -108,7 +108,7 @@ func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Ad
 func (pipeline *BuildBlockPipeline) fetchOrders(market Market, underlyingPrice *big.Int, cancellableOrderIds map[common.Hash]struct{}) *Orders {
 	_, lowerBoundForLongs := pipeline.configService.GetAcceptableBounds(market)
 	// any long orders below the permissible lowerbound are irrelevant, because they won't be matched no matter what.
-	// this assumes that all above cancelOrder transactions got executed successfully
+	// this assumes that all above cancelOrder transactions got executed successfully (or atleast they are not meant to be executed anyway if they passed the cancellation criteria)
 	longOrders := removeOrdersWithIds(pipeline.db.GetLongOrders(market, lowerBoundForLongs), cancellableOrderIds)
 
 	upperBoundforShorts, _ := pipeline.configService.GetAcceptableBoundsForLiquidation(market)
@@ -140,7 +140,6 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 	}
 
 	for _, liquidable := range liquidablePositions {
-		log.Info("liquidation bounds", "bounds", liquidationBounds[liquidable.Market], "liquidable", liquidable)
 		market := liquidable.Market
 		numOrdersExhausted := 0
 		switch liquidable.PositionType {
@@ -164,7 +163,6 @@ func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []Liquid
 			orderMap[market].longOrders = orderMap[market].longOrders[numOrdersExhausted:]
 		case SHORT:
 			for _, order := range orderMap[market].shortOrders {
-				log.Info("liquidating short order", "order", order, "liquidable", liquidable)
 				if order.Price.Cmp(liquidationBounds[market].Upperbound) == 1 {
 					// further orders are not not eligible to liquidate with
 					break

@@ -43,12 +43,12 @@ const (
 	FulFilled
 	Cancelled
 	Execution_Failed
-	Below_Minimum_Allowable_Margin
 )
 
 type Lifecycle struct {
 	BlockNumber uint64
 	Status      Status
+	Info        string
 }
 
 type LimitOrder struct {
@@ -66,21 +66,19 @@ type LimitOrder struct {
 	RawOrder                Order    `json:"-"`
 }
 
-type LimitOrderJson struct {
-	Market                  Market      `json:"market"`
-	PositionType            string      `json:"position_type"`
-	UserAddress             string      `json:"user_address"`
-	BaseAssetQuantity       string      `json:"base_asset_quantity"`
-	FilledBaseAssetQuantity string      `json:"filled_base_asset_quantity"`
-	Salt                    string      `json:"salt"`
-	Price                   string      `json:"price"`
-	LifecycleList           []Lifecycle `json:"lifecycle_list"`
-	BlockNumber             uint64      `json:"block_number"` // block number order was placed on
-	ReduceOnly              bool        `json:"reduce_only"`
-}
-
 func (order *LimitOrder) MarshalJSON() ([]byte, error) {
-	limitOrderJson := LimitOrderJson{
+	return json.Marshal(&struct {
+		Market                  Market      `json:"market"`
+		PositionType            string      `json:"position_type"`
+		UserAddress             string      `json:"user_address"`
+		BaseAssetQuantity       string      `json:"base_asset_quantity"`
+		FilledBaseAssetQuantity string      `json:"filled_base_asset_quantity"`
+		Salt                    string      `json:"salt"`
+		Price                   string      `json:"price"`
+		LifecycleList           []Lifecycle `json:"lifecycle_list"`
+		BlockNumber             uint64      `json:"block_number"` // block number order was placed on
+		ReduceOnly              bool        `json:"reduce_only"`
+	}{
 		Market:                  order.Market,
 		PositionType:            order.PositionType.String(),
 		UserAddress:             order.UserAddress,
@@ -89,10 +87,9 @@ func (order *LimitOrder) MarshalJSON() ([]byte, error) {
 		Salt:                    order.Salt.String(),
 		Price:                   order.Price.String(),
 		LifecycleList:           order.LifecycleList,
-		BlockNumber:             uint64(order.BlockNumber.Int64()),
+		BlockNumber:             order.BlockNumber.Uint64(),
 		ReduceOnly:              order.ReduceOnly,
-	}
-	return json.Marshal(limitOrderJson)
+	})
 }
 
 func (order LimitOrder) GetUnFilledBaseAssetQuantity() *big.Int {
@@ -174,7 +171,7 @@ type LimitOrderDatabase interface {
 	GetOrderBookData() InMemoryDatabase
 	GetOrderBookDataCopy() *InMemoryDatabase
 	Accept(blockNumber uint64)
-	SetOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error
+	SetOrderStatus(orderId common.Hash, status Status, info string, blockNumber uint64) error
 	RevertLastStatus(orderId common.Hash) error
 	GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]LimitOrder)
 	GetOpenOrdersForTrader(trader common.Address) []LimitOrder
@@ -241,14 +238,14 @@ func (db *InMemoryDatabase) Accept(blockNumber uint64) {
 	}
 }
 
-func (db *InMemoryDatabase) SetOrderStatus(orderId common.Hash, status Status, blockNumber uint64) error {
+func (db *InMemoryDatabase) SetOrderStatus(orderId common.Hash, status Status, info string, blockNumber uint64) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	if db.OrderMap[orderId] == nil {
 		return errors.New(fmt.Sprintf("Invalid orderId %s", orderId.Hex()))
 	}
-	db.OrderMap[orderId].LifecycleList = append(db.OrderMap[orderId].LifecycleList, Lifecycle{blockNumber, status})
+	db.OrderMap[orderId].LifecycleList = append(db.OrderMap[orderId].LifecycleList, Lifecycle{blockNumber, status, info})
 	return nil
 }
 
@@ -283,7 +280,7 @@ func (db *InMemoryDatabase) Add(orderId common.Hash, order *LimitOrder) {
 	defer db.mu.Unlock()
 
 	order.Id = orderId
-	order.LifecycleList = append(order.LifecycleList, Lifecycle{order.BlockNumber.Uint64(), Placed})
+	order.LifecycleList = append(order.LifecycleList, Lifecycle{order.BlockNumber.Uint64(), Placed, ""})
 	db.OrderMap[orderId] = order
 }
 
@@ -307,7 +304,7 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 	}
 
 	if limitOrder.BaseAssetQuantity.Cmp(limitOrder.FilledBaseAssetQuantity) == 0 {
-		limitOrder.LifecycleList = append(limitOrder.LifecycleList, Lifecycle{blockNumber, FulFilled})
+		limitOrder.LifecycleList = append(limitOrder.LifecycleList, Lifecycle{blockNumber, FulFilled, ""})
 	}
 
 	if quantity.Cmp(big.NewInt(0)) == -1 && limitOrder.getOrderStatus().Status == FulFilled {
@@ -557,7 +554,7 @@ func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFra
 			Address:        addr,
 			Market:         market,
 			Size:           new(big.Int).Abs(position.LiquidationThreshold), // position.LiquidationThreshold is a pointer, to want to avoid unintentional mutation if/when we mutate liquidable.Size
-			MarginFraction: marginFraction,
+			MarginFraction: new(big.Int).Set(marginFraction),
 			FilledSize:     big.NewInt(0),
 		}
 		// while setting liquidation threshold of a position, we do not ensure whether it is a multiple of minSize.
@@ -646,7 +643,7 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 			marginReleased := divideByBasePrecision(big.NewInt(0).Mul(orderNotional, db.configService.getMinAllowableMargin()))
 			_availableMargin.Add(_availableMargin, marginReleased)
 			// log.Info("in determineOrdersToCancel loop", "availableMargin", prettifyScaledBigInt(_availableMargin, 6), "marginReleased", prettifyScaledBigInt(marginReleased, 6), "orderNotional", prettifyScaledBigInt(orderNotional, 6))
-			if _availableMargin.Cmp(big.NewInt(0)) >= 0 {
+			if _availableMargin.Sign() >= 0 {
 				break
 			}
 		}

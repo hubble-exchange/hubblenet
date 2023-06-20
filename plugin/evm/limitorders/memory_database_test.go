@@ -434,7 +434,7 @@ func TestAccept(t *testing.T) {
 		orderId1 := addLimitOrder(inMemoryDatabase)
 		orderId2 := addLimitOrder(inMemoryDatabase)
 
-		err := inMemoryDatabase.SetOrderStatus(orderId1, FulFilled, 51)
+		err := inMemoryDatabase.SetOrderStatus(orderId1, FulFilled, "", 51)
 		assert.Nil(t, err)
 		assert.Equal(t, inMemoryDatabase.OrderMap[orderId1].getOrderStatus().Status, FulFilled)
 
@@ -451,7 +451,7 @@ func TestAccept(t *testing.T) {
 	t.Run("Order is fulfilled, should be deleted when a future block is accepted", func(t *testing.T) {
 		inMemoryDatabase := getDatabase()
 		orderId := addLimitOrder(inMemoryDatabase)
-		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 51)
+		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, "", 51)
 		assert.Nil(t, err)
 		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].getOrderStatus().Status, FulFilled)
 
@@ -464,7 +464,7 @@ func TestAccept(t *testing.T) {
 	t.Run("Order is fulfilled, should not be deleted when a past block is accepted", func(t *testing.T) {
 		inMemoryDatabase := getDatabase()
 		orderId := addLimitOrder(inMemoryDatabase)
-		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 51)
+		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, "", 51)
 		assert.Nil(t, err)
 		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].getOrderStatus().Status, FulFilled)
 
@@ -506,7 +506,7 @@ func TestRevertLastStatus(t *testing.T) {
 	t.Run("revert status for fulfilled order", func(t *testing.T) {
 		inMemoryDatabase := getDatabase()
 		orderId := addLimitOrder(inMemoryDatabase)
-		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 3)
+		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, "", 3)
 		assert.Nil(t, err)
 
 		err = inMemoryDatabase.RevertLastStatus(orderId)
@@ -519,7 +519,7 @@ func TestRevertLastStatus(t *testing.T) {
 	t.Run("revert status for accepted + fulfilled order - expect error", func(t *testing.T) {
 		inMemoryDatabase := getDatabase()
 		orderId := addLimitOrder(inMemoryDatabase)
-		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, 3)
+		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, "", 3)
 		assert.Nil(t, err)
 
 		inMemoryDatabase.Accept(3)
