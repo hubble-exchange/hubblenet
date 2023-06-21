@@ -2,11 +2,13 @@ package bibliophile
 
 import (
 	"math/big"
+	"strings"
 
 	"github.com/ava-labs/subnet-evm/precompile/contract"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -82,16 +84,32 @@ func getRedStoneAdapterAddress(stateDB contract.StateDB, market common.Address) 
 	return common.BytesToAddress(stateDB.GetState(market, common.BigToHash(big.NewInt(RED_STONE_ADAPTER_SLOT))).Bytes())
 }
 
-func getRedStoneFeedId(stateDB contract.StateDB, market common.Address) []byte {
-	return stateDB.GetState(market, common.BigToHash(big.NewInt(RED_STONE_FEED_ID_SLOT))).Bytes()
+func getRedStoneFeedId(stateDB contract.StateDB, market common.Address) common.Hash {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(RED_STONE_FEED_ID_SLOT)))
 }
 
 func getUnderlyingPrice(stateDB contract.StateDB, market common.Address) *big.Int {
-	// first we check the redStoneAdapter, if it is set, it should imply we are using a redstone oracle
 	redStoneAdapter := getRedStoneAdapterAddress(stateDB, market)
-	if redStoneAdapter.Hash().Big().Cmp(big.NewInt(0)) != 0 {
-		// redstone oracle is configured for this market
-		return getRedStonePrice(stateDB, redStoneAdapter, getRedStoneFeedId(stateDB, market))
+	if redStoneAdapter.Hash().Big().Sign() != 0 {
+		feedId := getRedStoneFeedId(stateDB, market)
+		// first we check the feedId, if it is set, it should imply we are using a redstone oracle
+		log.Info("red-stone-feed-id", "feedId", feedId.String())
+		if feedId.Big().Sign() != 0 { // is there a more straightforward way to check if feedId is set?
+			// redstone oracle is configured for this market
+			redstonePrice := getRedStonePrice(stateDB, redStoneAdapter, feedId)
+			log.Info("redstone-price", "amm", market, "price", redstonePrice)
+			return redstonePrice
+		} else {
+			// just log the red stone price, for testing before deployment
+			var feedId common.Hash
+			if strings.EqualFold(market.String(), "0xa72b463C21dA61cCc86069cFab82e9e8491152a0") { // eth amm
+				feedId = common.HexToHash("0x4554480000000000000000000000000000000000000000000000000000000000")
+			} else if strings.EqualFold(market.String(), "0xd80e57dB448b0692C396B890eE9c791D7386dAdC") { // avax amm
+				feedId = common.HexToHash("0x4156415800000000000000000000000000000000000000000000000000000000")
+			}
+			redstonePrice := getRedStonePrice(stateDB, redStoneAdapter, feedId)
+			log.Info("log-only-redstone-price", "amm", market, "price", redstonePrice)
+		}
 	}
 	// red stone oracle is not enabled for this market, we use the default TestOracle
 	oracle := getOracleAddress(stateDB, market)
