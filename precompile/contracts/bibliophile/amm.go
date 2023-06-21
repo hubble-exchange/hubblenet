@@ -19,6 +19,8 @@ const (
 	ORACLE_SLOT                     int64 = 10
 	UNDERLYING_ASSET_SLOT           int64 = 11
 	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 17
+	RED_STONE_ADAPTER_SLOT          int64 = 21
+	RED_STONE_FEED_ID_SLOT          int64 = 22
 )
 
 const (

@@ -1,4 +1,4 @@
-package hubblebibliophile
+package bibliophile
 
 import (
 	"math/big"
