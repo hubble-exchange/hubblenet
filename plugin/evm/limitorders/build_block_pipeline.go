@@ -92,7 +92,8 @@ func (pipeline *BuildBlockPipeline) cancelOrders(cancellableOrders map[common.Ad
 			for i, order := range orders {
 				rawOrders[i] = order.RawOrder
 			}
-			err := pipeline.lotp.ExecuteOrderCancel(rawOrders)
+			log.Info("Cancelling orders", "#orders", len(orders))
+			err := pipeline.lotp.ExecuteOrderCancel(rawOrders[0:20]) // change this if the tx gas limit (1.5m) is changed
 			if err != nil {
 				log.Error("Error in ExecuteOrderCancel", "orders", orders, "err", err)
 			} else {

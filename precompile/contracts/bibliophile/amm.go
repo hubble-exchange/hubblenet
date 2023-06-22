@@ -93,8 +93,8 @@ func getUnderlyingPrice(stateDB contract.StateDB, market common.Address) *big.In
 	if redStoneAdapter.Hash().Big().Sign() != 0 {
 		feedId := getRedStoneFeedId(stateDB, market)
 		// first we check the feedId, if it is set, it should imply we are using a redstone oracle
-		log.Info("red-stone-feed-id", "feedId", feedId.String())
-		if feedId.Big().Sign() != 0 { // is there a more straightforward way to check if feedId is set?
+		// log.Info("red-stone-feed-id", "feedId", feedId.String())
+		if feedId.Big().Sign() != 0 {
 			// redstone oracle is configured for this market
 			redstonePrice := getRedStonePrice(stateDB, redStoneAdapter, feedId)
 			log.Info("redstone-price", "amm", market, "price", redstonePrice)
