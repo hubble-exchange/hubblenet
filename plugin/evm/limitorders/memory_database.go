@@ -439,7 +439,10 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 		db.TraderMap[trader].Positions[market] = &Position{}
 	}
 
-	previousSize := big.NewInt(0).Set(db.TraderMap[trader].Positions[market].Size)
+	previousSize := big.NewInt(0)
+	if db.TraderMap[trader].Positions[market].Size != nil {
+		previousSize = previousSize.Set(db.TraderMap[trader].Positions[market].Size)
+	}
 
 	db.TraderMap[trader].Positions[market].Size = size
 	db.TraderMap[trader].Positions[market].OpenNotional = openNotional
