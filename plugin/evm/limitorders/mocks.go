@@ -183,6 +183,10 @@ func (lotp *MockLimitOrderTxProcessor) GetUnderlyingPrice() (map[Market]*big.Int
 	return nil, nil
 }
 
+func (lotp *MockLimitOrderTxProcessor) UpdateMetrics(block *types.Block) {
+	lotp.Called()
+}
+
 type MockConfigService struct {
 	mock.Mock
 }

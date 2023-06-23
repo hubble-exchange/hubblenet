@@ -267,8 +267,15 @@ func (lotp *limitOrderTxProcessor) UpdateMetrics(block *types.Block) {
 		from, _ := types.Sender(signer, tx)
 		contractAddress := tx.To()
 		input := tx.Data()
+		if contractAddress == nil || len(input) < 4 {
+			continue
+		}
 		method_ := input[:4]
 		method, _ := lotp.orderBookABI.MethodById(method_)
+
+		if method == nil {
+			continue
+		}
 
 		if from == lotp.validatorAddress {
 			if receipt.Status == 0 {
@@ -293,7 +300,7 @@ func (lotp *limitOrderTxProcessor) UpdateMetrics(block *types.Block) {
 		}
 
 		// measure the gas usage irrespective of whether the tx is from this validator or not
-		if contractAddress != nil && method != nil {
+		if contractAddress != nil {
 			var contractName string
 			switch *contractAddress {
 			case lotp.orderBookContractAddress:
