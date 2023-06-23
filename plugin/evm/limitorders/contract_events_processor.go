@@ -366,7 +366,7 @@ func (cep *ContractEventsProcessor) updateMetrics(logs []*types.Log) {
 
 		metricName := fmt.Sprintf("%s/%s", "events", event_.Name)
 
-		if event.Removed {
+		if !event.Removed {
 			metrics.GetOrRegisterCounter(metricName, nil).Inc(1)
 		} else {
 			metrics.GetOrRegisterCounter(metricName, nil).Dec(1)
