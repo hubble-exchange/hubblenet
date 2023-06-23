@@ -2,11 +2,13 @@ package limitorders
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"sort"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/metrics"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -80,7 +82,7 @@ func (cep *ContractEventsProcessor) ProcessEvents(logs []*types.Log) {
 	}
 }
 
-func (cep *ContractEventsProcessor) ProcessAcceptedEvents(logs []*types.Log) {
+func (cep *ContractEventsProcessor) ProcessAcceptedEvents(logs []*types.Log, inBootstrap bool) {
 	sort.Slice(logs, func(i, j int) bool {
 		if logs[i].BlockNumber == logs[j].BlockNumber {
 			return logs[i].Index < logs[j].Index
@@ -95,6 +97,10 @@ func (cep *ContractEventsProcessor) ProcessAcceptedEvents(logs []*types.Log) {
 		case ClearingHouseContractAddress:
 			cep.handleClearingHouseEvent(event)
 		}
+	}
+	if !inBootstrap {
+		// events are applied in sequence during bootstrap also, those shouldn't be updated in metrics as they are already counted
+		go cep.updateMetrics(logs)
 	}
 }
 
@@ -339,4 +345,31 @@ func getOrderFromRawOrder(rawOrder interface{}) Order {
 	marshalledOrder, _ := json.Marshal(rawOrder)
 	_ = json.Unmarshal(marshalledOrder, &order)
 	return order
+}
+
+func (cep *ContractEventsProcessor) updateMetrics(logs []*types.Log) {
+	for _, event := range logs {
+		var contractABI abi.ABI
+		switch event.Address {
+		case OrderBookContractAddress:
+			contractABI = cep.orderBookABI
+		case MarginAccountContractAddress:
+			contractABI = cep.marginAccountABI
+		case ClearingHouseContractAddress:
+			contractABI = cep.clearingHouseABI
+		}
+
+		event_, err := contractABI.EventByID(event.Topics[0])
+		if err != nil {
+			continue
+		}
+
+		metricName := fmt.Sprintf("%s/%s", "events", event_.Name)
+
+		if event.Removed {
+			metrics.GetOrRegisterCounter(metricName, nil).Inc(1)
+		} else {
+			metrics.GetOrRegisterCounter(metricName, nil).Dec(1)
+		}
+	}
 }
