@@ -439,6 +439,8 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 		db.TraderMap[trader].Positions[market] = &Position{}
 	}
 
+	previousSize := big.NewInt(0).Set(db.TraderMap[trader].Positions[market].Size)
+
 	db.TraderMap[trader].Positions[market].Size = size
 	db.TraderMap[trader].Positions[market].OpenNotional = openNotional
 
@@ -452,7 +454,7 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
 	}
 
-	if db.TraderMap[trader].Positions[market].LastPremiumFraction == nil {
+	if previousSize == nil || previousSize.Sign() == 0 {
 		// for a new position, this needs to be set properly
 		db.TraderMap[trader].Positions[market].LastPremiumFraction = db.configService.GetCumulativePremiumFraction(market)
 	}
