@@ -308,8 +308,6 @@ func (lop *limitOrderProcesser) getLogs(fromBlock, toBlock *big.Int) []*types.Lo
 
 func (lop *limitOrderProcesser) FixBuggySnapshot() {
 	// This is to fix the bug that was causing the LastPremiumFraction to be set to 0 in the snapshot whenever a trader's position was updated
-
-	// updateLastPremiumFraction
 	traderMap := lop.memoryDb.GetOrderBookData().TraderMap
 	count := 0
 	start := time.Now()
