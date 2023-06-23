@@ -291,10 +291,6 @@ func (lotp *limitOrderTxProcessor) UpdateMetrics(block *types.Block) {
 				}
 				counterName := fmt.Sprintf("orderbooktxs/%s/%s", method.Name, note)
 				metrics.GetOrRegisterCounter(counterName, nil).Inc(1)
-
-				gasUsageMetric := fmt.Sprintf("orderbooktxs/%s/gas", method.Name)
-				sampler := metrics.ResettingSample(metrics.NewExpDecaySample(1028, 0.015))
-				metrics.GetOrRegisterHistogram(gasUsageMetric, nil, sampler).Update(int64(receipt.GasUsed))
 			}
 
 		}
