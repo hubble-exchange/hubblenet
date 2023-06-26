@@ -133,7 +133,7 @@ func (order LimitOrder) getOrderStatus() Lifecycle {
 }
 
 func (order LimitOrder) String() string {
-	return fmt.Sprintf("LimitOrder: Id: %s, Market: %v, PositionType: %v, UserAddress: %s, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, BlockNumber: %s", order.Id.String(), order.Market, order.PositionType, order.Trader.String(), prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, order.BlockNumber)
+	return fmt.Sprintf("LimitOrder: Id: %s, Market: %v, PositionType: %v, UserAddress: %s, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, ExpiresAt: %v, BlockNumber: %s", order.Id.String(), order.Market, order.PositionType, order.Trader.String(), prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, order.ExpireAt, order.BlockNumber)
 }
 
 func (order LimitOrder) ToOrderMin() OrderMin {

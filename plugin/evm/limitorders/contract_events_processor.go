@@ -123,11 +123,7 @@ func (cep *ContractEventsProcessor) ProcessHeadBlock(block *types.Block) {
 					log.Error("ProcessHeadBlock - error in orderBookAbi.UnpackIntoMap", "method", "placeOrders", "err", err)
 					continue
 				}
-				orders, ok := inputMap["orders"].([]Order)
-				if !ok {
-					log.Error("ProcessHeadBlock - improper type", "method", "placeOrders", "err", "orders is not []Order")
-					continue
-				}
+				orders := getOrdersFromInterface(inputMap["orders"])
 				signatures, ok := inputMap["signatures"].([][]byte)
 				if !ok {
 					log.Error("ProcessHeadBlock - improper type", "method", "placeOrders", "err", "signatures is not [][]byte")
@@ -164,11 +160,7 @@ func (cep *ContractEventsProcessor) ProcessHeadBlock(block *types.Block) {
 					log.Error("ProcessHeadBlock - error in orderBookAbi.UnpackIntoMap", "method", "cancelOrders", "err", err)
 					continue
 				}
-				orders, ok := inputMap["orders"].([]Order)
-				if !ok {
-					log.Error("ProcessHeadBlock - improper type", "method", "cancelOrders", "err", "orders is not []Order")
-					continue
-				}
+				orders := getOrdersFromInterface(inputMap["orders"])
 
 				for _, order := range orders {
 					orderId := order.Hash()
@@ -399,4 +391,11 @@ func getOrderFromRawOrder(rawOrder interface{}) Order {
 	marshalledOrder, _ := json.Marshal(rawOrder)
 	_ = json.Unmarshal(marshalledOrder, &order)
 	return order
+}
+
+func getOrdersFromInterface(rawOrders interface{}) []Order {
+	orders := []Order{}
+	marshalledOrders, _ := json.Marshal(rawOrders)
+	_ = json.Unmarshal(marshalledOrders, &orders)
+	return orders
 }
