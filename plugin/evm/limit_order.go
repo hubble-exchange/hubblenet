@@ -190,6 +190,24 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 			}
 		}
 	})
+
+	chainHeadEventCh := make(chan core.ChainHeadEvent)
+	chainHeadEventSubscription := lop.backend.SubscribeChainHeadEvent(chainHeadEventCh)
+	lop.shutdownWg.Add(1)
+	go lop.ctx.Log.RecoverAndPanic(func() {
+		defer lop.shutdownWg.Done()
+		defer chainHeadEventSubscription.Unsubscribe()
+
+		for {
+			select {
+			case chainHeadEvent := <-chainHeadEventCh:
+				lop.handleChainHeadEvent(chainHeadEvent)
+			case <-lop.shutdownChan:
+				return
+			}
+		}
+	})
+
 }
 
 func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) {
@@ -206,6 +224,15 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 			log.Error("Error in saving memory DB snapshot", "err", err)
 		}
 	}
+}
+
+func (lop *limitOrderProcesser) handleChainHeadEvent(event core.ChainHeadEvent) {
+	lop.mu.Lock()
+	defer lop.mu.Unlock()
+
+	block := event.Block
+	log.Info("#### received ChainHeadEvent", "number", block.NumberU64(), "hash", block.Hash().String())
+	lop.contractEventProcessor.ProcessHeadBlock(block)
 }
 
 func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint64, err error) {

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ava-labs/subnet-evm/core"
@@ -168,7 +167,7 @@ func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string, marke
 	traderHash := common.HexToAddress(trader)
 	orders := api.db.GetOpenOrdersForTrader(traderHash)
 	for _, order := range orders {
-		if strings.EqualFold(order.UserAddress, trader) && (market == nil || order.Market == Market(*market)) {
+		if order.Trader == traderHash && (market == nil || order.Market == Market(*market)) {
 			traderOrders = append(traderOrders, OrderForOpenOrders{
 				Market:     order.Market,
 				Price:      order.Price.String(),

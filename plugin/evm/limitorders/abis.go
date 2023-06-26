@@ -130,69 +130,6 @@ var orderBookAbi = []byte(`{"abi": [
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "trader",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "orderHash",
-        "type": "bytes32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "ammIndex",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "trader",
-            "type": "address"
-          },
-          {
-            "internalType": "int256",
-            "name": "baseAssetQuantity",
-            "type": "int256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "price",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "salt",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bool",
-            "name": "reduceOnly",
-            "type": "bool"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct IOrderBook.Order",
-        "name": "order",
-        "type": "tuple"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "name": "OrderPlaced",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
         "internalType": "bytes32",
         "name": "orderHash0",
         "type": "bytes32"
@@ -238,49 +175,17 @@ var orderBookAbi = []byte(`{"abi": [
     "type": "event"
   },
   {
+    "anonymous": false,
     "inputs": [
       {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "ammIndex",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "trader",
-            "type": "address"
-          },
-          {
-            "internalType": "int256",
-            "name": "baseAssetQuantity",
-            "type": "int256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "price",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "salt",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bool",
-            "name": "reduceOnly",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct IOrderBook.Order",
-        "name": "order",
-        "type": "tuple"
+        "indexed": true,
+        "internalType": "address",
+        "name": "relayer",
+        "type": "address"
       }
     ],
-    "name": "cancelOrder",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "OrdersPlaced",
+    "type": "event"
   },
   {
     "inputs": [
@@ -315,9 +220,14 @@ var orderBookAbi = []byte(`{"abi": [
             "internalType": "bool",
             "name": "reduceOnly",
             "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "validUntil",
+            "type": "uint256"
           }
         ],
-        "internalType": "struct IOrderBook.Order[]",
+        "internalType": "struct IOrderBookRollup.Order[]",
         "name": "orders",
         "type": "tuple[]"
       }
@@ -360,11 +270,21 @@ var orderBookAbi = []byte(`{"abi": [
             "internalType": "bool",
             "name": "reduceOnly",
             "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "validUntil",
+            "type": "uint256"
           }
         ],
-        "internalType": "struct IOrderBook.Order[2]",
+        "internalType": "struct IOrderBookRollup.Order[2]",
         "name": "orders",
         "type": "tuple[2]"
+      },
+      {
+        "internalType": "bytes[2]",
+        "name": "signatures",
+        "type": "bytes[2]"
       },
       {
         "internalType": "int256",
@@ -378,29 +298,27 @@ var orderBookAbi = []byte(`{"abi": [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "getLastTradePrices",
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "signerOrSender",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "trader",
+        "type": "address"
+      }
+    ],
+    "name": "isTradingAuthority",
     "outputs": [
       {
-        "internalType": "uint256[]",
-        "name": "lastTradePrices",
-        "type": "uint256[]"
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "int256",
-        "name": "minSize",
-        "type": "int256"
-      }
-    ],
-    "name": "initializeMinSize",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -441,11 +359,21 @@ var orderBookAbi = []byte(`{"abi": [
             "internalType": "bool",
             "name": "reduceOnly",
             "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "validUntil",
+            "type": "uint256"
           }
         ],
-        "internalType": "struct IOrderBook.Order",
+        "internalType": "struct IOrderBookRollup.Order",
         "name": "order",
         "type": "tuple"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
       },
       {
         "internalType": "uint256",
@@ -459,26 +387,87 @@ var orderBookAbi = []byte(`{"abi": [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "settleFunding",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "orderHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "orderStatus",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "int256",
+            "name": "filledAmount",
+            "type": "int256"
+          },
+          {
+            "internalType": "bool",
+            "name": "isCancelled",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct IOrderBookRollup.OrderInfo",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "minAllowableMargin",
-        "type": "uint256"
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "ammIndex",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "trader",
+            "type": "address"
+          },
+          {
+            "internalType": "int256",
+            "name": "baseAssetQuantity",
+            "type": "int256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "price",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "salt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "reduceOnly",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "validUntil",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IOrderBookRollup.Order[]",
+        "name": "orders",
+        "type": "tuple[]"
       },
       {
-        "internalType": "uint256",
-        "name": "takerFee",
-        "type": "uint256"
+        "internalType": "bytes[]",
+        "name": "signatures",
+        "type": "bytes[]"
       }
     ],
-    "name": "updateParams",
+    "name": "placeOrders",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 	"sync"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -84,7 +84,7 @@ type LimitOrder struct {
 	Id                      common.Hash
 	Market                  Market
 	PositionType            PositionType
-	UserAddress             string
+	Trader                  common.Address
 	BaseAssetQuantity       *big.Int
 	FilledBaseAssetQuantity *big.Int
 	Salt                    *big.Int
@@ -92,7 +92,9 @@ type LimitOrder struct {
 	ReduceOnly              bool
 	LifecycleList           []Lifecycle
 	BlockNumber             *big.Int // block number order was placed on
-	RawOrder                Order    `json:"-"`
+	Signature               []byte
+	ExpireAt                uint64
+	RawOrder                Order `json:"-"`
 }
 
 func (order *LimitOrder) MarshalJSON() ([]byte, error) {
@@ -110,7 +112,7 @@ func (order *LimitOrder) MarshalJSON() ([]byte, error) {
 	}{
 		Market:                  order.Market,
 		PositionType:            order.PositionType.String(),
-		UserAddress:             order.UserAddress,
+		UserAddress:             order.Trader.String(),
 		BaseAssetQuantity:       order.BaseAssetQuantity.String(),
 		FilledBaseAssetQuantity: order.FilledBaseAssetQuantity.String(),
 		Salt:                    order.Salt.String(),
@@ -131,7 +133,7 @@ func (order LimitOrder) getOrderStatus() Lifecycle {
 }
 
 func (order LimitOrder) String() string {
-	return fmt.Sprintf("LimitOrder: Id: %s, Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, BlockNumber: %s", order.Id, order.Market, order.PositionType, order.UserAddress, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, order.BlockNumber)
+	return fmt.Sprintf("LimitOrder: Id: %s, Market: %v, PositionType: %v, UserAddress: %s, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, BlockNumber: %s", order.Id.String(), order.Market, order.PositionType, order.Trader.String(), prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, order.BlockNumber)
 }
 
 func (order LimitOrder) ToOrderMin() OrderMin {
@@ -139,7 +141,7 @@ func (order LimitOrder) ToOrderMin() OrderMin {
 		Market:  order.Market,
 		Price:   order.Price.String(),
 		Size:    order.GetUnFilledBaseAssetQuantity().String(),
-		Signer:  order.UserAddress,
+		Signer:  order.Trader.String(),
 		OrderId: order.Id.String(),
 	}
 }
@@ -181,7 +183,7 @@ type Trader struct {
 type LimitOrderDatabase interface {
 	LoadFromSnapshot(snapshot Snapshot) error
 	GetAllOrders() []LimitOrder
-	Add(orderId common.Hash, order *LimitOrder)
+	CreateOrders(orders []*LimitOrder)
 	Delete(orderId common.Hash)
 	UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, blockNumber uint64)
 	GetLongOrders(market Market, lowerbound *big.Int, blockNumber *big.Int) []LimitOrder
@@ -199,6 +201,7 @@ type LimitOrderDatabase interface {
 	GetAllTraders() map[common.Address]Trader
 	GetOrderBookData() InMemoryDatabase
 	GetOrderBookDataCopy() *InMemoryDatabase
+	GetTraderMapCopy() map[common.Address]*Trader
 	Accept(blockNumber uint64)
 	SetOrderStatus(orderId common.Hash, status Status, info string, blockNumber uint64) error
 	RevertLastStatus(orderId common.Hash) error
@@ -248,7 +251,8 @@ func (db *InMemoryDatabase) SetOrderStatus(orderId common.Hash, status Status, i
 	defer db.mu.Unlock()
 
 	if db.OrderMap[orderId] == nil {
-		return fmt.Errorf("nvalid orderId %s", orderId.Hex())
+		err := fmt.Errorf("invalid orderId %s", orderId.Hex())
+		log.Error(err.Error(), "method", "SetOrderStatus")
 	}
 	db.OrderMap[orderId].LifecycleList = append(db.OrderMap[orderId].LifecycleList, Lifecycle{blockNumber, status, info})
 	return nil
@@ -280,13 +284,14 @@ func (db *InMemoryDatabase) GetAllOrders() []LimitOrder {
 	return allOrders
 }
 
-func (db *InMemoryDatabase) Add(orderId common.Hash, order *LimitOrder) {
+func (db *InMemoryDatabase) CreateOrders(orders []*LimitOrder) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	order.Id = orderId
-	order.LifecycleList = append(order.LifecycleList, Lifecycle{order.BlockNumber.Uint64(), Placed, ""})
-	db.OrderMap[orderId] = order
+	for _, order := range orders {
+		order.LifecycleList = append(order.LifecycleList, Lifecycle{order.BlockNumber.Uint64(), Placed, ""})
+		db.OrderMap[order.Id] = order
+	}
 }
 
 func (db *InMemoryDatabase) Delete(orderId common.Hash) {
@@ -364,7 +369,38 @@ func (db *InMemoryDatabase) GetShortOrders(market Market, upperbound *big.Int, b
 	return shortOrders
 }
 
+// * 1. `validator` is whitelisted
+// * 2. not expired
+// * 3. either signed by the trader himself or a valid pre-whitelisted trading authority
+// * 4. not cancelled
+// * 5. Base asset quantity is not < 0 or > 0 depending on the order type
+// * 6. order will not be over filled
+// * 7. reduceOnly order is not increasing position size (todo)
+// * 8. orders are for the same market
+// * 9. orders have a price overlap
+// * 10. `fillAmount` is multiple of min size requirement
+// * 11. whether both traders have enough margin for this order pair to be executed (todo)
 func (db *InMemoryDatabase) getCleanOrder(order *LimitOrder, blockNumber *big.Int) *LimitOrder {
+	if time.Now().Unix() > int64(order.ExpireAt) {
+		// @todo - check that locking doesn't cause any issues
+		db.Delete(order.Id)
+		return nil
+	}
+	// @todo: either signed by the trader himself or a valid pre-whitelisted trading authority
+	// these conditions are not normal; should be reported
+	if order.BaseAssetQuantity.Sign() == 0 {
+		log.Error("order.BaseAssetQuantity is 0", "order", order.String())
+		return nil
+	}
+	if order.BaseAssetQuantity.Sign() > 0 && order.PositionType == SHORT {
+		log.Error("order.BaseAssetQuantity is > 0 but order.PositionType is SHORT", "order", order.String())
+		return nil
+	}
+	if order.BaseAssetQuantity.Sign() < 0 && order.PositionType == LONG {
+		log.Error("order.BaseAssetQuantity is < 0 but order.PositionType is LONG", "order", order.String())
+		return nil
+	}
+
 	eligibleForExecution := false
 	orderStatus := order.getOrderStatus()
 	switch orderStatus.Status {
@@ -567,6 +603,17 @@ func (db *InMemoryDatabase) GetTraderInfo(trader common.Address) *Trader {
 	return traderCopy
 }
 
+func (db *InMemoryDatabase) GetTraderMapCopy() map[common.Address]*Trader {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	traderMap := map[common.Address]*Trader{}
+	for address, trader := range db.TraderMap {
+		traderMap[address] = deepCopyTrader(trader)
+	}
+	return traderMap
+}
+
 func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFraction *big.Int, markets []Market, minSizes []*big.Int) LiquidablePosition {
 	liquidable := LiquidablePosition{}
 	// iterate through the markets and return the first one with an open position
@@ -677,9 +724,8 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 
 func (db *InMemoryDatabase) getTraderOrders(trader common.Address) []LimitOrder {
 	traderOrders := []LimitOrder{}
-	_trader := trader.String()
 	for _, order := range db.OrderMap {
-		if strings.EqualFold(order.UserAddress, _trader) {
+		if order.Trader == trader {
 			traderOrders = append(traderOrders, deepCopyOrder(order))
 		}
 	}
@@ -687,7 +733,7 @@ func (db *InMemoryDatabase) getTraderOrders(trader common.Address) []LimitOrder 
 }
 
 func (db *InMemoryDatabase) getReduceOnlyOrderDisplay(order *LimitOrder) *LimitOrder {
-	trader := common.HexToAddress(order.UserAddress)
+	trader := order.Trader
 	if db.TraderMap[trader] == nil {
 		return nil
 	}
@@ -803,7 +849,7 @@ func deepCopyOrder(order *LimitOrder) LimitOrder {
 		Id:                      order.Id,
 		Market:                  order.Market,
 		PositionType:            order.PositionType,
-		UserAddress:             order.UserAddress,
+		Trader:                  order.Trader,
 		BaseAssetQuantity:       big.NewInt(0).Set(order.BaseAssetQuantity),
 		FilledBaseAssetQuantity: big.NewInt(0).Set(order.FilledBaseAssetQuantity),
 		Salt:                    big.NewInt(0).Set(order.Salt),

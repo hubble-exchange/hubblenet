@@ -3,6 +3,7 @@ package limitorders
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -58,6 +59,14 @@ type Order struct {
 	Price             *big.Int       `json:"price"`
 	Salt              *big.Int       `json:"salt"`
 	ReduceOnly        bool           `json:"reduceOnly"`
+	ValidUntil        *big.Int       `json:"validUntil"`
+}
+
+func (order *Order) Hash() common.Hash {
+	// should be same as Orderbook contract's getOrderHash function??
+	// create bytes from all the fields in Order struct
+	orderBytes, _ := json.Marshal(order)
+	return common.BytesToHash(orderBytes)
 }
 
 func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend, validatorPrivateKey string) LimitOrderTxProcessor {

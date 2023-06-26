@@ -61,6 +61,11 @@ func (pipeline *BuildBlockPipeline) Run(blockNumber *big.Int) {
 type Orders struct {
 	longOrders  []LimitOrder
 	shortOrders []LimitOrder
+	traderMap   map[common.Address]*Trader
+}
+
+func (orders *Orders) SimulateOrderExecution(order LimitOrder, quantity *big.Int, price *big.Int) {
+	// @todo adjust trader margin and position size as the orders are matched
 }
 
 type Market int64
@@ -120,7 +125,14 @@ func (pipeline *BuildBlockPipeline) fetchOrders(market Market, underlyingPrice *
 	}
 	// while longOrders[0].Price would have been enough for the matching engine alone, but we include orders within the allowable liqupperbound, to allow for liquidations to happen
 	shortOrders := removeOrdersWithIds(pipeline.db.GetShortOrders(market, upperBoundforShorts, blockNumber), cancellableOrderIds)
-	return &Orders{longOrders, shortOrders}
+
+	traderMap := pipeline.db.GetTraderMapCopy()
+
+	return &Orders{
+		longOrders:  longOrders,
+		shortOrders: shortOrders,
+		traderMap:   traderMap,
+	}
 }
 
 func (pipeline *BuildBlockPipeline) runLiquidations(liquidablePositions []LiquidablePosition, orderMap map[Market]*Orders, underlyingPrices map[Market]*big.Int) {

@@ -34,7 +34,7 @@ func TestAdd(t *testing.T) {
 	inMemoryDatabase.Add(orderId, &limitOrder)
 	returnedOrder := inMemoryDatabase.OrderMap[orderId]
 	assert.Equal(t, limitOrder.PositionType, returnedOrder.PositionType)
-	assert.Equal(t, limitOrder.UserAddress, returnedOrder.UserAddress)
+	assert.Equal(t, limitOrder.Trader, returnedOrder.Trader)
 	assert.Equal(t, limitOrder.BaseAssetQuantity, returnedOrder.BaseAssetQuantity)
 	assert.Equal(t, limitOrder.Price, returnedOrder.Price)
 	assert.Equal(t, limitOrder.getOrderStatus().Status, returnedOrder.getOrderStatus().Status)
@@ -55,7 +55,7 @@ func TestGetAllOrders(t *testing.T) {
 	assert.Equal(t, totalOrders, uint64(len(returnedOrders)))
 	for _, returnedOrder := range returnedOrders {
 		assert.Equal(t, positionType, returnedOrder.PositionType)
-		assert.Equal(t, userAddress, returnedOrder.UserAddress)
+		assert.Equal(t, userAddress, returnedOrder.Trader)
 		assert.Equal(t, baseAssetQuantity, returnedOrder.BaseAssetQuantity)
 		assert.Equal(t, price, returnedOrder.Price)
 		assert.Equal(t, status, returnedOrder.getOrderStatus().Status)
@@ -117,7 +117,7 @@ func TestGetShortOrders(t *testing.T) {
 
 	for _, returnedOrder := range returnedShortOrders {
 		assert.Equal(t, SHORT, returnedOrder.PositionType)
-		assert.Equal(t, userAddress, returnedOrder.UserAddress)
+		assert.Equal(t, userAddress, returnedOrder.Trader)
 		assert.Equal(t, baseAssetQuantity, returnedOrder.BaseAssetQuantity)
 		assert.Equal(t, status, returnedOrder.getOrderStatus().Status)
 	}
@@ -201,7 +201,7 @@ func TestGetLongOrders(t *testing.T) {
 
 	for _, returnedOrder := range returnedLongOrders {
 		assert.Equal(t, LONG, returnedOrder.PositionType)
-		assert.Equal(t, userAddress, returnedOrder.UserAddress)
+		assert.Equal(t, userAddress, returnedOrder.Trader)
 		assert.Equal(t, longOrderBaseAssetQuantity, returnedOrder.BaseAssetQuantity)
 		assert.Equal(t, status, returnedOrder.getOrderStatus().Status)
 	}
@@ -657,7 +657,7 @@ func createLimitOrder(positionType PositionType, userAddress string, baseAssetQu
 	lo := LimitOrder{
 		Market:                  market,
 		PositionType:            positionType,
-		UserAddress:             userAddress,
+		Trader:                  userAddress,
 		FilledBaseAssetQuantity: big.NewInt(0),
 		BaseAssetQuantity:       baseAssetQuantity,
 		Price:                   price,

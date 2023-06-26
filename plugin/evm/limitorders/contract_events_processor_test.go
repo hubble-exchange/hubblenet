@@ -158,7 +158,7 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 	orderBookABI.UnpackIntoMap(args, "OrderPlaced", orderPlacedEventData)
 	assert.Equal(t, Market(ammIndex.Int64()), actualLimitOrder.Market)
 	assert.Equal(t, LONG, actualLimitOrder.PositionType)
-	assert.Equal(t, traderAddress.String(), actualLimitOrder.UserAddress)
+	assert.Equal(t, traderAddress.String(), actualLimitOrder.Trader)
 	assert.Equal(t, *baseAssetQuantity, *actualLimitOrder.BaseAssetQuantity)
 	assert.Equal(t, *price, *actualLimitOrder.Price)
 	assert.Equal(t, Placed, actualLimitOrder.getOrderStatus().Status)
@@ -212,7 +212,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			orderBookABI.UnpackIntoMap(args, "OrderPlaced", orderPlacedEventData)
 			assert.Equal(t, Market(ammIndex.Int64()), actualLimitOrder.Market)
 			assert.Equal(t, LONG, actualLimitOrder.PositionType)
-			assert.Equal(t, traderAddress.String(), actualLimitOrder.UserAddress)
+			assert.Equal(t, traderAddress.String(), actualLimitOrder.Trader)
 			assert.Equal(t, *baseAssetQuantity, *actualLimitOrder.BaseAssetQuantity)
 			assert.Equal(t, *price, *actualLimitOrder.Price)
 			assert.Equal(t, Placed, actualLimitOrder.getOrderStatus().Status)
@@ -230,7 +230,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		limitOrder := &LimitOrder{
 			Market:            Market(ammIndex.Int64()),
 			PositionType:      LONG,
-			UserAddress:       traderAddress.String(),
+			Trader:            traderAddress.String(),
 			BaseAssetQuantity: baseAssetQuantity,
 			Price:             price,
 			BlockNumber:       big.NewInt(1),
@@ -261,7 +261,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		longOrder := &LimitOrder{
 			Market:                  Market(ammIndex.Int64()),
 			PositionType:            LONG,
-			UserAddress:             traderAddress.String(),
+			Trader:                  traderAddress.String(),
 			BaseAssetQuantity:       baseAssetQuantity,
 			Price:                   price,
 			BlockNumber:             big.NewInt(1),
@@ -271,7 +271,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		shortOrder := &LimitOrder{
 			Market:                  Market(ammIndex.Int64()),
 			PositionType:            SHORT,
-			UserAddress:             traderAddress.String(),
+			Trader:                  traderAddress.String(),
 			BaseAssetQuantity:       big.NewInt(0).Mul(baseAssetQuantity, big.NewInt(-1)),
 			Price:                   price,
 			BlockNumber:             big.NewInt(1),
@@ -308,7 +308,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		longOrder := &LimitOrder{
 			Market:                  Market(ammIndex.Int64()),
 			PositionType:            LONG,
-			UserAddress:             traderAddress.String(),
+			Trader:                  traderAddress.String(),
 			BaseAssetQuantity:       baseAssetQuantity,
 			Price:                   price,
 			Salt:                    salt,
@@ -818,5 +818,5 @@ func getIdFromOrder(order Order) common.Hash {
 
 // @todo change this to return the EIP712 hash instead
 func getIdFromLimitOrder(order LimitOrder) common.Hash {
-	return crypto.Keccak256Hash([]byte(order.UserAddress + order.Salt.String()))
+	return crypto.Keccak256Hash([]byte(order.Trader + order.Salt.String()))
 }
