@@ -348,6 +348,8 @@ func getOrderFromRawOrder(rawOrder interface{}) Order {
 }
 
 func (cep *ContractEventsProcessor) updateMetrics(logs []*types.Log) {
+	var orderPlacedCount int64 = 0
+	var orderCancelledCount int64 = 0
 	for _, event := range logs {
 		var contractABI abi.ABI
 		switch event.Address {
@@ -371,5 +373,15 @@ func (cep *ContractEventsProcessor) updateMetrics(logs []*types.Log) {
 		} else {
 			metrics.GetOrRegisterCounter(metricName, nil).Dec(1)
 		}
+
+		switch event_.Name {
+		case "OrderPlaced":
+			orderPlacedCount++
+		case "OrderCancelled":
+			orderCancelledCount++
+		}
 	}
+
+	ordersPlacedPerBlock.Update(orderPlacedCount)
+	ordersCancelledPerBlock.Update(orderCancelledCount)
 }
