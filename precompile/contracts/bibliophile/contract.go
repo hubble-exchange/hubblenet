@@ -297,6 +297,7 @@ func createHubbleBibliophilePrecompile() contract.StatefulPrecompiledContract {
 		"getPositionSizes":                              getPositionSizes,
 		"validateLiquidationOrderAndDetermineFillPrice": validateLiquidationOrderAndDetermineFillPrice,
 		"validateOrdersAndDetermineFillPrice":           validateOrdersAndDetermineFillPrice,
+		"getPositionSizesAndUpperBoundsForMarkets":      getPositionSizesAndUpperBoundsForMarkets,
 	}
 
 	for name, function := range abiFunctionMap {
