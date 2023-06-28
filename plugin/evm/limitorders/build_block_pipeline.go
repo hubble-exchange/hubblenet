@@ -114,8 +114,16 @@ func (pipeline *BuildBlockPipeline) fetchOrders(market Market, underlyingPrice *
 	// this assumes that all above cancelOrder transactions got executed successfully (or atleast they are not meant to be executed anyway if they passed the cancellation criteria)
 	longOrders := removeOrdersWithIds(pipeline.db.GetLongOrders(market, lowerBoundForLongs, blockNumber), cancellableOrderIds)
 
-	// it's not possible for any matching to occur above oracle upper bound (not even liquidations bcoz liquidation upper bound <= oracle upper bound)
-	upperBoundforShorts, _ := pipeline.configService.GetAcceptableBounds(market)
+	// say if there were no long orders, then shord orders above liquidation upper bound are irrelevant, because they won't be matched no matter what
+	// note that this assumes that permissible liquidation spread <= oracle spread
+	upperBoundforShorts, _ := pipeline.configService.GetAcceptableBoundsForLiquidation(market)
+
+	// however, if long orders exist, then
+	if len(longOrders) != 0 {
+		oracleUpperBound, _ := pipeline.configService.GetAcceptableBounds(market)
+		// take the max of price of highest long and liq upper bound. But say longOrders[0].Price > oracleUpperBound ? - then we discard orders above oracleUpperBound, because they won't be matched no matter what
+		upperBoundforShorts = utils.BigIntMin(utils.BigIntMax(longOrders[0].Price, upperBoundforShorts), oracleUpperBound)
+	}
 	shortOrders := removeOrdersWithIds(pipeline.db.GetShortOrders(market, upperBoundforShorts, blockNumber), cancellableOrderIds)
 	return &Orders{longOrders, shortOrders}
 }
