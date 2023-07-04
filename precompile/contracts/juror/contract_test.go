@@ -36,9 +36,9 @@ func TestRun(t *testing.T) {
 		"insufficient gas for validateLiquidationOrderAndDetermineFillPrice should fail": {
 			Caller: common.Address{1},
 			InputFn: func(t testing.TB) []byte {
-				// CUSTOM CODE STARTS HERE
-				// populate test input here
-				testInput := ValidateLiquidationOrderAndDetermineFillPriceInput{}
+				testInput := ValidateLiquidationOrderAndDetermineFillPriceInput{
+					LiquidationAmount: big.NewInt(1),
+				}
 				input, err := PackValidateLiquidationOrderAndDetermineFillPrice(testInput)
 				require.NoError(t, err)
 				return input
@@ -50,9 +50,9 @@ func TestRun(t *testing.T) {
 		"insufficient gas for validateOrdersAndDetermineFillPrice should fail": {
 			Caller: common.Address{1},
 			InputFn: func(t testing.TB) []byte {
-				// CUSTOM CODE STARTS HERE
-				// populate test input here
-				testInput := ValidateOrdersAndDetermineFillPriceInput{}
+				testInput := ValidateOrdersAndDetermineFillPriceInput{
+					FillAmount: big.NewInt(1),
+				}
 				input, err := PackValidateOrdersAndDetermineFillPrice(testInput)
 				require.NoError(t, err)
 				return input
@@ -66,7 +66,9 @@ func TestRun(t *testing.T) {
 			InputFn: func(t testing.TB) []byte {
 				// CUSTOM CODE STARTS HERE
 				// populate test input here
-				testInput := ValidatePlaceIOCOrdersInput{}
+				testInput := ValidatePlaceIOCOrdersInput{
+					Sender: common.Address{1},
+				}
 				input, err := PackValidatePlaceIOCOrders(testInput)
 				require.NoError(t, err)
 				return input

@@ -120,3 +120,73 @@ func (mr *MockBibliophileMockRecorder) GetSize(market, trader interface{}) *gomo
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSize", reflect.TypeOf((*MockBibliophile)(nil).GetSize), market, trader)
 }
+
+// IOC_ExecutionThreshold mocks base method.
+func (m *MockBibliophile) IOC_ExecutionThreshold() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IOC_ExecutionThreshold")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// IOC_ExecutionThreshold indicates an expected call of IOC_ExecutionThreshold.
+func (mr *MockBibliophileMockRecorder) IOC_ExecutionThreshold() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IOC_ExecutionThreshold", reflect.TypeOf((*MockBibliophile)(nil).IOC_ExecutionThreshold))
+}
+
+// IOC_GetBlockPlaced mocks base method.
+func (m *MockBibliophile) IOC_GetBlockPlaced(orderHash [32]byte) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IOC_GetBlockPlaced", orderHash)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// IOC_GetBlockPlaced indicates an expected call of IOC_GetBlockPlaced.
+func (mr *MockBibliophileMockRecorder) IOC_GetBlockPlaced(orderHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IOC_GetBlockPlaced", reflect.TypeOf((*MockBibliophile)(nil).IOC_GetBlockPlaced), orderHash)
+}
+
+// IOC_GetOrderFilledAmount mocks base method.
+func (m *MockBibliophile) IOC_GetOrderFilledAmount(orderHash [32]byte) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IOC_GetOrderFilledAmount", orderHash)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// IOC_GetOrderFilledAmount indicates an expected call of IOC_GetOrderFilledAmount.
+func (mr *MockBibliophileMockRecorder) IOC_GetOrderFilledAmount(orderHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IOC_GetOrderFilledAmount", reflect.TypeOf((*MockBibliophile)(nil).IOC_GetOrderFilledAmount), orderHash)
+}
+
+// IOC_GetOrderStatus mocks base method.
+func (m *MockBibliophile) IOC_GetOrderStatus(orderHash [32]byte) int64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IOC_GetOrderStatus", orderHash)
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// IOC_GetOrderStatus indicates an expected call of IOC_GetOrderStatus.
+func (mr *MockBibliophileMockRecorder) IOC_GetOrderStatus(orderHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IOC_GetOrderStatus", reflect.TypeOf((*MockBibliophile)(nil).IOC_GetOrderStatus), orderHash)
+}
+
+// IOC_GetTimestamp mocks base method.
+func (m *MockBibliophile) IOC_GetTimestamp(orderHash [32]byte) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IOC_GetTimestamp", orderHash)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// IOC_GetTimestamp indicates an expected call of IOC_GetTimestamp.
+func (mr *MockBibliophileMockRecorder) IOC_GetTimestamp(orderHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IOC_GetTimestamp", reflect.TypeOf((*MockBibliophile)(nil).IOC_GetTimestamp), orderHash)
+}
