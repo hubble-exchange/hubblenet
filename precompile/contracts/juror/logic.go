@@ -9,6 +9,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+type OrderType uint8
+
+const (
+	Limit OrderType = iota
+	IOC
+)
+
+type DecodeStep struct {
+	OrderType    OrderType
+	EncodedOrder []byte
+}
+
 type LimitOrder struct {
 	AmmIndex          *big.Int
 	Trader            common.Address
@@ -18,9 +30,9 @@ type LimitOrder struct {
 	ReduceOnly        bool
 }
 
-type DecodeStep struct {
-	OrderType    uint8
-	EncodedOrder []byte
+type IOCOrder struct {
+	LimitOrder
+	OrderType OrderType
 }
 
 type Metadata struct {
@@ -115,7 +127,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile Bibliophile, inputStruct *V
 				Mode:      _fillPriceAndModes.Mode1,
 			},
 		},
-		OrderTypes: [2]uint8{decodeStep0.OrderType, decodeStep1.OrderType},
+		OrderTypes: [2]uint8{uint8(decodeStep0.OrderType), uint8(decodeStep1.OrderType)},
 		EncodedOrders: [2][]byte{
 			decodeStep0.EncodedOrder,
 			decodeStep1.EncodedOrder,
@@ -143,13 +155,20 @@ func decodeTypeAndEncodedOrder(data []byte) (*DecodeStep, error) {
 	return decodeStep, nil
 }
 
-func validateOrder(bibliophile Bibliophile, orderType uint8, encodedOrder []byte, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
-	if orderType == 0 {
+func validateOrder(bibliophile Bibliophile, orderType OrderType, encodedOrder []byte, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	if orderType == Limit {
 		order, err := decodeLimitOrder(encodedOrder)
 		if err != nil {
 			return nil, err
 		}
 		return validateExecuteLimitOrder(bibliophile, order, side, fillAmount)
+	}
+	if orderType == IOC {
+		order, err := decodeIOCOrder(encodedOrder)
+		if err != nil {
+			return nil, err
+		}
+		return validateExecuteIOCOrder(bibliophile, order, side, fillAmount)
 	}
 	return nil, errors.New("invalid order type")
 }
@@ -162,6 +181,17 @@ func decodeLimitOrder(encodedOrder []byte) (*LimitOrder, error) {
 		Price:             new(big.Int).SetBytes(encodedOrder[96:128]),
 		Salt:              new(big.Int).SetBytes(encodedOrder[128:160]),
 		ReduceOnly:        new(big.Int).SetBytes(encodedOrder[160:192]).Sign() != 0,
+	}, nil
+}
+
+func decodeIOCOrder(encodedOrder []byte) (*IOCOrder, error) {
+	lo, err := decodeLimitOrder(encodedOrder[32:])
+	if err != nil {
+		return nil, err
+	}
+	return &IOCOrder{
+		OrderType:  OrderType(new(big.Int).SetBytes(encodedOrder[0:32]).Int64()),
+		LimitOrder: *lo,
 	}, nil
 }
 
@@ -178,6 +208,32 @@ func validateExecuteLimitOrder(bibliophile Bibliophile, order *LimitOrder, side 
 		Trader:            order.Trader,
 		BaseAssetQuantity: order.BaseAssetQuantity,
 		BlockPlaced:       bibliophile.GetBlockPlaced(orderHash),
+		Price:             order.Price,
+		OrderHash:         orderHash,
+	}, nil
+}
+
+func validateExecuteIOCOrder(bibliophile Bibliophile, order *IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	if order.OrderType != IOC {
+		return nil, errors.New("not ioc order")
+	}
+	orderHash, err := getIOCOrderHash(order)
+	if err != nil {
+		return nil, err
+	}
+	timestamp := bibliophile.IOC_GetTimestamp(orderHash)
+	executionThreshold := bibliophile.IOC_ExecutionThreshold()
+	if new(big.Int).Add(timestamp, executionThreshold).Cmp(big.NewInt(0) /* todo block.timestamp */) > 0 {
+		return nil, errors.New("ioc expired")
+	}
+	if err := validateLimitOrderLike(bibliophile, &order.LimitOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
+		return nil, err
+	}
+	return &Metadata{
+		AmmIndex:          order.AmmIndex,
+		Trader:            order.Trader,
+		BaseAssetQuantity: order.BaseAssetQuantity,
+		BlockPlaced:       bibliophile.IOC_GetBlockPlaced(orderHash),
 		Price:             order.Price,
 		OrderHash:         orderHash,
 	}, nil

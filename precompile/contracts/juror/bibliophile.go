@@ -12,9 +12,16 @@ type Bibliophile interface {
 	GetSize(market common.Address, trader *common.Address) *big.Int
 	GetMarketAddressFromMarketID(marketID int64) common.Address
 	DetermineFillPrice(marketId int64, fillAmount *big.Int, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*bibliophile.ValidateOrdersAndDetermineFillPriceOutput, error)
+
 	GetBlockPlaced(orderHash [32]byte) *big.Int
 	GetOrderFilledAmount(orderHash [32]byte) *big.Int
 	GetOrderStatus(orderHash [32]byte) int64
+
+	IOC_GetBlockPlaced(orderHash [32]byte) *big.Int
+	IOC_GetOrderFilledAmount(orderHash [32]byte) *big.Int
+	IOC_GetTimestamp(orderHash [32]byte) *big.Int
+	IOC_GetOrderStatus(orderHash [32]byte) int64
+	IOC_ExecutionThreshold() *big.Int
 }
 
 // Define a structure that will implement the Bibliophile interface
@@ -51,6 +58,26 @@ func (b *BibliophileImpl) GetOrderFilledAmount(orderHash [32]byte) *big.Int {
 
 func (b *BibliophileImpl) GetOrderStatus(orderHash [32]byte) int64 {
 	return bibliophile.GetOrderStatus(b.stateDB, orderHash)
+}
+
+func (b *BibliophileImpl) IOC_GetBlockPlaced(orderHash [32]byte) *big.Int {
+	return bibliophile.IOC_GetBlockPlaced(b.stateDB, orderHash)
+}
+
+func (b *BibliophileImpl) IOC_GetOrderFilledAmount(orderHash [32]byte) *big.Int {
+	return bibliophile.IOC_GetOrderFilledAmount(b.stateDB, orderHash)
+}
+
+func (b *BibliophileImpl) IOC_GetTimestamp(orderHash [32]byte) *big.Int {
+	return bibliophile.IOC_GetTimestamp(b.stateDB, orderHash)
+}
+
+func (b *BibliophileImpl) IOC_GetOrderStatus(orderHash [32]byte) int64 {
+	return bibliophile.IOC_GetOrderStatus(b.stateDB, orderHash)
+}
+
+func (b *BibliophileImpl) IOC_ExecutionThreshold() *big.Int {
+	return bibliophile.IOC_ExecutionThreshold(b.stateDB)
 }
 
 func fromTwosComplement(b []byte) *big.Int {
