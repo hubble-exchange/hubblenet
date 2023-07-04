@@ -110,8 +110,8 @@ func getPosSizes(stateDB contract.StateDB, trader *common.Address) []*big.Int {
 	return positionSizes
 }
 
-// getMarketAddressFromMarketID returns the market address for a given marketID
-func getMarketAddressFromMarketID(marketID int64, stateDB contract.StateDB) common.Address {
+// GetMarketAddressFromMarketID returns the market address for a given marketID
+func GetMarketAddressFromMarketID(marketID int64, stateDB contract.StateDB) common.Address {
 	baseStorageSlot := marketsStorageSlot()
 	amm := stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(baseStorageSlot, big.NewInt(marketID))))
 	return common.BytesToAddress(amm.Bytes())

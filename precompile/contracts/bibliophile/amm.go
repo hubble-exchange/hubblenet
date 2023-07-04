@@ -42,25 +42,25 @@ func GetCumulativePremiumFraction(stateDB contract.StateDB, market common.Addres
 
 // GetMaxOraclePriceSpread returns the maxOracleSpreadRatio for a given market
 func GetMaxOraclePriceSpread(stateDB contract.StateDB, marketID int64) *big.Int {
-	market := getMarketAddressFromMarketID(marketID, stateDB)
+	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_ORACLE_SPREAD_RATIO_SLOT))).Bytes())
 }
 
 // GetMaxLiquidationPriceSpread returns the maxOracleSpreadRatio for a given market
 func GetMaxLiquidationPriceSpread(stateDB contract.StateDB, marketID int64) *big.Int {
-	market := getMarketAddressFromMarketID(marketID, stateDB)
+	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_LIQUIDATION_PRICE_SPREAD))).Bytes())
 }
 
 // GetMaxLiquidationRatio returns the maxLiquidationPriceSpread for a given market
 func GetMaxLiquidationRatio(stateDB contract.StateDB, marketID int64) *big.Int {
-	market := getMarketAddressFromMarketID(marketID, stateDB)
+	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_LIQUIDATION_RATIO_SLOT))).Bytes())
 }
 
 // GetMinSizeRequirement returns the minSizeRequirement for a given market
 func GetMinSizeRequirement(stateDB contract.StateDB, marketID int64) *big.Int {
-	market := getMarketAddressFromMarketID(marketID, stateDB)
+	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MIN_SIZE_REQUIREMENT_SLOT))).Bytes())
 }
 
@@ -73,7 +73,7 @@ func getUnderlyingAssetAddress(stateDB contract.StateDB, market common.Address) 
 }
 
 func getUnderlyingPriceForMarket(stateDB contract.StateDB, marketID int64) *big.Int {
-	market := getMarketAddressFromMarketID(marketID, stateDB)
+	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return getUnderlyingPrice(stateDB, market)
 }
 
@@ -122,7 +122,7 @@ func positionsStorageSlot(trader *common.Address) *big.Int {
 	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(VAR_POSITIONS_SLOT).Bytes(), 32)...)))
 }
 
-func getSize(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+func GetSize(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(positionsStorageSlot(trader))).Bytes())
 }
 
@@ -138,11 +138,11 @@ func GetLastPremiumFraction(stateDB contract.StateDB, market common.Address, tra
 
 func getPendingFundingPayment(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	cumulativePremiumFraction := GetCumulativePremiumFraction(stateDB, market)
-	return divide1e18(new(big.Int).Mul(new(big.Int).Sub(cumulativePremiumFraction, GetLastPremiumFraction(stateDB, market, trader)), getSize(stateDB, market, trader)))
+	return divide1e18(new(big.Int).Mul(new(big.Int).Sub(cumulativePremiumFraction, GetLastPremiumFraction(stateDB, market, trader)), GetSize(stateDB, market, trader)))
 }
 
 func getOptimalPnl(stateDB contract.StateDB, market common.Address, oraclePrice *big.Int, lastPrice *big.Int, trader *common.Address, margin *big.Int, marginMode MarginMode, blockTimestamp *big.Int) (notionalPosition *big.Int, uPnL *big.Int) {
-	size := getSize(stateDB, market, trader)
+	size := GetSize(stateDB, market, trader)
 	if size.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0)
 	}

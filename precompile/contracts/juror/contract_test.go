@@ -5,13 +5,24 @@
 package juror
 
 import (
+	"encoding/hex"
+	"math/big"
+	"strings"
+
+	// "reflect"
+
 	"testing"
 
 	"github.com/ava-labs/subnet-evm/core/state"
 	"github.com/ava-labs/subnet-evm/precompile/testutils"
 	"github.com/ava-labs/subnet-evm/vmerrs"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	mock_juror "github.com/ava-labs/subnet-evm/precompile/contracts/juror/mocks"
+	gomock "github.com/golang/mock/gomock"
+	// "gotest.tools/assert/cmp"
 )
 
 // TestRun tests the Run function of the precompile contract.
@@ -71,4 +82,206 @@ func TestRun(t *testing.T) {
 			test.Run(t, Module, state.NewTestStateDB(t))
 		})
 	}
+}
+
+func TestDecodeLimitOrder(t *testing.T) {
+	t.Run("decode long order", func(t *testing.T) {
+		hexStr := "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001891d5d51070000000000000000000000000000000000000000000000000000000000000000" // Represents the string "Hello World" in hex
+
+		// Remove the "0x" prefix if it exists
+		hexStr = strings.TrimPrefix(hexStr, "0x")
+
+		// Decode the hex string to a byte array
+		testData, err := hex.DecodeString(hexStr)
+		if err != nil {
+			// fmt.Println("Error:", err)
+			return
+		}
+
+		// Expected output: insert the expected output data for your case
+		// expectedOutput := LimitOrder{
+		// 	AmmIndex:          big.NewInt(0),                                                     // example data, replace with real data
+		// 	Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"), // example data, replace with real data
+		// 	BaseAssetQuantity: big.NewInt(5000000000000000000),                                   // example data, replace with real data
+		// 	Price:             big.NewInt(1000000000),                                            // example data, replace with real data
+		// 	Salt:              big.NewInt(1688414802183),                                         // example data, replace with real data
+		// 	ReduceOnly:        false,                                                             // example data, replace with real data
+		// }
+
+		result, err := decodeLimitOrder(testData)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		// assert.Equal(t, expectedOutput, *result)
+		// if ok := reflect.DeepEqual(&result, expectedOutput); !ok {
+		// 	// if ok := cmp.Equal(*result, *expectedOutput)().Success(); !ok {
+		// 	t.Errorf("decodeLimitOrder returned unexpected result: got %v, want %v", result, expectedOutput)
+		// }
+	})
+}
+
+func TestValidateLimitOrderLike(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockBibliophile := mock_juror.NewMockBibliophile(ctrl)
+
+	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
+	order := &LimitOrder{
+		AmmIndex:          big.NewInt(0),
+		Trader:            trader,
+		BaseAssetQuantity: big.NewInt(10),
+		Price:             big.NewInt(20),
+		Salt:              big.NewInt(1),
+		ReduceOnly:        false,
+	}
+	filledAmount := big.NewInt(5)
+	fillAmount := big.NewInt(5)
+
+	t.Run("Side=Long", func(t *testing.T) {
+		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(gomock.Any()).Return(common.Address{}).AnyTimes()
+		t.Run("OrderStatus != Placed will throw error", func(t *testing.T) {
+			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Invalid, Long, fillAmount)
+			assert.EqualError(t, err, ErrInvalidOrder.Error())
+
+			err = validateLimitOrderLike(mockBibliophile, order, filledAmount, Filled, Long, fillAmount)
+			assert.EqualError(t, err, ErrInvalidOrder.Error())
+
+			err = validateLimitOrderLike(mockBibliophile, order, filledAmount, Cancelled, Long, fillAmount)
+			assert.EqualError(t, err, ErrInvalidOrder.Error())
+		})
+
+		t.Run("base asset quantity <= 0", func(t *testing.T) {
+			badOrder := *order
+			badOrder.BaseAssetQuantity = big.NewInt(-23)
+
+			err := validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Long, fillAmount)
+			assert.EqualError(t, err, ErrNotLongOrder.Error())
+
+			badOrder.BaseAssetQuantity = big.NewInt(0)
+			err = validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Long, fillAmount)
+			assert.EqualError(t, err, ErrNotLongOrder.Error())
+		})
+
+		t.Run("ErrOverFill", func(t *testing.T) {
+			fillAmount := big.NewInt(6)
+
+			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Long, fillAmount)
+			assert.EqualError(t, err, ErrOverFill.Error())
+		})
+
+		t.Run("ErrReduceOnlyAmountExceeded", func(t *testing.T) {
+			badOrder := *order
+			badOrder.ReduceOnly = true
+
+			for i := int64(10); /* any +ve # */ i > new(big.Int).Neg(fillAmount).Int64(); i-- {
+				mockBibliophile.EXPECT().GetSize(gomock.Any(), gomock.Any()).Return(big.NewInt(i)).Times(1)
+				err := validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Long, fillAmount)
+				assert.EqualError(t, err, ErrReduceOnlyAmountExceeded.Error())
+			}
+		})
+
+		t.Run("all conditions met for reduceOnly order", func(t *testing.T) {
+			badOrder := *order
+			badOrder.ReduceOnly = true
+
+			start := new(big.Int).Neg(fillAmount).Int64()
+			for i := start; i > start-5; i-- {
+				mockBibliophile.EXPECT().GetSize(gomock.Any(), gomock.Any()).Return(big.NewInt(i)).Times(1)
+				err := validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Long, fillAmount)
+				assert.Nil(t, err)
+			}
+		})
+
+		t.Run("all conditions met", func(t *testing.T) {
+			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Long, fillAmount)
+			assert.Nil(t, err)
+		})
+	})
+
+	t.Run("Side=Short", func(t *testing.T) {
+		order := &LimitOrder{
+			AmmIndex:          big.NewInt(0),
+			Trader:            trader,
+			BaseAssetQuantity: big.NewInt(-10),
+			Price:             big.NewInt(20),
+			Salt:              big.NewInt(1),
+			ReduceOnly:        false,
+		}
+		filledAmount := big.NewInt(-5)
+		fillAmount := big.NewInt(-5)
+		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(gomock.Any()).Return(common.Address{}).AnyTimes()
+		t.Run("OrderStatus != Placed will throw error", func(t *testing.T) {
+			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Invalid, Short, fillAmount)
+			assert.EqualError(t, err, ErrInvalidOrder.Error())
+
+			err = validateLimitOrderLike(mockBibliophile, order, filledAmount, Filled, Short, fillAmount)
+			assert.EqualError(t, err, ErrInvalidOrder.Error())
+
+			err = validateLimitOrderLike(mockBibliophile, order, filledAmount, Cancelled, Short, fillAmount)
+			assert.EqualError(t, err, ErrInvalidOrder.Error())
+		})
+
+		t.Run("base asset quantity >= 0", func(t *testing.T) {
+			badOrder := *order
+			badOrder.BaseAssetQuantity = big.NewInt(23)
+
+			err := validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Short, fillAmount)
+			assert.EqualError(t, err, ErrNotShortOrder.Error())
+
+			badOrder.BaseAssetQuantity = big.NewInt(0)
+			err = validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Short, fillAmount)
+			assert.EqualError(t, err, ErrNotShortOrder.Error())
+		})
+
+		t.Run("ErrOverFill", func(t *testing.T) {
+			fillAmount := big.NewInt(-6)
+
+			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Short, fillAmount)
+			assert.EqualError(t, err, ErrOverFill.Error())
+		})
+
+		t.Run("ErrReduceOnlyAmountExceeded", func(t *testing.T) {
+			badOrder := *order
+			badOrder.ReduceOnly = true
+
+			for i := int64(-10); /* any -ve # */ i < new(big.Int).Abs(fillAmount).Int64(); i++ {
+				mockBibliophile.EXPECT().GetSize(gomock.Any(), gomock.Any()).Return(big.NewInt(i)).Times(1)
+				err := validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Short, fillAmount)
+				assert.EqualError(t, err, ErrReduceOnlyAmountExceeded.Error())
+			}
+		})
+
+		t.Run("all conditions met for reduceOnly order", func(t *testing.T) {
+			badOrder := *order
+			badOrder.ReduceOnly = true
+
+			start := new(big.Int).Abs(fillAmount).Int64()
+			for i := start; i < start+5; i++ {
+				mockBibliophile.EXPECT().GetSize(gomock.Any(), gomock.Any()).Return(big.NewInt(i)).Times(1)
+				err := validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Short, fillAmount)
+				assert.Nil(t, err)
+			}
+		})
+
+		t.Run("all conditions met", func(t *testing.T) {
+			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Short, fillAmount)
+			assert.Nil(t, err)
+		})
+	})
+
+	t.Run("invalid side", func(t *testing.T) {
+		order := &LimitOrder{
+			AmmIndex:          big.NewInt(0),
+			Trader:            trader,
+			BaseAssetQuantity: big.NewInt(10),
+			Price:             big.NewInt(20),
+			Salt:              big.NewInt(1),
+			ReduceOnly:        false,
+		}
+		filledAmount := big.NewInt(0)
+		fillAmount := big.NewInt(5)
+
+		err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Side(4), fillAmount) // assuming 4 is an invalid Side value
+		assert.EqualError(t, err, "OB_invalid_side")
+	})
 }

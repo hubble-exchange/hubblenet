@@ -41,25 +41,25 @@ func GetCumulativePremiumFraction(stateDB contract.StateDB, market common.Addres
 
 // GetMaxOracleSpreadRatioForMarket returns the maxOracleSpreadRatio for a given market
 func GetMaxOracleSpreadRatioForMarket(stateDB contract.StateDB, marketID int64) *big.Int {
-	market := getMarketAddressFromMarketID(marketID, stateDB)
+	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_ORACLE_SPREAD_RATIO_SLOT))).Bytes())
 }
 
 // GetMaxOracleSpreadRatioForMarket returns the maxOracleSpreadRatio for a given market
 func GetMaxLiquidationPriceSpreadForMarket(stateDB contract.StateDB, marketID int64) *big.Int {
-	market := getMarketAddressFromMarketID(marketID, stateDB)
+	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_LIQUIDATION_PRICE_SPREAD))).Bytes())
 }
 
 // GetMaxLiquidationRatioForMarket returns the maxLiquidationRatio for a given market
 func GetMaxLiquidationRatioForMarket(stateDB contract.StateDB, marketID int64) *big.Int {
-	market := getMarketAddressFromMarketID(marketID, stateDB)
+	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_LIQUIDATION_RATIO_SLOT))).Bytes())
 }
 
 // GetMinSizeRequirementForMarket returns the minSizeRequirement for a given market
 func GetMinSizeRequirementForMarket(stateDB contract.StateDB, marketID int64) *big.Int {
-	market := getMarketAddressFromMarketID(marketID, stateDB)
+	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(MIN_SIZE_REQUIREMENT_SLOT))).Bytes())
 }
 

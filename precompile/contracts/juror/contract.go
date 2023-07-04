@@ -11,7 +11,6 @@ import (
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/precompile/contract"
-	"github.com/ava-labs/subnet-evm/vmerrs"
 
 	_ "embed"
 
@@ -185,9 +184,12 @@ func validateOrdersAndDetermineFillPrice(accessibleState contract.AccessibleStat
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct                                      // CUSTOM CODE OPERATES ON INPUT
-	var output ValidateOrdersAndDetermineFillPriceOutput // CUSTOM CODE FOR AN OUTPUT
-	packedOutput, err := PackValidateOrdersAndDetermineFillPriceOutput(output)
+	bibliophile := NewBibliophile(accessibleState.GetStateDB())
+	output, err := ValidateOrdersAndDetermineFillPrice(bibliophile, &inputStruct)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+	packedOutput, err := PackValidateOrdersAndDetermineFillPriceOutput(*output)
 	if err != nil {
 		return nil, remainingGas, err
 	}
