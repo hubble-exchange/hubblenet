@@ -2,9 +2,8 @@
   "name": "orderbook",
   "version": "1.0.0",
   "description": "",
-  "main": "test.js",
   "scripts": {
-    "test": "mocha test.js --timeout 120000"
+    "test": "mocha tests/**/*.js --timeout 120000"
   },
   "author": "",
   "license": "ISC",
