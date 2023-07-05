@@ -118,6 +118,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 		if !removed {
 			order := getOrderFromRawOrder(args["order"])
 			limitOrder := LimitOrder{
+				Id:                      orderId,
 				Market:                  Market(order.AmmIndex.Int64()),
 				PositionType:            getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
 				UserAddress:             getAddressFromTopicHash(event.Topics[1]).String(),
@@ -129,8 +130,8 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 				ReduceOnly:              order.ReduceOnly,
 				BlockNumber:             big.NewInt(int64(event.BlockNumber)),
 			}
-			log.Info("OrderPlaced", "orderId", orderId.String(), "order", limitOrder)
-			cep.database.Add(orderId, &limitOrder)
+			log.Info("OrderPlaced", "order", limitOrder)
+			cep.database.Add(&limitOrder)
 		} else {
 			log.Info("OrderPlaced removed", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
 			cep.database.Delete(orderId)
