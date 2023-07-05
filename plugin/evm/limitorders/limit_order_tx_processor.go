@@ -109,7 +109,7 @@ func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, mat
 		log.Error("EncodeLimitOrder failed in ExecuteLiquidation", "order", matchedOrder, "err", err)
 		return err
 	}
-	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader, matchedOrder.RawOrder, fillAmount)
+	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader, orderBytes, fillAmount)
 	log.Info("ExecuteLiquidation", "trader", trader, "matchedOrder", matchedOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String())
 	return err
 }
