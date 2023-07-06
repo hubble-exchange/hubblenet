@@ -1,4 +1,4 @@
-package limitorders
+package orderbook
 
 import (
 	"math/big"
@@ -127,7 +127,7 @@ func TestGetShortOrders(t *testing.T) {
 	assert.Equal(t, 4, len(returnedShortOrders))
 
 	// at least one of the orders should be reduce only
-	reduceOnlyOrder := LimitOrder{}
+	reduceOnlyOrder := Order{}
 	for _, order := range returnedShortOrders {
 		if order.ReduceOnly {
 			reduceOnlyOrder = order
@@ -191,7 +191,7 @@ func TestGetLongOrders(t *testing.T) {
 func TestGetCancellableOrders(t *testing.T) {
 	// also tests getTotalNotionalPositionAndUnrealizedPnl
 	inMemoryDatabase := getDatabase()
-	getReservedMargin := func(order LimitOrder) *big.Int {
+	getReservedMargin := func(order Order) *big.Int {
 		notional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.BaseAssetQuantity, order.Price), _1e18))
 		return divideByBasePrecision(big.NewInt(0).Mul(notional, inMemoryDatabase.configService.getMinAllowableMargin()))
 	}
@@ -628,8 +628,8 @@ func TestUpdateReservedMargin(t *testing.T) {
 	assert.Equal(t, big.NewInt(15*1e6), inMemoryDatabase.TraderMap[address].Margin.Reserved)
 }
 
-func createLimitOrder(positionType PositionType, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, blockNumber *big.Int, salt *big.Int) LimitOrder {
-	lo := LimitOrder{
+func createLimitOrder(positionType PositionType, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, blockNumber *big.Int, salt *big.Int) Order {
+	lo := Order{
 		Market:                  market,
 		PositionType:            positionType,
 		UserAddress:             userAddress,

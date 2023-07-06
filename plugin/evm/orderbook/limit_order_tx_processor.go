@@ -1,4 +1,4 @@
-package limitorders
+package orderbook
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/metrics"
+	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook/abis"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -21,15 +22,17 @@ import (
 var OrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000000")
 var MarginAccountContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000001")
 var ClearingHouseContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000002")
+var LimitOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000000")
+var IOCOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000000")
 
 type LimitOrderTxProcessor interface {
 	PurgeLocalTx()
 	CheckIfOrderBookContractCall(tx *types.Transaction) bool
-	ExecuteMatchedOrdersTx(incomingOrder LimitOrder, matchedOrder LimitOrder, fillAmount *big.Int) error
+	ExecuteMatchedOrdersTx(incomingOrder Order, matchedOrder Order, fillAmount *big.Int) error
 	ExecuteFundingPaymentTx() error
-	ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error
-	ExecuteOrderCancel(orderIds []Order) error
+	ExecuteLiquidation(trader common.Address, matchedOrder Order, fillAmount *big.Int) error
 	UpdateMetrics(block *types.Block)
+	ExecuteLimitOrderCancel(orderIds []LimitOrder) error
 }
 
 type ValidatorTxFeeConfig struct {
@@ -38,42 +41,39 @@ type ValidatorTxFeeConfig struct {
 }
 
 type limitOrderTxProcessor struct {
-	txPool                       *core.TxPool
-	memoryDb                     LimitOrderDatabase
-	orderBookABI                 abi.ABI
-	clearingHouseABI             abi.ABI
-	marginAccountABI             abi.ABI
-	orderBookContractAddress     common.Address
-	clearingHouseContractAddress common.Address
-	marginAccountContractAddress common.Address
-	backend                      *eth.EthAPIBackend
-	validatorAddress             common.Address
-	validatorPrivateKey          string
-	validatorTxFeeConfig         ValidatorTxFeeConfig
-}
-
-// Order type is copy of Order struct defined in Orderbook contract
-type Order struct {
-	AmmIndex          *big.Int       `json:"ammIndex"`
-	Trader            common.Address `json:"trader"`
-	BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
-	Price             *big.Int       `json:"price"`
-	Salt              *big.Int       `json:"salt"`
-	ReduceOnly        bool           `json:"reduceOnly"`
+	txPool                        *core.TxPool
+	memoryDb                      LimitOrderDatabase
+	orderBookABI                  abi.ABI
+	limitOrderBookABI             abi.ABI
+	clearingHouseABI              abi.ABI
+	marginAccountABI              abi.ABI
+	orderBookContractAddress      common.Address
+	limitOrderBookContractAddress common.Address
+	clearingHouseContractAddress  common.Address
+	marginAccountContractAddress  common.Address
+	backend                       *eth.EthAPIBackend
+	validatorAddress              common.Address
+	validatorPrivateKey           string
+	validatorTxFeeConfig          ValidatorTxFeeConfig
 }
 
 func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend, validatorPrivateKey string) LimitOrderTxProcessor {
-	orderBookABI, err := abi.FromSolidityJson(string(orderBookAbi))
+	orderBookABI, err := abi.FromSolidityJson(string(abis.OrderBookAbi))
 	if err != nil {
 		panic(err)
 	}
 
-	clearingHouseABI, err := abi.FromSolidityJson(string(clearingHouseAbi))
+	clearingHouseABI, err := abi.FromSolidityJson(string(abis.ClearingHouseAbi))
 	if err != nil {
 		panic(err)
 	}
 
-	marginAccountABI, err := abi.FromSolidityJson(string(marginAccountAbi))
+	marginAccountABI, err := abi.FromSolidityJson(string(abis.MarginAccountAbi))
+	if err != nil {
+		panic(err)
+	}
+
+	limitOrderBookABI, err := abi.FromSolidityJson(string(abis.LimitOrderBookAbi))
 	if err != nil {
 		panic(err)
 	}
@@ -86,62 +86,64 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 	}
 
 	lotp := &limitOrderTxProcessor{
-		txPool:                       txPool,
-		orderBookABI:                 orderBookABI,
-		clearingHouseABI:             clearingHouseABI,
-		marginAccountABI:             marginAccountABI,
-		memoryDb:                     memoryDb,
-		orderBookContractAddress:     OrderBookContractAddress,
-		clearingHouseContractAddress: ClearingHouseContractAddress,
-		marginAccountContractAddress: MarginAccountContractAddress,
-		backend:                      backend,
-		validatorAddress:             validatorAddress,
-		validatorPrivateKey:          validatorPrivateKey,
-		validatorTxFeeConfig:         ValidatorTxFeeConfig{baseFeeEstimate: big.NewInt(0), blockNumber: 0},
+		txPool:                        txPool,
+		orderBookABI:                  orderBookABI,
+		clearingHouseABI:              clearingHouseABI,
+		marginAccountABI:              marginAccountABI,
+		limitOrderBookABI:             limitOrderBookABI,
+		memoryDb:                      memoryDb,
+		orderBookContractAddress:      OrderBookContractAddress,
+		clearingHouseContractAddress:  ClearingHouseContractAddress,
+		marginAccountContractAddress:  MarginAccountContractAddress,
+		limitOrderBookContractAddress: LimitOrderBookContractAddress,
+		backend:                       backend,
+		validatorAddress:              validatorAddress,
+		validatorPrivateKey:           validatorPrivateKey,
+		validatorTxFeeConfig:          ValidatorTxFeeConfig{baseFeeEstimate: big.NewInt(0), blockNumber: 0},
 	}
 	lotp.updateValidatorTxFeeConfig()
 	return lotp
 }
 
-func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder LimitOrder, fillAmount *big.Int) error {
-	orderBytes, err := EncodeLimitOrder(matchedOrder.RawOrder)
+func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, matchedOrder Order, fillAmount *big.Int) error {
+	orderBytes, err := matchedOrder.RawOrder.EncodeToABI()
 	if err != nil {
 		log.Error("EncodeLimitOrder failed in ExecuteLiquidation", "order", matchedOrder, "err", err)
 		return err
 	}
 	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader, orderBytes, fillAmount)
-	log.Info("ExecuteLiquidation", "trader", trader, "matchedOrder", matchedOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String())
+	log.Info("ExecuteLiquidation", "trader", trader, "matchedOrder", matchedOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String(), "err", err)
 	return err
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
 	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "settleFunding")
-	log.Info("ExecuteFundingPaymentTx", "txHash", txHash.String())
+	log.Info("ExecuteFundingPaymentTx", "txHash", txHash.String(), "err", err)
 	return err
 }
 
-func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder LimitOrder, shortOrder LimitOrder, fillAmount *big.Int) error {
+func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder Order, shortOrder Order, fillAmount *big.Int) error {
 	var err error
 	orders := make([][]byte, 2)
-	orders[0], err = EncodeLimitOrder(longOrder.RawOrder)
+	orders[0], err = longOrder.RawOrder.EncodeToABI()
 	if err != nil {
 		log.Error("EncodeLimitOrder failed for longOrder", "order", longOrder, "err", err)
 		return err
 	}
-	orders[1], err = EncodeLimitOrder(shortOrder.RawOrder)
+	orders[1], err = shortOrder.RawOrder.EncodeToABI()
 	if err != nil {
 		log.Error("EncodeLimitOrder failed for shortOrder", "order", shortOrder, "err", err)
 		return err
 	}
 
 	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "executeMatchedOrders", orders, fillAmount)
-	log.Info("ExecuteMatchedOrdersTx", "LongOrder", longOrder, "ShortOrder", shortOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String())
+	log.Info("ExecuteMatchedOrdersTx", "LongOrder", longOrder, "ShortOrder", shortOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String(), "err", err)
 	return err
 }
 
-func (lotp *limitOrderTxProcessor) ExecuteOrderCancel(orders []Order) error {
-	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelOrders", orders)
-	log.Info("ExecuteOrderCancel", "orders", orders, "txHash", txHash.String())
+func (lotp *limitOrderTxProcessor) ExecuteLimitOrderCancel(orders []LimitOrder) error {
+	txHash, err := lotp.executeLocalTx(lotp.limitOrderBookContractAddress, lotp.limitOrderBookABI, "cancelOrders", orders)
+	log.Info("ExecuteLimitOrderCancel", "orders", orders, "txHash", txHash.String(), "err", err)
 	return err
 }
 
@@ -332,7 +334,7 @@ func (lotp *limitOrderTxProcessor) UpdateMetrics(block *types.Block) {
 	}
 }
 
-func EncodeLimitOrder(order Order) ([]byte, error) {
+func EncodeLimitOrder(order LimitOrder) ([]byte, error) {
 	limitOrderType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "ammIndex", Type: "uint256"},
 		{Name: "trader", Type: "address"},
