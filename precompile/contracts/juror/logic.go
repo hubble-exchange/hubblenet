@@ -13,6 +13,7 @@ import (
 
 type OrderType uint8
 
+// has to be exact same as expected in contracts
 const (
 	Limit OrderType = iota
 	IOC
@@ -50,6 +51,7 @@ const (
 
 type OrderStatus uint8
 
+// has to be exact same as IOrderHandler
 const (
 	Invalid OrderStatus = iota
 	Placed
@@ -58,13 +60,14 @@ const (
 )
 
 var (
-	ErrInvalidFillAmount        = errors.New("invalid fillAmount")
-	ErrNotLongOrder             = errors.New("OB_order_0_is_not_long")
-	ErrNotShortOrder            = errors.New("OB_order_1_is_not_short")
-	ErrNotSameAMM               = errors.New("OB_orders_for_different_amms")
-	ErrNoMatch                  = errors.New("OB_orders_do_not_match")
+	ErrInvalidFillAmount = errors.New("invalid fillAmount")
+	ErrNotLongOrder      = errors.New("not long")
+	ErrNotShortOrder     = errors.New("not short")
+	ErrNotSameAMM        = errors.New("OB_orders_for_different_amms")
+	ErrNoMatch           = errors.New("OB_orders_do_not_match")
+	ErrNotMultiple       = errors.New("not multiple")
+
 	ErrInvalidOrder             = errors.New("OB_invalid_order")
-	ErrNotMultiple              = errors.New("OB.not_multiple")
 	ErrTooLow                   = errors.New("OB_long_order_price_too_low")
 	ErrTooHigh                  = errors.New("OB_short_order_price_too_high")
 	ErrOverFill                 = errors.New("OB_filled_amount_higher_than_order_base")
@@ -99,11 +102,16 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 		return nil, ErrNotSameAMM
 	}
 
-	if m0.Price.Cmp(m1.Price) == -1 {
+	if m0.Price.Cmp(m1.Price) < 0 {
 		return nil, ErrNoMatch
 	}
 
-	_fillPriceAndModes, err := bibliophile.DetermineFillPrice(m0.AmmIndex.Int64(), inputStruct.FillAmount, m0.Price, m1.Price, m0.BlockPlaced, m1.BlockPlaced)
+	minSize := bibliophile.GetMinSizeRequirement(m0.AmmIndex.Int64())
+	if new(big.Int).Mod(inputStruct.FillAmount, minSize).Cmp(big.NewInt(0)) != 0 {
+		return nil, ErrNotMultiple
+	}
+
+	fillPriceAndModes, err := bibliophile.DetermineFillPrice(m0.AmmIndex.Int64(), m0.Price, m1.Price, m0.BlockPlaced, m1.BlockPlaced)
 	if err != nil {
 		return nil, err
 	}
@@ -114,13 +122,13 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 				AmmIndex:  m0.AmmIndex,
 				Trader:    m0.Trader,
 				OrderHash: m0.OrderHash,
-				Mode:      _fillPriceAndModes.Mode0,
+				Mode:      fillPriceAndModes.Mode0,
 			},
 			IClearingHouseInstruction{
 				AmmIndex:  m1.AmmIndex,
 				Trader:    m1.Trader,
 				OrderHash: m1.OrderHash,
-				Mode:      _fillPriceAndModes.Mode1,
+				Mode:      fillPriceAndModes.Mode1,
 			},
 		},
 		OrderTypes: [2]uint8{uint8(decodeStep0.OrderType), uint8(decodeStep1.OrderType)},
@@ -128,7 +136,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 			decodeStep0.EncodedOrder,
 			decodeStep1.EncodedOrder,
 		},
-		FillPrice: _fillPriceAndModes.FillPrice,
+		FillPrice: fillPriceAndModes.FillPrice,
 	}
 	return output, nil
 }
@@ -271,7 +279,7 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *LimitOrder, 
 			}
 		}
 	} else {
-		return errors.New("OB_invalid_side")
+		return errors.New("invalid side")
 	}
 	return nil
 }
@@ -286,12 +294,12 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *IOCOrder, s
 	if order.OrderType != IOC {
 		return nil, errors.New("not ioc order")
 	}
+	if order.expireAt.Cmp(bibliophile.GetAccessibleState().GetBlockContext().Timestamp()) < 0 {
+		return nil, errors.New("ioc expired")
+	}
 	orderHash, err := getIOCOrderHash(order)
 	if err != nil {
 		return nil, err
-	}
-	if order.expireAt.Cmp(bibliophile.GetAccessibleState().GetBlockContext().Timestamp()) < 0 {
-		return nil, errors.New("ioc expired")
 	}
 	if err := validateLimitOrderLike(bibliophile, &order.LimitOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
 		return nil, err

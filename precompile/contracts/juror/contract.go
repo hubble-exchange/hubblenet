@@ -23,9 +23,9 @@ const (
 	// You should set a gas cost for each function in your contract.
 	// Generally, you should not set gas costs very low as this may cause your network to be vulnerable to DoS attacks.
 	// There are some predefined gas costs in contract/utils.go that you can use.
-	ValidateLiquidationOrderAndDetermineFillPriceGasCost uint64 = 1 /* SET A GAS COST HERE */
-	ValidateOrdersAndDetermineFillPriceGasCost           uint64 = 1 /* SET A GAS COST HERE */
-	ValidatePlaceIOCOrdersGasCost                        uint64 = 1 /* SET A GAS COST HERE */
+	ValidateLiquidationOrderAndDetermineFillPriceGasCost uint64 = 69 /* SET A GAS COST HERE */
+	ValidateOrdersAndDetermineFillPriceGasCost           uint64 = 69 /* SET A GAS COST HERE */
+	ValidatePlaceIOCOrdersGasCost                        uint64 = 69 /* SET A GAS COST HERE */
 )
 
 // CUSTOM CODE STARTS HERE

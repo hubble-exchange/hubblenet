@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	// mocks "github.com/ava-labs/subnet-evm/precompile/contracts/juror/mocks"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -350,6 +349,57 @@ func TestValidateLimitOrderLike(t *testing.T) {
 		fillAmount := big.NewInt(5)
 
 		err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Side(4), fillAmount) // assuming 4 is an invalid Side value
-		assert.EqualError(t, err, "OB_invalid_side")
+		assert.EqualError(t, err, "invalid side")
 	})
+}
+
+func TestValidateExecuteLimitOrder(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockBibliophile := b.NewMockBibliophileClient(ctrl)
+	marketAddress := common.HexToAddress("0xa72b463C21dA61cCc86069cFab82e9e8491152a0")
+	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
+
+	order := &LimitOrder{
+		AmmIndex:          big.NewInt(534),
+		Trader:            trader,
+		BaseAssetQuantity: big.NewInt(10),
+		Price:             big.NewInt(20),
+		Salt:              big.NewInt(1),
+		ReduceOnly:        false,
+	}
+	filledAmount := big.NewInt(5)
+	fillAmount := big.NewInt(5)
+
+	t.Run("validateExecuteLimitOrder", func(t *testing.T) {
+		orderHash, err := GetLimitOrderHash(order)
+		assert.Nil(t, err)
+
+		blockPlaced := big.NewInt(42)
+		mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(filledAmount).Times(1)
+		mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(1)).Times(1)                                 // placed
+		mockBibliophile.EXPECT().GetBlockPlaced(orderHash).Return(blockPlaced).Times(1)                              // placed
+		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(marketAddress).Times(1) // placed
+
+		m, err := validateExecuteLimitOrder(mockBibliophile, order, Long, fillAmount)
+		assert.Nil(t, err)
+		assertMetadataEquality(t, &Metadata{
+			AmmIndex:          new(big.Int).Set(order.AmmIndex),
+			Trader:            trader,
+			BaseAssetQuantity: new(big.Int).Set(order.BaseAssetQuantity),
+			BlockPlaced:       blockPlaced,
+			Price:             new(big.Int).Set(order.Price),
+			OrderHash:         orderHash,
+		}, m)
+	})
+}
+
+func assertMetadataEquality(t *testing.T, expected, actual *Metadata) {
+	assert.Equal(t, expected.AmmIndex.Int64(), actual.AmmIndex.Int64())
+	assert.Equal(t, expected.Trader, actual.Trader)
+	assert.Equal(t, expected.BaseAssetQuantity, actual.BaseAssetQuantity)
+	assert.Equal(t, expected.BlockPlaced, actual.BlockPlaced)
+	assert.Equal(t, expected.Price, actual.Price)
+	assert.Equal(t, expected.OrderHash, actual.OrderHash)
 }

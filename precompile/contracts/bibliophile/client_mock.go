@@ -37,18 +37,18 @@ func (m *MockBibliophileClient) EXPECT() *MockBibliophileClientMockRecorder {
 }
 
 // DetermineFillPrice mocks base method.
-func (m *MockBibliophileClient) DetermineFillPrice(marketId int64, fillAmount, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
+func (m *MockBibliophileClient) DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DetermineFillPrice", marketId, fillAmount, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
+	ret := m.ctrl.Call(m, "DetermineFillPrice", marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
 	ret0, _ := ret[0].(*ValidateOrdersAndDetermineFillPriceOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DetermineFillPrice indicates an expected call of DetermineFillPrice.
-func (mr *MockBibliophileClientMockRecorder) DetermineFillPrice(marketId, fillAmount, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 interface{}) *gomock.Call {
+func (mr *MockBibliophileClientMockRecorder) DetermineFillPrice(marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetermineFillPrice", reflect.TypeOf((*MockBibliophileClient)(nil).DetermineFillPrice), marketId, fillAmount, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetermineFillPrice", reflect.TypeOf((*MockBibliophileClient)(nil).DetermineFillPrice), marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
 }
 
 // GetAccessibleState mocks base method.
@@ -80,17 +80,31 @@ func (mr *MockBibliophileClientMockRecorder) GetBlockPlaced(orderHash interface{
 }
 
 // GetMarketAddressFromMarketID mocks base method.
-func (m *MockBibliophileClient) GetMarketAddressFromMarketID(marketID int64) common.Address {
+func (m *MockBibliophileClient) GetMarketAddressFromMarketID(marketId int64) common.Address {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMarketAddressFromMarketID", marketID)
+	ret := m.ctrl.Call(m, "GetMarketAddressFromMarketID", marketId)
 	ret0, _ := ret[0].(common.Address)
 	return ret0
 }
 
 // GetMarketAddressFromMarketID indicates an expected call of GetMarketAddressFromMarketID.
-func (mr *MockBibliophileClientMockRecorder) GetMarketAddressFromMarketID(marketID interface{}) *gomock.Call {
+func (mr *MockBibliophileClientMockRecorder) GetMarketAddressFromMarketID(marketId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketAddressFromMarketID", reflect.TypeOf((*MockBibliophileClient)(nil).GetMarketAddressFromMarketID), marketID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketAddressFromMarketID", reflect.TypeOf((*MockBibliophileClient)(nil).GetMarketAddressFromMarketID), marketId)
+}
+
+// GetMinSizeRequirement mocks base method.
+func (m *MockBibliophileClient) GetMinSizeRequirement(marketId int64) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMinSizeRequirement", marketId)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetMinSizeRequirement indicates an expected call of GetMinSizeRequirement.
+func (mr *MockBibliophileClientMockRecorder) GetMinSizeRequirement(marketId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMinSizeRequirement", reflect.TypeOf((*MockBibliophileClient)(nil).GetMinSizeRequirement), marketId)
 }
 
 // GetOrderFilledAmount mocks base method.

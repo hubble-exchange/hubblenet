@@ -9,8 +9,9 @@ import (
 
 type BibliophileClient interface {
 	GetSize(market common.Address, trader *common.Address) *big.Int
-	GetMarketAddressFromMarketID(marketID int64) common.Address
-	DetermineFillPrice(marketId int64, fillAmount *big.Int, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error)
+	GetMinSizeRequirement(marketId int64) *big.Int
+	GetMarketAddressFromMarketID(marketId int64) common.Address
+	DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error)
 
 	GetBlockPlaced(orderHash [32]byte) *big.Int
 	GetOrderFilledAmount(orderHash [32]byte) *big.Int
@@ -37,16 +38,21 @@ func NewBibliophileClient(accessibleState contract.AccessibleState) BibliophileC
 func (b *bibliophileClient) GetAccessibleState() contract.AccessibleState {
 	return b.accessibleState
 }
+
 func (b *bibliophileClient) GetSize(market common.Address, trader *common.Address) *big.Int {
 	return getSize(b.accessibleState.GetStateDB(), market, trader)
+}
+
+func (b *bibliophileClient) GetMinSizeRequirement(marketId int64) *big.Int {
+	return GetMinSizeRequirement(b.accessibleState.GetStateDB(), marketId)
 }
 
 func (b *bibliophileClient) GetMarketAddressFromMarketID(marketID int64) common.Address {
 	return getMarketAddressFromMarketID(marketID, b.accessibleState.GetStateDB())
 }
 
-func (b *bibliophileClient) DetermineFillPrice(marketId int64, fillAmount *big.Int, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
-	return DetermineFillPrice(b.accessibleState.GetStateDB(), marketId, fillAmount, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
+func (b *bibliophileClient) DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
+	return DetermineFillPrice(b.accessibleState.GetStateDB(), marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
 }
 
 func (b *bibliophileClient) GetBlockPlaced(orderHash [32]byte) *big.Int {

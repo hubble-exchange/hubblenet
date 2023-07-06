@@ -75,16 +75,15 @@ func ValidateOrdersAndDetermineFillPrice(stateDB contract.StateDB, inputStruct *
 
 	blockPlaced0 := getBlockPlaced(stateDB, inputStruct.OrderHashes[0])
 	blockPlaced1 := getBlockPlaced(stateDB, inputStruct.OrderHashes[1])
-
-	return DetermineFillPrice(stateDB, longOrder.AmmIndex.Int64(), inputStruct.FillAmount, longOrder.Price, shortOrder.Price, blockPlaced0, blockPlaced1)
-}
-
-func DetermineFillPrice(stateDB contract.StateDB, marketId int64, fillAmount *big.Int, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
-	market := getMarketAddressFromMarketID(marketId, stateDB)
-	minSize := GetMinSizeRequirement(stateDB, marketId)
-	if new(big.Int).Mod(fillAmount, minSize).Cmp(big.NewInt(0)) != 0 {
+	minSize := GetMinSizeRequirement(stateDB, longOrder.AmmIndex.Int64())
+	if new(big.Int).Mod(inputStruct.FillAmount, minSize).Cmp(big.NewInt(0)) != 0 {
 		return nil, ErrNotMultiple
 	}
+	return DetermineFillPrice(stateDB, longOrder.AmmIndex.Int64(), longOrder.Price, shortOrder.Price, blockPlaced0, blockPlaced1)
+}
+
+func DetermineFillPrice(stateDB contract.StateDB, marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
+	market := getMarketAddressFromMarketID(marketId, stateDB)
 	oraclePrice := getUnderlyingPrice(stateDB, market)
 	spreadLimit := GetMaxOraclePriceSpread(stateDB, marketId)
 	return determineFillPrice(oraclePrice, spreadLimit, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
