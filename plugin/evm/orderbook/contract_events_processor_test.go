@@ -1,4 +1,4 @@
-package limitorders
+package orderbook
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook/abis"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ func TestProcessEvents(t *testing.T) {
 	t.Run("it sorts events by blockNumber and executes in order", func(t *testing.T) {
 		db := getDatabase()
 		cep := newcep(t, db)
-		orderBookABI := getABIfromJson(orderBookAbi)
+		orderBookABI := getABIfromJson(abis.OrderBookAbi)
 
 		traderAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 		ammIndex := big.NewInt(0)
@@ -122,14 +123,14 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 	price := big.NewInt(1000000000)
 	salt := big.NewInt(1675239557437)
 	order := getOrder(ammIndex, traderAddress, baseAssetQuantity, price, salt)
-	orderBookABI := getABIfromJson(orderBookAbi)
+	orderBookABI := getABIfromJson(abis.OrderBookAbi)
 	orderBookEvent := getEventFromABI(orderBookABI, "OrderPlaced")
 	orderPlacedEventData, _ := orderBookEvent.Inputs.NonIndexed().Pack(order, timestamp)
 	orderBookEventTopics := []common.Hash{orderBookEvent.ID, traderAddress.Hash(), getIdFromOrder(order)}
 	orderBookLog := getEventLog(OrderBookContractAddress, orderBookEventTopics, orderPlacedEventData, blockNumber)
 
 	//MarginAccount Contract log
-	marginAccountABI := getABIfromJson(marginAccountAbi)
+	marginAccountABI := getABIfromJson(abis.MarginAccountAbi)
 	marginAccountEvent := getEventFromABI(marginAccountABI, "MarginAdded")
 	marginAccountEventTopics := []common.Hash{marginAccountEvent.ID, traderAddress.Hash(), common.BigToHash(big.NewInt(int64(collateral)))}
 	marginAdded := multiplyBasePrecision(big.NewInt(100))
@@ -137,7 +138,7 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 	marginAccountLog := getEventLog(MarginAccountContractAddress, marginAccountEventTopics, marginAddedEventData, blockNumber)
 
 	//ClearingHouse Contract log
-	clearingHouseABI := getABIfromJson(clearingHouseAbi)
+	clearingHouseABI := getABIfromJson(abis.ClearingHouseAbi)
 	clearingHouseEvent := getEventFromABI(clearingHouseABI, "FundingRateUpdated")
 	clearingHouseEventTopics := []common.Hash{clearingHouseEvent.ID, common.BigToHash(big.NewInt(int64(market)))}
 
@@ -163,7 +164,8 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 	assert.Equal(t, *price, *actualLimitOrder.Price)
 	assert.Equal(t, Placed, actualLimitOrder.getOrderStatus().Status)
 	assert.Equal(t, big.NewInt(int64(blockNumber)), actualLimitOrder.BlockNumber)
-	rawOrder := getOrderFromRawOrder(args["order"])
+	rawOrder := LimitOrder{}
+	rawOrder.DecodeFromRawOrder(args["order"])
 	assert.Equal(t, rawOrder, actualLimitOrder.RawOrder)
 
 	//ClearingHouse log - FundingRateUpdated
@@ -184,7 +186,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 	salt := big.NewInt(1675239557437)
 	order := getOrder(ammIndex, traderAddress, baseAssetQuantity, price, salt)
 	blockNumber := uint64(12)
-	orderBookABI := getABIfromJson(orderBookAbi)
+	orderBookABI := getABIfromJson(abis.OrderBookAbi)
 
 	t.Run("When event is orderPlaced", func(t *testing.T) {
 		db := getDatabase()
@@ -217,7 +219,8 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			assert.Equal(t, *price, *actualLimitOrder.Price)
 			assert.Equal(t, Placed, actualLimitOrder.getOrderStatus().Status)
 			assert.Equal(t, big.NewInt(int64(blockNumber)), actualLimitOrder.BlockNumber)
-			rawOrder := getOrderFromRawOrder(args["order"])
+			rawOrder := LimitOrder{}
+			rawOrder.DecodeFromRawOrder(args["order"])
 			assert.Equal(t, rawOrder, actualLimitOrder.RawOrder)
 		})
 	})
@@ -227,7 +230,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		event := getEventFromABI(orderBookABI, "OrderCancelled")
 		topics := []common.Hash{event.ID, traderAddress.Hash(), getIdFromOrder(order)}
 		blockNumber := uint64(4)
-		limitOrder := &LimitOrder{
+		limitOrder := &Order{
 			Market:            Market(ammIndex.Int64()),
 			PositionType:      LONG,
 			UserAddress:       traderAddress.String(),
@@ -258,7 +261,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		db := getDatabase()
 		cep := newcep(t, db)
 		event := getEventFromABI(orderBookABI, "OrdersMatched")
-		longOrder := &LimitOrder{
+		longOrder := &Order{
 			Market:                  Market(ammIndex.Int64()),
 			PositionType:            LONG,
 			UserAddress:             traderAddress.String(),
@@ -268,7 +271,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 			FilledBaseAssetQuantity: big.NewInt(0),
 			Salt:                    salt,
 		}
-		shortOrder := &LimitOrder{
+		shortOrder := &Order{
 			Market:                  Market(ammIndex.Int64()),
 			PositionType:            SHORT,
 			UserAddress:             traderAddress.String(),
@@ -305,7 +308,7 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		db := getDatabase()
 		cep := newcep(t, db)
 		event := getEventFromABI(orderBookABI, "LiquidationOrderMatched")
-		longOrder := &LimitOrder{
+		longOrder := &Order{
 			Market:                  Market(ammIndex.Int64()),
 			PositionType:            LONG,
 			UserAddress:             traderAddress.String(),
@@ -342,7 +345,7 @@ func TestHandleMarginAccountEvent(t *testing.T) {
 	blockNumber := uint64(12)
 	collateral := HUSD
 
-	marginAccountABI := getABIfromJson(marginAccountAbi)
+	marginAccountABI := getABIfromJson(abis.MarginAccountAbi)
 
 	t.Run("when event is MarginAdded", func(t *testing.T) {
 		db := getDatabase()
@@ -453,7 +456,7 @@ func TestHandleClearingHouseEvent(t *testing.T) {
 	blockNumber := uint64(12)
 	collateral := HUSD
 	market := Market(0)
-	clearingHouseABI := getABIfromJson(clearingHouseAbi)
+	clearingHouseABI := getABIfromJson(abis.ClearingHouseAbi)
 	openNotional := multiplyBasePrecision(big.NewInt(100))
 	size := multiplyPrecisionSize(big.NewInt(10))
 	lastPremiumFraction := multiplyBasePrecision(big.NewInt(1))
@@ -635,7 +638,7 @@ func TestRemovedEvents(t *testing.T) {
 	baseAssetQuantity := big.NewInt(50)
 	salt1 := big.NewInt(1675239557437)
 	salt2 := big.NewInt(1675239557439)
-	orderBookABI := getABIfromJson(orderBookAbi)
+	orderBookABI := getABIfromJson(abis.OrderBookAbi)
 
 	db := getDatabase()
 	cep := newcep(t, db)
@@ -791,8 +794,8 @@ func getEventFromABI(contractABI abi.ABI, eventName string) abi.Event {
 	return abi.Event{}
 }
 
-func getOrder(ammIndex *big.Int, traderAddress common.Address, baseAssetQuantity *big.Int, price *big.Int, salt *big.Int) Order {
-	return Order{
+func getOrder(ammIndex *big.Int, traderAddress common.Address, baseAssetQuantity *big.Int, price *big.Int, salt *big.Int) LimitOrder {
+	return LimitOrder{
 		AmmIndex:          ammIndex,
 		Trader:            traderAddress,
 		BaseAssetQuantity: baseAssetQuantity,
@@ -812,11 +815,11 @@ func getEventLog(contractAddress common.Address, topics []common.Hash, eventData
 }
 
 // @todo change this to return the EIP712 hash instead
-func getIdFromOrder(order Order) common.Hash {
+func getIdFromOrder(order LimitOrder) common.Hash {
 	return crypto.Keccak256Hash([]byte(order.Trader.String() + order.Salt.String()))
 }
 
 // @todo change this to return the EIP712 hash instead
-func getIdFromLimitOrder(order LimitOrder) common.Hash {
+func getIdFromLimitOrder(order Order) common.Hash {
 	return crypto.Keccak256Hash([]byte(order.UserAddress + order.Salt.String()))
 }
