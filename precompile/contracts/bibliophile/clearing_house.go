@@ -105,7 +105,7 @@ func GetUnderlyingPrices(stateDB contract.StateDB) []*big.Int {
 func getPosSizes(stateDB contract.StateDB, trader *common.Address) []*big.Int {
 	positionSizes := make([]*big.Int, 0)
 	for _, market := range GetMarkets(stateDB) {
-		positionSizes = append(positionSizes, GetSize(stateDB, market, trader))
+		positionSizes = append(positionSizes, getSize(stateDB, market, trader))
 	}
 	return positionSizes
 }
@@ -115,7 +115,7 @@ func _getPositionSizesAndUpperBoundsForMarkets(stateDB contract.StateDB, trader 
 	positionSizes := make([]*big.Int, len(markets))
 	upperBounds := make([]*big.Int, len(markets))
 	for i, market := range markets {
-		positionSizes[i] = GetSize(stateDB, market, trader)
+		positionSizes[i] = getSize(stateDB, market, trader)
 		oraclePrice := getUnderlyingPrice(stateDB, market)
 		spreadLimit := GetMaxOraclePriceSpread(stateDB, int64(i))
 		upperBounds[i], _ = calculateBounds(spreadLimit, oraclePrice)
@@ -126,8 +126,8 @@ func _getPositionSizesAndUpperBoundsForMarkets(stateDB contract.StateDB, trader 
 	}
 }
 
-// GetMarketAddressFromMarketID returns the market address for a given marketID
-func GetMarketAddressFromMarketID(marketID int64, stateDB contract.StateDB) common.Address {
+// getMarketAddressFromMarketID returns the market address for a given marketID
+func getMarketAddressFromMarketID(marketID int64, stateDB contract.StateDB) common.Address {
 	baseStorageSlot := marketsStorageSlot()
 	amm := stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(baseStorageSlot, big.NewInt(marketID))))
 	return common.BytesToAddress(amm.Bytes())

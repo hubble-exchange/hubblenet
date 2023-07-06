@@ -38,11 +38,11 @@ func (b *bibliophileClient) GetAccessibleState() contract.AccessibleState {
 	return b.accessibleState
 }
 func (b *bibliophileClient) GetSize(market common.Address, trader *common.Address) *big.Int {
-	return GetSize(b.accessibleState.GetStateDB(), market, trader)
+	return getSize(b.accessibleState.GetStateDB(), market, trader)
 }
 
 func (b *bibliophileClient) GetMarketAddressFromMarketID(marketID int64) common.Address {
-	return GetMarketAddressFromMarketID(marketID, b.accessibleState.GetStateDB())
+	return getMarketAddressFromMarketID(marketID, b.accessibleState.GetStateDB())
 }
 
 func (b *bibliophileClient) DetermineFillPrice(marketId int64, fillAmount *big.Int, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
@@ -50,25 +50,25 @@ func (b *bibliophileClient) DetermineFillPrice(marketId int64, fillAmount *big.I
 }
 
 func (b *bibliophileClient) GetBlockPlaced(orderHash [32]byte) *big.Int {
-	return GetBlockPlaced(b.accessibleState.GetStateDB(), orderHash)
+	return getBlockPlaced(b.accessibleState.GetStateDB(), orderHash)
 }
 
 func (b *bibliophileClient) GetOrderFilledAmount(orderHash [32]byte) *big.Int {
-	return GetOrderFilledAmount(b.accessibleState.GetStateDB(), orderHash)
+	return getOrderFilledAmount(b.accessibleState.GetStateDB(), orderHash)
 }
 
 func (b *bibliophileClient) GetOrderStatus(orderHash [32]byte) int64 {
-	return GetOrderStatus(b.accessibleState.GetStateDB(), orderHash)
+	return getOrderStatus(b.accessibleState.GetStateDB(), orderHash)
 }
 
 func (b *bibliophileClient) IOC_GetBlockPlaced(orderHash [32]byte) *big.Int {
-	return IOC_GetBlockPlaced(b.accessibleState.GetStateDB(), orderHash)
+	return iocGetBlockPlaced(b.accessibleState.GetStateDB(), orderHash)
 }
 
 func (b *bibliophileClient) IOC_GetOrderFilledAmount(orderHash [32]byte) *big.Int {
-	return IOC_GetOrderFilledAmount(b.accessibleState.GetStateDB(), orderHash)
+	return iocGetOrderFilledAmount(b.accessibleState.GetStateDB(), orderHash)
 }
 
 func (b *bibliophileClient) IOC_GetOrderStatus(orderHash [32]byte) int64 {
-	return IOC_GetOrderStatus(b.accessibleState.GetStateDB(), orderHash)
+	return iocGetOrderStatus(b.accessibleState.GetStateDB(), orderHash)
 }
