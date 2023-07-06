@@ -12,7 +12,6 @@ import (
 type ContractOrder interface {
 	EncodeToABI() ([]byte, error)
 	DecodeFromRawOrder(rawOrder interface{})
-	// DecodeFromABI([]byte) error
 }
 
 // LimitOrder type is copy of LimitOrder struct defined in Orderbook contract
@@ -36,6 +35,8 @@ type IOCOrder struct {
 	Salt              *big.Int       `json:"salt"`
 	ReduceOnly        bool           `json:"reduceOnly"`
 }
+
+// LimitOrder
 
 func (order *LimitOrder) EncodeToABI() ([]byte, error) {
 	limitOrderType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
@@ -67,6 +68,10 @@ func (order *LimitOrder) DecodeFromRawOrder(rawOrder interface{}) {
 	marshalledOrder, _ := json.Marshal(rawOrder)
 	json.Unmarshal(marshalledOrder, &order)
 }
+
+// ----------------------------------------------------------------------------
+
+// IOCOrder
 
 func (order *IOCOrder) EncodeToABI() ([]byte, error) {
 	iocOrderType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
