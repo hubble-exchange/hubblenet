@@ -79,11 +79,11 @@ type OrderType uint8
 
 const (
 	LimitOrderType OrderType = iota
-	MarketOrderType
+	IOCOrderType
 )
 
 func (o OrderType) String() string {
-	return [...]string{"limit", "market"}[o]
+	return [...]string{"limit", "ioc"}[o]
 }
 
 type Lifecycle struct {
@@ -146,7 +146,7 @@ func (order Order) getOrderStatus() Lifecycle {
 }
 
 func (order Order) getExpireAt() *big.Int {
-	if order.OrderType == MarketOrderType {
+	if order.OrderType == IOCOrderType {
 		return order.RawOrder.(*IOCOrder).ExpireAt
 	}
 	return big.NewInt(0)
