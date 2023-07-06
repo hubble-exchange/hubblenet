@@ -115,42 +115,43 @@ func determineFillPrice(oraclePrice, spreadLimit, longOrderPrice, shortOrderPric
 
 func ValidateLiquidationOrderAndDetermineFillPrice(stateDB contract.StateDB, inputStruct *ValidateLiquidationOrderAndDetermineFillPriceInput) (*big.Int, error) {
 	order := inputStruct.Order
-
-	market := getMarketAddressFromMarketID(order.AmmIndex.Int64(), stateDB)
 	minSize := GetMinSizeRequirement(stateDB, order.AmmIndex.Int64())
 	if new(big.Int).Mod(inputStruct.FillAmount, minSize).Cmp(big.NewInt(0)) != 0 {
 		return nil, ErrNotMultiple
 	}
-
-	oraclePrice := getUnderlyingPrice(stateDB, market)
-	liquidationSpreadLimit := GetMaxLiquidationPriceSpread(stateDB, order.AmmIndex.Int64())
-	liqUpperBound, liqLowerBound := calculateBounds(liquidationSpreadLimit, oraclePrice)
-
-	oracleSpreadLimit := GetMaxOraclePriceSpread(stateDB, order.AmmIndex.Int64())
-	upperbound, lowerbound := calculateBounds(oracleSpreadLimit, oraclePrice)
-	return determineLiquidationFillPrice(order, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+	return DetermineLiquidationFillPrice(stateDB, order.AmmIndex.Int64(), order.BaseAssetQuantity, order.Price)
 }
 
-func determineLiquidationFillPrice(order IHubbleBibliophileOrder, liqUpperBound, liqLowerBound, upperbound, lowerbound *big.Int) (*big.Int, error) {
+func DetermineLiquidationFillPrice(stateDB contract.StateDB, marketId int64, baseAssetQuantity, price *big.Int) (*big.Int, error) {
 	isLongOrder := true
-	if order.BaseAssetQuantity.Cmp(big.NewInt(0)) == -1 {
+	if baseAssetQuantity.Sign() < 0 {
 		isLongOrder = false
 	}
+	market := getMarketAddressFromMarketID(marketId, stateDB)
+	oraclePrice := getUnderlyingPrice(stateDB, market)
+	liquidationSpreadLimit := GetMaxLiquidationPriceSpread(stateDB, marketId)
+	liqUpperBound, liqLowerBound := calculateBounds(liquidationSpreadLimit, oraclePrice)
 
+	oracleSpreadLimit := GetMaxOraclePriceSpread(stateDB, marketId)
+	upperbound, lowerbound := calculateBounds(oracleSpreadLimit, oraclePrice)
+	return determineLiquidationFillPrice(isLongOrder, price, liqUpperBound, liqLowerBound, upperbound, lowerbound)
+}
+
+func determineLiquidationFillPrice(isLongOrder bool, price, liqUpperBound, liqLowerBound, upperbound, lowerbound *big.Int) (*big.Int, error) {
 	if isLongOrder {
 		// we are liquidating a long position
 		// do not allow liquidation if order.Price < liqLowerBound, because that gives scope for malicious activity to a validator
-		if order.Price.Cmp(liqLowerBound) == -1 {
+		if price.Cmp(liqLowerBound) == -1 {
 			return nil, ErrTooLow
 		}
-		return utils.BigIntMin(order.Price, upperbound /* oracle spread upper bound */), nil
+		return utils.BigIntMin(price, upperbound /* oracle spread upper bound */), nil
 	}
 
 	// short order
-	if order.Price.Cmp(liqUpperBound) == 1 {
+	if price.Cmp(liqUpperBound) == 1 {
 		return nil, ErrTooHigh
 	}
-	return utils.BigIntMax(order.Price, lowerbound /* oracle spread lower bound */), nil
+	return utils.BigIntMax(price, lowerbound /* oracle spread lower bound */), nil
 }
 
 // Helper functions

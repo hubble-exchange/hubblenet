@@ -51,6 +51,21 @@ func (mr *MockBibliophileClientMockRecorder) DetermineFillPrice(marketId, longOr
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetermineFillPrice", reflect.TypeOf((*MockBibliophileClient)(nil).DetermineFillPrice), marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
 }
 
+// DetermineLiquidationFillPrice mocks base method.
+func (m *MockBibliophileClient) DetermineLiquidationFillPrice(marketId int64, baseAssetQuantity, price *big.Int) (*big.Int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DetermineLiquidationFillPrice", marketId, baseAssetQuantity, price)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DetermineLiquidationFillPrice indicates an expected call of DetermineLiquidationFillPrice.
+func (mr *MockBibliophileClientMockRecorder) DetermineLiquidationFillPrice(marketId, baseAssetQuantity, price interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetermineLiquidationFillPrice", reflect.TypeOf((*MockBibliophileClient)(nil).DetermineLiquidationFillPrice), marketId, baseAssetQuantity, price)
+}
+
 // GetAccessibleState mocks base method.
 func (m *MockBibliophileClient) GetAccessibleState() contract.AccessibleState {
 	m.ctrl.T.Helper()

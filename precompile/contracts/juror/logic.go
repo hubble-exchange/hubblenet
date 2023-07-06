@@ -141,6 +141,50 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 	return output, nil
 }
 
+func ValidateLiquidationOrderAndDetermineFillPrice(bibliophile b.BibliophileClient, inputStruct *ValidateLiquidationOrderAndDetermineFillPriceInput) (*ValidateLiquidationOrderAndDetermineFillPriceOutput, error) {
+	fillAmount := new(big.Int).Set(inputStruct.LiquidationAmount)
+	if fillAmount.Sign() <= 0 {
+		return nil, ErrInvalidFillAmount
+	}
+
+	decodeStep0, err := decodeTypeAndEncodedOrder(inputStruct.Data)
+	if err != nil {
+		return nil, err
+	}
+	m0, err := validateOrder(bibliophile, decodeStep0.OrderType, decodeStep0.EncodedOrder, Liquidation, fillAmount)
+	if err != nil {
+		return nil, err
+	}
+
+	if m0.BaseAssetQuantity.Sign() < 0 {
+		fillAmount = new(big.Int).Neg(fillAmount)
+	}
+
+	minSize := bibliophile.GetMinSizeRequirement(m0.AmmIndex.Int64())
+	if new(big.Int).Mod(fillAmount, minSize).Cmp(big.NewInt(0)) != 0 {
+		return nil, ErrNotMultiple
+	}
+
+	fillPrice, err := bibliophile.DetermineLiquidationFillPrice(m0.AmmIndex.Int64(), m0.BaseAssetQuantity, m0.Price)
+	if err != nil {
+		return nil, err
+	}
+
+	output := &ValidateLiquidationOrderAndDetermineFillPriceOutput{
+		Instruction: IClearingHouseInstruction{
+			AmmIndex:  m0.AmmIndex,
+			Trader:    m0.Trader,
+			OrderHash: m0.OrderHash,
+			Mode:      1, // Maker
+		},
+		OrderType:    uint8(decodeStep0.OrderType),
+		EncodedOrder: decodeStep0.EncodedOrder,
+		FillPrice:    fillPrice,
+		FillAmount:   fillAmount,
+	}
+	return output, nil
+}
+
 func decodeTypeAndEncodedOrder(data []byte) (*DecodeStep, error) {
 	orderType, _ := abi.NewType("uint8", "uint8", nil)
 	orderBytesType, _ := abi.NewType("bytes", "bytes", nil)
