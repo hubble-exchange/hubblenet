@@ -231,8 +231,7 @@ func validatePlaceIOCOrders(accessibleState contract.AccessibleState, caller com
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct // CUSTOM CODE OPERATES ON INPUT
-
+	_ = inputStruct       // CUSTOM CODE OPERATES ON INPUT
 	var output [][32]byte // CUSTOM CODE FOR AN OUTPUT
 	packedOutput, err := PackValidatePlaceIOCOrdersOutput(output)
 	if err != nil {

@@ -2,10 +2,11 @@ package juror
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ava-labs/subnet-evm/accounts/abi"
+	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -21,14 +22,7 @@ type DecodeStep struct {
 	EncodedOrder []byte
 }
 
-type LimitOrder struct {
-	AmmIndex          *big.Int
-	Trader            common.Address
-	BaseAssetQuantity *big.Int
-	Price             *big.Int
-	Salt              *big.Int
-	ReduceOnly        bool
-}
+type LimitOrder limitorders.Order
 
 type IOCOrder struct {
 	LimitOrder
@@ -138,21 +132,16 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile Bibliophile, inputStruct *V
 }
 
 func decodeTypeAndEncodedOrder(data []byte) (*DecodeStep, error) {
-	abiJSON := `[{"name": "orderType", "type": "uint8"}, {"name": "encodedOrder", "type": "bytes"}]` // check
-	myABI, err := abi.JSON(strings.NewReader(abiJSON))
+	orderType, _ := abi.NewType("uint8", "uint8", nil)
+	orderBytesType, _ := abi.NewType("bytes", "bytes", nil)
+	decodedValues, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Unpack(data)
 	if err != nil {
 		return nil, err
 	}
-
-	// Create an instance of the Order struct
-	decodeStep := &DecodeStep{}
-
-	// Decode the encodedOrder
-	err = myABI.UnpackIntoInterface(decodeStep, "DecodeStep", data)
-	if err != nil {
-		return nil, err
-	}
-	return decodeStep, nil
+	return &DecodeStep{
+		OrderType:    OrderType(decodedValues[0].(uint8)),
+		EncodedOrder: decodedValues[1].([]byte),
+	}, nil
 }
 
 func validateOrder(bibliophile Bibliophile, orderType OrderType, encodedOrder []byte, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
@@ -173,25 +162,40 @@ func validateOrder(bibliophile Bibliophile, orderType OrderType, encodedOrder []
 	return nil, errors.New("invalid order type")
 }
 
-func decodeLimitOrder(encodedOrder []byte) (*LimitOrder, error) {
-	return &LimitOrder{
-		AmmIndex:          new(big.Int).SetBytes(encodedOrder[0:32]),
-		Trader:            common.BytesToAddress(encodedOrder[44:64]),
-		BaseAssetQuantity: fromTwosComplement(encodedOrder[64:96]),
-		Price:             new(big.Int).SetBytes(encodedOrder[96:128]),
-		Salt:              new(big.Int).SetBytes(encodedOrder[128:160]),
-		ReduceOnly:        new(big.Int).SetBytes(encodedOrder[160:192]).Sign() != 0,
-	}, nil
-}
+// Limit Orders
 
-func decodeIOCOrder(encodedOrder []byte) (*IOCOrder, error) {
-	lo, err := decodeLimitOrder(encodedOrder[32:])
+func decodeLimitOrder(encodedOrder []byte) (*LimitOrder, error) {
+	limitOrderType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "ammIndex", Type: "uint256"},
+		{Name: "trader", Type: "address"},
+		{Name: "baseAssetQuantity", Type: "int256"},
+		{Name: "price", Type: "uint256"},
+		{Name: "salt", Type: "uint256"},
+		{Name: "reduceOnly", Type: "bool"},
+	})
+	order, err := abi.Arguments{{Type: limitOrderType}}.Unpack(encodedOrder)
 	if err != nil {
 		return nil, err
 	}
-	return &IOCOrder{
-		OrderType:  OrderType(new(big.Int).SetBytes(encodedOrder[0:32]).Int64()),
-		LimitOrder: *lo,
+	source, ok := order[0].(struct {
+		AmmIndex          *big.Int       `json:"ammIndex"`
+		Trader            common.Address `json:"trader"`
+		BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
+		Price             *big.Int       `json:"price"`
+		Salt              *big.Int       `json:"salt"`
+		ReduceOnly        bool           `json:"reduceOnly"`
+	})
+	if !ok {
+		return nil, errors.New("couldnt decode limit order")
+	}
+	fmt.Println(source)
+	return &LimitOrder{
+		AmmIndex:          source.AmmIndex,
+		Trader:            source.Trader,
+		BaseAssetQuantity: source.BaseAssetQuantity,
+		Price:             source.Price,
+		Salt:              source.Salt,
+		ReduceOnly:        source.ReduceOnly,
 	}, nil
 }
 
@@ -208,32 +212,6 @@ func validateExecuteLimitOrder(bibliophile Bibliophile, order *LimitOrder, side 
 		Trader:            order.Trader,
 		BaseAssetQuantity: order.BaseAssetQuantity,
 		BlockPlaced:       bibliophile.GetBlockPlaced(orderHash),
-		Price:             order.Price,
-		OrderHash:         orderHash,
-	}, nil
-}
-
-func validateExecuteIOCOrder(bibliophile Bibliophile, order *IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
-	if order.OrderType != IOC {
-		return nil, errors.New("not ioc order")
-	}
-	orderHash, err := getIOCOrderHash(order)
-	if err != nil {
-		return nil, err
-	}
-	timestamp := bibliophile.IOC_GetTimestamp(orderHash)
-	executionThreshold := bibliophile.IOC_ExecutionThreshold()
-	if new(big.Int).Add(timestamp, executionThreshold).Cmp(big.NewInt(0) /* todo block.timestamp */) > 0 {
-		return nil, errors.New("ioc expired")
-	}
-	if err := validateLimitOrderLike(bibliophile, &order.LimitOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
-		return nil, err
-	}
-	return &Metadata{
-		AmmIndex:          order.AmmIndex,
-		Trader:            order.Trader,
-		BaseAssetQuantity: order.BaseAssetQuantity,
-		BlockPlaced:       bibliophile.IOC_GetBlockPlaced(orderHash),
 		Price:             order.Price,
 		OrderHash:         orderHash,
 	}, nil
@@ -294,4 +272,42 @@ func validateLimitOrderLike(bibliophile Bibliophile, order *LimitOrder, filledAm
 		return errors.New("OB_invalid_side")
 	}
 	return nil
+}
+
+// IOC Orders
+func decodeIOCOrder(encodedOrder []byte) (*IOCOrder, error) {
+	lo, err := decodeLimitOrder(encodedOrder[32:])
+	if err != nil {
+		return nil, err
+	}
+	return &IOCOrder{
+		OrderType:  OrderType(new(big.Int).SetBytes(encodedOrder[0:32]).Int64()),
+		LimitOrder: *lo,
+	}, nil
+}
+
+func validateExecuteIOCOrder(bibliophile Bibliophile, order *IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	if order.OrderType != IOC {
+		return nil, errors.New("not ioc order")
+	}
+	orderHash, err := getIOCOrderHash(order)
+	if err != nil {
+		return nil, err
+	}
+	timestamp := bibliophile.IOC_GetTimestamp(orderHash)
+	expirationCap := bibliophile.IOC_ExecutionThreshold()
+	if new(big.Int).Add(timestamp, expirationCap).Cmp(big.NewInt(0) /* todo block.timestamp */) > 0 {
+		return nil, errors.New("ioc expired")
+	}
+	if err := validateLimitOrderLike(bibliophile, &order.LimitOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
+		return nil, err
+	}
+	return &Metadata{
+		AmmIndex:          order.AmmIndex,
+		Trader:            order.Trader,
+		BaseAssetQuantity: order.BaseAssetQuantity,
+		BlockPlaced:       bibliophile.IOC_GetBlockPlaced(orderHash),
+		Price:             order.Price,
+		OrderHash:         orderHash,
+	}, nil
 }

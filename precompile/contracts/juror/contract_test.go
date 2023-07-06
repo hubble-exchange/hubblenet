@@ -6,10 +6,9 @@ package juror
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
-
-	// "reflect"
 
 	"testing"
 
@@ -20,9 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mock_juror "github.com/ava-labs/subnet-evm/precompile/contracts/juror/mocks"
+	mocks "github.com/ava-labs/subnet-evm/precompile/contracts/juror/mocks"
 	gomock "github.com/golang/mock/gomock"
-	// "gotest.tools/assert/cmp"
 )
 
 // TestRun tests the Run function of the precompile contract.
@@ -87,45 +85,112 @@ func TestRun(t *testing.T) {
 }
 
 func TestDecodeLimitOrder(t *testing.T) {
-	t.Run("decode long order", func(t *testing.T) {
-		hexStr := "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001891d5d51070000000000000000000000000000000000000000000000000000000000000000" // Represents the string "Hello World" in hex
-
-		// Remove the "0x" prefix if it exists
-		hexStr = strings.TrimPrefix(hexStr, "0x")
-
-		// Decode the hex string to a byte array
-		testData, err := hex.DecodeString(hexStr)
-		if err != nil {
-			// fmt.Println("Error:", err)
-			return
-		}
-
-		// Expected output: insert the expected output data for your case
-		// expectedOutput := LimitOrder{
-		// 	AmmIndex:          big.NewInt(0),                                                     // example data, replace with real data
-		// 	Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"), // example data, replace with real data
-		// 	BaseAssetQuantity: big.NewInt(5000000000000000000),                                   // example data, replace with real data
-		// 	Price:             big.NewInt(1000000000),                                            // example data, replace with real data
-		// 	Salt:              big.NewInt(1688414802183),                                         // example data, replace with real data
-		// 	ReduceOnly:        false,                                                             // example data, replace with real data
-		// }
-
-		result, err := decodeLimitOrder(testData)
-		assert.NoError(t, err)
-		assert.NotNil(t, result)
-		// assert.Equal(t, expectedOutput, *result)
-		// if ok := reflect.DeepEqual(&result, expectedOutput); !ok {
-		// 	// if ok := cmp.Equal(*result, *expectedOutput)().Success(); !ok {
-		// 	t.Errorf("decodeLimitOrder returned unexpected result: got %v, want %v", result, expectedOutput)
-		// }
+	t.Run("long order", func(t *testing.T) {
+		testDecodeTypeAndEncodedOrder(
+			t,
+			strings.TrimPrefix("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707c810000000000000000000000000000000000000000000000000000000000000000", "0x"),
+			strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707c810000000000000000000000000000000000000000000000000000000000000000", "0x"),
+			Limit,
+			LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
+				BaseAssetQuantity: big.NewInt(5000000000000000000),
+				Price:             big.NewInt(1000000000),
+				Salt:              big.NewInt(1688634162305),
+				ReduceOnly:        false,
+			},
+		)
 	})
+
+	t.Run("long order reduce only", func(t *testing.T) {
+		testDecodeTypeAndEncodedOrder(
+			t,
+			strings.TrimPrefix("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892aa1ea840000000000000000000000000000000000000000000000000000000000000001", "0x"),
+			strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892aa1ea840000000000000000000000000000000000000000000000000000000000000001", "0x"),
+			Limit,
+			LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
+				BaseAssetQuantity: big.NewInt(5000000000000000000),
+				Price:             big.NewInt(1000000000),
+				Salt:              big.NewInt(1688637401732),
+				ReduceOnly:        true,
+			},
+		)
+	})
+
+	t.Run("short order", func(t *testing.T) {
+		testDecodeTypeAndEncodedOrder(
+			t,
+			strings.TrimPrefix("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707b450000000000000000000000000000000000000000000000000000000000000000", "0x"),
+			strings.TrimPrefix("0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707b450000000000000000000000000000000000000000000000000000000000000000", "0x"),
+			Limit,
+			LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+				BaseAssetQuantity: big.NewInt(-5000000000000000000),
+				Price:             big.NewInt(1000000000),
+				Salt:              big.NewInt(1688634161989),
+				ReduceOnly:        false,
+			},
+		)
+	})
+
+	t.Run("short order reduce only", func(t *testing.T) {
+		testDecodeTypeAndEncodedOrder(
+			t,
+			strings.TrimPrefix("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892aa1e96a0000000000000000000000000000000000000000000000000000000000000001", "0x"),
+			strings.TrimPrefix("0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892aa1e96a0000000000000000000000000000000000000000000000000000000000000001", "0x"),
+			Limit,
+			LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+				BaseAssetQuantity: big.NewInt(-5000000000000000000),
+				Price:             big.NewInt(1000000000),
+				Salt:              big.NewInt(1688637401450),
+				ReduceOnly:        true,
+			},
+		)
+	})
+}
+
+func testDecodeTypeAndEncodedOrder(t *testing.T, typedEncodedOrder string, encodedOrder string, orderType OrderType, expectedOutput LimitOrder) {
+	testData, err := hex.DecodeString(typedEncodedOrder)
+	assert.Nil(t, err)
+
+	decodeStep, err := decodeTypeAndEncodedOrder(testData)
+	assert.Nil(t, err)
+
+	assert.Equal(t, orderType, decodeStep.OrderType)
+	assert.Equal(t, encodedOrder, hex.EncodeToString(decodeStep.EncodedOrder))
+	testDecodeLimitOrder(t, encodedOrder, expectedOutput)
+}
+
+func testDecodeLimitOrder(t *testing.T, encodedOrder string, expectedOutput LimitOrder) {
+	testData, err := hex.DecodeString(encodedOrder)
+	assert.Nil(t, err)
+
+	result, err := decodeLimitOrder(testData)
+	fmt.Println(result)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assertLimitOrderEquality(t, expectedOutput, *result)
+}
+
+func assertLimitOrderEquality(t *testing.T, expected, actual LimitOrder) {
+	assert.Equal(t, expected.AmmIndex.Int64(), actual.AmmIndex.Int64())
+	assert.Equal(t, expected.Trader, actual.Trader)
+	assert.Equal(t, expected.BaseAssetQuantity, actual.BaseAssetQuantity)
+	assert.Equal(t, expected.Price, actual.Price)
+	assert.Equal(t, expected.Salt, actual.Salt)
+	assert.Equal(t, expected.ReduceOnly, actual.ReduceOnly)
 }
 
 func TestValidateLimitOrderLike(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockBibliophile := mock_juror.NewMockBibliophile(ctrl)
+	mockBibliophile := mocks.NewMockBibliophile(ctrl)
 
 	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
 	order := &LimitOrder{
