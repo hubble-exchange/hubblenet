@@ -67,11 +67,11 @@ var (
 	ErrNoMatch           = errors.New("OB_orders_do_not_match")
 	ErrNotMultiple       = errors.New("not multiple")
 
-	ErrInvalidOrder             = errors.New("OB_invalid_order")
+	ErrInvalidOrder             = errors.New("invalid order")
 	ErrTooLow                   = errors.New("OB_long_order_price_too_low")
 	ErrTooHigh                  = errors.New("OB_short_order_price_too_high")
-	ErrOverFill                 = errors.New("OB_filled_amount_higher_than_order_base")
-	ErrReduceOnlyAmountExceeded = errors.New("OB_reduce_only_amount_exceeded")
+	ErrOverFill                 = errors.New("overfill")
+	ErrReduceOnlyAmountExceeded = errors.New("not reducing pos")
 )
 
 // Business Logic
@@ -282,6 +282,7 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *LimitOrder, 
 			side = Long
 		} else if order.BaseAssetQuantity.Sign() < 0 {
 			side = Short
+			fillAmount = new(big.Int).Neg(fillAmount)
 		}
 	}
 

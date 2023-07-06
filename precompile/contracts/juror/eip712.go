@@ -23,12 +23,12 @@ func GetLimitOrderHash(o *LimitOrder) (hash common.Hash, err error) {
 	domain := apitypes.TypedDataDomain{
 		Name:              "Hubble",
 		Version:           "2.0",
-		ChainId:           math.NewHexOrDecimal256(321123), // @todo chain id
+		ChainId:           math.NewHexOrDecimal256(321123), // @todo chain id from config
 		VerifyingContract: common.HexToAddress(bibliophile.ORDERBOOK_GENESIS_ADDRESS).String(),
 	}
 	typedData := apitypes.TypedData{
 		Types:       Eip712OrderTypes,
-		PrimaryType: "LimitOrder",
+		PrimaryType: "Order",
 		Domain:      domain,
 		Message:     message,
 	}
@@ -48,8 +48,8 @@ func getIOCOrderHash(o *IOCOrder) (hash common.Hash, err error) {
 	domain := apitypes.TypedDataDomain{
 		Name:              "Hubble",
 		Version:           "2.0",
-		ChainId:           math.NewHexOrDecimal256(321123), // @todo chain id
-		VerifyingContract: common.HexToAddress(bibliophile.ORDERBOOK_GENESIS_ADDRESS).String(),
+		ChainId:           math.NewHexOrDecimal256(321123), // @todo chain id from config
+		VerifyingContract: common.HexToAddress(bibliophile.IOC_ORDERBOOK_ADDRESS).String(),
 	}
 	typedData := apitypes.TypedData{
 		Types:       Eip712OrderTypes,
@@ -94,7 +94,7 @@ var Eip712OrderTypes = apitypes.Types{
 			Type: "address",
 		},
 	},
-	"LimitOrder": {
+	"Order": { // has to be same as the struct name or whatever was passed when building the typed hash
 		{
 			Name: "ammIndex",
 			Type: "uint256",
