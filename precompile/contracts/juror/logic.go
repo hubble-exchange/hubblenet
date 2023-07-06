@@ -7,6 +7,7 @@ import (
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
+	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -27,6 +28,7 @@ type LimitOrder limitorders.Order
 type IOCOrder struct {
 	LimitOrder
 	OrderType OrderType
+	expireAt  *big.Int
 }
 
 type Metadata struct {
@@ -70,7 +72,7 @@ var (
 )
 
 // Business Logic
-func ValidateOrdersAndDetermineFillPrice(bibliophile Bibliophile, inputStruct *ValidateOrdersAndDetermineFillPriceInput) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
+func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputStruct *ValidateOrdersAndDetermineFillPriceInput) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
 	if inputStruct.FillAmount.Sign() <= 0 {
 		return nil, ErrInvalidFillAmount
 	}
@@ -144,7 +146,7 @@ func decodeTypeAndEncodedOrder(data []byte) (*DecodeStep, error) {
 	}, nil
 }
 
-func validateOrder(bibliophile Bibliophile, orderType OrderType, encodedOrder []byte, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+func validateOrder(bibliophile b.BibliophileClient, orderType OrderType, encodedOrder []byte, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
 	if orderType == Limit {
 		order, err := decodeLimitOrder(encodedOrder)
 		if err != nil {
@@ -199,7 +201,7 @@ func decodeLimitOrder(encodedOrder []byte) (*LimitOrder, error) {
 	}, nil
 }
 
-func validateExecuteLimitOrder(bibliophile Bibliophile, order *LimitOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *LimitOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
 	orderHash, err := GetLimitOrderHash(order)
 	if err != nil {
 		return nil, err
@@ -217,7 +219,7 @@ func validateExecuteLimitOrder(bibliophile Bibliophile, order *LimitOrder, side 
 	}, nil
 }
 
-func validateLimitOrderLike(bibliophile Bibliophile, order *LimitOrder, filledAmount *big.Int, status OrderStatus, side Side, fillAmount *big.Int) error {
+func validateLimitOrderLike(bibliophile b.BibliophileClient, order *LimitOrder, filledAmount *big.Int, status OrderStatus, side Side, fillAmount *big.Int) error {
 	if status != Placed {
 		return ErrInvalidOrder
 	}
@@ -276,17 +278,11 @@ func validateLimitOrderLike(bibliophile Bibliophile, order *LimitOrder, filledAm
 
 // IOC Orders
 func decodeIOCOrder(encodedOrder []byte) (*IOCOrder, error) {
-	lo, err := decodeLimitOrder(encodedOrder[32:])
-	if err != nil {
-		return nil, err
-	}
-	return &IOCOrder{
-		OrderType:  OrderType(new(big.Int).SetBytes(encodedOrder[0:32]).Int64()),
-		LimitOrder: *lo,
-	}, nil
+	// @todo
+	return nil, nil
 }
 
-func validateExecuteIOCOrder(bibliophile Bibliophile, order *IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
 	if order.OrderType != IOC {
 		return nil, errors.New("not ioc order")
 	}
@@ -294,9 +290,7 @@ func validateExecuteIOCOrder(bibliophile Bibliophile, order *IOCOrder, side Side
 	if err != nil {
 		return nil, err
 	}
-	timestamp := bibliophile.IOC_GetTimestamp(orderHash)
-	expirationCap := bibliophile.IOC_ExecutionThreshold()
-	if new(big.Int).Add(timestamp, expirationCap).Cmp(big.NewInt(0) /* todo block.timestamp */) > 0 {
+	if order.expireAt.Cmp(bibliophile.GetAccessibleState().GetBlockContext().Timestamp()) < 0 {
 		return nil, errors.New("ioc expired")
 	}
 	if err := validateLimitOrderLike(bibliophile, &order.LimitOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {

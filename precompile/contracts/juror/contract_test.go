@@ -19,7 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mocks "github.com/ava-labs/subnet-evm/precompile/contracts/juror/mocks"
+	// mocks "github.com/ava-labs/subnet-evm/precompile/contracts/juror/mocks"
+	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -190,7 +191,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockBibliophile := mocks.NewMockBibliophile(ctrl)
+	mockBibliophile := b.NewMockBibliophileClient(ctrl)
 
 	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
 	order := &LimitOrder{
