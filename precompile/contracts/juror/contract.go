@@ -136,9 +136,12 @@ func validateLiquidationOrderAndDetermineFillPrice(accessibleState contract.Acce
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct                                                // CUSTOM CODE OPERATES ON INPUT
-	var output ValidateLiquidationOrderAndDetermineFillPriceOutput // CUSTOM CODE FOR AN OUTPUT
-	packedOutput, err := PackValidateLiquidationOrderAndDetermineFillPriceOutput(output)
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output, err := ValidateLiquidationOrderAndDetermineFillPrice(bibliophile, &inputStruct)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+	packedOutput, err := PackValidateLiquidationOrderAndDetermineFillPriceOutput(*output)
 	if err != nil {
 		return nil, remainingGas, err
 	}
