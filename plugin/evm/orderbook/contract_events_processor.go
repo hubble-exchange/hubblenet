@@ -14,12 +14,11 @@ import (
 )
 
 type ContractEventsProcessor struct {
-	orderBookABI      abi.ABI
-	limitOrderBookABI abi.ABI
-	iocOrderBookABI   abi.ABI
-	marginAccountABI  abi.ABI
-	clearingHouseABI  abi.ABI
-	database          LimitOrderDatabase
+	orderBookABI     abi.ABI
+	iocOrderBookABI  abi.ABI
+	marginAccountABI abi.ABI
+	clearingHouseABI abi.ABI
+	database         LimitOrderDatabase
 }
 
 func NewContractEventsProcessor(database LimitOrderDatabase) *ContractEventsProcessor {
@@ -38,23 +37,17 @@ func NewContractEventsProcessor(database LimitOrderDatabase) *ContractEventsProc
 		panic(err)
 	}
 
-	limitOrderBookABI, err := abi.FromSolidityJson(string(abis.LimitOrderBookAbi))
-	if err != nil {
-		panic(err)
-	}
-
 	iocOrderBookABI, err := abi.FromSolidityJson(string(abis.IOCOrderBookAbi))
 	if err != nil {
 		panic(err)
 	}
 
 	return &ContractEventsProcessor{
-		orderBookABI:      orderBookABI,
-		marginAccountABI:  marginAccountABI,
-		clearingHouseABI:  clearingHouseABI,
-		limitOrderBookABI: limitOrderBookABI,
-		iocOrderBookABI:   iocOrderBookABI,
-		database:          database,
+		orderBookABI:     orderBookABI,
+		marginAccountABI: marginAccountABI,
+		clearingHouseABI: clearingHouseABI,
+		iocOrderBookABI:  iocOrderBookABI,
+		database:         database,
 	}
 }
 
@@ -93,8 +86,6 @@ func (cep *ContractEventsProcessor) ProcessEvents(logs []*types.Log) {
 		switch event.Address {
 		case OrderBookContractAddress:
 			cep.handleOrderBookEvent(event)
-		case LimitOrderBookContractAddress:
-			cep.handleLimitOrderBookEvent(event)
 		case IOCOrderBookContractAddress:
 			cep.handleIOCOrderBookEvent(event)
 		}
@@ -127,6 +118,56 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 	removed := event.Removed
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
+	case cep.orderBookABI.Events["OrderPlaced"].ID:
+		err := cep.orderBookABI.UnpackIntoMap(args, "OrderPlaced", event.Data)
+		if err != nil {
+			log.Error("error in orderBookABI.UnpackIntoMap", "method", "OrderPlaced", "err", err)
+			return
+		}
+		orderId := event.Topics[2]
+		if !removed {
+			order := LimitOrder{}
+			order.DecodeFromRawOrder(args["order"])
+			limitOrder := Order{
+				Id:                      orderId,
+				Market:                  Market(order.AmmIndex.Int64()),
+				PositionType:            getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
+				UserAddress:             getAddressFromTopicHash(event.Topics[1]).String(),
+				BaseAssetQuantity:       order.BaseAssetQuantity,
+				FilledBaseAssetQuantity: big.NewInt(0),
+				Price:                   order.Price,
+				RawOrder:                &order,
+				Salt:                    order.Salt,
+				ReduceOnly:              order.ReduceOnly,
+				BlockNumber:             big.NewInt(int64(event.BlockNumber)),
+				OrderType:               LimitOrderType,
+			}
+			log.Info("LimitOrder/OrderPlaced", "order", limitOrder)
+			cep.database.Add(&limitOrder)
+		} else {
+			log.Info("LimitOrder/OrderPlaced removed", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
+			cep.database.Delete(orderId)
+		}
+
+	case cep.orderBookABI.Events["OrderCancelled"].ID:
+		err := cep.orderBookABI.UnpackIntoMap(args, "OrderCancelled", event.Data)
+		if err != nil {
+			log.Error("error in orderBookABI.UnpackIntoMap", "method", "OrderCancelled", "err", err)
+			return
+		}
+		orderId := event.Topics[2]
+		log.Info("LimitOrder/OrderCancelled", "orderId", orderId.String(), "removed", removed)
+		if !removed {
+			if err := cep.database.SetOrderStatus(orderId, Cancelled, "", event.BlockNumber); err != nil {
+				log.Error("error in SetOrderStatus", "method", "LimitOrder/OrderCancelled", "err", err)
+				return
+			}
+		} else {
+			if err := cep.database.RevertLastStatus(orderId); err != nil {
+				log.Error("error in SetOrderStatus", "method", "LimitOrder/OrderCancelled", "removed", true, "err", err)
+				return
+			}
+		}
 	case cep.orderBookABI.Events["OrdersMatched"].ID:
 		err := cep.orderBookABI.UnpackIntoMap(args, "OrdersMatched", event.Data)
 		if err != nil {
@@ -181,63 +222,6 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 			log.Info("OrderMatchingError removed", "args", args, "orderId", orderId.String(), "number", event.BlockNumber)
 			if err := cep.database.RevertLastStatus(orderId); err != nil {
 				log.Error("error in SetOrderStatus", "method", "OrderMatchingError", "removed", true, "err", err)
-				return
-			}
-		}
-	}
-}
-
-func (cep *ContractEventsProcessor) handleLimitOrderBookEvent(event *types.Log) {
-	removed := event.Removed
-	args := map[string]interface{}{}
-	switch event.Topics[0] {
-	case cep.limitOrderBookABI.Events["OrderPlaced"].ID:
-		err := cep.limitOrderBookABI.UnpackIntoMap(args, "OrderPlaced", event.Data)
-		if err != nil {
-			log.Error("error in limitOrderBookABI.UnpackIntoMap", "method", "OrderPlaced", "err", err)
-			return
-		}
-		orderId := event.Topics[2]
-		if !removed {
-			order := LimitOrder{}
-			order.DecodeFromRawOrder(args["order"])
-			limitOrder := Order{
-				Id:                      orderId,
-				Market:                  Market(order.AmmIndex.Int64()),
-				PositionType:            getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
-				UserAddress:             getAddressFromTopicHash(event.Topics[1]).String(),
-				BaseAssetQuantity:       order.BaseAssetQuantity,
-				FilledBaseAssetQuantity: big.NewInt(0),
-				Price:                   order.Price,
-				RawOrder:                &order,
-				Salt:                    order.Salt,
-				ReduceOnly:              order.ReduceOnly,
-				BlockNumber:             big.NewInt(int64(event.BlockNumber)),
-				OrderType:               LimitOrderType,
-			}
-			log.Info("LimitOrder/OrderPlaced", "order", limitOrder)
-			cep.database.Add(&limitOrder)
-		} else {
-			log.Info("LimitOrder/OrderPlaced removed", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
-			cep.database.Delete(orderId)
-		}
-
-	case cep.limitOrderBookABI.Events["OrderCancelled"].ID:
-		err := cep.limitOrderBookABI.UnpackIntoMap(args, "OrderCancelled", event.Data)
-		if err != nil {
-			log.Error("error in limitOrderBookABI.UnpackIntoMap", "method", "OrderCancelled", "err", err)
-			return
-		}
-		orderId := event.Topics[2]
-		log.Info("LimitOrder/OrderCancelled", "orderId", orderId.String(), "removed", removed)
-		if !removed {
-			if err := cep.database.SetOrderStatus(orderId, Cancelled, "", event.BlockNumber); err != nil {
-				log.Error("error in SetOrderStatus", "method", "LimitOrder/OrderCancelled", "err", err)
-				return
-			}
-		} else {
-			if err := cep.database.RevertLastStatus(orderId); err != nil {
-				log.Error("error in SetOrderStatus", "method", "LimitOrder/OrderCancelled", "removed", true, "err", err)
 				return
 			}
 		}

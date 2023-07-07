@@ -22,8 +22,9 @@ import (
 var OrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000000")
 var MarginAccountContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000001")
 var ClearingHouseContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000002")
-var LimitOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000010")
-var IOCOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000011")
+
+// var LimitOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000000")
+var IOCOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000004")
 
 type LimitOrderTxProcessor interface {
 	PurgeLocalTx()
@@ -41,20 +42,18 @@ type ValidatorTxFeeConfig struct {
 }
 
 type limitOrderTxProcessor struct {
-	txPool                        *core.TxPool
-	memoryDb                      LimitOrderDatabase
-	orderBookABI                  abi.ABI
-	limitOrderBookABI             abi.ABI
-	clearingHouseABI              abi.ABI
-	marginAccountABI              abi.ABI
-	orderBookContractAddress      common.Address
-	limitOrderBookContractAddress common.Address
-	clearingHouseContractAddress  common.Address
-	marginAccountContractAddress  common.Address
-	backend                       *eth.EthAPIBackend
-	validatorAddress              common.Address
-	validatorPrivateKey           string
-	validatorTxFeeConfig          ValidatorTxFeeConfig
+	txPool                       *core.TxPool
+	memoryDb                     LimitOrderDatabase
+	orderBookABI                 abi.ABI
+	clearingHouseABI             abi.ABI
+	marginAccountABI             abi.ABI
+	orderBookContractAddress     common.Address
+	clearingHouseContractAddress common.Address
+	marginAccountContractAddress common.Address
+	backend                      *eth.EthAPIBackend
+	validatorAddress             common.Address
+	validatorPrivateKey          string
+	validatorTxFeeConfig         ValidatorTxFeeConfig
 }
 
 func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, backend *eth.EthAPIBackend, validatorPrivateKey string) LimitOrderTxProcessor {
@@ -73,10 +72,6 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 		panic(err)
 	}
 
-	limitOrderBookABI, err := abi.FromSolidityJson(string(abis.LimitOrderBookAbi))
-	if err != nil {
-		panic(err)
-	}
 	if validatorPrivateKey == "" {
 		panic("private key is not supplied")
 	}
@@ -86,20 +81,18 @@ func NewLimitOrderTxProcessor(txPool *core.TxPool, memoryDb LimitOrderDatabase, 
 	}
 
 	lotp := &limitOrderTxProcessor{
-		txPool:                        txPool,
-		orderBookABI:                  orderBookABI,
-		clearingHouseABI:              clearingHouseABI,
-		marginAccountABI:              marginAccountABI,
-		limitOrderBookABI:             limitOrderBookABI,
-		memoryDb:                      memoryDb,
-		orderBookContractAddress:      OrderBookContractAddress,
-		clearingHouseContractAddress:  ClearingHouseContractAddress,
-		marginAccountContractAddress:  MarginAccountContractAddress,
-		limitOrderBookContractAddress: LimitOrderBookContractAddress,
-		backend:                       backend,
-		validatorAddress:              validatorAddress,
-		validatorPrivateKey:           validatorPrivateKey,
-		validatorTxFeeConfig:          ValidatorTxFeeConfig{baseFeeEstimate: big.NewInt(0), blockNumber: 0},
+		txPool:                       txPool,
+		orderBookABI:                 orderBookABI,
+		clearingHouseABI:             clearingHouseABI,
+		marginAccountABI:             marginAccountABI,
+		memoryDb:                     memoryDb,
+		orderBookContractAddress:     OrderBookContractAddress,
+		clearingHouseContractAddress: ClearingHouseContractAddress,
+		marginAccountContractAddress: MarginAccountContractAddress,
+		backend:                      backend,
+		validatorAddress:             validatorAddress,
+		validatorPrivateKey:          validatorPrivateKey,
+		validatorTxFeeConfig:         ValidatorTxFeeConfig{baseFeeEstimate: big.NewInt(0), blockNumber: 0},
 	}
 	lotp.updateValidatorTxFeeConfig()
 	return lotp
@@ -142,7 +135,7 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder Order, short
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteLimitOrderCancel(orders []LimitOrder) error {
-	txHash, err := lotp.executeLocalTx(lotp.limitOrderBookContractAddress, lotp.limitOrderBookABI, "cancelOrders", orders)
+	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelOrders", orders)
 	log.Info("ExecuteLimitOrderCancel", "orders", orders, "txHash", txHash.String(), "err", err)
 	return err
 }
