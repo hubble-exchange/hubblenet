@@ -22,8 +22,8 @@ import (
 var OrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000000")
 var MarginAccountContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000001")
 var ClearingHouseContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000002")
-var LimitOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000000")
-var IOCOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000000")
+var LimitOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000010")
+var IOCOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000011")
 
 type LimitOrderTxProcessor interface {
 	PurgeLocalTx()
