@@ -2,7 +2,7 @@
 builds:
   - id: hubblenet
     main: ./plugin
-    binary: hubblenet
+    binary: hubblenet-{{.Version}}
     flags:
       - -v
     ldflags: -X github.com/ava-labs/subnet-evm/plugin/evm.Version=v{{.Version}}
