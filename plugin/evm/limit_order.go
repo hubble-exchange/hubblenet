@@ -81,8 +81,9 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan
 func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	lop.mu.Lock()
 
-	lastAccepted := lop.blockChain.LastAcceptedBlock().Number()
-	if lastAccepted.Sign() > 0 {
+	lastAccepted := lop.blockChain.LastAcceptedBlock()
+	lastAcceptedBlockNumber := lastAccepted.Number()
+	if lastAcceptedBlockNumber.Sign() > 0 {
 		fromBlock := big.NewInt(0)
 
 		// first load the last snapshot containing finalised data till block x and query the logs of [x+1, latest]
@@ -99,8 +100,8 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 			}
 		}
 
-		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAccepted)
-		toBlock := utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
+		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)
+		toBlock := utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
 		for toBlock.Cmp(fromBlock) > 0 {
 			logs := lop.getLogs(fromBlock, toBlock)
 			log.Info("ListenAndProcessTransactions - fetched log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs), "err", err)
@@ -108,9 +109,9 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 			lop.contractEventProcessor.ProcessAcceptedEvents(logs, true)
 
 			fromBlock = fromBlock.Add(toBlock, big.NewInt(1))
-			toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
+			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
 		}
-		lop.memoryDb.Accept(lastAccepted.Uint64()) // will delete stale orders from the memorydb
+		lop.memoryDb.Accept(lastAcceptedBlockNumber.Uint64(), lastAccepted.Time()) // will delete stale orders from the memorydb
 		// lop.FixBuggySnapshot()                     // not required any more
 	}
 
@@ -198,7 +199,7 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 
 	block := event.Block
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
-	lop.memoryDb.Accept(block.NumberU64())
+	lop.memoryDb.Accept(block.NumberU64(), block.Time())
 
 	// update metrics asynchronously
 	go lop.limitOrderTxProcessor.UpdateMetrics(block)

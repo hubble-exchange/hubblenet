@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -221,7 +220,7 @@ type LimitOrderDatabase interface {
 	GetAllTraders() map[common.Address]Trader
 	GetOrderBookData() InMemoryDatabase
 	GetOrderBookDataCopy() *InMemoryDatabase
-	Accept(blockNumber uint64)
+	Accept(blockNumber uint64, blockTimestamp uint64)
 	SetOrderStatus(orderId common.Hash, status Status, info string, blockNumber uint64) error
 	RevertLastStatus(orderId common.Hash) error
 	GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]Order)
@@ -253,7 +252,7 @@ func (db *InMemoryDatabase) LoadFromSnapshot(snapshot Snapshot) error {
 }
 
 // assumes that lock is held by the caller
-func (db *InMemoryDatabase) Accept(blockNumber uint64) {
+func (db *InMemoryDatabase) Accept(blockNumber uint64, blockTimestamp uint64) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -264,7 +263,7 @@ func (db *InMemoryDatabase) Accept(blockNumber uint64) {
 			continue
 		}
 		expireAt := order.getExpireAt()
-		if expireAt.Cmp(big.NewInt(0)) > 0 && expireAt.Int64() <= time.Now().Unix() {
+		if expireAt.Sign() > 0 && expireAt.Int64() < int64(blockTimestamp) {
 			delete(db.OrderMap, orderId)
 		}
 

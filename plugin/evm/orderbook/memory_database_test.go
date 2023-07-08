@@ -312,7 +312,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 
 			allOrders := inMemoryDatabase.GetAllOrders()
 			assert.Equal(t, 1, len(allOrders))
-			inMemoryDatabase.Accept(70)
+			inMemoryDatabase.Accept(70, 70)
 			allOrders = inMemoryDatabase.GetAllOrders()
 			assert.Equal(t, 0, len(allOrders))
 		})
@@ -331,7 +331,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 
 			allOrders := inMemoryDatabase.GetAllOrders()
 			assert.Equal(t, 1, len(allOrders))
-			inMemoryDatabase.Accept(420)
+			inMemoryDatabase.Accept(420, 420)
 			allOrders = inMemoryDatabase.GetAllOrders()
 			assert.Equal(t, 0, len(allOrders))
 		})
@@ -413,7 +413,7 @@ func TestAccept(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, inMemoryDatabase.OrderMap[orderId1].getOrderStatus().Status, FulFilled)
 
-		inMemoryDatabase.Accept(51)
+		inMemoryDatabase.Accept(51, 51)
 
 		// fulfilled order is deleted
 		_, ok := inMemoryDatabase.OrderMap[orderId1]
@@ -430,7 +430,7 @@ func TestAccept(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].getOrderStatus().Status, FulFilled)
 
-		inMemoryDatabase.Accept(52)
+		inMemoryDatabase.Accept(52, 52)
 
 		_, ok := inMemoryDatabase.OrderMap[orderId]
 		assert.False(t, ok)
@@ -443,7 +443,7 @@ func TestAccept(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].getOrderStatus().Status, FulFilled)
 
-		inMemoryDatabase.Accept(50)
+		inMemoryDatabase.Accept(50, 50)
 
 		_, ok := inMemoryDatabase.OrderMap[orderId]
 		assert.True(t, ok)
@@ -452,7 +452,7 @@ func TestAccept(t *testing.T) {
 	t.Run("Order is placed, should not be deleted when a block is accepted", func(t *testing.T) {
 		inMemoryDatabase := getDatabase()
 		orderId := addLimitOrder(inMemoryDatabase)
-		inMemoryDatabase.Accept(50)
+		inMemoryDatabase.Accept(50, 50)
 
 		_, ok := inMemoryDatabase.OrderMap[orderId]
 		assert.True(t, ok)
@@ -497,7 +497,7 @@ func TestRevertLastStatus(t *testing.T) {
 		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, "", 3)
 		assert.Nil(t, err)
 
-		inMemoryDatabase.Accept(3)
+		inMemoryDatabase.Accept(3, 3)
 		err = inMemoryDatabase.RevertLastStatus(orderId)
 		assert.Error(t, err)
 	})

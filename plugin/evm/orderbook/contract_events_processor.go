@@ -254,7 +254,7 @@ func (cep *ContractEventsProcessor) handleIOCOrderBookEvent(event *types.Log) {
 				Salt:                    order.Salt,
 				ReduceOnly:              order.ReduceOnly,
 				BlockNumber:             big.NewInt(int64(event.BlockNumber)),
-				OrderType:               LimitOrderType,
+				OrderType:               IOCOrderType,
 			}
 			log.Info("LimitOrder/OrderPlaced", "order", limitOrder)
 			cep.database.Add(&limitOrder)
@@ -262,26 +262,6 @@ func (cep *ContractEventsProcessor) handleIOCOrderBookEvent(event *types.Log) {
 			log.Info("LimitOrder/OrderPlaced removed", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
 			cep.database.Delete(orderId)
 		}
-
-		// case cep.iocOrderBookABI.Events["OrderCancelled"].ID:
-		// 	err := cep.iocOrderBookABI.UnpackIntoMap(args, "OrderCancelled", event.Data)
-		// 	if err != nil {
-		// 		log.Error("error in iocOrderBookABI.UnpackIntoMap", "method", "OrderCancelled", "err", err)
-		// 		return
-		// 	}
-		// 	orderId := event.Topics[2]
-		// 	log.Info("LimitOrder/OrderCancelled", "orderId", orderId.String(), "removed", removed)
-		// 	if !removed {
-		// 		if err := cep.database.SetOrderStatus(orderId, Cancelled, "", event.BlockNumber); err != nil {
-		// 			log.Error("error in SetOrderStatus", "method", "LimitOrder/OrderCancelled", "err", err)
-		// 			return
-		// 		}
-		// 	} else {
-		// 		if err := cep.database.RevertLastStatus(orderId); err != nil {
-		// 			log.Error("error in SetOrderStatus", "method", "LimitOrder/OrderCancelled", "removed", true, "err", err)
-		// 			return
-		// 		}
-		// 	}
 	}
 }
 

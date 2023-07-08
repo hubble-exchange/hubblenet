@@ -24,7 +24,7 @@ func (db *MockLimitOrderDatabase) RevertLastStatus(orderId common.Hash) error {
 	return nil
 }
 
-func (db *MockLimitOrderDatabase) Accept(blockNumber uint64) {
+func (db *MockLimitOrderDatabase) Accept(blockNumber uint64, blockTimestamp uint64) {
 }
 
 func (db *MockLimitOrderDatabase) GetAllOrders() []Order {
