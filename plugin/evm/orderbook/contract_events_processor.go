@@ -256,10 +256,10 @@ func (cep *ContractEventsProcessor) handleIOCOrderBookEvent(event *types.Log) {
 				BlockNumber:             big.NewInt(int64(event.BlockNumber)),
 				OrderType:               IOCOrderType,
 			}
-			log.Info("LimitOrder/OrderPlaced", "order", limitOrder)
+			log.Info("IOCOrder/OrderPlaced", "order", limitOrder)
 			cep.database.Add(&limitOrder)
 		} else {
-			log.Info("LimitOrder/OrderPlaced removed", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
+			log.Info("IOCOrder/OrderPlaced removed", "orderId", orderId.String(), "block", event.BlockHash.String(), "number", event.BlockNumber)
 			cep.database.Delete(orderId)
 		}
 	}
