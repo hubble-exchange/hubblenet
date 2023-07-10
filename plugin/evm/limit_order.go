@@ -188,21 +188,21 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 func (lop *limitOrderProcesser) handleHubbleFeedLogs(logs []*types.Log) {
 	lop.mu.Lock()
 	defer lop.mu.Unlock()
-	defer recoverPanic("handleHubbleFeedLogs failure", "hubble_feed_logs_processor_failure")
+	defer recoverPanic("handleHubbleFeedLogs failure", "handle_hubble_feed_logs_failure")
 	lop.contractEventProcessor.ProcessEvents(logs)
 }
 
 func (lop *limitOrderProcesser) handleChainAcceptedLogs(logs []*types.Log) {
 	lop.mu.Lock()
 	defer lop.mu.Unlock()
-	defer recoverPanic("handleChainAcceptedLogs failure", "chain_accepted_logs_processor_failure")
+	defer recoverPanic("handleChainAcceptedLogs failure", "handle_chain_accepted_logs_failure")
 	lop.contractEventProcessor.ProcessAcceptedEvents(logs, false)
 }
 
 func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) {
 	lop.mu.Lock()
 	defer lop.mu.Unlock()
-	defer recoverPanic("handleChainAcceptedEvent failure", "chain_accepted_event_processor_failure")
+	defer recoverPanic("handleChainAcceptedEvent failure", "handle_chain_accepted_event_failure")
 	block := event.Block
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
 	lop.memoryDb.Accept(block.NumberU64())
