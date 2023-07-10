@@ -102,7 +102,7 @@ func SubnetEVMJSONFormat(alias string) log.Format {
 func HubbleTypeHandler(h log.Handler) log.Handler {
 	return log.FuncHandler(func(r *log.Record) error {
 		var logType string
-		if strings.Contains(r.Call.Frame().File, "orderbook") || strings.Contains(r.Call.Frame().File, "limit_order") { // works for evm/limit_order.go and evm/limitorders/*.go
+		if strings.Contains(r.Call.Frame().File, "orderbook") || strings.Contains(r.Call.Frame().File, "limit_order") { // works for evm/limit_order.go and evm/orderbook/*.go
 			logType = "hubble"
 		} else {
 			logType = "system"
