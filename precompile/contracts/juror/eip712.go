@@ -2,6 +2,7 @@ package juror
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
@@ -38,7 +39,7 @@ func GetLimitOrderHash(o *orderbook.LimitOrder) (hash common.Hash, err error) {
 
 func getIOCOrderHash(o *orderbook.IOCOrder) (hash common.Hash, err error) {
 	message := map[string]interface{}{
-		"orderType":         uint8(o.OrderType),
+		"orderType":         strconv.FormatUint(uint64(o.OrderType), 10),
 		"expireAt":          o.ExpireAt.String(),
 		"ammIndex":          o.AmmIndex.String(),
 		"trader":            o.Trader.String(),

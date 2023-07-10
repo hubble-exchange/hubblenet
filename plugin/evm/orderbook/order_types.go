@@ -26,15 +26,15 @@ type LimitOrder struct {
 
 // IOCOrder type is copy of IOCOrder struct defined in Orderbook contract
 type IOCOrder struct {
-	// LimitOrder
-	OrderType         uint8          `json:"orderType"`
-	ExpireAt          *big.Int       `json:"expireAt"`
-	AmmIndex          *big.Int       `json:"ammIndex"`
-	Trader            common.Address `json:"trader"`
-	BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
-	Price             *big.Int       `json:"price"`
-	Salt              *big.Int       `json:"salt"`
-	ReduceOnly        bool           `json:"reduceOnly"`
+	LimitOrder
+	OrderType uint8    `json:"orderType"`
+	ExpireAt  *big.Int `json:"expireAt"`
+	// AmmIndex          *big.Int       `json:"ammIndex"`
+	// Trader            common.Address `json:"trader"`
+	// BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
+	// Price             *big.Int       `json:"price"`
+	// Salt              *big.Int       `json:"salt"`
+	// ReduceOnly        bool           `json:"reduceOnly"`
 }
 
 // LimitOrder
@@ -94,7 +94,6 @@ func DecodeLimitOrder(encodedOrder []byte) (*LimitOrder, error) {
 	if !ok {
 		return nil, fmt.Errorf("order decoding failed: %w", err)
 	}
-	fmt.Println(source)
 	return &LimitOrder{
 		AmmIndex:          source.AmmIndex,
 		Trader:            source.Trader,
@@ -170,15 +169,16 @@ func DecodeIOCOrder(encodedOrder []byte) (*IOCOrder, error) {
 	if !ok {
 		return nil, fmt.Errorf("order decoding failed: %w", err)
 	}
-	fmt.Println(source)
 	return &IOCOrder{
-		OrderType:         source.OrderType,
-		ExpireAt:          source.ExpireAt,
-		AmmIndex:          source.AmmIndex,
-		Trader:            source.Trader,
-		BaseAssetQuantity: source.BaseAssetQuantity,
-		Price:             source.Price,
-		Salt:              source.Salt,
-		ReduceOnly:        source.ReduceOnly,
+		OrderType: source.OrderType,
+		ExpireAt:  source.ExpireAt,
+		LimitOrder: LimitOrder{
+			AmmIndex:          source.AmmIndex,
+			Trader:            source.Trader,
+			BaseAssetQuantity: source.BaseAssetQuantity,
+			Price:             source.Price,
+			Salt:              source.Salt,
+			ReduceOnly:        source.ReduceOnly,
+		},
 	}, nil
 }

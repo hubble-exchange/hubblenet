@@ -297,9 +297,9 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 	if err != nil {
 		return nil, err
 	}
-	// if err := validateLimitOrderLike(bibliophile, &order.LimitOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
-	// 	return nil, err
-	// }
+	if err := validateLimitOrderLike(bibliophile, &order.LimitOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
+		return nil, err
+	}
 	return &Metadata{
 		AmmIndex:          order.AmmIndex,
 		Trader:            order.Trader,

@@ -411,37 +411,57 @@ func assertMetadataEquality(t *testing.T, expected, actual *Metadata) {
 
 func TestDecodeIOCOrder(t *testing.T) {
 	t.Run("long order", func(t *testing.T) {
-		order := orderbook.IOCOrder{
-			OrderType:         1,
-			ExpireAt:          big.NewInt(1688994854),
-			AmmIndex:          big.NewInt(0),
-			Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
-			BaseAssetQuantity: big.NewInt(-5000000000000000000),
-			Price:             big.NewInt(1000000000),
-			Salt:              big.NewInt(1688994806105),
-			ReduceOnly:        false,
-			// LimitOrder: orderbook.LimitOrder{
-			// 	AmmIndex:          big.NewInt(0),
-			// 	Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
-			// 	BaseAssetQuantity: big.NewInt(-5000000000000000000),
-			// 	Price:             big.NewInt(1000000000),
-			// 	Salt:              big.NewInt(1688994806105),
-			// 	ReduceOnly:        false,
-			// },
+		order := &orderbook.IOCOrder{
+			OrderType: 1,
+			ExpireAt:  big.NewInt(1688994854),
+			LimitOrder: orderbook.LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+				BaseAssetQuantity: big.NewInt(5000000000000000000),
+				Price:             big.NewInt(1000000000),
+				Salt:              big.NewInt(1688994806105),
+				ReduceOnly:        false,
+			},
 		}
-		b, _ := order.EncodeToABI()
-		fmt.Println(hex.EncodeToString(b))
-		testDecodeTypeAndEncodedIOCOrder(
-			t,
-			strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000064ac0426000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001893fef79590000000000000000000000000000000000000000000000000000000000000000", "0x"),
-			strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000064ac0426000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001893fef79590000000000000000000000000000000000000000000000000000000000000000", "0x"),
-			IOC,
-			order,
-		)
+		h, err := getIOCOrderHash(order)
+		assert.Nil(t, err)
+		assert.Equal(t, "0xccdfca56864bf859426ad49d94a8e37f82592de0b70a0bdfa7a8bd705b13512c", h.Hex())
+
+		typeEncodedOrder := strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000064ac0426000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c80000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001893fef79590000000000000000000000000000000000000000000000000000000000000000", "0x")
+		encodedOrder := strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000064ac0426000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c80000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001893fef79590000000000000000000000000000000000000000000000000000000000000000", "0x")
+		b, err := order.EncodeToABI()
+		assert.Nil(t, err)
+		assert.Equal(t, typeEncodedOrder, hex.EncodeToString(b))
+		testDecodeTypeAndEncodedIOCOrder(t, typeEncodedOrder, encodedOrder, IOC, order)
+	})
+
+	t.Run("short order", func(t *testing.T) {
+		order := &orderbook.IOCOrder{
+			OrderType: 1,
+			ExpireAt:  big.NewInt(1688994854),
+			LimitOrder: orderbook.LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+				BaseAssetQuantity: big.NewInt(-5000000000000000000),
+				Price:             big.NewInt(1000000000),
+				Salt:              big.NewInt(1688994806105),
+				ReduceOnly:        false,
+			},
+		}
+		h, err := getIOCOrderHash(order)
+		assert.Nil(t, err)
+		assert.Equal(t, "0xb22dd490cedbe669c4ba67969d1a9875c72c24bf59ac5625c4816e5fd6887a8a", h.Hex())
+
+		typeEncodedOrder := strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000064ac0426000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001893fef79590000000000000000000000000000000000000000000000000000000000000000", "0x")
+		encodedOrder := strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000064ac0426000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001893fef79590000000000000000000000000000000000000000000000000000000000000000", "0x")
+		b, err := order.EncodeToABI()
+		assert.Nil(t, err)
+		assert.Equal(t, typeEncodedOrder, hex.EncodeToString(b))
+		testDecodeTypeAndEncodedIOCOrder(t, typeEncodedOrder, encodedOrder, IOC, order)
 	})
 }
 
-func testDecodeTypeAndEncodedIOCOrder(t *testing.T, typedEncodedOrder string, encodedOrder string, orderType OrderType, expectedOutput orderbook.IOCOrder) {
+func testDecodeTypeAndEncodedIOCOrder(t *testing.T, typedEncodedOrder string, encodedOrder string, orderType OrderType, expectedOutput *orderbook.IOCOrder) {
 	testData, err := hex.DecodeString(typedEncodedOrder)
 	assert.Nil(t, err)
 
@@ -453,22 +473,16 @@ func testDecodeTypeAndEncodedIOCOrder(t *testing.T, typedEncodedOrder string, en
 	testDecodeIOCOrder(t, decodeStep.EncodedOrder, expectedOutput)
 }
 
-func testDecodeIOCOrder(t *testing.T, encodedOrder []byte, expectedOutput orderbook.IOCOrder) {
+func testDecodeIOCOrder(t *testing.T, encodedOrder []byte, expectedOutput *orderbook.IOCOrder) {
 	result, err := orderbook.DecodeIOCOrder(encodedOrder)
 	assert.NoError(t, err)
 	fmt.Println(result)
 	assert.NotNil(t, result)
-	assertIOCOrderEquality(t, expectedOutput, *result)
+	assertIOCOrderEquality(t, expectedOutput, result)
 }
 
-func assertIOCOrderEquality(t *testing.T, expected, actual orderbook.IOCOrder) {
+func assertIOCOrderEquality(t *testing.T, expected, actual *orderbook.IOCOrder) {
 	assert.Equal(t, expected.OrderType, actual.OrderType)
 	assert.Equal(t, expected.ExpireAt.Int64(), actual.ExpireAt.Int64())
-	assert.Equal(t, expected.AmmIndex.Int64(), actual.AmmIndex.Int64())
-	assert.Equal(t, expected.Trader, actual.Trader)
-	assert.Equal(t, expected.BaseAssetQuantity, actual.BaseAssetQuantity)
-	assert.Equal(t, expected.Price, actual.Price)
-	assert.Equal(t, expected.Salt, actual.Salt)
-	assert.Equal(t, expected.ReduceOnly, actual.ReduceOnly)
-	// assertLimitOrderEquality(t, expected.LimitOrder, actual.LimitOrder)
+	assertLimitOrderEquality(t, expected.LimitOrder, actual.LimitOrder)
 }
