@@ -8,6 +8,7 @@ import (
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type OrderType uint8
@@ -287,6 +288,7 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *orderbook.Li
 
 // IOC Orders
 func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	log.Info("validateExecuteIOCOrder", "order", order, "ts", bibliophile.GetAccessibleState().GetBlockContext().Timestamp())
 	if OrderType(order.OrderType) != IOC {
 		return nil, errors.New("not ioc order")
 	}
@@ -297,6 +299,7 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 	if err != nil {
 		return nil, err
 	}
+	log.Info("validateExecuteIOCOrder", "orderHash", orderHash, "orderStatus", OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)))
 	if err := validateLimitOrderLike(bibliophile, &order.LimitOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
 		return nil, err
 	}

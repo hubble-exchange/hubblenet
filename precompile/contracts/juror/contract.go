@@ -16,6 +16,7 @@ import (
 	_ "embed"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -191,6 +192,7 @@ func validateOrdersAndDetermineFillPrice(accessibleState contract.AccessibleStat
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
 	output, err := ValidateOrdersAndDetermineFillPrice(bibliophile, &inputStruct)
 	if err != nil {
+		log.Error("validateOrdersAndDetermineFillPrice", "error", err)
 		return nil, remainingGas, err
 	}
 	packedOutput, err := PackValidateOrdersAndDetermineFillPriceOutput(*output)
