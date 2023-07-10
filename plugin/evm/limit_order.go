@@ -122,6 +122,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 }
 
 func (lop *limitOrderProcesser) RunBuildBlockPipeline() {
+	defer recoverPanic("runBuildBlockPipeline failure", "build_block_pipeline_panics")
 	lop.buildBlockPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number(), big.NewInt(1)))
 }
 
