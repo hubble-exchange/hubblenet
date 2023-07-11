@@ -60,6 +60,7 @@ type IClearingHouseInstruction struct {
 // IImmediateOrCancelOrdersOrder is an auto generated low-level Go binding around an user-defined struct.
 type IImmediateOrCancelOrdersOrder struct {
 	OrderType         uint8
+	ExpireAt          *big.Int
 	AmmIndex          *big.Int
 	Trader            common.Address
 	BaseAssetQuantity *big.Int
@@ -237,8 +238,12 @@ func validatePlaceIOCOrders(accessibleState contract.AccessibleState, caller com
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct       // CUSTOM CODE OPERATES ON INPUT
-	var output [][32]byte // CUSTOM CODE FOR AN OUTPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output, err := ValidatePlaceIOCOrders(bibliophile, &inputStruct)
+	if err != nil {
+		log.Error("validatePlaceIOCOrders", "error", err)
+		return nil, remainingGas, err
+	}
 	packedOutput, err := PackValidatePlaceIOCOrdersOutput(output)
 	if err != nil {
 		return nil, remainingGas, err

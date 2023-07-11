@@ -3,6 +3,7 @@ package juror
 import (
 	"errors"
 	"math/big"
+	"strings"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
@@ -287,6 +288,58 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *orderbook.Li
 }
 
 // IOC Orders
+func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *ValidatePlaceIOCOrdersInput) (orderHashes [][32]byte, err error) {
+	orders := inputStruct.Orders
+	if len(orders) == 0 {
+		return nil, errors.New("no orders")
+	}
+	trader := orders[0].Trader
+	if !strings.EqualFold(trader.String(), inputStruct.Sender.String()) && !bibliophile.IsTradingAuthority(inputStruct.Sender, trader) {
+		return nil, errors.New("no trading authority")
+	}
+	orderHashes = make([][32]byte, len(orders))
+	for i, order := range orders {
+		if order.BaseAssetQuantity.Sign() == 0 {
+			return nil, ErrInvalidFillAmount
+		}
+		if !strings.EqualFold(order.Trader.String(), trader.String()) {
+			return nil, errors.New("OB_trader_mismatch")
+		}
+		if OrderType(order.OrderType) != IOC {
+			return nil, errors.New("not_ioc_order")
+		}
+		if order.ExpireAt.Cmp(bibliophile.GetAccessibleState().GetBlockContext().Timestamp()) < 0 {
+			return nil, errors.New("ioc expired")
+		}
+		if order.ExpireAt.Cmp(new(big.Int).Add(bibliophile.GetAccessibleState().GetBlockContext().Timestamp(), bibliophile.IOC_GetExpirationCap())) > 0 {
+			return nil, errors.New("ioc expiration too far")
+		}
+		minSize := bibliophile.GetMinSizeRequirement(order.AmmIndex.Int64())
+		if new(big.Int).Mod(order.BaseAssetQuantity, minSize).Sign() != 0 {
+			return nil, ErrNotMultiple
+		}
+		// this check is as such not strictly required, because even if this order is not reducing the position, it will be rejected by the matching engine and expire away
+		// if order.ReduceOnly {
+		// }
+		orderHashes[i], err = getIOCOrderHash(&orderbook.IOCOrder{
+			OrderType: order.OrderType,
+			ExpireAt:  order.ExpireAt,
+			LimitOrder: orderbook.LimitOrder{
+				AmmIndex:          order.AmmIndex,
+				Trader:            order.Trader,
+				BaseAssetQuantity: order.BaseAssetQuantity,
+				Price:             order.Price,
+				Salt:              order.Salt,
+				ReduceOnly:        order.ReduceOnly,
+			},
+		})
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
 func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
 	log.Info("validateExecuteIOCOrder", "order", order, "ts", bibliophile.GetAccessibleState().GetBlockContext().Timestamp())
 	if OrderType(order.OrderType) != IOC {
