@@ -122,8 +122,9 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 }
 
 func (lop *limitOrderProcesser) RunBuildBlockPipeline() {
-	defer recoverPanic("runBuildBlockPipeline failure", "build_block_pipeline_panics")
-	lop.buildBlockPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number(), big.NewInt(1)))
+	recoverPanic(func() {
+		lop.buildBlockPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number(), big.NewInt(1)))
+	}, "runBuildBlockPipeline failure", "build_block_pipeline_panics")
 }
 
 func (lop *limitOrderProcesser) GetOrderBookAPI() *limitorders.OrderBookAPI {
@@ -144,7 +145,11 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case logs := <-logsCh:
-				lop.handleHubbleFeedLogs(logs)
+				recoverPanic(func() {
+					lop.mu.Lock()
+					defer lop.mu.Unlock()
+					lop.contractEventProcessor.ProcessEvents(logs)
+				}, "handleHubbleFeedLogs failure", "handle_hubble_feed_logs_panics")
 			case <-lop.shutdownChan:
 				return
 			}
@@ -161,7 +166,11 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case logs := <-acceptedLogsCh:
-				lop.handleChainAcceptedLogs(logs)
+				recoverPanic(func() {
+					lop.mu.Lock()
+					defer lop.mu.Unlock()
+					lop.contractEventProcessor.ProcessAcceptedEvents(logs, false)
+				}, "handleChainAcceptedLogs failure", "handle_chain_accepted_logs_panics")
 			case <-lop.shutdownChan:
 				return
 			}
@@ -178,7 +187,9 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 		for {
 			select {
 			case chainAcceptedEvent := <-chainAcceptedEventCh:
-				lop.handleChainAcceptedEvent(chainAcceptedEvent)
+				recoverPanic(func() {
+					lop.handleChainAcceptedEvent(chainAcceptedEvent)
+				}, "handleChainAcceptedEvent failure", "handle_chain_accepted_event_panics")
 			case <-lop.shutdownChan:
 				return
 			}
@@ -186,24 +197,9 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	}()
 }
 
-func (lop *limitOrderProcesser) handleHubbleFeedLogs(logs []*types.Log) {
-	lop.mu.Lock()
-	defer lop.mu.Unlock()
-	defer recoverPanic("handleHubbleFeedLogs failure", "handle_hubble_feed_logs_panics")
-	lop.contractEventProcessor.ProcessEvents(logs)
-}
-
-func (lop *limitOrderProcesser) handleChainAcceptedLogs(logs []*types.Log) {
-	lop.mu.Lock()
-	defer lop.mu.Unlock()
-	defer recoverPanic("handleChainAcceptedLogs failure", "handle_chain_accepted_logs_panics")
-	lop.contractEventProcessor.ProcessAcceptedEvents(logs, false)
-}
-
 func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) {
 	lop.mu.Lock()
 	defer lop.mu.Unlock()
-	defer recoverPanic("handleChainAcceptedEvent failure", "handle_chain_accepted_event_panics")
 	block := event.Block
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
 	lop.memoryDb.Accept(block.NumberU64())
@@ -332,9 +328,12 @@ func (lop *limitOrderProcesser) FixBuggySnapshot() {
 	log.Info("@@@@ updateLastPremiumFraction - update complete", "count", count, "time taken", time.Since(start))
 }
 
-func recoverPanic(message string, metricName string) {
-	if panicInfo := recover(); panicInfo != nil {
-		log.Error("%s, %v, %s", message, panicInfo, string(debug.Stack()))
-		metrics.GetOrRegisterCounter(metricName, nil).Inc(1)
-	}
+func recoverPanic(fn func(), message string, metricName string) {
+	defer func() {
+		if panicInfo := recover(); panicInfo != nil {
+			log.Error("%s, %v, %s", message, panicInfo, string(debug.Stack()))
+			metrics.GetOrRegisterCounter(metricName, nil).Inc(1)
+		}
+	}()
+	fn()
 }
