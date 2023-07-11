@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
@@ -289,6 +290,7 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *orderbook.Li
 
 // IOC Orders
 func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *ValidatePlaceIOCOrdersInput) (orderHashes [][32]byte, err error) {
+	log.Info("ValidatePlaceIOCOrders", "input", inputStruct)
 	orders := inputStruct.Orders
 	if len(orders) == 0 {
 		return nil, errors.New("no orders")
@@ -308,10 +310,12 @@ func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *Valida
 		if OrderType(order.OrderType) != IOC {
 			return nil, errors.New("not_ioc_order")
 		}
-		if order.ExpireAt.Cmp(bibliophile.GetAccessibleState().GetBlockContext().Timestamp()) < 0 {
+		timestamp := time.Now().Unix()
+		if order.ExpireAt.Int64() < timestamp {
 			return nil, errors.New("ioc expired")
 		}
-		if order.ExpireAt.Cmp(new(big.Int).Add(bibliophile.GetAccessibleState().GetBlockContext().Timestamp(), bibliophile.IOC_GetExpirationCap())) > 0 {
+		log.Info("ValidatePlaceIOCOrders", "GetBlockContext.Number", bibliophile.GetAccessibleState().GetBlockContext().Number(), "order.ExpireAt", order.ExpireAt, "GetBlockContext.Timestamp", bibliophile.GetAccessibleState().GetBlockContext().Timestamp(), "ExpirationCap", bibliophile.IOC_GetExpirationCap(), "timestamp", timestamp)
+		if order.ExpireAt.Int64() > timestamp+bibliophile.IOC_GetExpirationCap().Int64() {
 			return nil, errors.New("ioc expiration too far")
 		}
 		minSize := bibliophile.GetMinSizeRequirement(order.AmmIndex.Int64())
