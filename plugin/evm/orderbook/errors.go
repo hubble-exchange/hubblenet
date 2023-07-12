@@ -1,4 +1,4 @@
-package limitorders
+package orderbook
 
 const (
 	HandleChainAcceptedEventPanicMessage = "panic while processing chainAcceptedEvent"
