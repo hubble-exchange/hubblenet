@@ -29,16 +29,9 @@ type IOCOrder struct {
 	LimitOrder
 	OrderType uint8    `json:"orderType"`
 	ExpireAt  *big.Int `json:"expireAt"`
-	// AmmIndex          *big.Int       `json:"ammIndex"`
-	// Trader            common.Address `json:"trader"`
-	// BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
-	// Price             *big.Int       `json:"price"`
-	// Salt              *big.Int       `json:"salt"`
-	// ReduceOnly        bool           `json:"reduceOnly"`
 }
 
 // LimitOrder
-
 func (order *LimitOrder) EncodeToABI() ([]byte, error) {
 	limitOrderType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "ammIndex", Type: "uint256"},

@@ -90,8 +90,8 @@ func (b *bibliophileClient) IOC_GetOrderStatus(orderHash [32]byte) int64 {
 	return iocGetOrderStatus(b.accessibleState.GetStateDB(), orderHash)
 }
 
-func (b *bibliophileClient) IsTradingAuthority(senderOrSigner, trader common.Address) bool {
-	return IsTradingAuthority(b.accessibleState.GetStateDB(), senderOrSigner, trader)
+func (b *bibliophileClient) IsTradingAuthority(trader, senderOrSigner common.Address) bool {
+	return IsTradingAuthority(b.accessibleState.GetStateDB(), trader, senderOrSigner)
 }
 
 func (b *bibliophileClient) IOC_GetExpirationCap() *big.Int {

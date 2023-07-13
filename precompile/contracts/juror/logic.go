@@ -4,7 +4,6 @@ import (
 	"errors"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
@@ -290,15 +289,17 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *orderbook.Li
 
 // IOC Orders
 func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *ValidatePlaceIOCOrdersInput) (orderHashes [][32]byte, err error) {
-	log.Info("ValidatePlaceIOCOrders - 1st log", "input", inputStruct)
+	log.Info("ValidatePlaceIOCOrders", "input", inputStruct)
 	orders := inputStruct.Orders
 	if len(orders) == 0 {
 		return nil, errors.New("no orders")
 	}
 	trader := orders[0].Trader
-	if !strings.EqualFold(trader.String(), inputStruct.Sender.String()) && !bibliophile.IsTradingAuthority(inputStruct.Sender, trader) {
+	if !strings.EqualFold(trader.String(), inputStruct.Sender.String()) && !bibliophile.IsTradingAuthority(trader, inputStruct.Sender) {
 		return nil, errors.New("no trading authority")
 	}
+	blockTimestamp := bibliophile.GetAccessibleState().GetBlockContext().Timestamp()
+	expireWithin := new(big.Int).Add(blockTimestamp, bibliophile.IOC_GetExpirationCap())
 	orderHashes = make([][32]byte, len(orders))
 	for i, order := range orders {
 		if order.BaseAssetQuantity.Sign() == 0 {
@@ -310,21 +311,19 @@ func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *Valida
 		if OrderType(order.OrderType) != IOC {
 			return nil, errors.New("not_ioc_order")
 		}
-		timestamp := time.Now().Unix()
-		if order.ExpireAt.Int64() < timestamp {
+		if order.ExpireAt.Cmp(blockTimestamp) < 0 {
 			return nil, errors.New("ioc expired")
 		}
-		log.Info("ValidatePlaceIOCOrders - 2nd log", "GetBlockContext.Number", bibliophile.GetAccessibleState().GetBlockContext().Number(), "GetBlockContext.Timestamp", bibliophile.GetAccessibleState().GetBlockContext().Timestamp(), "order.ExpireAt", order.ExpireAt, "ExpirationCap", bibliophile.IOC_GetExpirationCap(), "timestamp", timestamp)
-		// if order.ExpireAt.Int64() > timestamp+bibliophile.IOC_GetExpirationCap().Int64() {
-		// 	return nil, errors.New("ioc expiration too far")
-		// }
+		if order.ExpireAt.Cmp(expireWithin) > 0 {
+			return nil, errors.New("ioc expiration too far")
+		}
 		minSize := bibliophile.GetMinSizeRequirement(order.AmmIndex.Int64())
 		if new(big.Int).Mod(order.BaseAssetQuantity, minSize).Sign() != 0 {
 			return nil, ErrNotMultiple
 		}
-		// this check is as such not strictly required, because even if this order is not reducing the position, it will be rejected by the matching engine and expire away
-		// if order.ReduceOnly {
-		// }
+		// this check is as such not required, because even if this order is not reducing the position, it will be rejected by the matching engine and expire away
+		// this check is sort of also redundant because either ways user can circumvent this by placing several reduceOnly orders
+		// if order.ReduceOnly {}
 		orderHashes[i], err = getIOCOrderHash(&orderbook.IOCOrder{
 			OrderType: order.OrderType,
 			ExpireAt:  order.ExpireAt,
@@ -340,12 +339,14 @@ func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *Valida
 		if err != nil {
 			return
 		}
+		if OrderStatus(bibliophile.IOC_GetOrderStatus(orderHashes[i])) != Invalid {
+			return nil, ErrInvalidOrder
+		}
 	}
 	return
 }
 
 func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
-	log.Info("validateExecuteIOCOrder", "order", order, "ts", bibliophile.GetAccessibleState().GetBlockContext().Timestamp())
 	if OrderType(order.OrderType) != IOC {
 		return nil, errors.New("not ioc order")
 	}
@@ -356,7 +357,6 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 	if err != nil {
 		return nil, err
 	}
-	log.Info("validateExecuteIOCOrder", "orderHash", orderHash, "orderStatus", OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)))
 	if err := validateLimitOrderLike(bibliophile, &order.LimitOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
 		return nil, err
 	}
