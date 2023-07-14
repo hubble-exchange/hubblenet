@@ -486,3 +486,10 @@ func assertIOCOrderEquality(t *testing.T, expected, actual *orderbook.IOCOrder) 
 	assert.Equal(t, expected.ExpireAt.Int64(), actual.ExpireAt.Int64())
 	assertLimitOrderEquality(t, expected.LimitOrder, actual.LimitOrder)
 }
+
+// @todo
+func TestValidatePlaceIOCOrders(t *testing.T) {
+}
+
+func TestValidateExecuteIOCOrder(t *testing.T) {
+}
