@@ -193,7 +193,7 @@ func validateOrdersAndDetermineFillPrice(accessibleState contract.AccessibleStat
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
 	output, err := ValidateOrdersAndDetermineFillPrice(bibliophile, &inputStruct)
 	if err != nil {
-		log.Error("validateOrdersAndDetermineFillPrice", "error", err)
+		log.Error("validateOrdersAndDetermineFillPrice", "error", err, "inputStruct", inputStruct, "block", accessibleState.GetBlockContext().Number())
 		return nil, remainingGas, err
 	}
 	packedOutput, err := PackValidateOrdersAndDetermineFillPriceOutput(*output)
@@ -241,7 +241,7 @@ func validatePlaceIOCOrders(accessibleState contract.AccessibleState, caller com
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
 	output, err := ValidatePlaceIOCOrders(bibliophile, &inputStruct)
 	if err != nil {
-		log.Error("validatePlaceIOCOrders", "error", err)
+		log.Error("validatePlaceIOCOrders", "error", err, "inputStruct", inputStruct, "block", accessibleState.GetBlockContext().Number())
 		return nil, remainingGas, err
 	}
 	packedOutput, err := PackValidatePlaceIOCOrdersOutput(output)
