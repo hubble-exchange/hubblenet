@@ -1,14 +1,14 @@
 {
   "precompileUpgrades": [
     {
-      "hubbleBibliophileConfig": {
-        "blockTimestamp": 1689425100,
-        "disable": true
+      "bibliophileConfig": {
+        "blockTimestamp": 1686936600
       }
     },
     {
-      "bibliophileConfig": {
-        "blockTimestamp": 1686936600
+      "hubbleBibliophileConfig": {
+        "blockTimestamp": 1689425100,
+        "disable": true
       }
     },
     {
