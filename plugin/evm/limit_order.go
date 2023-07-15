@@ -103,16 +103,17 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 		}
 
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)
-		toBlock := utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, big.NewInt(2000)))
+		JUMP := big.NewInt(3999)
+		toBlock := utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		for toBlock.Cmp(fromBlock) > 0 {
 			logs := lop.getLogs(fromBlock, toBlock)
-			log.Info("ListenAndProcessTransactions - fetched log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs), "err", err)
+			log.Info("ListenAndProcessTransactions - fetched log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs))
 			lop.contractEventProcessor.ProcessEvents(logs)
 			lop.contractEventProcessor.ProcessAcceptedEvents(logs, true)
 			lop.memoryDb.Accept(toBlock.Uint64(), 0) // will delete stale orders from the memorydb
 
 			fromBlock = fromBlock.Add(toBlock, big.NewInt(1))
-			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, big.NewInt(2000)))
+			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		}
 		lop.memoryDb.Accept(lastAcceptedBlockNumber.Uint64(), lastAccepted.Time()) // will delete stale orders from the memorydb
 		// lop.FixBuggySnapshot()                     // not required any more
@@ -217,7 +218,6 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 }
 
 func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint64, err error) {
-	return
 	snapshotFound, err := lop.hubbleDB.Has([]byte(memoryDBSnapshotKey))
 	if err != nil {
 		return acceptedBlockNumber, fmt.Errorf("Error in checking snapshot in hubbleDB: err=%v", err)
