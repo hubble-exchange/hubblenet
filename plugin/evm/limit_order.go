@@ -216,6 +216,7 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 }
 
 func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint64, err error) {
+	return
 	snapshotFound, err := lop.hubbleDB.Has([]byte(memoryDBSnapshotKey))
 	if err != nil {
 		return acceptedBlockNumber, fmt.Errorf("Error in checking snapshot in hubbleDB: err=%v", err)

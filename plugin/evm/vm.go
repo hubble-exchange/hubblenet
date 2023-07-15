@@ -685,7 +685,7 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 		ProposerVMBlockCtx: proposerVMBlockCtx,
 	}
 
-	vm.limitOrderProcesser.RunBuildBlockPipeline()
+	// vm.limitOrderProcesser.RunBuildBlockPipeline()
 	block, err := vm.miner.GenerateBlock(predicateCtx)
 	vm.builder.handleGenerateBlock()
 	if err != nil {
