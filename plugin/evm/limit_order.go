@@ -103,15 +103,16 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 		}
 
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)
-		toBlock := utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
+		toBlock := utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, big.NewInt(2000)))
 		for toBlock.Cmp(fromBlock) > 0 {
 			logs := lop.getLogs(fromBlock, toBlock)
 			log.Info("ListenAndProcessTransactions - fetched log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs), "err", err)
 			lop.contractEventProcessor.ProcessEvents(logs)
 			lop.contractEventProcessor.ProcessAcceptedEvents(logs, true)
+			lop.memoryDb.Accept(toBlock.Uint64(), 0) // will delete stale orders from the memorydb
 
 			fromBlock = fromBlock.Add(toBlock, big.NewInt(1))
-			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
+			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, big.NewInt(2000)))
 		}
 		lop.memoryDb.Accept(lastAcceptedBlockNumber.Uint64(), lastAccepted.Time()) // will delete stale orders from the memorydb
 		// lop.FixBuggySnapshot()                     // not required any more
