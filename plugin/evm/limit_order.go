@@ -62,6 +62,10 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan
 	buildBlockPipeline := orderbook.NewBuildBlockPipeline(memoryDb, lotp, configService)
 	filterSystem := filters.NewFilterSystem(backend, filters.Config{})
 	filterAPI := filters.NewFilterAPI(filterSystem, true)
+
+	// need to register the types for gob encoding because memory DB has an interface field(ContractOrder)
+	gob.Register(&orderbook.LimitOrder{})
+	gob.Register(&orderbook.IOCOrder{})
 	return &limitOrderProcesser{
 		ctx:                    ctx,
 		mu:                     &sync.Mutex{},
