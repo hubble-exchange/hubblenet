@@ -120,7 +120,9 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		}
 		lop.memoryDb.Accept(lastAcceptedBlockNumber.Uint64(), lastAccepted.Time()) // will delete stale orders from the memorydb
-		// lop.FixBuggySnapshot()                     // not required any more
+
+		// needs to be run everytime as long as the db.UpdatePosition uses configService.GetCumulativePremiumFraction
+		lop.FixBuggySnapshot()
 	}
 
 	lop.mu.Unlock()
