@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"math/big"
+	"runtime"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -343,7 +344,19 @@ func (lop *limitOrderProcesser) FixBuggySnapshot() {
 func executeFuncAndRecoverPanic(fn func(), panicMessage string, panicCounter metrics.Counter) {
 	defer func() {
 		if panicInfo := recover(); panicInfo != nil {
-			log.Error(panicMessage, panicInfo.(string), string(debug.Stack()))
+			var errorMessage string
+			switch panicInfo := panicInfo.(type) {
+			case string:
+				errorMessage = fmt.Sprintf("recovered (string) panic: %s", panicInfo)
+			case runtime.Error:
+				errorMessage = fmt.Sprintf("recovered (runtime.Error) panic: %s", panicInfo.Error())
+			case error:
+				errorMessage = fmt.Sprintf("recovered (error) panic: %s", panicInfo.Error())
+			default:
+				errorMessage = fmt.Sprintf("recovered (default) panic: %v", panicInfo)
+			}
+
+			log.Error(panicMessage, "errorMessage", errorMessage, "stack_trace", string(debug.Stack()))
 			panicCounter.Inc(1)
 		}
 	}()
