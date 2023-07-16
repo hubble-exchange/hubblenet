@@ -3,7 +3,6 @@ package orderbook
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -106,7 +105,8 @@ func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, mat
 		return err
 	}
 	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader, orderBytes, fillAmount)
-	log.Info("ExecuteLiquidation", "trader", trader, "matchedOrder", matchedOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "orderBytes", hex.EncodeToString(orderBytes), "txHash", txHash.String(), "err", err)
+	log.Info("ExecuteLiquidation", "trader", trader, "matchedOrder", matchedOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String(), "err", err)
+	// log.Info("ExecuteLiquidation", "trader", trader, "matchedOrder", matchedOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "orderBytes", hex.EncodeToString(orderBytes), "txHash", txHash.String(), "err", err)
 	return err
 }
 

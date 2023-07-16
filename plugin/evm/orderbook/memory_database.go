@@ -647,7 +647,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 
 	for addr, trader := range db.TraderMap {
 		pendingFunding := getTotalFunding(trader, markets)
-		marginFraction := calcMarginFraction(addr, trader, pendingFunding, oraclePrices, db.LastPrice, markets)
+		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, db.LastPrice, markets)
 		if marginFraction.Cmp(db.configService.getMaintenanceMargin()) == -1 {
 			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", prettifyScaledBigInt(marginFraction, 6))
 			if len(minSizes) == 0 {

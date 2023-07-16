@@ -109,7 +109,7 @@ func (api *OrderBookAPI) GetDebugData(ctx context.Context, trader string) GetDeb
 		pendingFunding := getTotalFunding(&trader, markets)
 		margin := new(big.Int).Sub(getNormalisedMargin(&trader), pendingFunding)
 		notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(&trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices, markets)
-		marginFraction := calcMarginFraction(addr, &trader, pendingFunding, oraclePrices, lastPrices, markets)
+		marginFraction := calcMarginFraction(&trader, pendingFunding, oraclePrices, lastPrices, markets)
 		availableMargin := getAvailableMargin(&trader, pendingFunding, oraclePrices, lastPrices, api.configService.getMinAllowableMargin(), markets)
 		utilisedMargin := divideByBasePrecision(new(big.Int).Mul(notionalPosition, minAllowableMargin))
 
