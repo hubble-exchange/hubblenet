@@ -255,7 +255,10 @@ func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint
 func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.Int) error {
 	currentHeadBlock := lop.blockChain.CurrentBlock()
 
-	memoryDBCopy := lop.memoryDb.GetOrderBookDataCopy()
+	memoryDBCopy, err := lop.memoryDb.GetOrderBookDataCopy()
+	if err != nil {
+		return fmt.Errorf("Error in getting memory DB copy: err=%v", err)
+	}
 	if currentHeadBlock.Number().Cmp(acceptedBlockNumber) == 1 {
 		// if current head is ahead of the accepted block, then certain events(OrderBook)
 		// need to be removed from the saved state
@@ -285,7 +288,7 @@ func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.In
 	}
 
 	var buf bytes.Buffer
-	err := gob.NewEncoder(&buf).Encode(&snapshot)
+	err = gob.NewEncoder(&buf).Encode(&snapshot)
 	if err != nil {
 		return fmt.Errorf("error in gob encoding: err=%v", err)
 	}
