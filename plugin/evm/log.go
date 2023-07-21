@@ -16,7 +16,7 @@ import (
 
 const (
 	errorKey   = "LOG15_ERROR"
-	timeFormat = "2006-01-02T15:04:05.000-0700"
+	timeFormat = "2006-01-02T15:04:05.000000-0700"
 )
 
 type SubnetEVMLogger struct {

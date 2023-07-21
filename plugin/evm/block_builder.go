@@ -32,7 +32,7 @@ const (
 	minBlockBuildingRetryDelay = 500 * time.Millisecond
 
 	// ticker frequency for calling signalTxsReady
-	buildTickerDuration = 1 * time.Second
+	buildTickerDuration = 5 * time.Second
 )
 
 type blockBuilder struct {
@@ -132,6 +132,9 @@ func (b *blockBuilder) markBuilding() {
 
 	select {
 	case b.notifyBuildBlockChan <- commonEng.PendingTxs:
+		// signal is sent here, so the ticker should be reset
+		b.buildTicker.Reset(buildTickerDuration)
+
 		b.buildSent = true
 	default:
 		log.Error("Failed to push PendingTxs notification to the consensus engine.")
