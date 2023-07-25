@@ -107,12 +107,16 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 			}
 		}
 
+		logHandler := log.Root().GetHandler()
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)
 		JUMP := big.NewInt(3999)
 		toBlock := utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		for toBlock.Cmp(fromBlock) > 0 {
 			logs := lop.getLogs(fromBlock, toBlock)
+			log.Root().SetHandler(logHandler)
 			log.Info("ListenAndProcessTransactions - fetched log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs))
+			// set the log handler to discard logs so that the ProcessEvents doesn't spam the logs
+			log.Root().SetHandler(log.DiscardHandler())
 			lop.contractEventProcessor.ProcessEvents(logs)
 			lop.contractEventProcessor.ProcessAcceptedEvents(logs, true)
 			lop.memoryDb.Accept(toBlock.Uint64(), 0) // will delete stale orders from the memorydb
@@ -121,6 +125,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		}
 		lop.memoryDb.Accept(lastAcceptedBlockNumber.Uint64(), lastAccepted.Time()) // will delete stale orders from the memorydb
+		log.Root().SetHandler(logHandler)
 
 		// needs to be run everytime as long as the db.UpdatePosition uses configService.GetCumulativePremiumFraction
 		lop.FixBuggySnapshot()
