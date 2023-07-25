@@ -9,6 +9,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/metrics"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook/abis"
+	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -383,6 +384,111 @@ func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {
 		size := args["size"].(*big.Int)
 		log.Info("PositionLiquidated", "market", market, "trader", trader, "args", args)
 		cep.database.UpdatePosition(trader, market, size, openNotional, true)
+	}
+}
+
+type TraderEvent struct {
+	Trader      common.Address
+	OrderId     common.Hash
+	OrderType   string
+	Removed     bool
+	EventName   string
+	Args        map[string]interface{}
+	BlockNumber *big.Int
+	BlockStatus string
+	Timestamp   interface{}
+}
+
+func (cep *ContractEventsProcessor) ProcessTraderEvents(events []*types.Log, blockStatus string) {
+	for _, event := range events {
+		removed := event.Removed
+		args := map[string]interface{}{}
+		eventName := ""
+		var orderId common.Hash
+		var orderType string
+		var trader common.Address
+		if len(event.Topics) > 1 {
+			trader = getAddressFromTopicHash(event.Topics[1])
+		}
+		if len(event.Topics) > 2 {
+			orderId = event.Topics[2]
+		}
+		switch event.Address {
+		case OrderBookContractAddress:
+			orderType = "limit"
+			switch event.Topics[0] {
+			case cep.orderBookABI.Events["OrderPlaced"].ID:
+				err := cep.orderBookABI.UnpackIntoMap(args, "OrderPlaced", event.Data)
+				if err != nil {
+					log.Error("error in orderBookABI.UnpackIntoMap", "method", "OrderPlaced", "err", err)
+					continue
+				}
+				eventName = "OrderPlaced"
+				order := LimitOrder{}
+				order.DecodeFromRawOrder(args["order"])
+				args["order"] = map[string]interface{}{
+					"ammIndex":          order.AmmIndex,
+					"trader":            order.Trader,
+					"baseAssetQuantity": utils.BigIntToFloat(order.BaseAssetQuantity, 18),
+					"price":             utils.BigIntToFloat(order.Price, 6),
+					"reduceOnly":        order.ReduceOnly,
+					"salt":              order.Salt,
+				}
+
+			case cep.orderBookABI.Events["OrderMatched"].ID:
+				err := cep.orderBookABI.UnpackIntoMap(args, "OrderMatched", event.Data)
+				if err != nil {
+					log.Error("error in orderBookABI.UnpackIntoMap", "method", "OrderMatched", "err", err)
+					continue
+				}
+				eventName = "OrderMatched"
+				fillAmount := args["fillAmount"].(*big.Int)
+				openInterestNotional := args["openInterestNotional"].(*big.Int)
+				price := args["price"].(*big.Int)
+				args["fillAmount"] = utils.BigIntToFloat(fillAmount, 18)
+				args["openInterestNotional"] = utils.BigIntToFloat(openInterestNotional, 18)
+				args["price"] = utils.BigIntToFloat(price, 6)
+
+			case cep.orderBookABI.Events["OrderCancelled"].ID:
+				err := cep.orderBookABI.UnpackIntoMap(args, "OrderCancelled", event.Data)
+				if err != nil {
+					log.Error("error in orderBookABI.UnpackIntoMap", "method", "OrderCancelled", "err", err)
+					continue
+				}
+				eventName = "OrderCancelled"
+
+			default:
+				continue
+			}
+
+		case IOCOrderBookContractAddress:
+			orderType = "ioc"
+			switch event.Topics[0] {
+			case cep.iocOrderBookABI.Events["OrderPlaced"].ID:
+				err := cep.iocOrderBookABI.UnpackIntoMap(args, "OrderPlaced", event.Data)
+				if err != nil {
+					log.Error("error in iocOrderBookABI.UnpackIntoMap", "method", "OrderPlaced", "err", err)
+					continue
+				}
+				eventName = "OrderPlaced"
+			}
+		default:
+			continue
+		}
+		timestamp, _ := args["timestamp"]
+		traderEvent := TraderEvent{
+			Trader:      trader,
+			Removed:     removed,
+			EventName:   eventName,
+			Args:        args,
+			BlockNumber: big.NewInt(int64(event.BlockNumber)),
+			BlockStatus: blockStatus,
+			OrderId:     orderId,
+			OrderType:   orderType,
+			Timestamp:   timestamp,
+		}
+
+		traderFeed.Send(traderEvent)
 	}
 }
 

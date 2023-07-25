@@ -164,6 +164,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					lop.mu.Lock()
 					defer lop.mu.Unlock()
 					lop.contractEventProcessor.ProcessEvents(logs)
+					go lop.contractEventProcessor.ProcessTraderEvents(logs, "head")
 				}, orderbook.HandleHubbleFeedLogsPanicMessage, orderbook.HandleHubbleFeedLogsPanicsCounter)
 			case <-lop.shutdownChan:
 				return
@@ -185,6 +186,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					lop.mu.Lock()
 					defer lop.mu.Unlock()
 					lop.contractEventProcessor.ProcessAcceptedEvents(logs, false)
+					go lop.contractEventProcessor.ProcessTraderEvents(logs, "accepted")
 				}, orderbook.HandleChainAcceptedLogsPanicMessage, orderbook.HandleChainAcceptedLogsPanicsCounter)
 			case <-lop.shutdownChan:
 				return

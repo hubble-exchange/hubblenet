@@ -120,7 +120,7 @@ func (db *MockLimitOrderDatabase) LoadFromSnapshot(snapshot Snapshot) error {
 	return nil
 }
 
-func (db *MockLimitOrderDatabase) GetOpenOrdersForTrader(trader common.Address) []Order {
+func (db *MockLimitOrderDatabase) GetOpenOrdersForTrader(trader common.Address, orderType OrderType) []Order {
 	return nil
 }
 
