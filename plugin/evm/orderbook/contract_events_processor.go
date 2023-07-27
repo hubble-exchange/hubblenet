@@ -395,11 +395,18 @@ type TraderEvent struct {
 	EventName   string
 	Args        map[string]interface{}
 	BlockNumber *big.Int
-	BlockStatus string
-	Timestamp   interface{}
+	BlockStatus BlockConfirmationLevel
+	Timestamp   *big.Int
 }
 
-func (cep *ContractEventsProcessor) ProcessTraderEvents(events []*types.Log, blockStatus string) {
+type BlockConfirmationLevel string
+
+const (
+	ConfirmationLevelHead     BlockConfirmationLevel = "head"
+	ConfirmationLevelAccepted BlockConfirmationLevel = "accepted"
+)
+
+func (cep *ContractEventsProcessor) PushtoTraderFeed(events []*types.Log, blockStatus BlockConfirmationLevel) {
 	for _, event := range events {
 		removed := event.Removed
 		args := map[string]interface{}{}
@@ -407,12 +414,6 @@ func (cep *ContractEventsProcessor) ProcessTraderEvents(events []*types.Log, blo
 		var orderId common.Hash
 		var orderType string
 		var trader common.Address
-		if len(event.Topics) > 1 {
-			trader = getAddressFromTopicHash(event.Topics[1])
-		}
-		if len(event.Topics) > 2 {
-			orderId = event.Topics[2]
-		}
 		switch event.Address {
 		case OrderBookContractAddress:
 			orderType = "limit"
@@ -426,14 +427,7 @@ func (cep *ContractEventsProcessor) ProcessTraderEvents(events []*types.Log, blo
 				eventName = "OrderPlaced"
 				order := LimitOrder{}
 				order.DecodeFromRawOrder(args["order"])
-				args["order"] = map[string]interface{}{
-					"ammIndex":          order.AmmIndex,
-					"trader":            order.Trader,
-					"baseAssetQuantity": utils.BigIntToFloat(order.BaseAssetQuantity, 18),
-					"price":             utils.BigIntToFloat(order.Price, 6),
-					"reduceOnly":        order.ReduceOnly,
-					"salt":              order.Salt,
-				}
+				args["order"] = order.Map()
 
 			case cep.orderBookABI.Events["OrderMatched"].ID:
 				err := cep.orderBookABI.UnpackIntoMap(args, "OrderMatched", event.Data)
@@ -471,11 +465,22 @@ func (cep *ContractEventsProcessor) ProcessTraderEvents(events []*types.Log, blo
 					continue
 				}
 				eventName = "OrderPlaced"
+				order := IOCOrder{}
+				order.DecodeFromRawOrder(args["order"])
+				args["order"] = order.Map()
 			}
 		default:
 			continue
 		}
+		if len(event.Topics) > 1 {
+			trader = getAddressFromTopicHash(event.Topics[1])
+		}
+		if len(event.Topics) > 2 {
+			orderId = event.Topics[2]
+		}
+
 		timestamp, _ := args["timestamp"]
+		timestampInt, _ := timestamp.(*big.Int)
 		traderEvent := TraderEvent{
 			Trader:      trader,
 			Removed:     removed,
@@ -485,7 +490,7 @@ func (cep *ContractEventsProcessor) ProcessTraderEvents(events []*types.Log, blo
 			BlockStatus: blockStatus,
 			OrderId:     orderId,
 			OrderType:   orderType,
-			Timestamp:   timestamp,
+			Timestamp:   timestampInt,
 		}
 
 		traderFeed.Send(traderEvent)

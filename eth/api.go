@@ -73,19 +73,23 @@ func (api *EthereumAPI) GetTransactionStatus(ctx context.Context, hash common.Ha
 	currentBlock := api.e.APIBackend.CurrentBlock()
 	accepted := api.e.APIBackend.LastAcceptedBlock()
 
+	// first check if the tx is accepted
+	lookup := api.e.blockchain.GetTransactionLookup(hash)
+	if lookup != nil {
+		return map[string]interface{}{
+			"status":      "ACCEPTED",
+			"blockNumber": lookup.BlockIndex,
+		}, nil
+	}
+
+	// iterate backwards from the current block to the accepted block and check if the tx is in any of the blocks
+	i := 0
 	for {
-		if currentBlock.Hash() == accepted.Hash() {
-			lookup := api.e.blockchain.GetTransactionLookup(hash)
-			if lookup == nil {
-				return map[string]interface{}{
-					"status": "NOT_FOUND",
-				}, nil
-			} else {
-				return map[string]interface{}{
-					"status":      "ACCEPTED",
-					"blockNumber": lookup.BlockIndex,
-				}, nil
-			}
+		// limit backward lookup to 128 blocks
+		if currentBlock.Hash() == accepted.Hash() || i >= 128 {
+			return map[string]interface{}{
+				"status": "NOT_FOUND",
+			}, nil
 
 		}
 
@@ -104,6 +108,8 @@ func (api *EthereumAPI) GetTransactionStatus(ctx context.Context, hash common.Ha
 				"status": "NOT_FOUND",
 			}, nil
 		}
+
+		i += 1
 	}
 }
 

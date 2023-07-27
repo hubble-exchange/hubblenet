@@ -259,6 +259,7 @@ func transformMarketDepth(depth *MarketDepth) TradingOrderBookDepthResponse {
 func (api *TradingAPI) StreamTraderUpdates(ctx context.Context, trader string, blockStatus string) (*rpc.Subscription, error) {
 	notifier, _ := rpc.NotifierFromContext(ctx)
 	rpcSub := notifier.CreateSubscription()
+	confirmationLevel := BlockConfirmationLevel(blockStatus)
 
 	traderFeedCh := make(chan TraderEvent)
 	acceptedLogsSubscription := traderFeed.Subscribe(traderFeedCh)
@@ -268,7 +269,7 @@ func (api *TradingAPI) StreamTraderUpdates(ctx context.Context, trader string, b
 		for {
 			select {
 			case event := <-traderFeedCh:
-				if strings.EqualFold(event.Trader.String(), trader) && event.BlockStatus == blockStatus {
+				if strings.EqualFold(event.Trader.String(), trader) && event.BlockStatus == confirmationLevel {
 					notifier.Notify(rpcSub.ID, event)
 				}
 			case <-notifier.Closed():
