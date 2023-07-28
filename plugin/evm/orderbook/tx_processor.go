@@ -194,17 +194,6 @@ func (lotp *limitOrderTxProcessor) updateValidatorTxFeeConfig() {
 }
 
 func (lotp *limitOrderTxProcessor) PurgeLocalTx() {
-	pending := lotp.txPool.Pending(true)
-	for _, txs := range pending {
-		for _, tx := range txs {
-			method, err := getOrderBookContractCallMethod(tx, lotp.orderBookABI, lotp.orderBookContractAddress)
-			if err == nil {
-				if method.Name == "executeMatchedOrders" || method.Name == "settleFunding" || method.Name == "liquidateAndExecuteOrder" {
-					lotp.txPool.RemoveTx(tx.Hash())
-				}
-			}
-		}
-	}
 	lotp.txPool.PurgeOrderBookTxs()
 }
 

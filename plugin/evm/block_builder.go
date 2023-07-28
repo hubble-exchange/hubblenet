@@ -123,6 +123,7 @@ func (b *blockBuilder) markBuilding() {
 
 	select {
 	case b.notifyBuildBlockChan <- commonEng.PendingTxs:
+		log.Info("#### markBuilding; signal sent", "b.buildSent", b.buildSent)
 		// signal is sent here, so the ticker should be reset
 		b.buildTicker.Reset(buildTickerDuration)
 		b.buildSent = true
