@@ -31,7 +31,7 @@ const (
 )
 
 type LimitOrderProcesser interface {
-	ListenAndProcessTransactions()
+	ListenAndProcessTransactions(blockBuilder *blockBuilder)
 	RunBuildBlockPipeline()
 	GetOrderBookAPI() *orderbook.OrderBookAPI
 	GetTradingAPI() *orderbook.TradingAPI
@@ -52,6 +52,7 @@ type limitOrderProcesser struct {
 	filterAPI              *filters.FilterAPI
 	hubbleDB               database.Database
 	configService          orderbook.IConfigService
+	blockBuilder           *blockBuilder
 }
 
 func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string) LimitOrderProcesser {
@@ -85,7 +86,7 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan
 	}
 }
 
-func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
+func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *blockBuilder) {
 	lop.mu.Lock()
 
 	lastAccepted := lop.blockChain.LastAcceptedBlock()
@@ -133,6 +134,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 
 	lop.mu.Unlock()
 
+	lop.blockBuilder = blockBuilder
 	lop.listenAndStoreLimitOrderTransactions()
 }
 
@@ -166,6 +168,16 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					lop.contractEventProcessor.ProcessEvents(logs)
 					go lop.contractEventProcessor.PushtoTraderFeed(logs, orderbook.ConfirmationLevelHead)
 				}, orderbook.HandleHubbleFeedLogsPanicMessage, orderbook.HandleHubbleFeedLogsPanicsCounter)
+
+				executeFuncAndRecoverPanic(func() {
+					lop.buildBlockPipeline.Run(big.NewInt(int64(logs[0].BlockNumber + 1)))
+				}, orderbook.RunBuildBlockPipelinePanicMessage, orderbook.RunBuildBlockPipelinePanicsCounter)
+
+				if len(lop.txPool.GetOrderBookTxs()) > 0 {
+					log.Info("#### found unapplied txs after running build block pipeline", "txs", len(lop.txPool.GetOrderBookTxs()))
+					lop.blockBuilder.signalTxsReady()
+				}
+
 			case <-lop.shutdownChan:
 				return
 			}
@@ -218,7 +230,7 @@ func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) 
 	lop.mu.Lock()
 	defer lop.mu.Unlock()
 	block := event.Block
-	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
+	log.Info("received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
 	lop.memoryDb.Accept(block.NumberU64(), block.Time())
 
 	// update metrics asynchronously

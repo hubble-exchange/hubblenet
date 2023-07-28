@@ -613,7 +613,7 @@ func (vm *VM) initBlockBuilding() {
 	vm.builder.awaitBuildTimer()
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
 
-	vm.limitOrderProcesser.ListenAndProcessTransactions()
+	vm.limitOrderProcesser.ListenAndProcessTransactions(vm.builder)
 }
 
 // setAppRequestHandlers sets the request handlers for the VM to serve state sync
@@ -671,12 +671,13 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 		}
 
 		buildBlockTimeHistogram.Update(time.Since(start).Microseconds())
+		log.Info("#### buildBlock complete", "duration", time.Since(start))
 	}(time.Now())
 
 	if proposerVMBlockCtx != nil {
-		log.Info("Building block with context", "pChainBlockHeight", proposerVMBlockCtx.PChainHeight)
+		log.Info("#### Building block with context", "pChainBlockHeight", proposerVMBlockCtx.PChainHeight)
 	} else {
-		log.Info("Building block without context")
+		log.Info("#### Building block without context")
 	}
 	predicateCtx := &precompileconfig.ProposerPredicateContext{
 		PrecompilePredicateContext: precompileconfig.PrecompilePredicateContext{
@@ -685,7 +686,12 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 		ProposerVMBlockCtx: proposerVMBlockCtx,
 	}
 
-	vm.limitOrderProcesser.RunBuildBlockPipeline()
+	// if there are no orderbook txs in the txpool, we need to run the build block pipeline
+	if len(vm.txPool.GetOrderBookTxs()) == 0 {
+		log.Info("#### running BuildBlockPipeline in buildBlock")
+		vm.limitOrderProcesser.RunBuildBlockPipeline()
+	}
+
 	block, err := vm.miner.GenerateBlock(predicateCtx)
 	vm.builder.handleGenerateBlock()
 	if err != nil {
