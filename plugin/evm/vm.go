@@ -854,6 +854,11 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]*commonEng.HTTPHandler
 	if err := handler.RegisterName("trading", vm.limitOrderProcesser.GetTradingAPI()); err != nil {
 		return nil, err
 	}
+	if vm.config.TestingApisEnabled {
+		if err := handler.RegisterName("testing", vm.limitOrderProcesser.GetTestingAPI()); err != nil {
+			return nil, err
+		}
+	}
 
 	if vm.config.WarpAPIEnabled {
 		if err := handler.RegisterName("warp", &warp.WarpAPI{Backend: vm.warpBackend}); err != nil {
