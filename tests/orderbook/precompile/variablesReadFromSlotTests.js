@@ -21,6 +21,7 @@ const {
     orderBook,
     provider,
     removeAllAvailableMargin,
+    sleep,
     url,
 } = utils;
 
@@ -133,7 +134,37 @@ describe('Testing variables read from slots by precompile', function () {
             expect(result.max_liquidation_price_spread).to.equal(actualMaxLiquidationPriceSpread.toNumber())
             expect(result.red_stone_adapter_address).to.equal(actualRedStoneAdapterAddress)
             expect(result.red_stone_feed_id).to.equal(actualRedStoneFeedId)
-            expect(result.position.size).to.equal(actualPosition.size.toNumber())
+            expect(String(result.position.size)).to.equal(actualPosition.size.toString())
+            expect(result.position.open_notional).to.equal(actualPosition.openNotional.toNumber())
+            expect(result.position.last_premium_fraction).to.equal(actualPosition.lastPremiumFraction.toNumber())
+
+
+            // creating positions
+            await removeAllAvailableMargin(charlie)
+            await removeAllAvailableMargin(alice)
+            let charlieBalance = _1e6.mul(150)
+            await addMargin(charlie, charlieBalance)
+            await addMargin(alice, charlieBalance)
+
+            longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
+            shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
+            orderPrice = multiplyPrice(1800)
+            salt = BigNumber.from(Date.now())
+            market = BigNumber.from(0)
+
+            latestBlockNumber = await provider.getBlockNumber()
+            lastTimestamp = (await provider.getBlock(latestBlockNumber)).timestamp
+            expireAt = lastTimestamp + 6
+            longOrder = getOrder(market, charlie.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
+            shortOrder = getOrder(market, alice.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
+            await orderBook.connect(charlie).placeOrders([longOrder])
+            await orderBook.connect(alice).placeOrders([shortOrder])
+            await sleep(10)
+
+            response = await makehttpCall(method, params)
+            result = response.body.result
+            actualPosition = await amm.positions(charlie.address)
+            expect(String(result.position.size)).to.equal(actualPosition.size.toString())
             expect(result.position.open_notional).to.equal(actualPosition.openNotional.toNumber())
             expect(result.position.last_premium_fraction).to.equal(actualPosition.lastPremiumFraction.toNumber())
         })
