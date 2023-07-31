@@ -145,6 +145,14 @@ var legacyApiNames = map[string]string{
 	"private-debug":     "debug",
 }
 
+// metrics
+var (
+	buildBlockCalledCounter  = metrics.NewRegisteredCounter("vm/buildblock/called", nil)
+	buildBlockSuccessCounter = metrics.NewRegisteredCounter("vm/buildblock/success", nil)
+	buildBlockFailureCounter = metrics.NewRegisteredCounter("vm/buildblock/failure", nil)
+	buildBlockTimeHistogram  = metrics.NewRegisteredHistogram("vm/buildblock/time", nil, metrics.ResettingSample(metrics.NewExpDecaySample(1028, 0.015)))
+)
+
 // VM implements the snowman.ChainVM interface
 type VM struct {
 	ctx *snow.Context
@@ -653,7 +661,18 @@ func (vm *VM) buildBlock(ctx context.Context) (snowman.Block, error) {
 	return vm.buildBlockWithContext(ctx, nil)
 }
 
-func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *block.Context) (snowman.Block, error) {
+func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *block.Context) (blk_ snowman.Block, err error) {
+	defer func(start time.Time) {
+		buildBlockCalledCounter.Inc(1)
+		if err != nil {
+			buildBlockFailureCounter.Inc(1)
+		} else {
+			buildBlockSuccessCounter.Inc(1)
+		}
+
+		buildBlockTimeHistogram.Update(time.Since(start).Microseconds())
+	}(time.Now())
+
 	if proposerVMBlockCtx != nil {
 		log.Debug("Building block with context", "pChainBlockHeight", proposerVMBlockCtx.PChainHeight)
 	} else {
@@ -689,7 +708,7 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 	// We call verify without writes here to avoid generating a reference
 	// to the blk state root in the triedb when we are going to call verify
 	// again from the consensus engine with writes enabled.
-	if err := blk.verify(predicateCtx, false /*=writes*/); err != nil {
+	if err = blk.verify(predicateCtx, false /*=writes*/); err != nil {
 		return nil, fmt.Errorf("block failed verification due to: %w", err)
 	}
 
@@ -834,6 +853,11 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]*commonEng.HTTPHandler
 
 	if err := handler.RegisterName("trading", vm.limitOrderProcesser.GetTradingAPI()); err != nil {
 		return nil, err
+	}
+	if vm.config.TestingApiEnabled {
+		if err := handler.RegisterName("testing", vm.limitOrderProcesser.GetTestingAPI()); err != nil {
+			return nil, err
+		}
 	}
 
 	if vm.config.WarpAPIEnabled {

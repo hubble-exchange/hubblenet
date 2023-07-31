@@ -60,6 +60,7 @@ const (
 )
 
 var (
+	defaultTestingApiEnabled       = false
 	defaultValidatorPrivateKeyFile = "/home/ubuntu/.avalanche-cli/key/validator.pk"
 	defaultEnabledAPIs             = []string{
 		"eth",
@@ -214,6 +215,9 @@ type Config struct {
 
 	// Path to validator private key file
 	ValidatorPrivateKeyFile string `json:"validator-private-key-file"`
+
+	// Testing apis enabled
+	TestingApiEnabled bool `json:"testing-api-enabled"`
 }
 
 // EthAPIs returns an array of strings representing the Eth APIs that should be enabled
@@ -273,6 +277,7 @@ func (c *Config) SetDefaults() {
 	c.AllowUnprotectedTxHashes = defaultAllowUnprotectedTxHashes
 	c.AcceptedCacheSize = defaultAcceptedCacheSize
 	c.ValidatorPrivateKeyFile = defaultValidatorPrivateKeyFile
+	c.TestingApiEnabled = defaultTestingApiEnabled
 }
 
 func (d *Duration) UnmarshalJSON(data []byte) (err error) {

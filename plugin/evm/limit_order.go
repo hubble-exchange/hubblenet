@@ -6,6 +6,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"math/big"
+	"runtime"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -13,7 +15,8 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/eth/filters"
-	"github.com/ava-labs/subnet-evm/plugin/evm/limitorders"
+	"github.com/ava-labs/subnet-evm/metrics"
+	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ava-labs/subnet-evm/utils"
 
 	"github.com/ava-labs/avalanchego/database"
@@ -30,8 +33,9 @@ const (
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions()
 	RunBuildBlockPipeline()
-	GetOrderBookAPI() *limitorders.OrderBookAPI
-	GetTradingAPI() *limitorders.TradingAPI
+	GetOrderBookAPI() *orderbook.OrderBookAPI
+	GetTestingAPI() *orderbook.TestingAPI
+	GetTradingAPI() *orderbook.TradingAPI
 }
 
 type limitOrderProcesser struct {
@@ -42,24 +46,28 @@ type limitOrderProcesser struct {
 	shutdownWg             *sync.WaitGroup
 	backend                *eth.EthAPIBackend
 	blockChain             *core.BlockChain
-	memoryDb               limitorders.LimitOrderDatabase
-	limitOrderTxProcessor  limitorders.LimitOrderTxProcessor
-	contractEventProcessor *limitorders.ContractEventsProcessor
-	buildBlockPipeline     *limitorders.BuildBlockPipeline
+	memoryDb               orderbook.LimitOrderDatabase
+	limitOrderTxProcessor  orderbook.LimitOrderTxProcessor
+	contractEventProcessor *orderbook.ContractEventsProcessor
+	buildBlockPipeline     *orderbook.BuildBlockPipeline
 	filterAPI              *filters.FilterAPI
 	hubbleDB               database.Database
-	configService          limitorders.IConfigService
+	configService          orderbook.IConfigService
 }
 
 func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string) LimitOrderProcesser {
 	log.Info("**** NewLimitOrderProcesser")
-	configService := limitorders.NewConfigService(blockChain)
-	memoryDb := limitorders.NewInMemoryDatabase(configService)
-	lotp := limitorders.NewLimitOrderTxProcessor(txPool, memoryDb, backend, validatorPrivateKey)
-	contractEventProcessor := limitorders.NewContractEventsProcessor(memoryDb)
-	buildBlockPipeline := limitorders.NewBuildBlockPipeline(memoryDb, lotp, configService)
+	configService := orderbook.NewConfigService(blockChain)
+	memoryDb := orderbook.NewInMemoryDatabase(configService)
+	lotp := orderbook.NewLimitOrderTxProcessor(txPool, memoryDb, backend, validatorPrivateKey)
+	contractEventProcessor := orderbook.NewContractEventsProcessor(memoryDb)
+	buildBlockPipeline := orderbook.NewBuildBlockPipeline(memoryDb, lotp, configService)
 	filterSystem := filters.NewFilterSystem(backend, filters.Config{})
 	filterAPI := filters.NewFilterAPI(filterSystem, true)
+
+	// need to register the types for gob encoding because memory DB has an interface field(ContractOrder)
+	gob.Register(&orderbook.LimitOrder{})
+	gob.Register(&orderbook.IOCOrder{})
 	return &limitOrderProcesser{
 		ctx:                    ctx,
 		mu:                     &sync.Mutex{},
@@ -81,8 +89,9 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan
 func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 	lop.mu.Lock()
 
-	lastAccepted := lop.blockChain.LastAcceptedBlock().Number()
-	if lastAccepted.Sign() > 0 {
+	lastAccepted := lop.blockChain.LastAcceptedBlock()
+	lastAcceptedBlockNumber := lastAccepted.Number()
+	if lastAcceptedBlockNumber.Sign() > 0 {
 		fromBlock := big.NewInt(0)
 
 		// first load the last snapshot containing finalised data till block x and query the logs of [x+1, latest]
@@ -99,19 +108,23 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 			}
 		}
 
-		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAccepted)
-		toBlock := utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
+		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)
+		JUMP := big.NewInt(3999)
+		toBlock := utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		for toBlock.Cmp(fromBlock) > 0 {
 			logs := lop.getLogs(fromBlock, toBlock)
-			log.Info("ListenAndProcessTransactions - fetched log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs), "err", err)
+			log.Info("ListenAndProcessTransactions - fetched log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs))
 			lop.contractEventProcessor.ProcessEvents(logs)
-			lop.contractEventProcessor.ProcessAcceptedEvents(logs)
+			lop.contractEventProcessor.ProcessAcceptedEvents(logs, true)
+			lop.memoryDb.Accept(toBlock.Uint64(), 0) // will delete stale orders from the memorydb
 
 			fromBlock = fromBlock.Add(toBlock, big.NewInt(1))
-			toBlock = utils.BigIntMin(lastAccepted, big.NewInt(0).Add(fromBlock, big.NewInt(10000)))
+			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		}
-		lop.memoryDb.Accept(lastAccepted.Uint64()) // will delete stale orders from the memorydb
-		// lop.FixBuggySnapshot()                     // not required any more
+		lop.memoryDb.Accept(lastAcceptedBlockNumber.Uint64(), lastAccepted.Time()) // will delete stale orders from the memorydb
+
+		// needs to be run everytime as long as the db.UpdatePosition uses configService.GetCumulativePremiumFraction
+		lop.FixBuggySnapshot()
 	}
 
 	lop.mu.Unlock()
@@ -120,86 +133,94 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions() {
 }
 
 func (lop *limitOrderProcesser) RunBuildBlockPipeline() {
-	lop.buildBlockPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number(), big.NewInt(1)))
+	executeFuncAndRecoverPanic(func() {
+		lop.buildBlockPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number(), big.NewInt(1)))
+	}, orderbook.RunBuildBlockPipelinePanicMessage, orderbook.RunBuildBlockPipelinePanicsCounter)
 }
 
-func (lop *limitOrderProcesser) GetOrderBookAPI() *limitorders.OrderBookAPI {
-	return limitorders.NewOrderBookAPI(lop.memoryDb, lop.backend, lop.configService)
+func (lop *limitOrderProcesser) GetOrderBookAPI() *orderbook.OrderBookAPI {
+	return orderbook.NewOrderBookAPI(lop.memoryDb, lop.backend, lop.configService)
 }
 
-func (lop *limitOrderProcesser) GetTradingAPI() *limitorders.TradingAPI {
-	return limitorders.NewTradingAPI(lop.memoryDb, lop.backend, lop.configService)
+func (lop *limitOrderProcesser) GetTradingAPI() *orderbook.TradingAPI {
+	return orderbook.NewTradingAPI(lop.memoryDb, lop.backend, lop.configService)
+}
+
+func (lop *limitOrderProcesser) GetTestingAPI() *orderbook.TestingAPI {
+	return orderbook.NewTestingAPI(lop.memoryDb, lop.backend, lop.configService)
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 	logsCh := make(chan []*types.Log)
 	logsSubscription := lop.backend.SubscribeHubbleLogsEvent(logsCh)
 	lop.shutdownWg.Add(1)
-	go lop.ctx.Log.RecoverAndPanic(func() {
+	go func() {
 		defer lop.shutdownWg.Done()
 		defer logsSubscription.Unsubscribe()
-
 		for {
 			select {
 			case logs := <-logsCh:
-				lop.mu.Lock()
-
-				lop.contractEventProcessor.ProcessEvents(logs)
-
-				lop.mu.Unlock()
+				executeFuncAndRecoverPanic(func() {
+					lop.mu.Lock()
+					defer lop.mu.Unlock()
+					lop.contractEventProcessor.ProcessEvents(logs)
+				}, orderbook.HandleHubbleFeedLogsPanicMessage, orderbook.HandleHubbleFeedLogsPanicsCounter)
 			case <-lop.shutdownChan:
 				return
 			}
 		}
-	})
+	}()
 
 	acceptedLogsCh := make(chan []*types.Log)
 	acceptedLogsSubscription := lop.backend.SubscribeAcceptedLogsEvent(acceptedLogsCh)
 	lop.shutdownWg.Add(1)
-	go lop.ctx.Log.RecoverAndPanic(func() {
+	go func() {
 		defer lop.shutdownWg.Done()
 		defer acceptedLogsSubscription.Unsubscribe()
 
 		for {
 			select {
 			case logs := <-acceptedLogsCh:
-				lop.mu.Lock()
-
-				lop.contractEventProcessor.ProcessAcceptedEvents(logs)
-
-				lop.mu.Unlock()
+				executeFuncAndRecoverPanic(func() {
+					lop.mu.Lock()
+					defer lop.mu.Unlock()
+					lop.contractEventProcessor.ProcessAcceptedEvents(logs, false)
+				}, orderbook.HandleChainAcceptedLogsPanicMessage, orderbook.HandleChainAcceptedLogsPanicsCounter)
 			case <-lop.shutdownChan:
 				return
 			}
 		}
-	})
+	}()
 
 	chainAcceptedEventCh := make(chan core.ChainEvent)
 	chainAcceptedEventSubscription := lop.backend.SubscribeChainAcceptedEvent(chainAcceptedEventCh)
 	lop.shutdownWg.Add(1)
-	go lop.ctx.Log.RecoverAndPanic(func() {
+	go func() {
 		defer lop.shutdownWg.Done()
 		defer chainAcceptedEventSubscription.Unsubscribe()
 
 		for {
 			select {
 			case chainAcceptedEvent := <-chainAcceptedEventCh:
-				lop.handleChainAcceptedEvent(chainAcceptedEvent)
+				executeFuncAndRecoverPanic(func() {
+					lop.handleChainAcceptedEvent(chainAcceptedEvent)
+				}, orderbook.HandleChainAcceptedEventPanicMessage, orderbook.HandleChainAcceptedEventPanicsCounter)
 			case <-lop.shutdownChan:
 				return
 			}
 		}
-	})
+	}()
 }
 
 func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) {
 	lop.mu.Lock()
 	defer lop.mu.Unlock()
-
 	block := event.Block
 	log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
-	lop.memoryDb.Accept(block.NumberU64())
+	lop.memoryDb.Accept(block.NumberU64(), block.Time())
 
+	// update metrics asynchronously
+	go lop.limitOrderTxProcessor.UpdateMetrics(block)
 	if block.NumberU64()%snapshotInterval == 0 {
 		err := lop.saveMemoryDBSnapshot(block.Number())
 		if err != nil {
@@ -224,7 +245,7 @@ func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint
 	}
 
 	buf := bytes.NewBuffer(memorySnapshotBytes)
-	var snapshot limitorders.Snapshot
+	var snapshot orderbook.Snapshot
 	err = gob.NewDecoder(buf).Decode(&snapshot)
 	if err != nil {
 		return acceptedBlockNumber, fmt.Errorf("Error in snapshot parsing; err=%v", err)
@@ -246,7 +267,10 @@ func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint
 func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.Int) error {
 	currentHeadBlock := lop.blockChain.CurrentBlock()
 
-	memoryDBCopy := lop.memoryDb.GetOrderBookDataCopy()
+	memoryDBCopy, err := lop.memoryDb.GetOrderBookDataCopy()
+	if err != nil {
+		return fmt.Errorf("Error in getting memory DB copy: err=%v", err)
+	}
 	if currentHeadBlock.Number().Cmp(acceptedBlockNumber) == 1 {
 		// if current head is ahead of the accepted block, then certain events(OrderBook)
 		// need to be removed from the saved state
@@ -266,17 +290,17 @@ func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.In
 			logsToRemove[i].Removed = true
 		}
 
-		cev := limitorders.NewContractEventsProcessor(memoryDBCopy)
+		cev := orderbook.NewContractEventsProcessor(memoryDBCopy)
 		cev.ProcessEvents(logsToRemove)
 	}
 
-	snapshot := limitorders.Snapshot{
+	snapshot := orderbook.Snapshot{
 		Data:                memoryDBCopy,
 		AcceptedBlockNumber: acceptedBlockNumber,
 	}
 
 	var buf bytes.Buffer
-	err := gob.NewEncoder(&buf).Encode(&snapshot)
+	err = gob.NewEncoder(&buf).Encode(&snapshot)
 	if err != nil {
 		return fmt.Errorf("error in gob encoding: err=%v", err)
 	}
@@ -296,7 +320,7 @@ func (lop *limitOrderProcesser) getLogs(fromBlock, toBlock *big.Int) []*types.Lo
 	logs, err := lop.filterAPI.GetLogs(ctx, filters.FilterCriteria{
 		FromBlock: fromBlock,
 		ToBlock:   toBlock,
-		Addresses: []common.Address{limitorders.OrderBookContractAddress, limitorders.ClearingHouseContractAddress, limitorders.MarginAccountContractAddress},
+		Addresses: []common.Address{orderbook.OrderBookContractAddress, orderbook.ClearingHouseContractAddress, orderbook.MarginAccountContractAddress},
 	})
 
 	if err != nil {
@@ -320,4 +344,26 @@ func (lop *limitOrderProcesser) FixBuggySnapshot() {
 		}
 	}
 	log.Info("@@@@ updateLastPremiumFraction - update complete", "count", count, "time taken", time.Since(start))
+}
+
+func executeFuncAndRecoverPanic(fn func(), panicMessage string, panicCounter metrics.Counter) {
+	defer func() {
+		if panicInfo := recover(); panicInfo != nil {
+			var errorMessage string
+			switch panicInfo := panicInfo.(type) {
+			case string:
+				errorMessage = fmt.Sprintf("recovered (string) panic: %s", panicInfo)
+			case runtime.Error:
+				errorMessage = fmt.Sprintf("recovered (runtime.Error) panic: %s", panicInfo.Error())
+			case error:
+				errorMessage = fmt.Sprintf("recovered (error) panic: %s", panicInfo.Error())
+			default:
+				errorMessage = fmt.Sprintf("recovered (default) panic: %v", panicInfo)
+			}
+
+			log.Error(panicMessage, "errorMessage", errorMessage, "stack_trace", string(debug.Stack()))
+			panicCounter.Inc(1)
+		}
+	}()
+	fn()
 }

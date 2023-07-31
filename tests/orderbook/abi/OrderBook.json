@@ -962,11 +962,33 @@
         "type": "function"
     },
     {
-        "inputs": [],
-        "name": "settleFunding",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "baseAssetQuantity",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "price",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "upperBound",
+          "type": "uint256"
+        }
+      ],
+      "name": "getRequiredMargin",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "requiredMargin",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
         "inputs": [],
