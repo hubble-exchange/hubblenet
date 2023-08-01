@@ -428,6 +428,8 @@ func (cep *ContractEventsProcessor) PushtoTraderFeed(events []*types.Log, blockS
 				order := LimitOrder{}
 				order.DecodeFromRawOrder(args["order"])
 				args["order"] = order.Map()
+				orderId = event.Topics[2]
+				trader = getAddressFromTopicHash(event.Topics[1])
 
 			case cep.orderBookABI.Events["OrderMatched"].ID:
 				err := cep.orderBookABI.UnpackIntoMap(args, "OrderMatched", event.Data)
@@ -442,6 +444,8 @@ func (cep *ContractEventsProcessor) PushtoTraderFeed(events []*types.Log, blockS
 				args["fillAmount"] = utils.BigIntToFloat(fillAmount, 18)
 				args["openInterestNotional"] = utils.BigIntToFloat(openInterestNotional, 18)
 				args["price"] = utils.BigIntToFloat(price, 6)
+				orderId = event.Topics[2]
+				trader = getAddressFromTopicHash(event.Topics[1])
 
 			case cep.orderBookABI.Events["OrderCancelled"].ID:
 				err := cep.orderBookABI.UnpackIntoMap(args, "OrderCancelled", event.Data)
@@ -450,6 +454,8 @@ func (cep *ContractEventsProcessor) PushtoTraderFeed(events []*types.Log, blockS
 					continue
 				}
 				eventName = "OrderCancelled"
+				orderId = event.Topics[2]
+				trader = getAddressFromTopicHash(event.Topics[1])
 
 			default:
 				continue
@@ -468,15 +474,11 @@ func (cep *ContractEventsProcessor) PushtoTraderFeed(events []*types.Log, blockS
 				order := IOCOrder{}
 				order.DecodeFromRawOrder(args["order"])
 				args["order"] = order.Map()
+				orderId = event.Topics[2]
+				trader = getAddressFromTopicHash(event.Topics[1])
 			}
 		default:
 			continue
-		}
-		if len(event.Topics) > 1 {
-			trader = getAddressFromTopicHash(event.Topics[1])
-		}
-		if len(event.Topics) > 2 {
-			orderId = event.Topics[2]
 		}
 
 		timestamp, _ := args["timestamp"]

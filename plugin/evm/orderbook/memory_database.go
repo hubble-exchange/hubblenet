@@ -225,7 +225,8 @@ type LimitOrderDatabase interface {
 	SetOrderStatus(orderId common.Hash, status Status, info string, blockNumber uint64) error
 	RevertLastStatus(orderId common.Hash) error
 	GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]Order)
-	GetOpenOrdersForTrader(trader common.Address, orderType OrderType) []Order
+	GetAllOpenOrdersForTrader(trader common.Address) []Order
+	GetOpenOrdersForTraderByType(trader common.Address, orderType OrderType) []Order
 	UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int, cumlastPremiumFraction *big.Int)
 	GetOrderById(orderId common.Hash) *Order
 	GetTraderInfo(trader common.Address) *Trader
@@ -571,11 +572,18 @@ func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
 	return traderMap
 }
 
-func (db *InMemoryDatabase) GetOpenOrdersForTrader(trader common.Address, orderType OrderType) []Order {
+func (db *InMemoryDatabase) GetOpenOrdersForTraderByType(trader common.Address, orderType OrderType) []Order {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	return db.getTraderOrders(trader, orderType)
+}
+
+func (db *InMemoryDatabase) GetAllOpenOrdersForTrader(trader common.Address) []Order {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return db.getAllTraderOrders(trader)
 }
 
 func (db *InMemoryDatabase) GetOrderById(orderId common.Hash) *Order {
@@ -717,6 +725,17 @@ func (db *InMemoryDatabase) getTraderOrders(trader common.Address, orderType Ord
 	_trader := trader.String()
 	for _, order := range db.OrderMap {
 		if strings.EqualFold(order.UserAddress, _trader) && order.OrderType == orderType {
+			traderOrders = append(traderOrders, deepCopyOrder(order))
+		}
+	}
+	return traderOrders
+}
+
+func (db *InMemoryDatabase) getAllTraderOrders(trader common.Address) []Order {
+	traderOrders := []Order{}
+	_trader := trader.String()
+	for _, order := range db.OrderMap {
+		if strings.EqualFold(order.UserAddress, _trader) {
 			traderOrders = append(traderOrders, deepCopyOrder(order))
 		}
 	}
