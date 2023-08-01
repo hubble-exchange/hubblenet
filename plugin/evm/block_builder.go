@@ -30,9 +30,6 @@ const (
 	// Minimum amount of time to wait after building a block before attempting to build a block
 	// a second time without changing the contents of the mempool.
 	minBlockBuildingRetryDelay = 50 * time.Millisecond
-
-	// ticker frequency for calling signalTxsReady
-	buildTickerDuration = 5 * time.Second
 )
 
 type blockBuilder struct {
@@ -61,10 +58,6 @@ type blockBuilder struct {
 	// If the mempool receives a new transaction, the block builder will send a new notification to
 	// the engine and cancel the timer.
 	buildBlockTimer *timer.Timer
-
-	// buildTicker notifies the consensus periodically so that funding payments and order matching can continue
-	// even when there are no pending transactions in the mempool
-	buildTicker *time.Ticker
 }
 
 func (vm *VM) NewBlockBuilder(notifyBuildBlockChan chan<- commonEng.Message) *blockBuilder {
@@ -76,7 +69,6 @@ func (vm *VM) NewBlockBuilder(notifyBuildBlockChan chan<- commonEng.Message) *bl
 		shutdownChan:         vm.shutdownChan,
 		shutdownWg:           &vm.shutdownWg,
 		notifyBuildBlockChan: notifyBuildBlockChan,
-		buildTicker:          time.NewTicker(buildTickerDuration),
 	}
 	b.handleBlockBuilding()
 	return b
@@ -132,9 +124,6 @@ func (b *blockBuilder) markBuilding() {
 
 	select {
 	case b.notifyBuildBlockChan <- commonEng.PendingTxs:
-		log.Info("#### markBuilding; signal sent", "b.buildSent", b.buildSent)
-		// signal is sent here, so the ticker should be reset
-		b.buildTicker.Reset(buildTickerDuration)
 		b.buildSent = true
 	default:
 		log.Error("Failed to push PendingTxs notification to the consensus engine.")
@@ -191,25 +180,6 @@ func (b *blockBuilder) awaitSubmittedTxs() {
 				}
 			case <-b.shutdownChan:
 				b.buildBlockTimer.Stop()
-				return
-			}
-		}
-	})
-}
-
-// notifies the consensus to attempt buildBlock periodically
-func (b *blockBuilder) awaitBuildTimer() {
-	b.shutdownWg.Add(1)
-	go b.ctx.Log.RecoverAndPanic(func() {
-		defer b.shutdownWg.Done()
-
-		for {
-			select {
-			case <-b.buildTicker.C:
-				b.signalTxsReady()
-
-			case <-b.shutdownChan:
-				b.buildTicker.Stop()
 				return
 			}
 		}

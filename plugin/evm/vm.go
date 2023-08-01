@@ -610,7 +610,6 @@ func (vm *VM) initBlockBuilding() {
 	vm.gossiper = vm.createGossiper(gossipStats)
 	vm.builder = vm.NewBlockBuilder(vm.toEngine)
 	vm.builder.awaitSubmittedTxs()
-	vm.builder.awaitBuildTimer()
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
 
 	vm.limitOrderProcesser.ListenAndProcessTransactions(vm.builder)
@@ -675,21 +674,15 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 	}(time.Now())
 
 	if proposerVMBlockCtx != nil {
-		log.Info("#### Building block with context", "pChainBlockHeight", proposerVMBlockCtx.PChainHeight)
+		log.Info("Building block with context", "pChainBlockHeight", proposerVMBlockCtx.PChainHeight)
 	} else {
-		log.Info("#### Building block without context")
+		log.Info("Building block without context")
 	}
 	predicateCtx := &precompileconfig.ProposerPredicateContext{
 		PrecompilePredicateContext: precompileconfig.PrecompilePredicateContext{
 			SnowCtx: vm.ctx,
 		},
 		ProposerVMBlockCtx: proposerVMBlockCtx,
-	}
-
-	// if there are no orderbook txs in the txpool, we need to run the build block pipeline
-	if len(vm.txPool.GetOrderBookTxs()) == 0 {
-		log.Info("#### running BuildBlockPipeline in buildBlock")
-		vm.limitOrderProcesser.RunBuildBlockPipeline()
 	}
 
 	block, err := vm.miner.GenerateBlock(predicateCtx)
@@ -1022,6 +1015,7 @@ func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
 		vm.blockChain,
 		vm.hubbleDB,
 		validatorPrivateKey,
+		vm.builder,
 	)
 }
 
