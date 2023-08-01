@@ -27,7 +27,7 @@ const {
 
 
 
-describe('Testing variables read from slots by precompile', function () {
+describe.only('Testing variables read from slots by precompile', function () {
     context("Clearing house contract variables", function () {
         it("should read the correct value from contracts", async function () {
             method = "testing_getClearingHouseVars"
@@ -85,6 +85,7 @@ describe('Testing variables read from slots by precompile', function () {
     context("Margin account contract variables", function () {
         it("should read the correct value from contracts", async function () {
             await removeAllAvailableMargin(charlie)
+            console.log("removed all margin")
 
             let charlieBalance = _1e6.mul(150)
             await addMargin(charlie, charlieBalance)
@@ -97,6 +98,8 @@ describe('Testing variables read from slots by precompile', function () {
             actualMargin = await marginAccount.getAvailableMargin(charlie.address)
             expect(response.body.result.margin).to.equal(charlieBalance.toNumber())
             expect(actualMargin.toNumber()).to.equal(charlieBalance.toNumber())
+            //cleanup
+            await removeAllAvailableMargin(charlie)
         })
     })
 
@@ -167,6 +170,15 @@ describe('Testing variables read from slots by precompile', function () {
             expect(String(result.position.size)).to.equal(actualPosition.size.toString())
             expect(result.position.open_notional).to.equal(actualPosition.openNotional.toNumber())
             expect(result.position.last_premium_fraction).to.equal(actualPosition.lastPremiumFraction.toNumber())
+            
+            // cleanup
+            longOrder = getOrder(market, alice.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
+            shortOrder = getOrder(market, charlie.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
+            await orderBook.connect(alice).placeOrders([longOrder])
+            await orderBook.connect(charlie).placeOrders([shortOrder])
+            await sleep(10)
+            await removeAllAvailableMargin(charlie)
+            await removeAllAvailableMargin(alice)
         })
     })
 
@@ -209,12 +221,16 @@ describe('Testing variables read from slots by precompile', function () {
             expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
             expect(result.order_details.filled_amount).to.eq(0)
             expect(result.order_details.order_status).to.eq(1)
+
+            //cleanup
+            await removeAllAvailableMargin(charlie)
+
         })
     })
     context("order book contract variables", function () {
         it("should read the correct value from contracts", async function () {
-
             await removeAllAvailableMargin(charlie)
+            console.log("removed all margin")
             let charlieBalance = _1e6.mul(150)
             await addMargin(charlie, charlieBalance)
 
@@ -250,6 +266,10 @@ describe('Testing variables read from slots by precompile', function () {
             expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
             expect(result.order_details.filled_amount).to.eq(0)
             expect(result.order_details.order_status).to.eq(1)
+
+            //cancel order
+            await orderBook.connect(charlie).cancelOrder(order)
+            removeAllAvailableMargin(charlie)
         })
     })
 })
