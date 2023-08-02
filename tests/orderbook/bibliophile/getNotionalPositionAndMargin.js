@@ -16,6 +16,7 @@ const {
     _1e18,
     multiplyPrice,
     multiplySize,
+    sleep,
 } = utils
 
 // Testing hubblebibliophile precompile contract 
@@ -26,14 +27,16 @@ describe('Testing getNotionalPositionAndMargin',async function () {
 
     context('When notional position and margin are 0', async function () {
         it('should return 0 as notionalPosition and 0 as margin', async function () {
+            removeAllAvailableMargin(charlie)
             result = await hubblebibliophile.getNotionalPositionAndMargin(charlie.address, false, 0)
             expect(result.notionalPosition.toString()).to.equal("0")
             expect(result.margin.toString()).to.equal("0")
         })
     })
 
-    describe('When notional position is zero but margin is non zero', async function () {
+    context('When notional position is zero but margin is non zero', async function () {
         it('should return 0 as notionalPosition and amount deposited as margin for trader', async function () {
+            removeAllAvailableMargin(charlie)
             await addMargin(charlie, charlieInitialMargin)
 
             // Test without any open positions
@@ -47,12 +50,12 @@ describe('Testing getNotionalPositionAndMargin',async function () {
         })
     })
 
-    describe('When notional position and margin and both non zero', async function () {
+    context('When notional position and margin and both non zero', async function () {
         let aliceOrderPrice = multiplyPrice(1800)
         let charlieOrderPrice = multiplyPrice(1800)
         market = BigNumber.from(0)
 
-        describe('when user creates a position', async function () {
+        context('when user creates a position', async function () {
             it('returns the notional position and margin', async function () {
                 let aliceOrderSize = multiplySize(0.1)
                 let charlieOrderSize = multiplySize(-0.1)
@@ -63,7 +66,7 @@ describe('Testing getNotionalPositionAndMargin',async function () {
                 await placeOrder(market, charlie, charlieOrderSize, charlieOrderPrice)
                 // alice places a long order
                 await placeOrder(market, alice, aliceOrderSize, aliceOrderPrice)
-                waitForOrdersToMatch()
+                await sleep(10)
 
                 result = await hubblebibliophile.getNotionalPositionAndMargin(charlie.address, false, 0)
 
@@ -73,7 +76,7 @@ describe('Testing getNotionalPositionAndMargin',async function () {
                 await placeOrder(market, charlie, aliceOrderSize, charlieOrderPrice)
                 // alice places a short order
                 await placeOrder(market, alice, charlieOrderSize, aliceOrderPrice)
-                waitForOrdersToMatch()
+                await sleep(10)
                 await removeAllAvailableMargin(charlie)
                 await removeAllAvailableMargin(alice)
 
@@ -88,7 +91,7 @@ describe('Testing getNotionalPositionAndMargin',async function () {
             })
         })
 
-        describe('when user increases the position', async function () {
+        context('when user increases the position', async function () {
             it('returns the notional position and margin', async function () {
                 aliceOrder1Size = multiplySize(0.1)
                 charlieOrder1Size = multiplySize(-0.1)
@@ -100,13 +103,13 @@ describe('Testing getNotionalPositionAndMargin',async function () {
                 //charlie is a maker for 1st order
                 await placeOrder(market, charlie, charlieOrder1Size, charlieOrderPrice)
                 await placeOrder(market, alice, aliceOrder1Size, aliceOrderPrice)
-                waitForOrdersToMatch()
+                await sleep(10)
 
                 // increase position
                 await placeOrder(market, alice, aliceOrder2Size, aliceOrderPrice)
                 // charlie is taker for 2nd order
                 await placeOrder(market, charlie, charlieOrder2Size, charlieOrderPrice)
-                waitForOrdersToMatch()
+                await sleep(10)
 
                 result = await hubblebibliophile.getNotionalPositionAndMargin(charlie.address, false, 0)
 
@@ -116,6 +119,7 @@ describe('Testing getNotionalPositionAndMargin',async function () {
                 await addMargin(charlie, charlieInitialMargin)
                 await placeOrder(market, charlie, totalAliceOrderSize, charlieOrderPrice)
                 await placeOrder(market, alice, totalCharlieOrderSize, aliceOrderPrice)
+                await sleep(10)
                 await removeAllAvailableMargin(charlie)
                 await removeAllAvailableMargin(alice)
 
@@ -133,7 +137,7 @@ describe('Testing getNotionalPositionAndMargin',async function () {
             })
         })
 
-        describe('when user decreases the position', async function () {
+        context('when user decreases the position', async function () {
             it('returns the notional position and margin', async function () {
                 aliceOrder1Size = multiplySize(0.1)
                 charlieOrder1Size = multiplySize(-0.1)
@@ -145,13 +149,13 @@ describe('Testing getNotionalPositionAndMargin',async function () {
                 //charlie is a maker for 1st order
                 await placeOrder(market, charlie, charlieOrder1Size, charlieOrderPrice)
                 await placeOrder(market, alice, aliceOrder1Size, aliceOrderPrice)
-                waitForOrdersToMatch()
+                await sleep(10)
 
                 // increase position
                 await placeOrder(market, alice, aliceOrder2Size, aliceOrderPrice)
                 // charlie is taker for 2nd order
                 await placeOrder(market, charlie, charlieOrder2Size, charlieOrderPrice)
-                waitForOrdersToMatch()
+                await sleep(10)
 
                 result = await hubblebibliophile.getNotionalPositionAndMargin(charlie.address, false, 0)
 
@@ -161,6 +165,7 @@ describe('Testing getNotionalPositionAndMargin',async function () {
                 await addMargin(charlie, charlieInitialMargin)
                 await placeOrder(market, charlie, totalAliceOrderSize, charlieOrderPrice)
                 await placeOrder(market, alice, totalCharlieOrderSize, aliceOrderPrice)
+                await sleep(10)
                 await removeAllAvailableMargin(charlie)
                 await removeAllAvailableMargin(alice)
 
@@ -177,7 +182,8 @@ describe('Testing getNotionalPositionAndMargin',async function () {
                 expect(result.margin.toString()).to.equal(expectedCharlieMargin.toString())
             })
         })
-        describe('when user closes whole position', async function () {
+
+        context('when user closes whole position', async function () {
             it('returns the notional position and margin', async function () {
                 aliceOrder1Size = multiplySize(0.3)
                 charlieOrder1Size = multiplySize(-0.3)
@@ -189,16 +195,16 @@ describe('Testing getNotionalPositionAndMargin',async function () {
                 //charlie is a maker for 1st order
                 await placeOrder(market, charlie, charlieOrder1Size, charlieOrderPrice)
                 await placeOrder(market, alice, aliceOrder1Size, aliceOrderPrice)
-                waitForOrdersToMatch()
+                await sleep(10)
 
-                // increase position
+                // close position
                 await placeOrder(market, alice, aliceOrder2Size, aliceOrderPrice)
                 // charlie is taker for 2nd order
                 await placeOrder(market, charlie, charlieOrder2Size, charlieOrderPrice)
-                waitForOrdersToMatch()
+                await sleep(10)
 
                 result = await hubblebibliophile.getNotionalPositionAndMargin(charlie.address, false, 0)
-
+                
                 //cleanup
                 await removeAllAvailableMargin(charlie)
                 await removeAllAvailableMargin(alice)
@@ -218,8 +224,3 @@ describe('Testing getNotionalPositionAndMargin',async function () {
         })
     })
 })
-
-
-async function waitForOrdersToMatch() {
-    await sleep(10)
-}

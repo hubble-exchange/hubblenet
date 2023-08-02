@@ -9,6 +9,7 @@ chai.use(chaiHttp);
 const {
     _1e6,
     addMargin,
+    cancelOrderFromLimitOrder,
     charlie,
     clearingHouse,
     getIOCOrder,
@@ -19,6 +20,8 @@ const {
     multiplyPrice,
     multiplySize,
     orderBook,
+    placeOrderFromLimitOrder,
+    placeIOCOrder,
     provider,
     removeAllAvailableMargin,
     sleep,
@@ -27,7 +30,7 @@ const {
 
 
 
-describe.only('Testing variables read from slots by precompile', function () {
+describe('Testing variables read from slots by precompile', function () {
     context("Clearing house contract variables", function () {
         it("should read the correct value from contracts", async function () {
             method = "testing_getClearingHouseVars"
@@ -160,8 +163,8 @@ describe.only('Testing variables read from slots by precompile', function () {
             expireAt = lastTimestamp + 6
             longOrder = getOrder(market, charlie.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
             shortOrder = getOrder(market, alice.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
-            await orderBook.connect(charlie).placeOrders([longOrder])
-            await orderBook.connect(alice).placeOrders([shortOrder])
+            await placeOrderFromLimitOrder(longOrder, charlie)
+            await placeOrderFromLimitOrder(shortOrder, alice)
             await sleep(10)
 
             response = await makehttpCall(method, params)
@@ -174,8 +177,8 @@ describe.only('Testing variables read from slots by precompile', function () {
             // cleanup
             longOrder = getOrder(market, alice.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
             shortOrder = getOrder(market, charlie.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
-            await orderBook.connect(alice).placeOrders([longOrder])
-            await orderBook.connect(charlie).placeOrders([shortOrder])
+            await placeOrderFromLimitOrder(longOrder, alice)
+            await placeOrderFromLimitOrder(shortOrder, charlie)
             await sleep(10)
             await removeAllAvailableMargin(charlie)
             await removeAllAvailableMargin(alice)
@@ -213,11 +216,10 @@ describe.only('Testing variables read from slots by precompile', function () {
             expect(result.order_details.order_status).to.eq(0)
 
             //placing order
-            const tx = await ioc.connect(charlie).placeOrders([IOCOrder])
-            const txReceipt = await tx.wait()
+            txDetails = await placeIOCOrder(IOCOrder, charlie) 
             result = (await makehttpCall(method, params)).body.result
 
-            actualBlockPlaced = txReceipt.blockNumber
+            actualBlockPlaced = txDetails.txReceipt.blockNumber
             expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
             expect(result.order_details.filled_amount).to.eq(0)
             expect(result.order_details.order_status).to.eq(1)
@@ -258,17 +260,16 @@ describe.only('Testing variables read from slots by precompile', function () {
             expect(result.order_details.order_status).to.eq(0)
 
             //placing order
-            const tx = await orderBook.connect(charlie).placeOrders([order])
-            const txReceipt = await tx.wait()
+            txDetails = await placeOrderFromLimitOrder(order, charlie)
             result = (await makehttpCall(method, params)).body.result
 
-            actualBlockPlaced = txReceipt.blockNumber
+            actualBlockPlaced = txDetails.txReceipt.blockNumber
             expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
             expect(result.order_details.filled_amount).to.eq(0)
             expect(result.order_details.order_status).to.eq(1)
 
             //cancel order
-            await orderBook.connect(charlie).cancelOrder(order)
+            await cancelOrderFromLimitOrder(order, charlie)
             removeAllAvailableMargin(charlie)
         })
     })
