@@ -199,6 +199,14 @@ function encodeLimitOrder(order) {
 //     await removeAllAvailableMargin(trader2)
 // }
 
+function getRandomSalt() {
+    return BigNumber.from(Date.now())
+}
+
+async function waitForOrdersToMatch() {
+    await sleep(10)
+}
+
 module.exports = {
     _1e6,
     _1e12,
@@ -214,6 +222,7 @@ module.exports = {
     getEncodedLimitOrder,
     getOrder,
     getIOCOrder,
+    getRandomSalt,
     governance,
     hubblebibliophile,
     ioc, 
@@ -231,4 +240,5 @@ module.exports = {
     removeMargin,
     sleep,
     url,
+    waitForOrdersToMatch,
 }
