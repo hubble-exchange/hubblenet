@@ -319,6 +319,7 @@ func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *Valida
 		if order.ExpireAt.Uint64() < blockTimestamp {
 			return nil, errors.New("ioc expired")
 		}
+		log.Info("ValidatePlaceIOCOrders", "order.ExpireAt", order.ExpireAt.Uint64(), "expireWithin", expireWithin)
 		if order.ExpireAt.Uint64() > expireWithin {
 			return nil, errors.New("ioc expiration too far")
 		}
