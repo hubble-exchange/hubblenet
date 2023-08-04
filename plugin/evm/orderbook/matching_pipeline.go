@@ -78,7 +78,6 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 
 	orderBookTxsCount := pipeline.lotp.GetOrderBookTxsCount()
 	if orderBookTxsCount > 0 {
-		log.Info("#### found unapplied txs after running build block pipeline", "txs", orderBookTxsCount)
 		return true
 	}
 

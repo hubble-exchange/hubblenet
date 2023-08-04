@@ -1065,7 +1065,6 @@ func (pool *TxPool) PurgeOrderBookTxs() {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	log.Info("#### Purging orderbook txs")
 	for from, _ := range pool.OrderBookTxMap {
 		delete(pool.OrderBookTxMap, from)
 	}
