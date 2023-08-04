@@ -23,7 +23,7 @@ const (
 	minBlockBuildingRetryDelay = 50 * time.Millisecond
 
 	// ticker frequency for calling signalTxsReady
-	buildTickerDuration = 5 * time.Second
+	buildTickerDuration = 1 * time.Second
 )
 
 type blockBuilder struct {
