@@ -5,8 +5,6 @@
 package hubblebibliophile
 
 import (
-	"math/big"
-
 	"github.com/ava-labs/subnet-evm/precompile/precompileconfig"
 )
 
@@ -22,7 +20,7 @@ type Config struct {
 
 // NewConfig returns a config for a network upgrade at [blockTimestamp] that enables
 // HubbleBibliophile.
-func NewConfig(blockTimestamp *big.Int) *Config {
+func NewConfig(blockTimestamp *uint64) *Config {
 	return &Config{
 		Upgrade: precompileconfig.Upgrade{BlockTimestamp: blockTimestamp},
 	}
@@ -30,7 +28,7 @@ func NewConfig(blockTimestamp *big.Int) *Config {
 
 // NewDisableConfig returns config for a network upgrade at [blockTimestamp]
 // that disables HubbleBibliophile.
-func NewDisableConfig(blockTimestamp *big.Int) *Config {
+func NewDisableConfig(blockTimestamp *uint64) *Config {
 	return &Config{
 		Upgrade: precompileconfig.Upgrade{
 			BlockTimestamp: blockTimestamp,
