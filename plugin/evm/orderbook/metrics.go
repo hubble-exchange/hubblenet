@@ -23,4 +23,6 @@ var (
 	HandleChainAcceptedLogsPanicsCounter     = metrics.NewRegisteredCounter("handle_chain_accepted_logs_panics", nil)
 	HandleChainAcceptedEventPanicsCounter    = metrics.NewRegisteredCounter("handle_chain_accepted_event_panics", nil)
 	HandleMatchingPipelineTimerPanicsCounter = metrics.NewRegisteredCounter("handle_matching_pipeline_timer_panics", nil)
+
+	BuildBlockFailedWithLowBlockGasCounter = metrics.NewRegisteredCounter("build_block_failed_low_block_gas", nil)
 )

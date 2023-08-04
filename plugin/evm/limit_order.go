@@ -54,7 +54,7 @@ type limitOrderProcesser struct {
 	blockBuilder           *blockBuilder
 }
 
-func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string, blockBuilder *blockBuilder) LimitOrderProcesser {
+func NewLimitOrderProcesser(ctx *snow.Context, txPool *core.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string) LimitOrderProcesser {
 	log.Info("**** NewLimitOrderProcesser")
 	configService := orderbook.NewConfigService(blockChain)
 	memoryDb := orderbook.NewInMemoryDatabase(configService)
