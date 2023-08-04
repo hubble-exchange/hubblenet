@@ -34,6 +34,7 @@ import (
 	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/peer"
 	"github.com/ava-labs/subnet-evm/plugin/evm/message"
+	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ava-labs/subnet-evm/rpc"
 	statesyncclient "github.com/ava-labs/subnet-evm/sync/client"
 	"github.com/ava-labs/subnet-evm/sync/client/stats"
@@ -704,7 +705,14 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 	block, err := vm.miner.GenerateBlock(predicateCtx)
 	vm.builder.handleGenerateBlock()
 	if err != nil {
-		log.Error("buildBlock - GenerateBlock failed", "err", err)
+
+		if vm.txPool.GetOrderBookTxsCount() > 0 && strings.Contains(err.Error(), "BLOCK_GAS_TOO_LOW") {
+			// orderbook txs from the validator were part of the block that failed to be generated because of low block gas
+			orderbook.BuildBlockFailedWithLowBlockGasCounter.Inc(1)
+			log.Error("buildBlock - GenerateBlock failed with low gas cost", "err", err, "orderbookTxsCount", vm.txPool.GetOrderBookTxsCount())
+		} else {
+			log.Error("buildBlock - GenerateBlock failed", "err", err)
+		}
 		return nil, err
 	}
 
@@ -1032,7 +1040,6 @@ func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
 		vm.blockChain,
 		vm.hubbleDB,
 		validatorPrivateKey,
-		vm.builder,
 	)
 }
 

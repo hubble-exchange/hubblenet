@@ -6,10 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
-	"github.com/ava-labs/subnet-evm/consensus/dummy"
 	"github.com/ava-labs/subnet-evm/core/txpool"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/eth"
@@ -186,7 +184,7 @@ func (lotp *limitOrderTxProcessor) getTransactionFee() *big.Int {
 	baseFeeEstimate, err := lotp.backend.SuggestPrice(context.Background())
 	if err != nil {
 		log.Error("getBaseFeeEstimate - SuggestPrice failed", "err", err)
-		return big.NewInt(65_000000000) // hardcoded to 70 gwei
+		return big.NewInt(65_000000000) // hardcoded to 65 gwei
 	}
 	// add 10%
 	baseFeeEstimate.Add(baseFeeEstimate, big.NewInt(0).Div(baseFeeEstimate, big.NewInt(10)))
@@ -198,15 +196,9 @@ func (lotp *limitOrderTxProcessor) getTransactionFee() *big.Int {
 		baseFeeEstimate.Add(baseFeeEstimate, big.NewInt(0).Div(baseFeeEstimate, big.NewInt(10)))
 		return baseFeeEstimate
 	}
-
-	blockGasCost := dummy.CalcBlockGasCost(
-		feeConfig.TargetBlockRate,
-		feeConfig.MinBlockGasCost,
-		feeConfig.MaxBlockGasCost,
-		feeConfig.BlockGasCostStep,
-		latest.BlockGasCost,
-		latest.Time, uint64(time.Now().Unix()),
-	)
+	// assuming pessimistically that the block is being produced within a second of the latest block
+	// we calculate the block gas cost as the latest block gas cost + the block gas cost step
+	blockGasCost := big.NewInt(0).Add(latest.BlockGasCost, feeConfig.BlockGasCostStep)
 
 	// assuming a minimum gas usage of 200k for a tx, we calculate the tip such that the entire block has an effective tip above the threshold
 	// example calculation for blockGasCost = 10,000, baseFeeEstimate = 60 gwei, tx gas usage = 200,000
