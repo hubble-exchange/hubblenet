@@ -176,6 +176,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					defer lop.mu.Unlock()
 					lop.contractEventProcessor.ProcessEvents(logs)
 					go lop.contractEventProcessor.PushtoTraderFeed(logs, orderbook.ConfirmationLevelHead)
+					go lop.contractEventProcessor.PushToMarketFeed(logs, orderbook.ConfirmationLevelHead)
 				}, orderbook.HandleHubbleFeedLogsPanicMessage, orderbook.HandleHubbleFeedLogsPanicsCounter)
 
 				lop.RunMatchingPipeline()
@@ -201,6 +202,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					defer lop.mu.Unlock()
 					lop.contractEventProcessor.ProcessAcceptedEvents(logs, false)
 					go lop.contractEventProcessor.PushtoTraderFeed(logs, orderbook.ConfirmationLevelAccepted)
+					go lop.contractEventProcessor.PushToMarketFeed(logs, orderbook.ConfirmationLevelAccepted)
 				}, orderbook.HandleChainAcceptedLogsPanicMessage, orderbook.HandleChainAcceptedLogsPanicsCounter)
 			case <-lop.shutdownChan:
 				return
