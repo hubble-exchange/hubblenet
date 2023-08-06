@@ -181,7 +181,7 @@ describe('Testing variables read from slots by precompile', function () {
             shortOrder = getOrder(market, charlie.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
             await orderBook.connect(charlie).placeOrders([shortOrder])
             await orderBook.connect(alice).placeOrders([longOrder])
-            await sleep(10)
+            await waitForOrdersToMatch()
             await removeAllAvailableMargin(charlie)
             await removeAllAvailableMargin(alice)
         })

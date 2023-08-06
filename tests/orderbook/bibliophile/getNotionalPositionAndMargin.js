@@ -73,7 +73,7 @@ describe('Testing getNotionalPositionAndMargin',async function () {
                 await placeOrder(market, charlie, aliceOrderSize, charlieOrderPrice)
                 // alice places a short order
                 await placeOrder(market, alice, charlieOrderSize, aliceOrderPrice)
-                await waitForOrdersToMatch() 
+                await waitForOrdersToMatch()
                 await removeAllAvailableMargin(charlie)
                 await removeAllAvailableMargin(alice)
 
