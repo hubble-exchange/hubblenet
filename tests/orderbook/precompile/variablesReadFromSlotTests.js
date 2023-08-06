@@ -8,7 +8,9 @@ chai.use(chaiHttp);
 
 const {
     _1e6,
+    _1e18,
     addMargin,
+    cancelOrderFromLimitOrder,
     charlie,
     clearingHouse,
     getIOCOrder,
@@ -152,27 +154,41 @@ describe('Testing variables read from slots by precompile', function () {
             salt = BigNumber.from(Date.now())
             market = BigNumber.from(0)
 
-            latestBlockNumber = await provider.getBlockNumber()
-            lastTimestamp = (await provider.getBlock(latestBlockNumber)).timestamp
-            expireAt = lastTimestamp + 6
             longOrder = getOrder(market, charlie.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
             shortOrder = getOrder(market, alice.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
             await orderBook.connect(charlie).placeOrders([longOrder])
             await orderBook.connect(alice).placeOrders([shortOrder])
             await sleep(10)
 
+            //testing for charlie
             response = await makehttpCall(method, params)
             result = response.body.result
             actualPosition = await amm.positions(charlie.address)
-            expect(String(result.position.size)).to.equal(actualPosition.size.toString())
-            expect(result.position.open_notional).to.equal(actualPosition.openNotional.toNumber())
+            expect(String(result.position.size)).to.equal(longOrderBaseAssetQuantity.toString())
+            expect(result.position.open_notional).to.equal(longOrderBaseAssetQuantity.mul(orderPrice).div(_1e18).toNumber())
             expect(result.position.last_premium_fraction).to.equal(actualPosition.lastPremiumFraction.toNumber())
+
+            // testing for alice
+            params =[ammAddress, ammIndex, alice.address]
+            response = await makehttpCall(method, params)
+            actualPosition = await amm.positions(alice.address)
+            expect(String(result.position.size)).to.equal(shortOrderBaseAssetQuantity.abs().toString())
+            expect(result.position.open_notional).to.equal(shortOrderBaseAssetQuantity.mul(orderPrice).abs().div(_1e18).toNumber())
+            expect(result.position.last_premium_fraction).to.equal(actualPosition.lastPremiumFraction.toNumber())
+
+            //cleanup
+            longOrder = getOrder(market, alice.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
+            shortOrder = getOrder(market, charlie.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
+            await orderBook.connect(charlie).placeOrders([shortOrder])
+            await orderBook.connect(alice).placeOrders([longOrder])
+            await sleep(10)
+            await removeAllAvailableMargin(charlie)
+            await removeAllAvailableMargin(alice)
         })
     })
 
     context("IOC order contract variables", function () {
         it("should read the correct value from contracts", async function () {
-            await removeAllAvailableMargin(charlie)
             let charlieBalance = _1e6.mul(150)
             await addMargin(charlie, charlieBalance)
 
@@ -209,6 +225,9 @@ describe('Testing variables read from slots by precompile', function () {
             expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
             expect(result.order_details.filled_amount).to.eq(0)
             expect(result.order_details.order_status).to.eq(1)
+
+            //cleanup
+            await removeAllAvailableMargin(charlie)
         })
     })
     context("order book contract variables", function () {
@@ -250,6 +269,10 @@ describe('Testing variables read from slots by precompile', function () {
             expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
             expect(result.order_details.filled_amount).to.eq(0)
             expect(result.order_details.order_status).to.eq(1)
+
+            // cleanup
+            await cancelOrderFromLimitOrder(order, charlie)
+            await removeAllAvailableMargin(charlie)
         })
     })
 })

@@ -108,6 +108,12 @@ async function cancelOrder(market, trader, size, price, salt=Date.now(), reduceO
     return { tx, txReceipt }
 }
 
+async function cancelOrderFromLimitOrder(order, trader) {
+    const tx = await orderBook.connect(trader).cancelOrder(order)
+    const txReceipt = await tx.wait()
+    return { tx, txReceipt }
+}
+
 function sleep(s) {
     console.log(`Requested a sleep of ${s} seconds...`)
     return new Promise(resolve => setTimeout(resolve, s * 1000));
@@ -197,6 +203,16 @@ function encodeIOCOrder(order) {
     return typedEncodedOrder
 }
 
+async function enableValidatorMatching() {
+    const tx = await orderBook.connect(governance).setValidatorStatus(ethers.utils.getAddress('0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4'), true)
+    await tx.wait()
+}
+
+async function disableValidatorMatching() {
+    const tx = await orderBook.connect(governance).setValidatorStatus(ethers.utils.getAddress('0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4'), false)
+    await tx.wait()
+}
+
 module.exports = {
     _1e6,
     _1e12,
@@ -205,9 +221,12 @@ module.exports = {
     alice,
     bob,
     cancelOrder,
+    cancelOrderFromLimitOrder,
     charlie,
     clearingHouse,
     encodeIOCOrder,
+    disableValidatorMatching,
+    enableValidatorMatching,
     encodeLimitOrder,
     getDomain,
     getOrder,
