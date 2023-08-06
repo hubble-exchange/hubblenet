@@ -11,7 +11,7 @@ const {
     removeAllAvailableMargin,
     multiplyPrice,
     multiplySize,
-    sleep,
+    waitForOrdersToMatch
 } = utils
 
 // Testing hubblebibliophile precompile contract 
@@ -28,9 +28,8 @@ describe("Testing getPositionSizes", function () {
                 bobPositionSize = await hubblebibliophile.getPositionSizes(bob.address)
 
                 // cleanup
-                removeAllAvailableMargin(bob)
+                await removeAllAvailableMargin(bob)
 
-                console.log("alicePositionSize", alicePositionSize[0].toString(), "bobPositionSize", bobPositionSize[0].toString())
                 expect(alicePositionSize[0].toString()).to.equal("0")
                 expect(bobPositionSize[0].toString()).to.equal("0")
             })
@@ -49,7 +48,7 @@ describe("Testing getPositionSizes", function () {
                 bobOrder1Size = multiplySize(-0.3)
                 await placeOrder(market, alice, aliceOrder1Size, aliceOrderPrice)
                 await placeOrder(market, bob, bobOrder1Size, bobOrderPrice)
-                await sleep(10)
+                await waitForOrdersToMatch()
 
                 alicePositionSize = await hubblebibliophile.getPositionSizes(alice.address)
                 expect(alicePositionSize[0].toString()).to.equal((aliceOrder1Size).toString())
@@ -60,7 +59,7 @@ describe("Testing getPositionSizes", function () {
                 bobOrder2Size = multiplySize(0.3)
                 await placeOrder(market, alice, aliceOrder2Size, aliceOrderPrice)
                 await placeOrder(market, bob, bobOrder2Size, bobOrderPrice)
-                await sleep(10)
+                await waitForOrdersToMatch()
 
                 alicePositionSizeFinal = await hubblebibliophile.getPositionSizes(alice.address)
                 expect(alicePositionSizeFinal[0].toString()).to.equal(aliceOrder1Size.add(aliceOrder2Size).toString())
@@ -87,7 +86,7 @@ describe("Testing getPositionSizes", function () {
             bobOrder1Size = multiplySize(-0.1)
             await placeOrder(market, alice, aliceOrder1Size, aliceOrderPrice)
             await placeOrder(market, bob, bobOrder1Size, bobOrderPrice)
-            await sleep(10)
+            await waitForOrdersToMatch()
 
             alicePositionSize = await hubblebibliophile.getPositionSizes(alice.address)
             expect(alicePositionSize[0].toString()).to.equal((aliceOrder1Size).toString())
@@ -98,7 +97,7 @@ describe("Testing getPositionSizes", function () {
             bobOrder2Size = multiplySize(-0.2)
             await placeOrder(market, alice, aliceOrder2Size, aliceOrderPrice)
             await placeOrder(market, bob, bobOrder2Size, bobOrderPrice)
-            await sleep(10)
+            await waitForOrdersToMatch()
 
             alicePositionSizeFinal = await hubblebibliophile.getPositionSizes(alice.address)
             bobPositionSizeFinal = await hubblebibliophile.getPositionSizes(bob.address)
@@ -112,7 +111,7 @@ describe("Testing getPositionSizes", function () {
             await addMargin(bob, bobMargin)
             await placeOrder(market, bob, totalAliceOrderSize, bobOrderPrice)
             await placeOrder(market, alice, totalBobOrderSize, aliceOrderPrice)
-            await sleep(10)
+            await waitForOrdersToMatch()
             await removeAllAvailableMargin(alice)
             await removeAllAvailableMargin(bob)
         })

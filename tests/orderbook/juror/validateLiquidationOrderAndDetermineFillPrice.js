@@ -66,7 +66,6 @@ describe("Testing validateLiquidationOrderAndDetermineFillPrice",async function 
                     }
                     expect.fail("Expected throw not received");
                 })
-
                 it("returns error when order was cancelled", async function () {
                     margin = multiplyPrice(150000)
                     await addMargin(alice, margin)
@@ -94,14 +93,13 @@ describe("Testing validateLiquidationOrderAndDetermineFillPrice",async function 
                     try {
                         await juror.validateLiquidationOrderAndDetermineFillPrice(encodeLimitOrderWithType(shortOrder), liquidationAmount)
                     } catch (error) {
+                        await removeAllAvailableMargin(alice)
                         error_message = JSON.parse(error.error.body).error.message
                         expect(error_message).to.equal("invalid order")
-                        await removeAllAvailableMargin(alice)
                         return
                     }
                     expect.fail("Expected throw not received");
                 })
-
                 it("returns error when order was filled", async function () {
                     margin = multiplyPrice(150000)
                     await addMargin(alice, margin)
@@ -140,6 +138,7 @@ describe("Testing validateLiquidationOrderAndDetermineFillPrice",async function 
                         await placeOrderFromLimitOrder(shortOrder, alice)
                         await waitForOrdersToMatch()
                         await removeAllAvailableMargin(alice)
+                        await removeAllAvailableMargin(charlie)
                         return
                     }
                     expect.fail("Expected throw not received");

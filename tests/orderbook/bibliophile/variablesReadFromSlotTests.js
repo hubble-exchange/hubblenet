@@ -24,8 +24,8 @@ const {
     placeIOCOrder,
     provider,
     removeAllAvailableMargin,
-    sleep,
     url,
+    waitForOrdersToMatch
 } = utils;
 
 
@@ -87,9 +87,6 @@ describe('Testing variables read from slots by precompile', function () {
 
     context("Margin account contract variables", function () {
         it("should read the correct value from contracts", async function () {
-            await removeAllAvailableMargin(charlie)
-            console.log("removed all margin")
-
             let charlieBalance = _1e6.mul(150)
             await addMargin(charlie, charlieBalance)
 
@@ -146,8 +143,6 @@ describe('Testing variables read from slots by precompile', function () {
 
 
             // creating positions
-            await removeAllAvailableMargin(charlie)
-            await removeAllAvailableMargin(alice)
             let charlieBalance = _1e6.mul(150)
             await addMargin(charlie, charlieBalance)
             await addMargin(alice, charlieBalance)
@@ -158,14 +153,11 @@ describe('Testing variables read from slots by precompile', function () {
             salt = BigNumber.from(Date.now())
             market = BigNumber.from(0)
 
-            latestBlockNumber = await provider.getBlockNumber()
-            lastTimestamp = (await provider.getBlock(latestBlockNumber)).timestamp
-            expireAt = lastTimestamp + 6
             longOrder = getOrder(market, charlie.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
             shortOrder = getOrder(market, alice.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
             await placeOrderFromLimitOrder(longOrder, charlie)
             await placeOrderFromLimitOrder(shortOrder, alice)
-            await sleep(10)
+            await waitForOrdersToMatch()
 
             response = await makehttpCall(method, params)
             result = response.body.result
@@ -179,7 +171,7 @@ describe('Testing variables read from slots by precompile', function () {
             shortOrder = getOrder(market, charlie.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
             await placeOrderFromLimitOrder(longOrder, alice)
             await placeOrderFromLimitOrder(shortOrder, charlie)
-            await sleep(10)
+            await waitForOrdersToMatch()
             await removeAllAvailableMargin(charlie)
             await removeAllAvailableMargin(alice)
         })
@@ -187,7 +179,6 @@ describe('Testing variables read from slots by precompile', function () {
 
     context("IOC order contract variables", function () {
         it("should read the correct value from contracts", async function () {
-            await removeAllAvailableMargin(charlie)
             let charlieBalance = _1e6.mul(150)
             await addMargin(charlie, charlieBalance)
 
@@ -231,8 +222,6 @@ describe('Testing variables read from slots by precompile', function () {
     })
     context("order book contract variables", function () {
         it("should read the correct value from contracts", async function () {
-            await removeAllAvailableMargin(charlie)
-            console.log("removed all margin")
             let charlieBalance = _1e6.mul(150)
             await addMargin(charlie, charlieBalance)
 
@@ -270,7 +259,7 @@ describe('Testing variables read from slots by precompile', function () {
 
             //cancel order
             await cancelOrderFromLimitOrder(order, charlie)
-            removeAllAvailableMargin(charlie)
+            await removeAllAvailableMargin(charlie)
         })
     })
 })
