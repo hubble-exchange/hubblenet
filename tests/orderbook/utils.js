@@ -39,18 +39,6 @@ orderType = {
     ]
 }
 
-function getEncodedLimitOrder(market, traderAddress, baseAssetQuantity, price, salt, reduceOnly=false) {
-    order =  {
-        ammIndex: market,
-        trader: traderAddress,
-        baseAssetQuantity: baseAssetQuantity,
-        price: price,
-        salt: BigNumber.from(salt),
-        reduceOnly: reduceOnly,
-    }
-    return encodeLimitOrder(order)
-}
-
 function getOrder(market, traderAddress, baseAssetQuantity, price, salt, reduceOnly=false) {
     return {
         ammIndex: market,
@@ -118,7 +106,6 @@ async function cancelOrderFromLimitOrder(order, trader) {
 }
 
 function sleep(s) {
-    console.log(`Requested a sleep of ${s} seconds...`)
     return new Promise(resolve => setTimeout(resolve, s * 1000));
 }
 
@@ -141,7 +128,6 @@ async function removeMargin(trader, amount) {
 
 async function removeAllAvailableMargin(trader) {
     margin = await marginAccount.getAvailableMargin(trader.address)
-    console.log("available margin is", margin.toString())
     marginAccountHelper = await getMarginAccountHelper()
     if (margin.toNumber() > 0) {
         const tx = await marginAccountHelper.connect(trader).removeMarginInUSD(margin.toNumber())
@@ -174,8 +160,12 @@ function encodeLimitOrder(order) {
             order.reduceOnly,
         ]
     )
+    return encodedOrder
+}
+
+function encodeLimitOrderWithType(order) {
+    encodedOrder = encodeLimitOrder(order)
     const typedEncodedOrder = ethers.utils.defaultAbiCoder.encode(['uint8', 'bytes'], [0, encodedOrder])
-    // console.log({ order, encodedOrder, typedEncodedOrder })
     return typedEncodedOrder
 }
 
@@ -207,6 +197,16 @@ async function waitForOrdersToMatch() {
     await sleep(10)
 }
 
+async function enableValidatorMatching() {
+    const tx = await orderBook.connect(governance).setValidatorStatus(ethers.utils.getAddress('0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4'), true)
+    await tx.wait()
+}
+
+async function disableValidatorMatching() {
+    const tx = await orderBook.connect(governance).setValidatorStatus(ethers.utils.getAddress('0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4'), false)
+    await tx.wait()
+}
+
 module.exports = {
     _1e6,
     _1e12,
@@ -217,9 +217,11 @@ module.exports = {
     cancelOrderFromLimitOrder,
     charlie,
     clearingHouse,
+    enableValidatorMatching,
+    disableValidatorMatching,
     encodeLimitOrder,
+    encodeLimitOrderWithType,
     getDomain,
-    getEncodedLimitOrder,
     getOrder,
     getIOCOrder,
     getRandomSalt,
