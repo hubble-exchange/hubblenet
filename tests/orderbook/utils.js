@@ -207,6 +207,12 @@ async function disableValidatorMatching() {
     await tx.wait()
 }
 
+async function getAMMContract(market) {
+    const ammAddress = await clearingHouse.amms(market)
+    amm =  new ethers.Contract(ammAddress, require("./abi/AMM.json"), provider);
+    return amm
+}
+
 module.exports = {
     _1e6,
     _1e12,
@@ -221,6 +227,7 @@ module.exports = {
     disableValidatorMatching,
     encodeLimitOrder,
     encodeLimitOrderWithType,
+    getAMMContract,
     getDomain,
     getOrder,
     getIOCOrder,

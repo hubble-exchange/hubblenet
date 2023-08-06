@@ -8,26 +8,24 @@ const {
     alice,
     bob,
     cancelOrderFromLimitOrder,
-    clearingHouse,
     disableValidatorMatching,
     enableValidatorMatching,
     encodeLimitOrder,
     encodeLimitOrderWithType,
+    getAMMContract,
     getOrder,
     getRandomSalt,
-    governance,
     juror,
     multiplySize,
     multiplyPrice,
     orderBook,
     placeOrderFromLimitOrder,
-    provider,
     removeAllAvailableMargin,
     waitForOrdersToMatch,
 } = utils
 
 // Testing juror precompile contract 
-describe.only("Test validateOrdersAndDetermineFillPrice", function () {
+describe("Test validateOrdersAndDetermineFillPrice", function () {
     beforeEach(async function () {
         market = BigNumber.from(0)
         longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
@@ -364,8 +362,7 @@ describe.only("Test validateOrdersAndDetermineFillPrice", function () {
                 context("when longOrder's price is greater than shortOrder's price", async function () {
                     context("when fillAmount is not a multiple of minSizeRequirement", async function () {
                         it("returns error if fillAmount < minSizeRequirement", async function () {
-                            const ammAddress = await clearingHouse.amms(market)
-                            const amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider);
+                            amm = await getAMMContract(market)
                             minSizeRequirement = await amm.minSizeRequirement()
                             fillAmount = minSizeRequirement.div(2)
 
@@ -392,8 +389,7 @@ describe.only("Test validateOrdersAndDetermineFillPrice", function () {
                             expect.fail('Expected throw not received');
                         })              
                         it("returns error if fillAmount > minSizeRequirement", async function () {
-                            const ammAddress = await clearingHouse.amms(market)
-                            const amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider);
+                            amm = await getAMMContract(market)
                             minSizeRequirement = await amm.minSizeRequirement()
                             fillAmount = minSizeRequirement.mul(3).div(2)
 
@@ -423,8 +419,7 @@ describe.only("Test validateOrdersAndDetermineFillPrice", function () {
                     context("when fillAmount is a multiple of minSizeRequirement", async function () {
                         context("when longOrder price is less than lowerBoundPrice", async function () {
                             it("returns error", async function () {
-                                const ammAddress = await clearingHouse.amms(market)
-                                const amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider);
+                                amm = await getAMMContract(market)
                                 minSizeRequirement = await amm.minSizeRequirement()
                                 fillAmount = minSizeRequirement.mul(3)
                                 maxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
@@ -459,8 +454,7 @@ describe.only("Test validateOrdersAndDetermineFillPrice", function () {
                         context("when longOrder price is >= lowerBoundPrice", async function () {
                             context("when shortOrder price is greater than upperBoundPrice", async function () {
                                 it("returns error", async function () {
-                                    const ammAddress = await clearingHouse.amms(market)
-                                    const amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider);
+                                    amm = await getAMMContract(market)
                                     minSizeRequirement = await amm.minSizeRequirement()
                                     fillAmount = minSizeRequirement.mul(3)
                                     maxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
@@ -496,8 +490,7 @@ describe.only("Test validateOrdersAndDetermineFillPrice", function () {
                             context("when shortOrder price is <= upperBoundPrice", async function () {
                                 context("When longOrder was placed in earlier block than shortOrder", async function () {
                                     it("returns longOrder's price as fillPrice if longOrder price is greater than lowerBoundPrice but less than upperBoundPrice", async function () {
-                                        const ammAddress = await clearingHouse.amms(market)
-                                        const amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider);
+                                        amm = await getAMMContract(market)
                                         minSizeRequirement = await amm.minSizeRequirement()
                                         fillAmount = minSizeRequirement.mul(3)
                                         maxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
@@ -545,8 +538,7 @@ describe.only("Test validateOrdersAndDetermineFillPrice", function () {
                                         expect(response.encodedOrders[1]).to.equal(encodeLimitOrder(shortOrder))
                                     });
                                     it("returns upperBound as fillPrice if longOrder price is greater than upperBoundPrice", async function () {
-                                        const ammAddress = await clearingHouse.amms(market)
-                                        const amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider);
+                                        amm = await getAMMContract(market)
                                         minSizeRequirement = await amm.minSizeRequirement()
                                         fillAmount = minSizeRequirement.mul(3)
                                         maxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
@@ -596,8 +588,7 @@ describe.only("Test validateOrdersAndDetermineFillPrice", function () {
                                 });
                                 context("When shortOrder was placed in same or earlier block than longOrder", async function () {
                                     it("returns shortOrder's price as fillPrice if shortOrder price is less than upperBoundPrice greater than lowerBoundPrice", async function () {
-                                        const ammAddress = await clearingHouse.amms(market)
-                                        const amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider);
+                                        amm = await getAMMContract(market)
                                         minSizeRequirement = await amm.minSizeRequirement()
                                         fillAmount = minSizeRequirement.mul(3)
                                         maxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
@@ -645,8 +636,7 @@ describe.only("Test validateOrdersAndDetermineFillPrice", function () {
                                         expect(response.encodedOrders[1]).to.equal(encodeLimitOrder(shortOrder))
                                     });
                                     it("returns lowerBoundPrice price as fillPrice if shortOrder's price is less than lowerBoundPrice", async function () {
-                                        const ammAddress = await clearingHouse.amms(market)
-                                        const amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider);
+                                        amm = await getAMMContract(market)
                                         minSizeRequirement = await amm.minSizeRequirement()
                                         fillAmount = minSizeRequirement.mul(3)
                                         maxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
