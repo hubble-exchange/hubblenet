@@ -1,3 +1,3 @@
 {
-    "proposerMinBlockDelay": "0s"
+    "proposerMinBlockDelay": 0
 }
