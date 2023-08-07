@@ -35,7 +35,8 @@ describe('Testing variables read from slots by precompile', function () {
     context("Clearing house contract variables", function () {
         it("should read the correct value from contracts", async function () {
             method = "testing_getClearingHouseVars"
-            response = await makehttpCall(method)
+            params =[ charlie.address ]
+            response = await makehttpCall(method, params)
             result = response.body.result
 
             actualMaintenanceMargin = await clearingHouse.maintenanceMargin()
@@ -66,7 +67,7 @@ describe('Testing variables read from slots by precompile', function () {
             )
             await tx.wait()
 
-            response = await makehttpCall(method)
+            response = await makehttpCall(method, params)
             result = response.body.result
 
             expect(result.maintenance_margin).to.equal(newMaintenanceMargin.toNumber())
