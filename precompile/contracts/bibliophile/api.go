@@ -11,27 +11,52 @@ type VariablesReadFromClearingHouseSlots struct {
 	MaintenanceMargin  *big.Int         `json:"maintenance_margin"`
 	MinAllowableMargin *big.Int         `json:"min_allowable_margin"`
 	Amms               []common.Address `json:"amms"`
+	ActiveMarketsCount int64            `json:"active_markets_count"`
+	NotionalPosition   *big.Int         `json:"notional_position"`
+	Margin             *big.Int         `json:"margin"`
+	TotalFunding       *big.Int         `json:"total_funding"`
+	UnderlyingPrices   []*big.Int       `json:"underlying_prices"`
+	PositionSizes      []*big.Int       `json:"position_sizes"`
 }
 
-func GetClearingHouseVariables(stateDB contract.StateDB) VariablesReadFromClearingHouseSlots {
+func GetClearingHouseVariables(stateDB contract.StateDB, trader common.Address) VariablesReadFromClearingHouseSlots {
 	maintenanceMargin := GetMaintenanceMargin(stateDB)
 	minAllowableMargin := GetMinAllowableMargin(stateDB)
 	amms := GetMarkets(stateDB)
+	activeMarketsCount := GetActiveMarketsCount(stateDB)
+	notionalPositionAndMargin := GetNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{
+		Trader:                 trader,
+		IncludeFundingPayments: false,
+		Mode:                   0,
+	}, big.NewInt(0))
+	totalFunding := GetTotalFunding(stateDB, &trader)
+	positionSizes := getPosSizes(stateDB, &trader)
+	underlyingPrices := GetUnderlyingPrices(stateDB)
+
 	return VariablesReadFromClearingHouseSlots{
 		MaintenanceMargin:  maintenanceMargin,
 		MinAllowableMargin: minAllowableMargin,
 		Amms:               amms,
+		ActiveMarketsCount: activeMarketsCount,
+		NotionalPosition:   notionalPositionAndMargin.NotionalPosition,
+		Margin:             notionalPositionAndMargin.Margin,
+		TotalFunding:       totalFunding,
+		PositionSizes:      positionSizes,
+		UnderlyingPrices:   underlyingPrices,
 	}
 }
 
 type VariablesReadFromMarginAccountSlots struct {
-	Margin *big.Int `json:"margin"`
+	Margin           *big.Int `json:"margin"`
+	NormalizedMargin *big.Int `json:"normalized_margin"`
 }
 
 func GetMarginAccountVariables(stateDB contract.StateDB, collateralIdx *big.Int, trader common.Address) VariablesReadFromMarginAccountSlots {
 	margin := getMargin(stateDB, collateralIdx, trader)
+	normalizedMargin := GetNormalizedMargin(stateDB, trader)
 	return VariablesReadFromMarginAccountSlots{
-		Margin: margin,
+		Margin:           margin,
+		NormalizedMargin: normalizedMargin,
 	}
 }
 
@@ -43,6 +68,8 @@ type VariablesReadFromAMMSlots struct {
 	MaxLiquidationRatio       *big.Int       `json:"max_liquidation_ratio"`
 	MinSizeRequirement        *big.Int       `json:"min_size_requirement"`
 	UnderlyingAssetAddress    common.Address `json:"underlying_asset_address"`
+	UnderlyingPriceForMarket  *big.Int       `json:"underlying_price_for_market"`
+	UnderlyingPrice           *big.Int       `json:"underlying_price"`
 	MaxLiquidationPriceSpread *big.Int       `json:"max_liquidation_price_spread"`
 	RedStoneAdapterAddress    common.Address `json:"red_stone_adapter_address"`
 	RedStoneFeedId            common.Hash    `json:"red_stone_feed_id"`
@@ -66,10 +93,12 @@ func GetAMMVariables(stateDB contract.StateDB, ammAddress common.Address, ammInd
 	cumulativePremiumFraction := GetCumulativePremiumFraction(stateDB, ammAddress)
 	maxOracleSpreadRatio := GetMaxOraclePriceSpread(stateDB, ammIndex)
 	maxLiquidationRatio := GetMaxLiquidationRatio(stateDB, ammIndex)
+	maxLiquidationPriceSpread := GetMaxLiquidationPriceSpread(stateDB, ammIndex)
 	minSizeRequirement := GetMinSizeRequirement(stateDB, ammIndex)
 	oracleAddress := getOracleAddress(stateDB, ammAddress)
 	underlyingAssetAddress := getUnderlyingAssetAddress(stateDB, ammAddress)
-	maxLiquidationPriceSpread := GetMaxLiquidationPriceSpread(stateDB, ammIndex)
+	underlyingPriceForMarket := getUnderlyingPriceForMarket(stateDB, ammIndex)
+	underlyingPrice := getUnderlyingPrice(stateDB, ammAddress)
 	redStoneAdapterAddress := getRedStoneAdapterAddress(stateDB, ammAddress)
 	redStoneFeedId := getRedStoneFeedId(stateDB, ammAddress)
 	return VariablesReadFromAMMSlots{
@@ -80,6 +109,8 @@ func GetAMMVariables(stateDB contract.StateDB, ammAddress common.Address, ammInd
 		MaxLiquidationRatio:       maxLiquidationRatio,
 		MinSizeRequirement:        minSizeRequirement,
 		UnderlyingAssetAddress:    underlyingAssetAddress,
+		UnderlyingPriceForMarket:  underlyingPriceForMarket,
+		UnderlyingPrice:           underlyingPrice,
 		MaxLiquidationPriceSpread: maxLiquidationPriceSpread,
 		RedStoneAdapterAddress:    redStoneAdapterAddress,
 		RedStoneFeedId:            redStoneFeedId,

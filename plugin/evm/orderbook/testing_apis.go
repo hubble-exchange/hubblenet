@@ -28,9 +28,9 @@ func NewTestingAPI(database LimitOrderDatabase, backend *eth.EthAPIBackend, conf
 	}
 }
 
-func (api *TestingAPI) GetClearingHouseVars(ctx context.Context) bibliophile.VariablesReadFromClearingHouseSlots {
+func (api *TestingAPI) GetClearingHouseVars(ctx context.Context, trader common.Address) bibliophile.VariablesReadFromClearingHouseSlots {
 	stateDB, _, _ := api.backend.StateAndHeaderByNumber(ctx, rpc.BlockNumber(api.backend.CurrentBlock().NumberU64()))
-	return bibliophile.GetClearingHouseVariables(stateDB)
+	return bibliophile.GetClearingHouseVariables(stateDB, trader)
 }
 
 func (api *TestingAPI) GetMarginAccountVars(ctx context.Context, collateralIdx *big.Int, traderAddress string) bibliophile.VariablesReadFromMarginAccountSlots {
