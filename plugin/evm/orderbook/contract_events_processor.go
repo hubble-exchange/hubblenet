@@ -496,7 +496,7 @@ func (cep *ContractEventsProcessor) PushtoTraderFeed(events []*types.Log, blockS
 			continue
 		}
 
-		timestamp, _ := args["timestamp"]
+		timestamp := args["timestamp"]
 		timestampInt, _ := timestamp.(*big.Int)
 		traderEvent := TraderEvent{
 			Trader:          trader,
@@ -532,7 +532,7 @@ func (cep *ContractEventsProcessor) PushToMarketFeed(events []*types.Log, blockS
 
 			size := args["baseAsset"].(*big.Int)
 
-			timestamp, _ := args["timestamp"]
+			timestamp := args["timestamp"]
 			timestampInt, _ := timestamp.(*big.Int)
 			marketFeedEvent := MarketFeedEvent{
 				Trader:          trader,
@@ -591,6 +591,5 @@ func (cep *ContractEventsProcessor) updateMetrics(logs []*types.Log) {
 }
 
 func getAddressFromTopicHash(topicHash common.Hash) common.Address {
-	address32 := topicHash.String() // address in 32 bytes with 0 padding
-	return common.HexToAddress(address32[:2] + address32[26:])
+	return common.BytesToAddress(topicHash.Bytes())
 }
