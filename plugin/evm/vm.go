@@ -34,6 +34,7 @@ import (
 	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/peer"
 	"github.com/ava-labs/subnet-evm/plugin/evm/message"
+	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ava-labs/subnet-evm/rpc"
 	statesyncclient "github.com/ava-labs/subnet-evm/sync/client"
 	"github.com/ava-labs/subnet-evm/sync/client/stats"
@@ -626,10 +627,9 @@ func (vm *VM) initBlockBuilding() {
 	vm.gossiper = vm.createGossiper(gossipStats)
 	vm.builder = vm.NewBlockBuilder(vm.toEngine)
 	vm.builder.awaitSubmittedTxs()
-	vm.builder.awaitBuildTimer()
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
 
-	vm.limitOrderProcesser.ListenAndProcessTransactions()
+	vm.limitOrderProcesser.ListenAndProcessTransactions(vm.builder)
 }
 
 // setAppRequestHandlers sets the request handlers for the VM to serve state sync
@@ -687,6 +687,7 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 		}
 
 		buildBlockTimeHistogram.Update(time.Since(start).Microseconds())
+		log.Info("#### buildBlock complete", "duration", time.Since(start))
 	}(time.Now())
 
 	if proposerVMBlockCtx != nil {
@@ -701,11 +702,17 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 		ProposerVMBlockCtx: proposerVMBlockCtx,
 	}
 
-	vm.limitOrderProcesser.RunBuildBlockPipeline()
 	block, err := vm.miner.GenerateBlock(predicateCtx)
 	vm.builder.handleGenerateBlock()
 	if err != nil {
-		log.Error("buildBlock - GenerateBlock failed", "err", err)
+
+		if vm.txPool.GetOrderBookTxsCount() > 0 && strings.Contains(err.Error(), "BLOCK_GAS_TOO_LOW") {
+			// orderbook txs from the validator were part of the block that failed to be generated because of low block gas
+			orderbook.BuildBlockFailedWithLowBlockGasCounter.Inc(1)
+			log.Error("buildBlock - GenerateBlock failed with low gas cost", "err", err, "orderbookTxsCount", vm.txPool.GetOrderBookTxsCount())
+		} else {
+			log.Error("buildBlock - GenerateBlock failed", "err", err)
+		}
 		return nil, err
 	}
 
