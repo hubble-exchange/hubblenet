@@ -120,7 +120,11 @@ func (db *MockLimitOrderDatabase) LoadFromSnapshot(snapshot Snapshot) error {
 	return nil
 }
 
-func (db *MockLimitOrderDatabase) GetOpenOrdersForTrader(trader common.Address) []Order {
+func (db *MockLimitOrderDatabase) GetAllOpenOrdersForTrader(trader common.Address) []Order {
+	return nil
+}
+
+func (db *MockLimitOrderDatabase) GetOpenOrdersForTraderByType(trader common.Address, orderType OrderType) []Order {
 	return nil
 }
 
@@ -148,12 +152,13 @@ func (lotp *MockLimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder Orde
 	return args.Error(0)
 }
 
-func (lotp *MockLimitOrderTxProcessor) PurgeLocalTx() {
+func (lotp *MockLimitOrderTxProcessor) PurgeOrderBookTxs() {
 	lotp.Called()
 }
 
-func (lotp *MockLimitOrderTxProcessor) CheckIfOrderBookContractCall(tx *types.Transaction) bool {
-	return true
+func (lotp *MockLimitOrderTxProcessor) GetOrderBookTxsCount() uint64 {
+	args := lotp.Called()
+	return uint64(args.Int(0))
 }
 
 func (lotp *MockLimitOrderTxProcessor) ExecuteFundingPaymentTx() error {

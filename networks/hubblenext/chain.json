@@ -1,5 +1,4 @@
 {
-  "state-sync-enabled": true,
   "snowman-api-enabled": true,
   "local-txs-enabled": true,
   "priority-regossip-frequency": "1s",

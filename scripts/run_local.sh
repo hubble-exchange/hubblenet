@@ -23,10 +23,12 @@ avalanche subnet create hubblenet --force --custom --genesis genesis.json --vm c
 
 # configure and add chain.json
 avalanche subnet configure hubblenet --chain-config chain.json --config .avalanche-cli.json
+avalanche subnet configure hubblenet --subnet-config subnet.json --config .avalanche-cli.json
+# avalanche subnet configure hubblenet --subnet-config 2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx.json --config .avalanche-cli.json
 # avalanche subnet configure hubblenet --per-node-chain-config node_config.json --config .avalanche-cli.json
 
 # use the same avalanchego version as the one used in subnet-evm
 # use tee to keep showing outut while storing in a var
-OUTPUT=$(avalanche subnet deploy hubblenet -l --avalanchego-version v1.10.1 --config .avalanche-cli.json | tee /dev/fd/2)
+OUTPUT=$(avalanche subnet deploy hubblenet -l --avalanchego-version v1.10.5 --config .avalanche-cli.json | tee /dev/fd/2)
 
 setStatus
