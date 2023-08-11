@@ -84,7 +84,7 @@ async function getDomain() {
 
 async function placeOrder(market, trader, size, price, salt=Date.now(), reduceOnly=false) {
     order = getOrder(market, trader.address, size, price, salt, reduceOnly)
-    placeOrderFromLimitOrder(order, trader)
+    return placeOrderFromLimitOrder(order, trader)
 }
 
 async function placeOrderFromLimitOrder(order, trader) {
@@ -200,7 +200,7 @@ function getRandomSalt() {
 }
 
 async function waitForOrdersToMatch() {
-    await sleep(10)
+    await sleep(5)
 }
 
 async function enableValidatorMatching() {
@@ -229,6 +229,14 @@ async function disableValidatorMatching() {
     await tx.wait()
 }
 
+async function getMakerFee() {
+    return await clearingHouse.makerFee()
+}
+
+async function getTakerFee() {
+    return await clearingHouse.takerFee()
+}
+
 module.exports = {
     _1e6,
     _1e12,
@@ -245,9 +253,11 @@ module.exports = {
     encodeLimitOrderWithType,
     getAMMContract,
     getDomain,
-    getOrder,
     getIOCOrder,
+    getOrder,
+    getMakerFee,
     getRandomSalt,
+    getTakerFee,
     governance,
     hubblebibliophile,
     ioc, 

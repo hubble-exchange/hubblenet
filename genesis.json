@@ -31,9 +31,6 @@
       },
       "jurorConfig": {
         "blockTimestamp": 0
-      },
-      "bibliophileConfig": {
-        "blockTimestamp": 0
       }
     },
     "alloc": {
