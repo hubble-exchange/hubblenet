@@ -284,12 +284,9 @@ func (c *Config) SetDefaults() {
 	c.AllowUnprotectedTxHashes = defaultAllowUnprotectedTxHashes
 	c.AcceptedCacheSize = defaultAcceptedCacheSize
 	c.ValidatorPrivateKeyFile = defaultValidatorPrivateKeyFile
-<<<<<<< HEAD
 	c.TestingApiEnabled = defaultTestingApiEnabled
-=======
 	c.IsValidator = defaultIsValidator
 	c.TradingAPIEnabled = defaultTradingAPIEnabled
->>>>>>> 6b0c1bbb (Add custom chain config fields)
 }
 
 func (d *Duration) UnmarshalJSON(data []byte) (err error) {
