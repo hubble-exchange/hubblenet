@@ -25,16 +25,16 @@ const (
 	// You should set a gas cost for each function in your contract.
 	// Generally, you should not set gas costs very low as this may cause your network to be vulnerable to DoS attacks.
 	// There are some predefined gas costs in contract/utils.go that you can use.
-	GetBaseQuoteGasCost                                  uint64 = 1 /* SET A GAS COST HERE */
-	GetPrevTickGasCost                                   uint64 = 1 /* SET A GAS COST HERE */
-	GetQuoteGasCost                                      uint64 = 1 /* SET A GAS COST HERE */
-	SampleImpactAskGasCost                               uint64 = 1 /* SET A GAS COST HERE */
-	SampleImpactBidGasCost                               uint64 = 1 /* SET A GAS COST HERE */
-	ValidateCancelLimitOrderGasCost                      uint64 = 1 /* SET A GAS COST HERE */
-	ValidateLiquidationOrderAndDetermineFillPriceGasCost uint64 = 1 /* SET A GAS COST HERE */
-	ValidateOrdersAndDetermineFillPriceGasCost           uint64 = 1 /* SET A GAS COST HERE */
-	ValidatePlaceIOCOrdersGasCost                        uint64 = 1 /* SET A GAS COST HERE */
-	ValidatePlaceLimitOrderGasCost                       uint64 = 1 /* SET A GAS COST HERE */
+	GetBaseQuoteGasCost                                  uint64 = 69 /* SET A GAS COST HERE */
+	GetPrevTickGasCost                                   uint64 = 69 /* SET A GAS COST HERE */
+	GetQuoteGasCost                                      uint64 = 69 /* SET A GAS COST HERE */
+	SampleImpactAskGasCost                               uint64 = 69 /* SET A GAS COST HERE */
+	SampleImpactBidGasCost                               uint64 = 69 /* SET A GAS COST HERE */
+	ValidateCancelLimitOrderGasCost                      uint64 = 69 /* SET A GAS COST HERE */
+	ValidateLiquidationOrderAndDetermineFillPriceGasCost uint64 = 69 /* SET A GAS COST HERE */
+	ValidateOrdersAndDetermineFillPriceGasCost           uint64 = 69 /* SET A GAS COST HERE */
+	ValidatePlaceIOCOrdersGasCost                        uint64 = 69 /* SET A GAS COST HERE */
+	ValidatePlaceLimitOrderGasCost                       uint64 = 69 /* SET A GAS COST HERE */
 )
 
 // CUSTOM CODE STARTS HERE
@@ -48,7 +48,7 @@ var (
 // Singleton StatefulPrecompiledContract and signatures.
 var (
 
-	// JurorRawABI contains the raw ABI of Juror2 contract.
+	// JurorRawABI contains the raw ABI of Juror contract.
 	//go:embed contract.abi
 	JurorRawABI string
 
