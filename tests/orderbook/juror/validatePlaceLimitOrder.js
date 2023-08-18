@@ -22,7 +22,7 @@ const {
     waitForOrdersToMatch,
 } = utils
 
-describe.skip("Test validatePlaceLimitOrder", async function () {
+describe.only("Test validatePlaceLimitOrder", async function () {
     market = BigNumber.from(0)
     longBaseAssetQuantity = multiplySize(0.1) 
     shortBaseAssetQuantity = multiplySize(-0.1) 
@@ -34,7 +34,6 @@ describe.skip("Test validatePlaceLimitOrder", async function () {
             longOrder = getOrderV2(market, 0, price, getRandomSalt()) 
             response = await juror.validatePlaceLimitOrder(longOrder, alice.address)
             expect(response.err).to.eq("baseAssetQuantity is zero")
-
             longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
             expect(response.orderHash).to.eq(longOrderHash)
             // expect(response.res.reserveAmount.toNumber()).to.eq(0)
@@ -113,7 +112,7 @@ describe.skip("Test validatePlaceLimitOrder", async function () {
                         // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                         // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
                     })
-                    it.skip("returns error for a shortOrder", async function() {
+                    it.only("returns error for a shortOrder", async function() {
                         let shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt()) 
                         await placeOrderFromLimitOrderV2(shortOrder, bob) 
                         response = await juror.validatePlaceLimitOrder(shortOrder, bob.address)
@@ -121,8 +120,8 @@ describe.skip("Test validatePlaceLimitOrder", async function () {
                         await cancelOrderFromLimitOrderV2(shortOrder, bob)
 
                         expect(response.err).to.eq("order already exists")
-                        // shortOrderHash = await orderBook.getOrderHashV2(shortOrder, alice.address)
-                        // expect(response.orderHash).to.eq(shortOrderHash)
+                        shortOrderHash = await orderBook.getOrderHashV2(shortOrder, bob.address)
+                        expect(response.orderHash).to.eq(shortOrderHash)
                         // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                         // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
                     })

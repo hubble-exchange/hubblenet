@@ -80,6 +80,7 @@ type VariablesReadFromAMMSlots struct {
 	LowerBound                *big.Int       `json:"lower_bound"`
 	MinAllowableMargin        *big.Int       `json:"min_allowable_margin"`
 	TakerFee                  *big.Int       `json:"taker_fee"`
+	TotalMargin               *big.Int       `json:"total_margin"`
 	AvailableMargin           *big.Int       `json:"available_margin"`
 	ReduceOnlyAmount          *big.Int       `json:"reduce_only_amount"`
 	LongOpenOrders            *big.Int       `json:"long_open_orders"`
@@ -116,6 +117,7 @@ func GetAMMVariables(stateDB contract.StateDB, ammAddress common.Address, ammInd
 	upperBound, lowerBound := GetAcceptableBoundsForLiquidation(stateDB, ammIndex)
 	minAllowableMargin := GetMinAllowableMargin(stateDB)
 	takerFee := GetTakerFee(stateDB)
+	totalMargin := GetNormalizedMargin(stateDB, trader)
 	availableMargin := GetAvailableMargin(stateDB, trader)
 	reduceOnlyAmount := getReduceOnlyAmount(stateDB, trader, big.NewInt(ammIndex))
 	longOpenOrdersAmount := getLongOpenOrdersAmount(stateDB, trader, big.NewInt(ammIndex))
@@ -139,6 +141,7 @@ func GetAMMVariables(stateDB contract.StateDB, ammAddress common.Address, ammInd
 		UpperBound:                upperBound,
 		LowerBound:                lowerBound,
 		MinAllowableMargin:        minAllowableMargin,
+		TotalMargin:               totalMargin,
 		AvailableMargin:           availableMargin,
 		TakerFee:                  takerFee,
 		ReduceOnlyAmount:          reduceOnlyAmount,

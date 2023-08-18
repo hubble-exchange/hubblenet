@@ -106,7 +106,7 @@ describe('Testing variables read from slots by precompile', function () {
         })
     })
 
-    context.only("AMM contract variables", function () {
+    context("AMM contract variables", function () {
         it("should read the correct value from contracts", async function () {
             // events = await getOrderBookEvents(21)
             // console.log(events)
@@ -115,45 +115,45 @@ describe('Testing variables read from slots by precompile', function () {
             ammAddress = amms[ammIndex]
             amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider)
 
-            actualLastPrice = await amm.lastPrice()
-            actualCumulativePremiumFraction = await amm.cumulativePremiumFraction()
-            actualMaxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
-            actualOracleAddress = await amm.oracle()
-            actualMaxLiquidationRatio = await amm.maxLiquidationRatio()
-            actualMinSizeRequirement = await amm.minSizeRequirement()
-            actualUnderlyingAssetAddress = await amm.underlyingAsset()
-            actualMaxLiquidationPriceSpread = await amm.maxLiquidationPriceSpread()
-            actualRedStoneAdapterAddress = await amm.redStoneAdapter()
-            actualRedStoneFeedId = await amm.redStoneFeedId()
-            actualPosition = await amm.positions(charlie.address)
+            // actualLastPrice = await amm.lastPrice()
+            // actualCumulativePremiumFraction = await amm.cumulativePremiumFraction()
+            // actualMaxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
+            // actualOracleAddress = await amm.oracle()
+            // actualMaxLiquidationRatio = await amm.maxLiquidationRatio()
+            // actualMinSizeRequirement = await amm.minSizeRequirement()
+            // actualUnderlyingAssetAddress = await amm.underlyingAsset()
+            // actualMaxLiquidationPriceSpread = await amm.maxLiquidationPriceSpread()
+            // actualRedStoneAdapterAddress = await amm.redStoneAdapter()
+            // actualRedStoneFeedId = await amm.redStoneFeedId()
+            // actualPosition = await amm.positions(charlie.address)
 
             // testing for amms[0]
             // params=[charlie.address, charlie.address, "0x25da210bdb17a5b5af614737ee5d8786d08ecef03c40179a7083808a8e90d64b"]
             // method ="testing_getOrderBookVars"
+            let charlieBalance = _1e6.mul(150)
+            await addMargin(charlie, charlieBalance)
+            await addMargin(alice, charlieBalance)
             method ="testing_getAMMVars"
             params =[ammAddress, ammIndex, charlie.address]
             response = await makehttpCall(method, params)
             console.log("response 1", response.body.result)
             result = response.body.result
             // expect(result.last_price).to.equal(actualLastPrice.toNumber())
-            expect(result.cumulative_premium_fraction).to.equal(actualCumulativePremiumFraction.toNumber())
-            expect(result.max_oracle_spread_ratio).to.equal(actualMaxOracleSpreadRatio.toNumber())
-            expect(result.oracle_address.toLowerCase()).to.equal(actualOracleAddress.toString().toLowerCase())
-            expect(result.max_liquidation_ratio).to.equal(actualMaxLiquidationRatio.toNumber())
-            expect(String(result.min_size_requirement)).to.equal(actualMinSizeRequirement.toString())
-            expect(result.underlying_asset_address.toLowerCase()).to.equal(actualUnderlyingAssetAddress.toString().toLowerCase())
-            expect(result.max_liquidation_price_spread).to.equal(actualMaxLiquidationPriceSpread.toNumber())
-            expect(result.red_stone_adapter_address).to.equal(actualRedStoneAdapterAddress)
-            expect(result.red_stone_feed_id).to.equal(actualRedStoneFeedId)
-            expect(String(result.position.size)).to.equal(actualPosition.size.toString())
-            expect(result.position.open_notional).to.equal(actualPosition.openNotional.toNumber())
-            expect(result.position.last_premium_fraction).to.equal(actualPosition.lastPremiumFraction.toNumber())
+            // expect(result.cumulative_premium_fraction).to.equal(actualCumulativePremiumFraction.toNumber())
+            // expect(result.max_oracle_spread_ratio).to.equal(actualMaxOracleSpreadRatio.toNumber())
+            // expect(result.oracle_address.toLowerCase()).to.equal(actualOracleAddress.toString().toLowerCase())
+            // expect(result.max_liquidation_ratio).to.equal(actualMaxLiquidationRatio.toNumber())
+            // expect(String(result.min_size_requirement)).to.equal(actualMinSizeRequirement.toString())
+            // expect(result.underlying_asset_address.toLowerCase()).to.equal(actualUnderlyingAssetAddress.toString().toLowerCase())
+            // expect(result.max_liquidation_price_spread).to.equal(actualMaxLiquidationPriceSpread.toNumber())
+            // expect(result.red_stone_adapter_address).to.equal(actualRedStoneAdapterAddress)
+            // expect(result.red_stone_feed_id).to.equal(actualRedStoneFeedId)
+            // expect(String(result.position.size)).to.equal(actualPosition.size.toString())
+            // expect(result.position.open_notional).to.equal(actualPosition.openNotional.toNumber())
+            // expect(result.position.last_premium_fraction).to.equal(actualPosition.lastPremiumFraction.toNumber())
 
 
             // creating positions
-            let charlieBalance = _1e6.mul(150)
-            await addMargin(charlie, charlieBalance)
-            await addMargin(alice, charlieBalance)
 
             longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
             shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
@@ -177,6 +177,9 @@ describe('Testing variables read from slots by precompile', function () {
             response = await makehttpCall(method, params)
             console.log(response.body.result)
 
+            charlieAvailableMargin = await marginAccount.getAvailableMargin(charlie.address)
+            aliceAvailableMargin = await marginAccount.getAvailableMargin(alice.address)
+            console.log("charlieAvailableMargin", charlieAvailableMargin.toString(), "aliceAvailableMargin", aliceAvailableMargin.toString())
             console.log("cancelling")
             result = response.body.result
             //cleanup

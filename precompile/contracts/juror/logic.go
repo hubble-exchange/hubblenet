@@ -422,8 +422,8 @@ func ValidateCancelLimitOrder(bibliophile b.BibliophileClient, inputStruct *Vali
 }
 
 func ValidatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address) (errorString string, orderHash [32]byte, ammAddress common.Address, reserveAmount *big.Int) {
-	reserveAmount = big.NewInt(0)
 	ammAddress = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
+	reserveAmount = big.NewInt(0)
 	orderHash, err := GetLimitOrderV2Hash(&order, trader)
 	if err != nil {
 		errorString = err.Error()

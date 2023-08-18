@@ -140,6 +140,5 @@ func (b *bibliophileClient) GetReduceOnlyAmount(trader common.Address, ammAddres
 }
 
 func (b *bibliophileClient) GetAvailableMargin(trader common.Address) *big.Int {
-	margin := GetNormalizedMargin(b.accessibleState.GetStateDB(), trader)
-	return margin
+	return GetAvailableMargin(b.accessibleState.GetStateDB(), trader)
 }
