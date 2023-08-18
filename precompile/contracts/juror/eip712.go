@@ -37,6 +37,31 @@ func GetLimitOrderHash(o *orderbook.LimitOrder) (hash common.Hash, err error) {
 	return EncodeForSigning(typedData)
 }
 
+func GetLimitOrderV2Hash(o *ILimitOrderBookOrderV2, trader common.Address) (hash common.Hash, err error) {
+	message := map[string]interface{}{
+		"ammIndex":          o.AmmIndex.String(),
+		"baseAssetQuantity": o.BaseAssetQuantity.String(),
+		"price":             o.Price.String(),
+		"salt":              o.Salt.String(),
+		"reduceOnly":        o.ReduceOnly,
+		"postOnly":          o.PostOnly,
+		"trader":            trader.String(),
+	}
+	domain := apitypes.TypedDataDomain{
+		Name:              "Hubble",
+		Version:           "2.0",
+		ChainId:           math.NewHexOrDecimal256(321123), // @todo chain id from config
+		VerifyingContract: common.HexToAddress(bibliophile.ORDERBOOK_GENESIS_ADDRESS).String(),
+	}
+	typedData := apitypes.TypedData{
+		Types:       Eip712OrderTypes,
+		PrimaryType: "OrderV2",
+		Domain:      domain,
+		Message:     message,
+	}
+	return EncodeForSigning(typedData)
+}
+
 func getIOCOrderHash(o *orderbook.IOCOrder) (hash common.Hash, err error) {
 	message := map[string]interface{}{
 		"orderType":         strconv.FormatUint(uint64(o.OrderType), 10),
@@ -121,6 +146,36 @@ var Eip712OrderTypes = apitypes.Types{
 		{
 			Name: "reduceOnly",
 			Type: "bool",
+		},
+	},
+	"OrderV2": {
+		{
+			Name: "ammIndex",
+			Type: "uint256",
+		},
+		{
+			Name: "baseAssetQuantity",
+			Type: "int256",
+		},
+		{
+			Name: "price",
+			Type: "uint256",
+		},
+		{
+			Name: "salt",
+			Type: "uint256",
+		},
+		{
+			Name: "reduceOnly",
+			Type: "bool",
+		},
+		{
+			Name: "postOnly",
+			Type: "bool",
+		},
+		{
+			Name: "trader",
+			Type: "address",
 		},
 	},
 	"IOCOrder": {

@@ -10,18 +10,19 @@ const {
     _1e6,
     _1e18,
     addMargin,
-    cancelOrderFromLimitOrder,
+    cancelOrderFromLimitOrderV2,
     charlie,
     clearingHouse,
     getIOCOrder,
-    getOrder,
+    getOrderV2,
+    getOrderBookEvents,
     governance,
     ioc,
     marginAccount,
     multiplyPrice,
     multiplySize,
     orderBook,
-    placeOrderFromLimitOrder,
+    placeOrderFromLimitOrderV2,
     placeIOCOrder,
     provider,
     removeAllAvailableMargin,
@@ -105,8 +106,10 @@ describe('Testing variables read from slots by precompile', function () {
         })
     })
 
-    context("AMM contract variables", function () {
+    context.only("AMM contract variables", function () {
         it("should read the correct value from contracts", async function () {
+            // events = await getOrderBookEvents(21)
+            // console.log(events)
             amms = await clearingHouse.getAMMs()
             ammIndex = 0
             ammAddress = amms[ammIndex]
@@ -125,9 +128,12 @@ describe('Testing variables read from slots by precompile', function () {
             actualPosition = await amm.positions(charlie.address)
 
             // testing for amms[0]
+            // params=[charlie.address, charlie.address, "0x25da210bdb17a5b5af614737ee5d8786d08ecef03c40179a7083808a8e90d64b"]
+            // method ="testing_getOrderBookVars"
             method ="testing_getAMMVars"
             params =[ammAddress, ammIndex, charlie.address]
             response = await makehttpCall(method, params)
+            console.log("response 1", response.body.result)
             result = response.body.result
             // expect(result.last_price).to.equal(actualLastPrice.toNumber())
             expect(result.cumulative_premium_fraction).to.equal(actualCumulativePremiumFraction.toNumber())
@@ -155,15 +161,34 @@ describe('Testing variables read from slots by precompile', function () {
             salt = BigNumber.from(Date.now())
             market = BigNumber.from(0)
 
-            longOrder = getOrder(market, charlie.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
-            shortOrder = getOrder(market, alice.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
-            await placeOrderFromLimitOrder(longOrder, charlie)
-            await placeOrderFromLimitOrder(shortOrder, alice)
-            await waitForOrdersToMatch()
+            longOrder = getOrderV2(market, longOrderBaseAssetQuantity, orderPrice.sub(1), salt)
+            shortOrder = getOrderV2(market, shortOrderBaseAssetQuantity, orderPrice.add(1), salt)
+            console.log("short Order", shortOrder.baseAssetQuantity.toString())
+            console.log("placing order")
+            await placeOrderFromLimitOrderV2(longOrder, charlie)
+            await placeOrderFromLimitOrderV2(shortOrder, alice)
 
+            // events = await getOrderBookEvents(74)
+            // console.log(events)
             //testing for charlie
             response = await makehttpCall(method, params)
+            console.log(response.body.result)
+            params =[ammAddress, ammIndex, alice.address]
+            response = await makehttpCall(method, params)
+            console.log(response.body.result)
+
+            console.log("cancelling")
             result = response.body.result
+            //cleanup
+            console.log("cancelling long order")
+            await cancelOrderFromLimitOrderV2(longOrder, charlie)
+            console.log("cancelling short order")
+            await cancelOrderFromLimitOrderV2(shortOrder, alice)
+            // await placeOrderFromLimitOrderV2(longOrder, alice)
+            // await placeOrderFromLimitOrderV2(shortOrder, charlie)
+            // await waitForOrdersToMatch()
+            await removeAllAvailableMargin(charlie)
+            await removeAllAvailableMargin(alice)
             actualPosition = await amm.positions(charlie.address)
             expect(String(result.position.size)).to.equal(longOrderBaseAssetQuantity.toString())
             expect(result.position.open_notional).to.equal(longOrderBaseAssetQuantity.mul(orderPrice).div(_1e18).toNumber())
@@ -177,14 +202,6 @@ describe('Testing variables read from slots by precompile', function () {
             expect(result.position.open_notional).to.equal(shortOrderBaseAssetQuantity.mul(orderPrice).abs().div(_1e18).toNumber())
             expect(result.position.last_premium_fraction).to.equal(actualPosition.lastPremiumFraction.toNumber())
 
-            //cleanup
-            longOrder = getOrder(market, alice.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
-            shortOrder = getOrder(market, charlie.address, shortOrderBaseAssetQuantity, orderPrice, salt, false)
-            await orderBook.connect(charlie).placeOrders([shortOrder])
-            await orderBook.connect(alice).placeOrders([longOrder])
-            await waitForOrdersToMatch()
-            await removeAllAvailableMargin(charlie)
-            await removeAllAvailableMargin(alice)
         })
     })
 
@@ -261,15 +278,15 @@ describe('Testing variables read from slots by precompile', function () {
             //placing order
             txDetails = await placeOrderFromLimitOrder(order, charlie)
             result = (await makehttpCall(method, params)).body.result
+            // cleanup
+            await cancelOrderFromLimitOrder(order, charlie)
+            await removeAllAvailableMargin(charlie)
 
             actualBlockPlaced = txDetails.txReceipt.blockNumber
             expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
             expect(result.order_details.filled_amount).to.eq(0)
             expect(result.order_details.order_status).to.eq(1)
 
-            // cleanup
-            await cancelOrderFromLimitOrder(order, charlie)
-            await removeAllAvailableMargin(charlie)
         })
     })
 })

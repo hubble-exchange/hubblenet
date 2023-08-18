@@ -436,15 +436,16 @@ func validateCancelLimitOrder(accessibleState contract.AccessibleState, caller c
 	if err != nil {
 		return nil, remainingGas, err
 	}
-
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct                           // CUSTOM CODE OPERATES ON INPUT
-	var output ValidateCancelLimitOrderOutput // CUSTOM CODE FOR AN OUTPUT
-	packedOutput, err := PackValidateCancelLimitOrderOutput(output)
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output, err := ValidateCancelLimitOrder(bibliophile, &inputStruct)
 	if err != nil {
 		return nil, remainingGas, err
 	}
-
+	packedOutput, err := PackValidateCancelLimitOrderOutput(*output)
+	if err != nil {
+		return nil, remainingGas, err
+	}
 	// Return the packed output and the remaining gas
 	return packedOutput, remainingGas, nil
 }
@@ -623,6 +624,7 @@ func PackValidatePlaceLimitOrder(inputStruct ValidatePlaceLimitOrderInput) ([]by
 // PackValidatePlaceLimitOrderOutput attempts to pack given [outputStruct] of type ValidatePlaceLimitOrderOutput
 // to conform the ABI outputs.
 func PackValidatePlaceLimitOrderOutput(outputStruct ValidatePlaceLimitOrderOutput) ([]byte, error) {
+	log.Info("validatePlaceLimitOrder", "outputStruct", outputStruct)
 	return JurorABI.PackOutput("validatePlaceLimitOrder",
 		outputStruct.Errs,
 		outputStruct.Orderhash,
@@ -643,8 +645,16 @@ func validatePlaceLimitOrder(accessibleState contract.AccessibleState, caller co
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct                          // CUSTOM CODE OPERATES ON INPUT
-	var output ValidatePlaceLimitOrderOutput // CUSTOM CODE FOR AN OUTPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	errorString, orderHash, ammAddress, reserveAmount := ValidatePlaceLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader)
+	output := ValidatePlaceLimitOrderOutput{
+		Errs:      errorString,
+		Orderhash: orderHash,
+		Res: IOrderHandlerPlaceOrderRes{
+			ReserveAmount: reserveAmount,
+			Amm:           ammAddress,
+		},
+	}
 	packedOutput, err := PackValidatePlaceLimitOrderOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
@@ -660,12 +670,12 @@ func createJurorPrecompile() contract.StatefulPrecompiledContract {
 	var functions []*contract.StatefulPrecompileFunction
 
 	abiFunctionMap := map[string]contract.RunStatefulPrecompileFunc{
-		"getBaseQuote":             getBaseQuote,
-		"getPrevTick":              getPrevTick,
-		"getQuote":                 getQuote,
-		"sampleImpactAsk":          sampleImpactAsk,
-		"sampleImpactBid":          sampleImpactBid,
-		"validateCancelLimitOrder": validateCancelLimitOrder,
+		// "getBaseQuote":             getBaseQuote,
+		"getPrevTick": getPrevTick,
+		// "getQuote":                 getQuote,
+		"sampleImpactAsk":                               sampleImpactAsk,
+		"sampleImpactBid":                               sampleImpactBid,
+		"validateCancelLimitOrder":                      validateCancelLimitOrder,
 		"validateLiquidationOrderAndDetermineFillPrice": validateLiquidationOrderAndDetermineFillPrice,
 		"validateOrdersAndDetermineFillPrice":           validateOrdersAndDetermineFillPrice,
 		"validatePlaceIOCOrders":                        validatePlaceIOCOrders,

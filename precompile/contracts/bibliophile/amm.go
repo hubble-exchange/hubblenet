@@ -20,6 +20,8 @@ const (
 	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 17
 	RED_STONE_ADAPTER_SLOT          int64 = 21
 	RED_STONE_FEED_ID_SLOT          int64 = 22
+	BIDS_HEAD_SLOT                  int64 = 25
+	ASKS_HEAD_SLOT                  int64 = 26
 )
 
 const (
@@ -32,6 +34,14 @@ var (
 )
 
 // AMM State
+func getBidsHead(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(BIDS_HEAD_SLOT))).Big()
+}
+
+func getAsksHead(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(ASKS_HEAD_SLOT))).Big()
+}
+
 func getLastPrice(stateDB contract.StateDB, market common.Address) *big.Int {
 	return stateDB.GetState(market, common.BigToHash(big.NewInt(MARK_PRICE_TWAP_DATA_SLOT))).Big()
 }

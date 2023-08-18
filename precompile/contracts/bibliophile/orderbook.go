@@ -14,7 +14,10 @@ import (
 const (
 	ORDERBOOK_GENESIS_ADDRESS       = "0x0300000000000000000000000000000000000000"
 	ORDER_INFO_SLOT           int64 = 53
+	REDUCE_ONLY_AMOUNT_SLOT   int64 = 55
 	IS_TRADING_AUTHORITY_SLOT int64 = 61
+	LONG_OPEN_ORDERS_SLOT     int64 = 62
+	SHORT_OPEN_ORDERS_SLOT    int64 = 63
 )
 
 var (
@@ -29,6 +32,24 @@ var (
 )
 
 // State Reader
+func getReduceOnlyAmount(stateDB contract.StateDB, address common.Address, ammIndex *big.Int) *big.Int {
+	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(address.Bytes(), 32), common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...))
+	nestedMappingHash := crypto.Keccak256(append(common.LeftPadBytes(ammIndex.Bytes(), 32), baseMappingHash...))
+	return stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BytesToHash(nestedMappingHash)).Big()
+}
+
+func getLongOpenOrdersAmount(stateDB contract.StateDB, address common.Address, ammIndex *big.Int) *big.Int {
+	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(address.Bytes(), 32), common.LeftPadBytes(big.NewInt(LONG_OPEN_ORDERS_SLOT).Bytes(), 32)...))
+	nestedMappingHash := crypto.Keccak256(append(common.LeftPadBytes(ammIndex.Bytes(), 32), baseMappingHash...))
+	return stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BytesToHash(nestedMappingHash)).Big()
+}
+
+func getShortOpenOrdersAmount(stateDB contract.StateDB, address common.Address, ammIndex *big.Int) *big.Int {
+	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(address.Bytes(), 32), common.LeftPadBytes(big.NewInt(SHORT_OPEN_ORDERS_SLOT).Bytes(), 32)...))
+	nestedMappingHash := crypto.Keccak256(append(common.LeftPadBytes(ammIndex.Bytes(), 32), baseMappingHash...))
+	return stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BytesToHash(nestedMappingHash)).Big()
+}
+
 func getBlockPlaced(stateDB contract.StateDB, orderHash [32]byte) *big.Int {
 	orderInfo := orderInfoMappingStorageSlot(orderHash)
 	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(orderInfo)).Bytes())
@@ -47,6 +68,15 @@ func getOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
 func orderInfoMappingStorageSlot(orderHash [32]byte) *big.Int {
 	return new(big.Int).SetBytes(crypto.Keccak256(append(orderHash[:], common.LeftPadBytes(big.NewInt(ORDER_INFO_SLOT).Bytes(), 32)...)))
 }
+
+// func reduceOnlyAmountMappingStorageSlotForTrader(traderAddress common.Address) []byte {
+// 	return crypto.Keccak256(append(traderAddress.Bytes(), common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...))
+// }
+
+// func reduceOnlyAmountMappingStorageSlotForTraderAndMarket(traderAddress common.Address, market uint64) *big.Int {
+// 	x := reduceOnlyAmountMappingStorageSlotForTrader(traderAddress)
+// 	return new(big.Int).SetBytes(crypto.Keccak256(append(x, common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...)))
+// }
 
 func IsTradingAuthority(stateDB contract.StateDB, trader, senderOrSigner common.Address) bool {
 	tradingAuthorityMappingSlot := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(IS_TRADING_AUTHORITY_SLOT).Bytes(), 32)...))

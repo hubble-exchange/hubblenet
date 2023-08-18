@@ -10,9 +10,18 @@ import (
 type BibliophileClient interface {
 	GetSize(market common.Address, trader *common.Address) *big.Int
 	GetMinSizeRequirement(marketId int64) *big.Int
+	GetMinAllowableMargin() *big.Int
+	GetAvailableMargin(trader common.Address) *big.Int
+	GetTakerFee() *big.Int
+	GetBidsHead(market common.Address) *big.Int
+	GetAsksHead(market common.Address) *big.Int
 	GetMarketAddressFromMarketID(marketId int64) common.Address
 	DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error)
 	DetermineLiquidationFillPrice(marketId int64, baseAssetQuantity, price *big.Int) (*big.Int, error)
+	GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int)
+	GetLongOpenOrdersAmount(trader common.Address, ammAddress common.Address, ammIndex *big.Int) *big.Int
+	GetShortOpenOrdersAmount(trader common.Address, ammAddress common.Address, ammIndex *big.Int) *big.Int
+	GetReduceOnlyAmount(trader common.Address, ammAddress common.Address, ammIndex *big.Int) *big.Int
 
 	// Misc
 	IsTradingAuthority(senderOrSigner, trader common.Address) bool
@@ -52,6 +61,14 @@ func (b *bibliophileClient) GetSize(market common.Address, trader *common.Addres
 
 func (b *bibliophileClient) GetMinSizeRequirement(marketId int64) *big.Int {
 	return GetMinSizeRequirement(b.accessibleState.GetStateDB(), marketId)
+}
+
+func (b *bibliophileClient) GetMinAllowableMargin() *big.Int {
+	return GetMinAllowableMargin(b.accessibleState.GetStateDB())
+}
+
+func (b *bibliophileClient) GetTakerFee() *big.Int {
+	return GetTakerFee(b.accessibleState.GetStateDB())
 }
 
 func (b *bibliophileClient) GetMarketAddressFromMarketID(marketID int64) common.Address {
@@ -96,4 +113,33 @@ func (b *bibliophileClient) IsTradingAuthority(trader, senderOrSigner common.Add
 
 func (b *bibliophileClient) IOC_GetExpirationCap() *big.Int {
 	return iocGetExpirationCap(b.accessibleState.GetStateDB())
+}
+
+func (b *bibliophileClient) GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int) {
+	return GetAcceptableBoundsForLiquidation(b.accessibleState.GetStateDB(), marketId)
+}
+
+func (b *bibliophileClient) GetBidsHead(market common.Address) *big.Int {
+	return getBidsHead(b.accessibleState.GetStateDB(), market)
+}
+
+func (b *bibliophileClient) GetAsksHead(market common.Address) *big.Int {
+	return getAsksHead(b.accessibleState.GetStateDB(), market)
+}
+
+func (b *bibliophileClient) GetLongOpenOrdersAmount(trader common.Address, ammAddress common.Address, ammIndex *big.Int) *big.Int {
+	return getLongOpenOrdersAmount(b.accessibleState.GetStateDB(), ammAddress, ammIndex)
+}
+
+func (b *bibliophileClient) GetShortOpenOrdersAmount(trader common.Address, ammAddress common.Address, ammIndex *big.Int) *big.Int {
+	return getShortOpenOrdersAmount(b.accessibleState.GetStateDB(), ammAddress, ammIndex)
+}
+
+func (b *bibliophileClient) GetReduceOnlyAmount(trader common.Address, ammAddress common.Address, ammIndex *big.Int) *big.Int {
+	return getReduceOnlyAmount(b.accessibleState.GetStateDB(), ammAddress, ammIndex)
+}
+
+func (b *bibliophileClient) GetAvailableMargin(trader common.Address) *big.Int {
+	margin := GetNormalizedMargin(b.accessibleState.GetStateDB(), trader)
+	return margin
 }
