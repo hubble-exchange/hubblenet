@@ -20,6 +20,11 @@ const (
 	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 17
 	RED_STONE_ADAPTER_SLOT          int64 = 21
 	RED_STONE_FEED_ID_SLOT          int64 = 22
+	BIDS_SLOT                       int64 = 23
+	ASKS_SLOT                       int64 = 24
+	BIDS_HEAD_SLOT                  int64 = 25
+	ASKS_HEAD_SLOT                  int64 = 26
+	IMPACT_MARGIN_NOTIONAL_SLOT     int64 = 27
 )
 
 const (
@@ -132,6 +137,44 @@ func getOpenNotional(stateDB contract.StateDB, market common.Address, trader *co
 
 func GetLastPremiumFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(2)))).Bytes())
+}
+
+// GetBidsHead returns the greatest bid price for a given market
+func GetBidsHead(stateDB contract.StateDB, market common.Address) *big.Int {
+	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(BIDS_HEAD_SLOT))).Bytes())
+}
+
+// GetAsksHead returns the smallest ask price for a given market
+func GetAsksHead(stateDB contract.StateDB, market common.Address) *big.Int {
+	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(ASKS_HEAD_SLOT))).Bytes())
+}
+
+func bidsStorageSlot(price *big.Int) *big.Int {
+	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(price.Bytes(), 32), common.LeftPadBytes(big.NewInt(BIDS_SLOT).Bytes(), 32)...)))
+}
+
+func asksStorageSlot(price *big.Int) *big.Int {
+	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(price.Bytes(), 32), common.LeftPadBytes(big.NewInt(ASKS_SLOT).Bytes(), 32)...)))
+}
+
+func GetBidSize(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(bidsStorageSlot(price), big.NewInt(1)))).Big()
+}
+
+func GetAskSize(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(asksStorageSlot(price), big.NewInt(1)))).Big()
+}
+
+func GetNextBid(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(bidsStorageSlot(price), big.NewInt(0)))).Big()
+}
+
+func GetNextAsk(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(asksStorageSlot(price), big.NewInt(0)))).Big()
+}
+
+func GetImpactMarginNotional(stateDB contract.StateDB, market common.Address) *big.Int {
+	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(IMPACT_MARGIN_NOTIONAL_SLOT))).Bytes())
 }
 
 // Utils

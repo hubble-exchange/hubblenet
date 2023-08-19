@@ -12,9 +12,11 @@ import (
 )
 
 const (
-	ORDERBOOK_GENESIS_ADDRESS       = "0x0300000000000000000000000000000000000000"
-	ORDER_INFO_SLOT           int64 = 53
-	IS_TRADING_AUTHORITY_SLOT int64 = 61
+	ORDERBOOK_GENESIS_ADDRESS          = "0x0300000000000000000000000000000000000000"
+	ORDER_INFO_SLOT              int64 = 53
+	REDUCE_ONLY_AMOUNT_SLOT      int64 = 55
+	OB_MIN_ALLOWABLE_MARGIN_SLOT int64 = 57
+	IS_TRADING_AUTHORITY_SLOT    int64 = 61
 )
 
 var (
@@ -44,6 +46,15 @@ func getOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
 	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(orderInfo, big.NewInt(3)))).Bytes()).Int64()
 }
 
+func GetOBMinAllowableMargin(stateDB contract.StateDB) *big.Int {
+	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(big.NewInt(OB_MIN_ALLOWABLE_MARGIN_SLOT))).Bytes())
+}
+
+func checkOrderPlaced(stateDB contract.StateDB, orderHash [32]byte) bool {
+	orderInfoSlot := orderInfoMappingStorageSlot(orderHash)
+	return orderInfoSlot != nil
+}
+
 func orderInfoMappingStorageSlot(orderHash [32]byte) *big.Int {
 	return new(big.Int).SetBytes(crypto.Keccak256(append(orderHash[:], common.LeftPadBytes(big.NewInt(ORDER_INFO_SLOT).Bytes(), 32)...)))
 }
@@ -52,6 +63,13 @@ func IsTradingAuthority(stateDB contract.StateDB, trader, senderOrSigner common.
 	tradingAuthorityMappingSlot := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(IS_TRADING_AUTHORITY_SLOT).Bytes(), 32)...))
 	tradingAuthorityMappingSlot = crypto.Keccak256(append(common.LeftPadBytes(senderOrSigner.Bytes(), 32), tradingAuthorityMappingSlot...))
 	return stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BytesToHash(tradingAuthorityMappingSlot)).Big().Cmp(big.NewInt(1)) == 0
+}
+
+func getReduceOnlyAmount(stateDB contract.StateDB, trader common.Address, marketID uint64) *big.Int {
+	marketBig := new(big.Int).SetUint64(marketID)
+	reduceOnlyAmountMappingSlot := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...))
+	marketIDMappingSlot := new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(marketBig.Bytes(), 32), common.LeftPadBytes(reduceOnlyAmountMappingSlot, 32)...)))
+	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(marketIDMappingSlot)).Bytes())
 }
 
 // Business Logic

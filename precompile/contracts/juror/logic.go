@@ -2,6 +2,7 @@ package juror
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -374,4 +375,150 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 		Price:             order.Price,
 		OrderHash:         orderHash,
 	}, nil
+}
+
+func GetPrevTick(bibliophile b.BibliophileClient, input GetPrevTickInput) (*big.Int, error) {
+	bibliophile.GetAccessibleState().GetStateDB()
+	if input.IsBid {
+		bidsHead := bibliophile.GetBidsHead(input.Amm)
+		if input.Tick.Cmp(bidsHead) > 0 {
+			return nil, fmt.Errorf("tick %d is greater than bidsHead %d", input.Tick, bidsHead)
+		}
+		currentTick := bidsHead
+		for {
+			nextTick := bibliophile.GetNextBidPrice(input.Amm, currentTick)
+			if nextTick.Cmp(input.Tick) < 0 {
+				return currentTick, nil
+			}
+			currentTick = nextTick
+		}
+	} else {
+		askHead := bibliophile.GetAsksHead(input.Amm)
+		if input.Tick.Cmp(askHead) < 0 {
+			return nil, fmt.Errorf("tick %d is less than askHead %d", input.Tick, askHead)
+		}
+		currentTick := askHead
+		for {
+			nextTick := bibliophile.GetNextAskPrice(input.Amm, currentTick)
+			if nextTick.Cmp(input.Tick) > 0 {
+				return currentTick, nil
+			}
+			currentTick = nextTick
+		}
+	}
+}
+
+func SampleImpactBid(bibliophile b.BibliophileClient, ammAddress common.Address) *big.Int {
+	impactMarginNotional := bibliophile.GetImpactMarginNotional(ammAddress)
+	accNotional := big.NewInt(0)
+	accBaseQ := big.NewInt(0)
+	tick := bibliophile.GetBidsHead(ammAddress)
+	for {
+		nextTick := bibliophile.GetNextBidPrice(ammAddress, tick)
+		amount := bibliophile.GetBidSize(ammAddress, tick)
+		next := new(big.Int).Add(accNotional, new(big.Int).Div(new(big.Int).Mul(amount, tick), big.NewInt(1e18)))
+		if next.Cmp(impactMarginNotional) > 0 {
+			break
+		}
+		accNotional = next
+		accBaseQ.Add(accBaseQ, amount)
+		if accNotional.Cmp(impactMarginNotional) == 0 {
+			break
+		}
+		tick = nextTick
+	}
+	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e6)), tick)
+	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
+}
+
+func SampleImpactAsk(bibliophile b.BibliophileClient, ammAddress common.Address) *big.Int {
+	impactMarginNotional := bibliophile.GetImpactMarginNotional(ammAddress)
+	accNotional := big.NewInt(0)
+	accBaseQ := big.NewInt(0)
+	tick := bibliophile.GetAsksHead(ammAddress)
+	for {
+		nextTick := bibliophile.GetNextAskPrice(ammAddress, tick)
+		amount := bibliophile.GetAskSize(ammAddress, tick)
+		next := new(big.Int).Add(accNotional, new(big.Int).Div(new(big.Int).Mul(amount, tick), big.NewInt(1e18)))
+		if next.Cmp(impactMarginNotional) > 0 {
+			break
+		}
+		accNotional = next
+		accBaseQ.Add(accBaseQ, amount)
+		if accNotional.Cmp(impactMarginNotional) == 0 {
+			break
+		}
+		tick = nextTick
+	}
+	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e6)), tick)
+	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
+}
+
+func GetQuote(bibliophile b.BibliophileClient, ammAddress common.Address, baseAssetQuantity *big.Int) *big.Int {
+	return new(big.Int).Div(new(big.Int).Mul(new(big.Int).Abs(baseAssetQuantity), bibliophile.GetLastPrice(ammAddress)), big.NewInt(1e18))
+}
+
+func GetBaseQuote(bibliophile b.BibliophileClient, ammAddress common.Address, quoteAssetQuantity *big.Int) *big.Int {
+	isLong := quoteAssetQuantity.Sign() >= 0
+	baseAssetQuantity := new(big.Int).Div(new(big.Int).Mul(quoteAssetQuantity, big.NewInt(1e6)), bibliophile.GetLastPrice(ammAddress))
+	if isLong {
+		return baseAssetQuantity
+	}
+	return new(big.Int).Neg(baseAssetQuantity)
+}
+
+func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, input ValidatePlaceLimitOrderInput) ValidatePlaceLimitOrderOutput {
+	response := ValidatePlaceLimitOrderOutput{}
+	order := input.Order
+
+	ammAddress := bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
+	// this should be retrieved from the orderbook contract because address(this) is part of the mix
+	orderHash, err := GetOrderV2Hash(order, input.Trader)
+	if err != nil {
+		// should never happen
+		response.Errs = err.Error()
+		return response
+	}
+	response.Orderhash = orderHash
+	// orders should be multiple of pre-defined minimum quantity to prevent spam with dust orders
+	// isMultiple also checks order.baseAssetQuantity != 0
+	minSize := bibliophile.GetMinSizeRequirement(order.AmmIndex.Int64())
+	if !isMultiple(order.BaseAssetQuantity, minSize) {
+		response.Errs = "not multiple"
+		return response
+	}
+
+	status := bibliophile.GetOrderStatus(orderHash)
+	// order should not exist in the orderStatus map already
+	if status != 0 {
+		response.Errs = "already exists"
+		return response
+	}
+
+	positionSize := bibliophile.GetSize(ammAddress, &input.Trader)
+
+	if !order.ReduceOnly {
+
+		if (big.NewInt(0).Mul(order.BaseAssetQuantity, positionSize)).Sign() <= 0 && bibliophile.GetReduceOnlyAmount(input.Trader, order.AmmIndex.Uint64()).Sign() != 0 {
+			response.Errs = "open reduce only orders"
+			return response
+		}
+	}
+
+	// INCOMPLETE!!!
+	return response
+}
+
+func GetRequiredMargin(baseAssetQuantity *big.Int, price *big.Int, upperBound *big.Int) *big.Int {
+	if baseAssetQuantity.Sign() < 0 && price.Cmp(upperBound) < 0 {
+		price = upperBound
+	}
+	quoteAsset := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Abs(baseAssetQuantity), price), big.NewInt(1e18))
+	requiredMargin := new(big.Int).Div(new(big.Int).Mul(quoteAsset, big.NewInt(1e6)), big.NewInt(1e6))
+	requiredMargin.Add(requiredMargin, new(big.Int).Div(new(big.Int).Mul(quoteAsset, big.NewInt(1e6)), big.NewInt(1e6)))
+	return requiredMargin
+}
+
+func isMultiple(x, y *big.Int) bool {
+	return new(big.Int).Mod(x, y).Sign() == 0 && x.Sign() != 0
 }

@@ -37,6 +37,10 @@ func GetLimitOrderHash(o *orderbook.LimitOrder) (hash common.Hash, err error) {
 	return EncodeForSigning(typedData)
 }
 
+func GetOrderV2Hash(order ILimitOrderBookOrderV2, trader common.Address) (hash common.Hash, err error) {
+	return common.Hash{}, nil
+}
+
 func getIOCOrderHash(o *orderbook.IOCOrder) (hash common.Hash, err error) {
 	message := map[string]interface{}{
 		"orderType":         strconv.FormatUint(uint64(o.OrderType), 10),

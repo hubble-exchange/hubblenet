@@ -201,10 +201,10 @@ func getBaseQuote(accessibleState contract.AccessibleState, caller common.Addres
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct // CUSTOM CODE OPERATES ON INPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	baseQuote := GetBaseQuote(bibliophile, inputStruct.Amm, inputStruct.QouteQuantity)
 
-	var output *big.Int // CUSTOM CODE FOR AN OUTPUT
-	packedOutput, err := PackGetBaseQuoteOutput(output)
+	packedOutput, err := PackGetBaseQuoteOutput(baseQuote)
 	if err != nil {
 		return nil, remainingGas, err
 	}
@@ -246,10 +246,13 @@ func getPrevTick(accessibleState contract.AccessibleState, caller common.Address
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct // CUSTOM CODE OPERATES ON INPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	prevTick, err := GetPrevTick(bibliophile, inputStruct)
+	if err != nil {
+		return nil, remainingGas, err
+	}
 
-	var output *big.Int // CUSTOM CODE FOR AN OUTPUT
-	packedOutput, err := PackGetPrevTickOutput(output)
+	packedOutput, err := PackGetPrevTickOutput(prevTick)
 	if err != nil {
 		return nil, remainingGas, err
 	}
@@ -291,10 +294,10 @@ func getQuote(accessibleState contract.AccessibleState, caller common.Address, a
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct // CUSTOM CODE OPERATES ON INPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	quote := GetQuote(bibliophile, inputStruct.Amm, inputStruct.BaseAssetQuantity)
 
-	var output *big.Int // CUSTOM CODE FOR AN OUTPUT
-	packedOutput, err := PackGetQuoteOutput(output)
+	packedOutput, err := PackGetQuoteOutput(quote)
 	if err != nil {
 		return nil, remainingGas, err
 	}
@@ -340,9 +343,9 @@ func sampleImpactAsk(accessibleState contract.AccessibleState, caller common.Add
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct // CUSTOM CODE OPERATES ON INPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output := SampleImpactAsk(bibliophile, inputStruct)
 
-	var output *big.Int // CUSTOM CODE FOR AN OUTPUT
 	packedOutput, err := PackSampleImpactAskOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
@@ -382,16 +385,16 @@ func sampleImpactBid(accessibleState contract.AccessibleState, caller common.Add
 	}
 	// attempts to unpack [input] into the arguments to the SampleImpactBidInput.
 	// Assumes that [input] does not include selector
-	// You can use unpacked [inputStruct] variable in your code
-	inputStruct, err := UnpackSampleImpactBidInput(input)
+	// You can use unpacked [ammAddress] variable in your code
+	ammAddress, err := UnpackSampleImpactBidInput(input)
 	if err != nil {
 		return nil, remainingGas, err
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct // CUSTOM CODE OPERATES ON INPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output := SampleImpactBid(bibliophile, ammAddress)
 
-	var output *big.Int // CUSTOM CODE FOR AN OUTPUT
 	packedOutput, err := PackSampleImpactBidOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
