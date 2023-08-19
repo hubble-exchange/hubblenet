@@ -218,6 +218,9 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					blockNumber := logs[0].BlockNumber
 					block := lop.blockChain.GetBlockByHash(logs[0].BlockHash)
 
+					// If n is the block at which snapshot should be saved(n is multiple of [snapshotInterval]), save the snapshot
+					// when logs of block number >= n + 1 are received before applying them in memory db
+
 					blockNumberFloor := ((blockNumber - 1) / snapshotInterval) * snapshotInterval
 					if blockNumberFloor > lop.snapshotSavedBlockNumber {
 						lop.memoryDb.Accept(blockNumberFloor, block.Timestamp())
