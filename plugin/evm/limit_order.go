@@ -39,23 +39,24 @@ type LimitOrderProcesser interface {
 }
 
 type limitOrderProcesser struct {
-	ctx                    *snow.Context
-	mu                     *sync.Mutex
-	txPool                 *txpool.TxPool
-	shutdownChan           <-chan struct{}
-	shutdownWg             *sync.WaitGroup
-	backend                *eth.EthAPIBackend
-	blockChain             *core.BlockChain
-	memoryDb               orderbook.LimitOrderDatabase
-	limitOrderTxProcessor  orderbook.LimitOrderTxProcessor
-	contractEventProcessor *orderbook.ContractEventsProcessor
-	matchingPipeline       *orderbook.MatchingPipeline
-	filterAPI              *filters.FilterAPI
-	hubbleDB               database.Database
-	configService          orderbook.IConfigService
-	blockBuilder           *blockBuilder
-	isValidator            bool
-	tradingAPIEnabled      bool
+	ctx                      *snow.Context
+	mu                       *sync.Mutex
+	txPool                   *txpool.TxPool
+	shutdownChan             <-chan struct{}
+	shutdownWg               *sync.WaitGroup
+	backend                  *eth.EthAPIBackend
+	blockChain               *core.BlockChain
+	memoryDb                 orderbook.LimitOrderDatabase
+	limitOrderTxProcessor    orderbook.LimitOrderTxProcessor
+	contractEventProcessor   *orderbook.ContractEventsProcessor
+	matchingPipeline         *orderbook.MatchingPipeline
+	filterAPI                *filters.FilterAPI
+	hubbleDB                 database.Database
+	configService            orderbook.IConfigService
+	blockBuilder             *blockBuilder
+	isValidator              bool
+	tradingAPIEnabled        bool
+	snapshotSavedBlockNumber uint64
 }
 
 func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string, isValidator bool, tradingAPIEnabled bool) LimitOrderProcesser {
@@ -165,7 +166,7 @@ func (lop *limitOrderProcesser) GetTradingAPI() *orderbook.TradingAPI {
 }
 
 func (lop *limitOrderProcesser) GetTestingAPI() *orderbook.TestingAPI {
-	return orderbook.NewTestingAPI(lop.memoryDb, lop.backend, lop.configService)
+	return orderbook.NewTestingAPI(lop.memoryDb, lop.backend, lop.configService, lop.hubbleDB)
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
@@ -209,7 +210,27 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 				executeFuncAndRecoverPanic(func() {
 					lop.mu.Lock()
 					defer lop.mu.Unlock()
+
+					if len(logs) == 0 {
+						return
+					}
+
+					blockNumber := logs[0].BlockNumber
+					block := lop.blockChain.GetBlockByHash(logs[0].BlockHash)
+
+					blockNumberFloor := ((blockNumber - 1) / snapshotInterval) * snapshotInterval
+					if blockNumberFloor > lop.snapshotSavedBlockNumber {
+						lop.memoryDb.Accept(blockNumberFloor, block.Timestamp())
+						err := lop.saveMemoryDBSnapshot(big.NewInt(int64(blockNumberFloor)))
+						if err != nil {
+							log.Error("Error in saving memory DB snapshot", "err", err)
+						}
+						lop.snapshotSavedBlockNumber = blockNumberFloor
+					}
+
 					lop.contractEventProcessor.ProcessAcceptedEvents(logs, false)
+					lop.memoryDb.Accept(blockNumber, block.Timestamp())
+
 					if lop.tradingAPIEnabled {
 						go lop.contractEventProcessor.PushtoTraderFeed(logs, orderbook.ConfirmationLevelAccepted)
 						go lop.contractEventProcessor.PushToMarketFeed(logs, orderbook.ConfirmationLevelAccepted)
@@ -232,7 +253,14 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 			select {
 			case chainAcceptedEvent := <-chainAcceptedEventCh:
 				executeFuncAndRecoverPanic(func() {
-					lop.handleChainAcceptedEvent(chainAcceptedEvent)
+					lop.mu.Lock()
+					defer lop.mu.Unlock()
+					block := chainAcceptedEvent.Block
+					log.Info("received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
+
+					// update metrics asynchronously
+					go lop.limitOrderTxProcessor.UpdateMetrics(block)
+
 				}, orderbook.HandleChainAcceptedEventPanicMessage, orderbook.HandleChainAcceptedEventPanicsCounter)
 			case <-lop.shutdownChan:
 				return
@@ -258,23 +286,6 @@ func (lop *limitOrderProcesser) runMatchingTimer() {
 			}
 		}
 	}, orderbook.RunMatchingPipelinePanicMessage, orderbook.RunMatchingPipelinePanicsCounter)
-}
-
-func (lop *limitOrderProcesser) handleChainAcceptedEvent(event core.ChainEvent) {
-	lop.mu.Lock()
-	defer lop.mu.Unlock()
-	block := event.Block
-	log.Info("received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
-	lop.memoryDb.Accept(block.NumberU64(), block.Time())
-
-	// update metrics asynchronously
-	go lop.limitOrderTxProcessor.UpdateMetrics(block)
-	if block.NumberU64()%snapshotInterval == 0 {
-		err := lop.saveMemoryDBSnapshot(block.Number())
-		if err != nil {
-			log.Error("Error in saving memory DB snapshot", "err", err)
-		}
-	}
 }
 
 func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint64, err error) {
