@@ -184,7 +184,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					defer lop.mu.Unlock()
 					lop.contractEventProcessor.ProcessEvents(logs)
 					if lop.tradingAPIEnabled {
-						go lop.contractEventProcessor.PushtoTraderFeed(logs, orderbook.ConfirmationLevelHead)
+						go lop.contractEventProcessor.PushToTraderFeed(logs, orderbook.ConfirmationLevelHead)
 						go lop.contractEventProcessor.PushToMarketFeed(logs, orderbook.ConfirmationLevelHead)
 					}
 				}, orderbook.HandleHubbleFeedLogsPanicMessage, orderbook.HandleHubbleFeedLogsPanicsCounter)
@@ -214,6 +214,10 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					if len(logs) == 0 {
 						return
 					}
+					if lop.tradingAPIEnabled {
+						go lop.contractEventProcessor.PushToTraderFeed(logs, orderbook.ConfirmationLevelAccepted)
+						go lop.contractEventProcessor.PushToMarketFeed(logs, orderbook.ConfirmationLevelAccepted)
+					}
 
 					blockNumber := logs[0].BlockNumber
 					block := lop.blockChain.GetBlockByHash(logs[0].BlockHash)
@@ -223,21 +227,16 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 
 					blockNumberFloor := ((blockNumber - 1) / snapshotInterval) * snapshotInterval
 					if blockNumberFloor > lop.snapshotSavedBlockNumber {
-						lop.memoryDb.Accept(blockNumberFloor, block.Timestamp())
+						floorBlock := lop.blockChain.GetBlockByNumber(blockNumberFloor)
+						lop.memoryDb.Accept(blockNumberFloor, floorBlock.Timestamp())
 						err := lop.saveMemoryDBSnapshot(big.NewInt(int64(blockNumberFloor)))
 						if err != nil {
 							log.Error("Error in saving memory DB snapshot", "err", err)
 						}
-						lop.snapshotSavedBlockNumber = blockNumberFloor
 					}
 
 					lop.contractEventProcessor.ProcessAcceptedEvents(logs, false)
 					lop.memoryDb.Accept(blockNumber, block.Timestamp())
-
-					if lop.tradingAPIEnabled {
-						go lop.contractEventProcessor.PushtoTraderFeed(logs, orderbook.ConfirmationLevelAccepted)
-						go lop.contractEventProcessor.PushToMarketFeed(logs, orderbook.ConfirmationLevelAccepted)
-					}
 				}, orderbook.HandleChainAcceptedLogsPanicMessage, orderbook.HandleChainAcceptedLogsPanicsCounter)
 			case <-lop.shutdownChan:
 				return
@@ -327,6 +326,7 @@ func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint
 
 // assumes that memory DB lock is held
 func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.Int) error {
+	start := time.Now()
 	currentHeadBlock := lop.blockChain.CurrentBlock()
 
 	memoryDBCopy, err := lop.memoryDb.GetOrderBookDataCopy()
@@ -372,7 +372,8 @@ func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.In
 		return fmt.Errorf("Error in saving to DB: err=%v", err)
 	}
 
-	log.Info("Saved memory DB snapshot successfully", "accepted block", acceptedBlockNumber, "head block number", currentHeadBlock.Number, "head block hash", currentHeadBlock.Hash())
+	lop.snapshotSavedBlockNumber = acceptedBlockNumber.Uint64()
+	log.Info("Saved memory DB snapshot successfully", "accepted block", acceptedBlockNumber, "head block number", currentHeadBlock.Number, "head block hash", currentHeadBlock.Hash(), "duration", time.Since(start))
 
 	return nil
 }
