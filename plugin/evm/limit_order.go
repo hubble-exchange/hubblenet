@@ -100,19 +100,19 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 	if lastAcceptedBlockNumber.Sign() > 0 {
 		fromBlock := big.NewInt(0)
 
-		// first load the last snapshot containing finalised data till block x and query the logs of [x+1, latest]
-		acceptedBlockNumber, err := lop.loadMemoryDBSnapshot()
-		if err != nil {
-			log.Error("ListenAndProcessTransactions - error in loading snapshot", "err", err)
-		} else {
-			if acceptedBlockNumber > 0 {
-				fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
-				log.Info("ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
-			} else {
-				// not an error, but unlikely after the blockchain is running for some time
-				log.Warn("ListenAndProcessTransactions - no snapshot found")
-			}
-		}
+		// // first load the last snapshot containing finalised data till block x and query the logs of [x+1, latest]
+		// acceptedBlockNumber, err := lop.loadMemoryDBSnapshot()
+		// if err != nil {
+		// 	log.Error("ListenAndProcessTransactions - error in loading snapshot", "err", err)
+		// } else {
+		// 	if acceptedBlockNumber > 0 {
+		// 		fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
+		// 		log.Info("ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
+		// 	} else {
+		// 		// not an error, but unlikely after the blockchain is running for some time
+		// 		log.Warn("ListenAndProcessTransactions - no snapshot found")
+		// 	}
+		// }
 
 		logHandler := log.Root().GetHandler()
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)
