@@ -56,10 +56,11 @@ type limitOrderProcesser struct {
 	blockBuilder             *blockBuilder
 	isValidator              bool
 	tradingAPIEnabled        bool
+	loadFromSnapshotEnabled  bool
 	snapshotSavedBlockNumber uint64
 }
 
-func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string, isValidator bool, tradingAPIEnabled bool) LimitOrderProcesser {
+func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string, config Config) LimitOrderProcesser {
 	log.Info("**** NewLimitOrderProcesser")
 	configService := orderbook.NewConfigService(blockChain)
 	memoryDb := orderbook.NewInMemoryDatabase(configService)
@@ -73,22 +74,23 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 	gob.Register(&orderbook.LimitOrder{})
 	gob.Register(&orderbook.IOCOrder{})
 	return &limitOrderProcesser{
-		ctx:                    ctx,
-		mu:                     &sync.Mutex{},
-		txPool:                 txPool,
-		shutdownChan:           shutdownChan,
-		shutdownWg:             shutdownWg,
-		backend:                backend,
-		memoryDb:               memoryDb,
-		hubbleDB:               hubbleDB,
-		blockChain:             blockChain,
-		limitOrderTxProcessor:  lotp,
-		contractEventProcessor: contractEventProcessor,
-		matchingPipeline:       matchingPipeline,
-		filterAPI:              filterAPI,
-		configService:          configService,
-		isValidator:            isValidator,
-		tradingAPIEnabled:      tradingAPIEnabled,
+		ctx:                     ctx,
+		mu:                      &sync.Mutex{},
+		txPool:                  txPool,
+		shutdownChan:            shutdownChan,
+		shutdownWg:              shutdownWg,
+		backend:                 backend,
+		memoryDb:                memoryDb,
+		hubbleDB:                hubbleDB,
+		blockChain:              blockChain,
+		limitOrderTxProcessor:   lotp,
+		contractEventProcessor:  contractEventProcessor,
+		matchingPipeline:        matchingPipeline,
+		filterAPI:               filterAPI,
+		configService:           configService,
+		isValidator:             config.IsValidator,
+		tradingAPIEnabled:       config.TradingAPIEnabled,
+		loadFromSnapshotEnabled: config.LoadFromSnapshotEnabled,
 	}
 }
 
@@ -100,19 +102,23 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 	if lastAcceptedBlockNumber.Sign() > 0 {
 		fromBlock := big.NewInt(0)
 
-		// // first load the last snapshot containing finalised data till block x and query the logs of [x+1, latest]
-		// acceptedBlockNumber, err := lop.loadMemoryDBSnapshot()
-		// if err != nil {
-		// 	log.Error("ListenAndProcessTransactions - error in loading snapshot", "err", err)
-		// } else {
-		// 	if acceptedBlockNumber > 0 {
-		// 		fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
-		// 		log.Info("ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
-		// 	} else {
-		// 		// not an error, but unlikely after the blockchain is running for some time
-		// 		log.Warn("ListenAndProcessTransactions - no snapshot found")
-		// 	}
-		// }
+		if lop.loadFromSnapshotEnabled {
+			// first load the last snapshot containing finalised data till block x and query the logs of [x+1, latest]
+			acceptedBlockNumber, err := lop.loadMemoryDBSnapshot()
+			if err != nil {
+				log.Error("ListenAndProcessTransactions - error in loading snapshot", "err", err)
+			} else {
+				if acceptedBlockNumber > 0 {
+					fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
+					log.Info("ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
+				} else {
+					// not an error, but unlikely after the blockchain is running for some time
+					log.Warn("ListenAndProcessTransactions - no snapshot found")
+				}
+			}
+		} else {
+			log.Info("ListenAndProcessTransactions - loading from snapshot is disabled")
+		}
 
 		logHandler := log.Root().GetHandler()
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)

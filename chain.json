@@ -9,5 +9,6 @@
   "validator-private-key-file": "/tmp/validator.pk",
   "is-validator": true,
   "trading-api-enabled": true,
-  "testing-api-enabled": true
+  "testing-api-enabled": true,
+  "load-from-snapshot-enabled": true
 }
