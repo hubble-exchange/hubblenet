@@ -110,6 +110,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 			} else {
 				if acceptedBlockNumber > 0 {
 					fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
+					lop.snapshotSavedBlockNumber = acceptedBlockNumber
 					log.Info("#### ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
 				} else {
 					// not an error, but unlikely after the blockchain is running for some time
