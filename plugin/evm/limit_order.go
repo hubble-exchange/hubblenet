@@ -106,22 +106,22 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 			// first load the last snapshot containing finalised data till block x and query the logs of [x+1, latest]
 			acceptedBlockNumber, err := lop.loadMemoryDBSnapshot()
 			if err != nil {
-				log.Error("ListenAndProcessTransactions - error in loading snapshot", "err", err)
+				log.Error("#### ListenAndProcessTransactions - error in loading snapshot", "err", err)
 			} else {
 				if acceptedBlockNumber > 0 {
 					fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
-					log.Info("ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
+					log.Info("#### ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
 				} else {
 					// not an error, but unlikely after the blockchain is running for some time
-					log.Warn("ListenAndProcessTransactions - no snapshot found")
+					log.Warn("#### ListenAndProcessTransactions - no snapshot found")
 				}
 			}
 		} else {
-			log.Info("ListenAndProcessTransactions - loading from snapshot is disabled")
+			log.Info("#### ListenAndProcessTransactions - loading from snapshot is disabled")
 		}
 
 		logHandler := log.Root().GetHandler()
-		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)
+		log.Info("#### ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)
 		JUMP := big.NewInt(3999)
 		toBlock := utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		for toBlock.Cmp(fromBlock) > 0 {
@@ -132,7 +132,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 			lop.contractEventProcessor.ProcessAcceptedEvents(logs, true)
 			lop.memoryDb.Accept(toBlock.Uint64(), 0) // will delete stale orders from the memorydb
 			log.Root().SetHandler(logHandler)
-			log.Info("ListenAndProcessTransactions - processed log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs))
+			log.Info("#### ListenAndProcessTransactions - processed log chunk", "fromBlock", fromBlock.String(), "toBlock", toBlock.String(), "number of logs", len(logs))
 
 			fromBlock = fromBlock.Add(toBlock, big.NewInt(1))
 			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
@@ -143,6 +143,10 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 		// needs to be run everytime as long as the db.UpdatePosition uses configService.GetCumulativePremiumFraction
 		lop.UpdateLastPremiumFractionFromStorage()
 	}
+
+	log.Info("#### Sleeping for 60 sec")
+	time.Sleep(60 * time.Second)
+	log.Info("#### Waking up")
 
 	lop.mu.Unlock()
 
@@ -264,12 +268,30 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					lop.mu.Lock()
 					defer lop.mu.Unlock()
 					block := chainAcceptedEvent.Block
-					log.Info("received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
+					log.Info("#### received ChainAcceptedEvent", "number", block.NumberU64(), "hash", block.Hash().String())
 
 					// update metrics asynchronously
 					go lop.limitOrderTxProcessor.UpdateMetrics(block)
 
 				}, orderbook.HandleChainAcceptedEventPanicMessage, orderbook.HandleChainAcceptedEventPanicsCounter)
+			case <-lop.shutdownChan:
+				return
+			}
+		}
+	}()
+
+	chainHeadEventCh := make(chan core.ChainHeadEvent)
+	chainHeadEventSubscription := lop.backend.SubscribeChainHeadEvent(chainHeadEventCh)
+	lop.shutdownWg.Add(1)
+	go func() {
+		defer lop.shutdownWg.Done()
+		defer chainHeadEventSubscription.Unsubscribe()
+
+		for {
+			select {
+			case chainHeadEvent := <-chainHeadEventCh:
+				block := chainHeadEvent.Block
+				log.Info("#### received ChainHeadEvent", "number", block.NumberU64(), "hash", block.Hash().String())
 			case <-lop.shutdownChan:
 				return
 			}
