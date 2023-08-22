@@ -79,12 +79,13 @@ type IImmediateOrCancelOrdersOrder struct {
 
 // ILimitOrderBookOrderV2 is an auto generated low-level Go binding around an user-defined struct.
 type ILimitOrderBookOrderV2 struct {
-	AmmIndex          *big.Int
-	BaseAssetQuantity *big.Int
-	Price             *big.Int
-	Salt              *big.Int
-	ReduceOnly        bool
-	PostOnly          bool
+	AmmIndex          *big.Int       `json: "ammIndex"`
+	Trader            common.Address `json: "trader"`
+	BaseAssetQuantity *big.Int       `json: "baseAssetQuantity"`
+	Price             *big.Int       `json: "price"`
+	Salt              *big.Int       `json: "salt"`
+	ReduceOnly        bool           `json: "reduceOnly"`
+	PostOnly          bool           `json: "postOnly"`
 }
 
 // IOrderHandlerCancelOrderRes is an auto generated low-level Go binding around an user-defined struct.
@@ -646,16 +647,8 @@ func validatePlaceLimitOrder(accessibleState contract.AccessibleState, caller co
 
 	// CUSTOM CODE STARTS HERE
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
-	errorString, orderHash, ammAddress, reserveAmount := ValidatePlaceLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader)
-	output := ValidatePlaceLimitOrderOutput{
-		Errs:      errorString,
-		Orderhash: orderHash,
-		Res: IOrderHandlerPlaceOrderRes{
-			ReserveAmount: reserveAmount,
-			Amm:           ammAddress,
-		},
-	}
-	packedOutput, err := PackValidatePlaceLimitOrderOutput(output)
+	output := ValidatePlaceLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader)
+	packedOutput, err := PackValidatePlaceLimitOrderOutput(*output)
 	if err != nil {
 		return nil, remainingGas, err
 	}

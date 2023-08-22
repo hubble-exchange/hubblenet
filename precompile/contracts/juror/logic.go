@@ -391,7 +391,7 @@ func ValidateCancelLimitOrder(bibliophile b.BibliophileClient, inputStruct *Vali
 	order := inputStruct.Order
 	trader := inputStruct.Trader
 	assertLowMargin := inputStruct.AssertLowMargin
-	orderHash, err := GetLimitOrderV2Hash(&order, trader)
+	orderHash, err := GetLimitOrderV2Hash(&order)
 	if err != nil {
 		output.Err = err.Error()
 		return
@@ -421,43 +421,53 @@ func ValidateCancelLimitOrder(bibliophile b.BibliophileClient, inputStruct *Vali
 	return
 }
 
-func ValidatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address) (errorString string, orderHash [32]byte, ammAddress common.Address, reserveAmount *big.Int) {
-	ammAddress = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
+func ValidatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address) *ValidatePlaceLimitOrderOutput {
+	errorString, orderHash, ammAddress, reserveAmount := validatePlaceLimitOrderV2(bibliophile, order, trader)
+	return &ValidatePlaceLimitOrderOutput{
+		Errs:      errorString,
+		Orderhash: orderHash,
+		Res: IOrderHandlerPlaceOrderRes{
+			Amm:           ammAddress,
+			ReserveAmount: reserveAmount,
+		},
+	}
+}
+
+func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address) (errorString string, orderHash [32]byte, ammAddress common.Address, reserveAmount *big.Int) {
 	reserveAmount = big.NewInt(0)
-	orderHash, err := GetLimitOrderV2Hash(&order, trader)
+	orderHash, err := GetLimitOrderV2Hash(&order)
 	if err != nil {
 		errorString = err.Error()
 		return
 	}
+	ammAddress = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
 	if order.BaseAssetQuantity.Sign() == 0 {
 		errorString = ErrBaseAssetQuantityZero.Error()
 		return
 	}
 	minSize := bibliophile.GetMinSizeRequirement(order.AmmIndex.Int64())
-	log.Info("vipul", "minSize", minSize)
-	if new(big.Int).Mod(order.BaseAssetQuantity, minSize).Cmp(big.NewInt(0)) != 0 {
+	if new(big.Int).Mod(order.BaseAssetQuantity, minSize).Sign() != 0 {
 		errorString = ErrNotMultiple.Error()
 		return
 	}
 	status := OrderStatus(bibliophile.GetOrderStatus(orderHash))
-	log.Info("vipul", "status", status)
 	if status != Invalid {
 		errorString = ErrOrderAlreadyExists.Error()
 		return
 	}
-	posSize := bibliophile.GetSize(ammAddress, &trader)
 	var orderSide Side = Side(Long)
 	if order.BaseAssetQuantity.Sign() == -1 {
 		orderSide = Side(Short)
 	}
-	reduceOnlyAmount := bibliophile.GetReduceOnlyAmount(trader, ammAddress, order.AmmIndex)
+	posSize := bibliophile.GetSize(ammAddress, &trader)
+	reduceOnlyAmount := bibliophile.GetReduceOnlyAmount(trader, order.AmmIndex)
 	if order.ReduceOnly {
 		if !reducesPosition(posSize, order.BaseAssetQuantity) {
 			errorString = ErrReduceOnlyBaseAssetQuantityInvalid.Error()
 			return
 		}
-		longOrdersAmount := bibliophile.GetLongOpenOrdersAmount(trader, ammAddress, order.AmmIndex)
-		shortOrdersAmount := bibliophile.GetShortOpenOrdersAmount(trader, ammAddress, order.AmmIndex)
+		longOrdersAmount := bibliophile.GetLongOpenOrdersAmount(trader, order.AmmIndex)
+		shortOrdersAmount := bibliophile.GetShortOpenOrdersAmount(trader, order.AmmIndex)
 		if (orderSide == Side(Long) && longOrdersAmount.Sign() != 0) || (orderSide == Side(Short) && shortOrdersAmount.Sign() != 0) {
 			errorString = ErrOpenOrders.Error()
 			return
@@ -466,16 +476,13 @@ func ValidatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrde
 			errorString = ErrNetReduceOnlyAmountExceeded.Error()
 			return
 		}
-	}
-	if !order.ReduceOnly {
+	} else {
 		if reduceOnlyAmount.Sign() != 0 && order.BaseAssetQuantity.Sign() != posSize.Sign() {
 			errorString = ErrOpenReduceOnlyOrders.Error()
 			return
 		}
-		// Implement GetAvailable Margin
 		availableMargin := bibliophile.GetAvailableMargin(trader)
 		requiredMargin := getRequiredMargin(bibliophile, order)
-		log.Info("vipul", "availableMargin", availableMargin, "requiredMargin", requiredMargin)
 		if availableMargin.Cmp(requiredMargin) == -1 {
 			errorString = ErrInsufficientMargin.Error()
 			return
@@ -486,7 +493,6 @@ func ValidatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrde
 		asksHead := bibliophile.GetAsksHead(ammAddress)
 		bidsHead := bibliophile.GetBidsHead(ammAddress)
 		if (orderSide == Side(Short) && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == Side(Long) && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
-			log.Info("hello", "order", order, "asksHead", asksHead)
 			errorString = ErrCrossingMarket.Error()
 			return
 		}

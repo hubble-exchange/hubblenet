@@ -32,20 +32,20 @@ var (
 )
 
 // State Reader
-func getReduceOnlyAmount(stateDB contract.StateDB, address common.Address, ammIndex *big.Int) *big.Int {
-	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(address.Bytes(), 32), common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...))
+func getReduceOnlyAmount(stateDB contract.StateDB, trader common.Address, ammIndex *big.Int) *big.Int {
+	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...))
+	nestedMappingHash := crypto.Keccak256(append(common.LeftPadBytes(ammIndex.Bytes(), 32), baseMappingHash...))
+	return fromTwosComplement(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BytesToHash(nestedMappingHash)).Bytes())
+}
+
+func getLongOpenOrdersAmount(stateDB contract.StateDB, trader common.Address, ammIndex *big.Int) *big.Int {
+	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(LONG_OPEN_ORDERS_SLOT).Bytes(), 32)...))
 	nestedMappingHash := crypto.Keccak256(append(common.LeftPadBytes(ammIndex.Bytes(), 32), baseMappingHash...))
 	return stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BytesToHash(nestedMappingHash)).Big()
 }
 
-func getLongOpenOrdersAmount(stateDB contract.StateDB, address common.Address, ammIndex *big.Int) *big.Int {
-	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(address.Bytes(), 32), common.LeftPadBytes(big.NewInt(LONG_OPEN_ORDERS_SLOT).Bytes(), 32)...))
-	nestedMappingHash := crypto.Keccak256(append(common.LeftPadBytes(ammIndex.Bytes(), 32), baseMappingHash...))
-	return stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BytesToHash(nestedMappingHash)).Big()
-}
-
-func getShortOpenOrdersAmount(stateDB contract.StateDB, address common.Address, ammIndex *big.Int) *big.Int {
-	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(address.Bytes(), 32), common.LeftPadBytes(big.NewInt(SHORT_OPEN_ORDERS_SLOT).Bytes(), 32)...))
+func getShortOpenOrdersAmount(stateDB contract.StateDB, trader common.Address, ammIndex *big.Int) *big.Int {
+	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(SHORT_OPEN_ORDERS_SLOT).Bytes(), 32)...))
 	nestedMappingHash := crypto.Keccak256(append(common.LeftPadBytes(ammIndex.Bytes(), 32), baseMappingHash...))
 	return stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BytesToHash(nestedMappingHash)).Big()
 }
