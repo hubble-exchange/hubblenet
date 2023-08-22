@@ -386,38 +386,47 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 	}, nil
 }
 
-func ValidateCancelLimitOrder(bibliophile b.BibliophileClient, inputStruct *ValidateCancelLimitOrderInput) (output *ValidateCancelLimitOrderOutput, err error) {
-	output = &ValidateCancelLimitOrderOutput{}
-	order := inputStruct.Order
-	trader := inputStruct.Trader
-	assertLowMargin := inputStruct.AssertLowMargin
-	orderHash, err := GetLimitOrderV2Hash(&order)
-	if err != nil {
-		output.Err = err.Error()
+func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *ValidateCancelLimitOrderInput) *ValidateCancelLimitOrderOutput {
+	errorString, orderHash, ammAddress, unfilledAmount := validateCancelLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader, inputStruct.AssertLowMargin)
+	return &ValidateCancelLimitOrderOutput{
+		Err:       errorString,
+		OrderHash: orderHash,
+		Res: IOrderHandlerCancelOrderRes{
+			Amm:            ammAddress,
+			UnfilledAmount: unfilledAmount,
+		},
+	}
+}
+
+func validateCancelLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address, assertLowMargin bool) (errorString string, orderHash [32]byte, ammAddress common.Address, unfilledAmount *big.Int) {
+	unfilledAmount = big.NewInt(0)
+	if order.Trader != trader {
+		errorString = "trader mismatch"
 		return
 	}
-	output.OrderHash = orderHash
+	orderHash, err := GetLimitOrderV2Hash(&order)
+	if err != nil {
+		errorString = err.Error()
+		return
+	}
 	switch status := OrderStatus(bibliophile.GetOrderStatus(orderHash)); status {
 	case Invalid:
-		output.Err = "Invalid"
+		errorString = "Invalid"
 		return
 	case Filled:
-		output.Err = "Invalid"
+		errorString = "Filled"
 		return
 	case Cancelled:
-		output.Err = "Cancelled"
+		errorString = "Cancelled"
 		return
 	default:
 	}
-	if assertLowMargin && bibliophile.GetAvailableMargin(trader).Sign() != 1 {
-		output.Err = "Not Low Margin"
+	if assertLowMargin && bibliophile.GetAvailableMargin(trader).Sign() != -1 {
+		errorString = "Not Low Margin"
+		return
 	}
-	unfilledAmount := big.NewInt(0).Sub(order.BaseAssetQuantity, bibliophile.GetOrderFilledAmount(orderHash))
-	ammAddress := bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
-	output.Res = IOrderHandlerCancelOrderRes{
-		UnfilledAmount: unfilledAmount,
-		Amm:            ammAddress,
-	}
+	unfilledAmount = big.NewInt(0).Sub(order.BaseAssetQuantity, bibliophile.GetOrderFilledAmount(orderHash))
+	ammAddress = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
 	return
 }
 
