@@ -477,16 +477,6 @@ func GetBaseQuote(bibliophile b.BibliophileClient, ammAddress common.Address, qu
 	return new(big.Int).Neg(baseAssetQuantity)
 }
 
-func GetRequiredMargin(baseAssetQuantity *big.Int, price *big.Int, upperBound *big.Int) *big.Int {
-	if baseAssetQuantity.Sign() < 0 && price.Cmp(upperBound) < 0 {
-		price = upperBound
-	}
-	quoteAsset := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Abs(baseAssetQuantity), price), big.NewInt(1e18))
-	requiredMargin := new(big.Int).Div(new(big.Int).Mul(quoteAsset, big.NewInt(1e6)), big.NewInt(1e6))
-	requiredMargin.Add(requiredMargin, new(big.Int).Div(new(big.Int).Mul(quoteAsset, big.NewInt(1e6)), big.NewInt(1e6)))
-	return requiredMargin
-}
-
 func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *ValidateCancelLimitOrderInput) *ValidateCancelLimitOrderOutput {
 	errorString, orderHash, ammAddress, unfilledAmount := validateCancelLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader, inputStruct.AssertLowMargin)
 	return &ValidateCancelLimitOrderOutput{
