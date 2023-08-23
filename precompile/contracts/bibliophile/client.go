@@ -23,11 +23,9 @@ type BibliophileClient interface {
 	GetReduceOnlyAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	IsTradingAuthority(senderOrSigner, trader common.Address) bool
 	// Limit Order
-	CheckOrderPlaced(orderHash [32]byte) bool
 	GetBlockPlaced(orderHash [32]byte) *big.Int
 	GetOrderFilledAmount(orderHash [32]byte) *big.Int
 	GetOrderStatus(orderHash [32]byte) int64
-	GetOBMinAllowableMargin() *big.Int
 	// IOC Order
 	IOC_GetBlockPlaced(orderHash [32]byte) *big.Int
 	IOC_GetOrderFilledAmount(orderHash [32]byte) *big.Int
@@ -92,10 +90,6 @@ func (b *bibliophileClient) DetermineLiquidationFillPrice(marketId int64, baseAs
 	return DetermineLiquidationFillPrice(b.accessibleState.GetStateDB(), marketId, baseAssetQuantity, price)
 }
 
-func (b *bibliophileClient) CheckOrderPlaced(orderHash [32]byte) bool {
-	return checkOrderPlaced(b.accessibleState.GetStateDB(), orderHash)
-}
-
 func (b *bibliophileClient) GetBlockPlaced(orderHash [32]byte) *big.Int {
 	return getBlockPlaced(b.accessibleState.GetStateDB(), orderHash)
 }
@@ -106,10 +100,6 @@ func (b *bibliophileClient) GetOrderFilledAmount(orderHash [32]byte) *big.Int {
 
 func (b *bibliophileClient) GetOrderStatus(orderHash [32]byte) int64 {
 	return getOrderStatus(b.accessibleState.GetStateDB(), orderHash)
-}
-
-func (b *bibliophileClient) GetOBMinAllowableMargin() *big.Int {
-	return GetOBMinAllowableMargin(b.accessibleState.GetStateDB())
 }
 
 func (b *bibliophileClient) IOC_GetBlockPlaced(orderHash [32]byte) *big.Int {

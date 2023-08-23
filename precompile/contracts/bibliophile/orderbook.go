@@ -66,15 +66,6 @@ func getOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
 	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(orderInfo, big.NewInt(3)))).Bytes()).Int64()
 }
 
-func GetOBMinAllowableMargin(stateDB contract.StateDB) *big.Int {
-	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(big.NewInt(OB_MIN_ALLOWABLE_MARGIN_SLOT))).Bytes())
-}
-
-func checkOrderPlaced(stateDB contract.StateDB, orderHash [32]byte) bool {
-	orderInfoSlot := orderInfoMappingStorageSlot(orderHash)
-	return orderInfoSlot != nil
-}
-
 func orderInfoMappingStorageSlot(orderHash [32]byte) *big.Int {
 	return new(big.Int).SetBytes(crypto.Keccak256(append(orderHash[:], common.LeftPadBytes(big.NewInt(ORDER_INFO_SLOT).Bytes(), 32)...)))
 }
