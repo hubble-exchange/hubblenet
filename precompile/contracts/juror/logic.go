@@ -61,11 +61,21 @@ var (
 	ErrNoMatch           = errors.New("OB_orders_do_not_match")
 	ErrNotMultiple       = errors.New("not multiple")
 
-	ErrInvalidOrder             = errors.New("invalid order")
-	ErrTooLow                   = errors.New("OB_long_order_price_too_low")
-	ErrTooHigh                  = errors.New("OB_short_order_price_too_high")
-	ErrOverFill                 = errors.New("overfill")
-	ErrReduceOnlyAmountExceeded = errors.New("not reducing pos")
+	ErrInvalidOrder                       = errors.New("invalid order")
+	ErrCancelledOrder                     = errors.New("cancelled order")
+	ErrFilledOrder                        = errors.New("filled order")
+	ErrOrderAlreadyExists                 = errors.New("order already exists")
+	ErrTooLow                             = errors.New("OB_long_order_price_too_low")
+	ErrTooHigh                            = errors.New("OB_short_order_price_too_high")
+	ErrOverFill                           = errors.New("overfill")
+	ErrReduceOnlyAmountExceeded           = errors.New("not reducing pos")
+	ErrBaseAssetQuantityZero              = errors.New("baseAssetQuantity is zero")
+	ErrReduceOnlyBaseAssetQuantityInvalid = errors.New("reduce only order must reduce position")
+	ErrNetReduceOnlyAmountExceeded        = errors.New("net reduce only amount exceeded")
+	ErrInsufficientMargin                 = errors.New("insufficient margin")
+	ErrCrossingMarket                     = errors.New("crossing market")
+	ErrOpenOrders                         = errors.New("open orders")
+	ErrOpenReduceOnlyOrders               = errors.New("open reduce only orders")
 )
 
 // Business Logic
@@ -374,4 +384,150 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 		Price:             order.Price,
 		OrderHash:         orderHash,
 	}, nil
+}
+
+func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *ValidateCancelLimitOrderInput) *ValidateCancelLimitOrderOutput {
+	errorString, orderHash, ammAddress, unfilledAmount := validateCancelLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader, inputStruct.AssertLowMargin)
+	return &ValidateCancelLimitOrderOutput{
+		Err:       errorString,
+		OrderHash: orderHash,
+		Res: IOrderHandlerCancelOrderRes{
+			Amm:            ammAddress,
+			UnfilledAmount: unfilledAmount,
+		},
+	}
+}
+
+func validateCancelLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address, assertLowMargin bool) (errorString string, orderHash [32]byte, ammAddress common.Address, unfilledAmount *big.Int) {
+	unfilledAmount = big.NewInt(0)
+	if order.Trader != trader {
+		errorString = "trader mismatch"
+		return
+	}
+	orderHash, err := GetLimitOrderV2Hash(&order)
+	if err != nil {
+		errorString = err.Error()
+		return
+	}
+	switch status := OrderStatus(bibliophile.GetOrderStatus(orderHash)); status {
+	case Invalid:
+		errorString = "Invalid"
+		return
+	case Filled:
+		errorString = "Filled"
+		return
+	case Cancelled:
+		errorString = "Cancelled"
+		return
+	default:
+	}
+	if assertLowMargin && bibliophile.GetAvailableMargin(trader).Sign() != -1 {
+		errorString = "Not Low Margin"
+		return
+	}
+	unfilledAmount = big.NewInt(0).Sub(order.BaseAssetQuantity, bibliophile.GetOrderFilledAmount(orderHash))
+	ammAddress = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
+	return
+}
+
+func ValidatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address) *ValidatePlaceLimitOrderOutput {
+	errorString, orderHash, ammAddress, reserveAmount := validatePlaceLimitOrderV2(bibliophile, order, trader)
+	return &ValidatePlaceLimitOrderOutput{
+		Errs:      errorString,
+		Orderhash: orderHash,
+		Res: IOrderHandlerPlaceOrderRes{
+			Amm:           ammAddress,
+			ReserveAmount: reserveAmount,
+		},
+	}
+}
+
+func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address) (errorString string, orderHash [32]byte, ammAddress common.Address, reserveAmount *big.Int) {
+	reserveAmount = big.NewInt(0)
+	orderHash, err := GetLimitOrderV2Hash(&order)
+	if err != nil {
+		errorString = err.Error()
+		return
+	}
+	ammAddress = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
+	if order.BaseAssetQuantity.Sign() == 0 {
+		errorString = ErrBaseAssetQuantityZero.Error()
+		return
+	}
+	minSize := bibliophile.GetMinSizeRequirement(order.AmmIndex.Int64())
+	if new(big.Int).Mod(order.BaseAssetQuantity, minSize).Sign() != 0 {
+		errorString = ErrNotMultiple.Error()
+		return
+	}
+	status := OrderStatus(bibliophile.GetOrderStatus(orderHash))
+	if status != Invalid {
+		errorString = ErrOrderAlreadyExists.Error()
+		return
+	}
+	var orderSide Side = Side(Long)
+	if order.BaseAssetQuantity.Sign() == -1 {
+		orderSide = Side(Short)
+	}
+	posSize := bibliophile.GetSize(ammAddress, &trader)
+	reduceOnlyAmount := bibliophile.GetReduceOnlyAmount(trader, order.AmmIndex)
+	if order.ReduceOnly {
+		if !reducesPosition(posSize, order.BaseAssetQuantity) {
+			errorString = ErrReduceOnlyBaseAssetQuantityInvalid.Error()
+			return
+		}
+		longOrdersAmount := bibliophile.GetLongOpenOrdersAmount(trader, order.AmmIndex)
+		shortOrdersAmount := bibliophile.GetShortOpenOrdersAmount(trader, order.AmmIndex)
+		if (orderSide == Side(Long) && longOrdersAmount.Sign() != 0) || (orderSide == Side(Short) && shortOrdersAmount.Sign() != 0) {
+			errorString = ErrOpenOrders.Error()
+			return
+		}
+		if big.NewInt(0).Abs(big.NewInt(0).Add(reduceOnlyAmount, order.BaseAssetQuantity)).Cmp(big.NewInt(0).Abs(posSize)) == 1 {
+			errorString = ErrNetReduceOnlyAmountExceeded.Error()
+			return
+		}
+	} else {
+		if reduceOnlyAmount.Sign() != 0 && order.BaseAssetQuantity.Sign() != posSize.Sign() {
+			errorString = ErrOpenReduceOnlyOrders.Error()
+			return
+		}
+		availableMargin := bibliophile.GetAvailableMargin(trader)
+		requiredMargin := getRequiredMargin(bibliophile, order)
+		if availableMargin.Cmp(requiredMargin) == -1 {
+			errorString = ErrInsufficientMargin.Error()
+			return
+		}
+		reserveAmount = requiredMargin
+	}
+	if order.PostOnly {
+		asksHead := bibliophile.GetAsksHead(ammAddress)
+		bidsHead := bibliophile.GetBidsHead(ammAddress)
+		if (orderSide == Side(Short) && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == Side(Long) && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
+			errorString = ErrCrossingMarket.Error()
+			return
+		}
+	}
+	return
+}
+
+func reducesPosition(positionSize *big.Int, baseAssetQuantity *big.Int) bool {
+	if positionSize.Sign() == 1 && baseAssetQuantity.Sign() == -1 && big.NewInt(0).Add(positionSize, baseAssetQuantity).Sign() != -1 {
+		return true
+	}
+	if positionSize.Sign() == -1 && baseAssetQuantity.Sign() == 1 && big.NewInt(0).Add(positionSize, baseAssetQuantity).Sign() != 1 {
+		return true
+	}
+	return false
+}
+
+func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2) *big.Int {
+	price := order.Price
+	upperBound, _ := bibliophile.GetUpperAndLowerBoundForMarket(order.AmmIndex.Int64())
+	if order.BaseAssetQuantity.Sign() == -1 && order.Price.Cmp(upperBound) == -1 {
+		price = upperBound
+	}
+	quoteAsset := big.NewInt(0).Abs(big.NewInt(0).Div(new(big.Int).Mul(order.BaseAssetQuantity, price), big.NewInt(1e18)))
+	requiredMargin := big.NewInt(0).Div(big.NewInt(0).Mul(bibliophile.GetMinAllowableMargin(), quoteAsset), big.NewInt(1e6))
+	takerFee := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, bibliophile.GetTakerFee()), big.NewInt(1e6))
+	requiredMargin.Add(requiredMargin, takerFee)
+	return requiredMargin
 }
