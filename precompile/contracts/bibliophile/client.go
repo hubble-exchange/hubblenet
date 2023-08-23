@@ -22,6 +22,8 @@ type BibliophileClient interface {
 	GetShortOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	GetReduceOnlyAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	IsTradingAuthority(senderOrSigner, trader common.Address) bool
+	GetMinAllowableMarginOB() *big.Int
+	GetTakerFeeOB() *big.Int
 	// Limit Order
 	GetBlockPlaced(orderHash [32]byte) *big.Int
 	GetOrderFilledAmount(orderHash [32]byte) *big.Int
@@ -168,6 +170,14 @@ func (b *bibliophileClient) GetShortOpenOrdersAmount(trader common.Address, ammI
 
 func (b *bibliophileClient) GetReduceOnlyAmount(trader common.Address, ammIndex *big.Int) *big.Int {
 	return getReduceOnlyAmount(b.accessibleState.GetStateDB(), trader, ammIndex)
+}
+
+func (b *bibliophileClient) GetMinAllowableMarginOB() *big.Int {
+	return getMinAllowableMarginOB(b.accessibleState.GetStateDB())
+}
+
+func (b *bibliophileClient) GetTakerFeeOB() *big.Int {
+	return getTakerFeeOB(b.accessibleState.GetStateDB())
 }
 
 func (b *bibliophileClient) GetAvailableMargin(trader common.Address) *big.Int {

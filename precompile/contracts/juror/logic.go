@@ -487,9 +487,6 @@ func GetRequiredMargin(baseAssetQuantity *big.Int, price *big.Int, upperBound *b
 	return requiredMargin
 }
 
-func isMultiple(x, y *big.Int) bool {
-	return new(big.Int).Mod(x, y).Sign() == 0 && x.Sign() != 0
-}
 func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *ValidateCancelLimitOrderInput) *ValidateCancelLimitOrderOutput {
 	errorString, orderHash, ammAddress, unfilledAmount := validateCancelLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader, inputStruct.AssertLowMargin)
 	return &ValidateCancelLimitOrderOutput{
@@ -630,8 +627,8 @@ func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrd
 		price = upperBound
 	}
 	quoteAsset := big.NewInt(0).Abs(big.NewInt(0).Div(new(big.Int).Mul(order.BaseAssetQuantity, price), big.NewInt(1e18)))
-	requiredMargin := big.NewInt(0).Div(big.NewInt(0).Mul(bibliophile.GetMinAllowableMargin(), quoteAsset), big.NewInt(1e6))
-	takerFee := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, bibliophile.GetTakerFee()), big.NewInt(1e6))
+	requiredMargin := big.NewInt(0).Div(big.NewInt(0).Mul(bibliophile.GetMinAllowableMarginOB(), quoteAsset), big.NewInt(1e6))
+	takerFee := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, bibliophile.GetTakerFeeOB()), big.NewInt(1e6))
 	requiredMargin.Add(requiredMargin, takerFee)
 	return requiredMargin
 }

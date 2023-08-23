@@ -16,6 +16,7 @@ const (
 	ORDER_INFO_SLOT              int64 = 53
 	REDUCE_ONLY_AMOUNT_SLOT      int64 = 55
 	OB_MIN_ALLOWABLE_MARGIN_SLOT int64 = 57
+	OB_TAKER_FEE_SLOT            int64 = 58
 	IS_TRADING_AUTHORITY_SLOT    int64 = 61
 	LONG_OPEN_ORDERS_SLOT        int64 = 65
 	SHORT_OPEN_ORDERS_SLOT       int64 = 66
@@ -70,19 +71,20 @@ func orderInfoMappingStorageSlot(orderHash [32]byte) *big.Int {
 	return new(big.Int).SetBytes(crypto.Keccak256(append(orderHash[:], common.LeftPadBytes(big.NewInt(ORDER_INFO_SLOT).Bytes(), 32)...)))
 }
 
-// func reduceOnlyAmountMappingStorageSlotForTrader(traderAddress common.Address) []byte {
-// 	return crypto.Keccak256(append(traderAddress.Bytes(), common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...))
-// }
-
-// func reduceOnlyAmountMappingStorageSlotForTraderAndMarket(traderAddress common.Address, market uint64) *big.Int {
-// 	x := reduceOnlyAmountMappingStorageSlotForTrader(traderAddress)
-// 	return new(big.Int).SetBytes(crypto.Keccak256(append(x, common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...)))
-// }
-
 func IsTradingAuthority(stateDB contract.StateDB, trader, senderOrSigner common.Address) bool {
 	tradingAuthorityMappingSlot := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(IS_TRADING_AUTHORITY_SLOT).Bytes(), 32)...))
 	tradingAuthorityMappingSlot = crypto.Keccak256(append(common.LeftPadBytes(senderOrSigner.Bytes(), 32), tradingAuthorityMappingSlot...))
 	return stateDB.GetState(common.HexToAddress(ORDERBOOK_GENESIS_ADDRESS), common.BytesToHash(tradingAuthorityMappingSlot)).Big().Cmp(big.NewInt(1)) == 0
+}
+
+// GetMinAllowableMarginOB returns the minimum allowable margin for a trader set in OrderBook
+func getMinAllowableMarginOB(stateDB contract.StateDB) *big.Int {
+	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BytesToHash(common.LeftPadBytes(big.NewInt(OB_MIN_ALLOWABLE_MARGIN_SLOT).Bytes(), 32))).Bytes())
+}
+
+// GetTakerFeeOB returns the taker fee for a trader set in OrderBook
+func getTakerFeeOB(stateDB contract.StateDB) *big.Int {
+	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BytesToHash(common.LeftPadBytes(big.NewInt(OB_TAKER_FEE_SLOT).Bytes(), 32))).Bytes())
 }
 
 // Business Logic

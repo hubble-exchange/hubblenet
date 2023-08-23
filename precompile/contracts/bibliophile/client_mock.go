@@ -2,14 +2,13 @@
 // Source: client.go
 
 // Package mock_bibliophile is a generated GoMock package.
-package mock_bibliophile
+package bibliophile
 
 import (
 	big "math/big"
 	reflect "reflect"
 
 	contract "github.com/ava-labs/subnet-evm/precompile/contract"
-	bibliophile "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -38,10 +37,10 @@ func (m *MockBibliophileClient) EXPECT() *MockBibliophileClientMockRecorder {
 }
 
 // DetermineFillPrice mocks base method.
-func (m *MockBibliophileClient) DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*bibliophile.ValidateOrdersAndDetermineFillPriceOutput, error) {
+func (m *MockBibliophileClient) DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DetermineFillPrice", marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
-	ret0, _ := ret[0].(*bibliophile.ValidateOrdersAndDetermineFillPriceOutput)
+	ret0, _ := ret[0].(*ValidateOrdersAndDetermineFillPriceOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -235,6 +234,20 @@ func (mr *MockBibliophileClientMockRecorder) GetMinAllowableMargin() *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMinAllowableMargin", reflect.TypeOf((*MockBibliophileClient)(nil).GetMinAllowableMargin))
 }
 
+// GetMinAllowableMarginOB mocks base method.
+func (m *MockBibliophileClient) GetMinAllowableMarginOB() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMinAllowableMarginOB")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetMinAllowableMarginOB indicates an expected call of GetMinAllowableMarginOB.
+func (mr *MockBibliophileClientMockRecorder) GetMinAllowableMarginOB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMinAllowableMarginOB", reflect.TypeOf((*MockBibliophileClient)(nil).GetMinAllowableMarginOB))
+}
+
 // GetMinSizeRequirement mocks base method.
 func (m *MockBibliophileClient) GetMinSizeRequirement(marketId int64) *big.Int {
 	m.ctrl.T.Helper()
@@ -359,6 +372,20 @@ func (m *MockBibliophileClient) GetTakerFee() *big.Int {
 func (mr *MockBibliophileClientMockRecorder) GetTakerFee() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTakerFee", reflect.TypeOf((*MockBibliophileClient)(nil).GetTakerFee))
+}
+
+// GetTakerFeeOB mocks base method.
+func (m *MockBibliophileClient) GetTakerFeeOB() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTakerFeeOB")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetTakerFeeOB indicates an expected call of GetTakerFeeOB.
+func (mr *MockBibliophileClientMockRecorder) GetTakerFeeOB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTakerFeeOB", reflect.TypeOf((*MockBibliophileClient)(nil).GetTakerFeeOB))
 }
 
 // GetUpperAndLowerBoundForMarket mocks base method.
