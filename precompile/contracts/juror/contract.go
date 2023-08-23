@@ -79,12 +79,13 @@ type IImmediateOrCancelOrdersOrder struct {
 
 // ILimitOrderBookOrderV2 is an auto generated low-level Go binding around an user-defined struct.
 type ILimitOrderBookOrderV2 struct {
-	AmmIndex          *big.Int
-	BaseAssetQuantity *big.Int
-	Price             *big.Int
-	Salt              *big.Int
-	ReduceOnly        bool
-	PostOnly          bool
+	AmmIndex          *big.Int       `json: "ammIndex"`
+	Trader            common.Address `json: "trader"`
+	BaseAssetQuantity *big.Int       `json: "baseAssetQuantity"`
+	Price             *big.Int       `json: "price"`
+	Salt              *big.Int       `json: "salt"`
+	ReduceOnly        bool           `json: "reduceOnly"`
+	PostOnly          bool           `json: "postOnly"`
 }
 
 // IOrderHandlerCancelOrderRes is an auto generated low-level Go binding around an user-defined struct.
@@ -439,15 +440,13 @@ func validateCancelLimitOrder(accessibleState contract.AccessibleState, caller c
 	if err != nil {
 		return nil, remainingGas, err
 	}
-
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct                           // CUSTOM CODE OPERATES ON INPUT
-	var output ValidateCancelLimitOrderOutput // CUSTOM CODE FOR AN OUTPUT
-	packedOutput, err := PackValidateCancelLimitOrderOutput(output)
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output := ValidateCancelLimitOrderV2(bibliophile, &inputStruct)
+	packedOutput, err := PackValidateCancelLimitOrderOutput(*output)
 	if err != nil {
 		return nil, remainingGas, err
 	}
-
 	// Return the packed output and the remaining gas
 	return packedOutput, remainingGas, nil
 }
@@ -626,6 +625,7 @@ func PackValidatePlaceLimitOrder(inputStruct ValidatePlaceLimitOrderInput) ([]by
 // PackValidatePlaceLimitOrderOutput attempts to pack given [outputStruct] of type ValidatePlaceLimitOrderOutput
 // to conform the ABI outputs.
 func PackValidatePlaceLimitOrderOutput(outputStruct ValidatePlaceLimitOrderOutput) ([]byte, error) {
+	log.Info("validatePlaceLimitOrder", "outputStruct", outputStruct)
 	return JurorABI.PackOutput("validatePlaceLimitOrder",
 		outputStruct.Errs,
 		outputStruct.Orderhash,
@@ -646,9 +646,9 @@ func validatePlaceLimitOrder(accessibleState contract.AccessibleState, caller co
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct                          // CUSTOM CODE OPERATES ON INPUT
-	var output ValidatePlaceLimitOrderOutput // CUSTOM CODE FOR AN OUTPUT
-	packedOutput, err := PackValidatePlaceLimitOrderOutput(output)
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output := ValidatePlaceLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader)
+	packedOutput, err := PackValidatePlaceLimitOrderOutput(*output)
 	if err != nil {
 		return nil, remainingGas, err
 	}
@@ -663,12 +663,12 @@ func createJurorPrecompile() contract.StatefulPrecompiledContract {
 	var functions []*contract.StatefulPrecompileFunction
 
 	abiFunctionMap := map[string]contract.RunStatefulPrecompileFunc{
-		"getBaseQuote":             getBaseQuote,
-		"getPrevTick":              getPrevTick,
-		"getQuote":                 getQuote,
-		"sampleImpactAsk":          sampleImpactAsk,
-		"sampleImpactBid":          sampleImpactBid,
-		"validateCancelLimitOrder": validateCancelLimitOrder,
+		// "getBaseQuote":             getBaseQuote,
+		"getPrevTick": getPrevTick,
+		// "getQuote":                 getQuote,
+		"sampleImpactAsk":                               sampleImpactAsk,
+		"sampleImpactBid":                               sampleImpactBid,
+		"validateCancelLimitOrder":                      validateCancelLimitOrder,
 		"validateLiquidationOrderAndDetermineFillPrice": validateLiquidationOrderAndDetermineFillPrice,
 		"validateOrdersAndDetermineFillPrice":           validateOrdersAndDetermineFillPrice,
 		"validatePlaceIOCOrders":                        validatePlaceIOCOrders,

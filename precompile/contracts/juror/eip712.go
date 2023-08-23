@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,8 +38,33 @@ func GetLimitOrderHash(o *orderbook.LimitOrder) (hash common.Hash, err error) {
 	return EncodeForSigning(typedData)
 }
 
-func GetOrderV2Hash(order ILimitOrderBookOrderV2, trader common.Address) (hash common.Hash, err error) {
-	return common.Hash{}, nil
+func GetLimitOrderV2Hash(o *ILimitOrderBookOrderV2) (common.Hash, error) {
+	// bytes32 ORDERV2_TYPEHASH = crypto.keccak256("OrderV2(uint256 ammIndex,address trader,int256 baseAssetQuantity,uint256 price,uint256 salt,bool reduceOnly,bool postOnly)");
+	// return keccak256(abi.encode(ORDERV2_TYPEHASH, order));
+	limitOrderType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "ammIndex", Type: "uint256"},
+		{Name: "trader", Type: "address"},
+		{Name: "baseAssetQuantity", Type: "int256"},
+		{Name: "price", Type: "uint256"},
+		{Name: "salt", Type: "uint256"},
+		{Name: "reduceOnly", Type: "bool"},
+		{Name: "postOnly", Type: "bool"},
+	})
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed getting abi type: %w", err)
+	}
+	typeHash, _ := abi.NewType("bytes32", "", nil)
+	args := abi.Arguments{
+		{Type: typeHash, Name: "TypeHash"},
+		{Type: limitOrderType, Name: "LimitOrderType"},
+	}
+	var hash [32]byte
+	copy(hash[:], crypto.Keccak256([]byte("OrderV2(uint256 ammIndex,address trader,int256 baseAssetQuantity,uint256 price,uint256 salt,bool reduceOnly,bool postOnly)")))
+	encodedData, err := args.Pack(hash, o)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("limit order v2 packing failed: %w", err)
+	}
+	return crypto.Keccak256Hash(encodedData), nil
 }
 
 func getIOCOrderHash(o *orderbook.IOCOrder) (hash common.Hash, err error) {
@@ -125,6 +151,36 @@ var Eip712OrderTypes = apitypes.Types{
 		{
 			Name: "reduceOnly",
 			Type: "bool",
+		},
+	},
+	"OrderV2": {
+		{
+			Name: "ammIndex",
+			Type: "uint256",
+		},
+		{
+			Name: "baseAssetQuantity",
+			Type: "int256",
+		},
+		{
+			Name: "price",
+			Type: "uint256",
+		},
+		{
+			Name: "salt",
+			Type: "uint256",
+		},
+		{
+			Name: "reduceOnly",
+			Type: "bool",
+		},
+		{
+			Name: "postOnly",
+			Type: "bool",
+		},
+		{
+			Name: "trader",
+			Type: "address",
 		},
 	},
 	"IOCOrder": {

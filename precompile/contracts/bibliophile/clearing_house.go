@@ -14,6 +14,8 @@ const (
 	AMMS_SLOT                      int64 = 12
 	MAINTENANCE_MARGIN_SLOT        int64 = 1
 	MIN_ALLOWABLE_MARGIN_SLOT      int64 = 2
+	TAKER_FEE_SLOT                 int64 = 3
+	MAKER_FEE_SLOT                 int64 = 4
 )
 
 type MarginMode uint8
@@ -92,6 +94,11 @@ func GetMaintenanceMargin(stateDB contract.StateDB) *big.Int {
 // GetMinAllowableMargin returns the minimum allowable margin for a trader
 func GetMinAllowableMargin(stateDB contract.StateDB) *big.Int {
 	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BytesToHash(common.LeftPadBytes(big.NewInt(MIN_ALLOWABLE_MARGIN_SLOT).Bytes(), 32))).Bytes())
+}
+
+// GetTakerFee returns the taker fee for a trader
+func GetTakerFee(stateDB contract.StateDB) *big.Int {
+	return stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(big.NewInt(TAKER_FEE_SLOT))).Big()
 }
 
 func GetUnderlyingPrices(stateDB contract.StateDB) []*big.Int {

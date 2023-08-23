@@ -37,6 +37,14 @@ var (
 )
 
 // AMM State
+func getBidsHead(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(BIDS_HEAD_SLOT))).Big()
+}
+
+func getAsksHead(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(ASKS_HEAD_SLOT))).Big()
+}
+
 func getLastPrice(stateDB contract.StateDB, market common.Address) *big.Int {
 	return stateDB.GetState(market, common.BigToHash(big.NewInt(MARK_PRICE_TWAP_DATA_SLOT))).Big()
 }
@@ -137,16 +145,6 @@ func getOpenNotional(stateDB contract.StateDB, market common.Address, trader *co
 
 func GetLastPremiumFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(2)))).Bytes())
-}
-
-// GetBidsHead returns the greatest bid price for a given market
-func GetBidsHead(stateDB contract.StateDB, market common.Address) *big.Int {
-	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(BIDS_HEAD_SLOT))).Bytes())
-}
-
-// GetAsksHead returns the smallest ask price for a given market
-func GetAsksHead(stateDB contract.StateDB, market common.Address) *big.Int {
-	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(ASKS_HEAD_SLOT))).Bytes())
 }
 
 func bidsStorageSlot(price *big.Int) *big.Int {
