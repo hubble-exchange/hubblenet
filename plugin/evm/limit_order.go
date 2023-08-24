@@ -110,7 +110,6 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 			} else {
 				if acceptedBlockNumber > 0 {
 					fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
-					lop.snapshotSavedBlockNumber = acceptedBlockNumber
 					log.Info("ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
 				} else {
 					// not an error, but unlikely after the blockchain is running for some time
@@ -139,6 +138,8 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 			toBlock = utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		}
 		lop.memoryDb.Accept(lastAcceptedBlockNumber.Uint64(), lastAccepted.Time()) // will delete stale orders from the memorydb
+		lop.snapshotSavedBlockNumber = lastAcceptedBlockNumber.Uint64()
+		log.Info("Set snapshotSavedBlockNumber", "snapshotSavedBlockNumber", lop.snapshotSavedBlockNumber)
 		log.Root().SetHandler(logHandler)
 
 		// needs to be run everytime as long as the db.UpdatePosition uses configService.GetCumulativePremiumFraction
@@ -234,6 +235,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 
 					blockNumberFloor := ((blockNumber - 1) / snapshotInterval) * snapshotInterval
 					if blockNumberFloor > lop.snapshotSavedBlockNumber {
+						log.Info("Saving memory DB snapshot", "blockNumber", blockNumber, "blockNumberFloor", blockNumberFloor)
 						floorBlock := lop.blockChain.GetBlockByNumber(blockNumberFloor)
 						lop.memoryDb.Accept(blockNumberFloor, floorBlock.Timestamp())
 						err := lop.saveMemoryDBSnapshot(big.NewInt(int64(blockNumberFloor)))
