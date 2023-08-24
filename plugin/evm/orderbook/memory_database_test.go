@@ -139,6 +139,21 @@ func TestGetShortOrders(t *testing.T) {
 	assert.Equal(t, reduceOnlyOrder.FilledBaseAssetQuantity, big.NewInt(0).Neg(_1e18))
 }
 
+func TestGetShortOrdersIOC(t *testing.T) {
+	inMemoryDatabase := getDatabase()
+
+	// order with expiry of 2 seconds
+	iocOrder1 := createIOCOrder(SHORT, userAddress, big.NewInt(-10), big.NewInt(10), status, big.NewInt(2), big.NewInt(100), big.NewInt(2))
+	// order with expiry of -2 seconds, should be expired already
+	iocOrder2 := createIOCOrder(SHORT, userAddress, big.NewInt(-10), big.NewInt(10), status, big.NewInt(2), big.NewInt(101), big.NewInt(-2))
+	inMemoryDatabase.Add(&iocOrder1)
+	inMemoryDatabase.Add(&iocOrder2)
+
+	shortOrders := inMemoryDatabase.GetShortOrders(0, nil, nil)
+	assert.Equal(t, 1, len(shortOrders))
+	assert.Equal(t, iocOrder1.Id, shortOrders[0].Id)
+}
+
 func TestGetLongOrders(t *testing.T) {
 	baseAssetQuantity := big.NewInt(-10)
 	inMemoryDatabase := getDatabase()
@@ -654,6 +669,38 @@ func createLimitOrder(positionType PositionType, userAddress string, baseAssetQu
 	}
 	lo.Id = getIdFromLimitOrder(lo)
 	return lo
+}
+
+func createIOCOrder(positionType PositionType, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, blockNumber *big.Int, salt *big.Int, expireDuration *big.Int) Order {
+	now := big.NewInt(time.Now().Unix())
+	expireAt := big.NewInt(0).Add(now, expireDuration)
+	ioc := Order{
+		OrderType:               IOCOrderType,
+		Market:                  market,
+		PositionType:            positionType,
+		UserAddress:             userAddress,
+		FilledBaseAssetQuantity: big.NewInt(0),
+		BaseAssetQuantity:       baseAssetQuantity,
+		Price:                   price,
+		Salt:                    salt,
+		BlockNumber:             blockNumber,
+		ReduceOnly:              false,
+		RawOrder: &IOCOrder{
+			OrderType: uint8(IOCOrderType),
+			ExpireAt:  expireAt,
+			LimitOrder: LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress(userAddress),
+				BaseAssetQuantity: baseAssetQuantity,
+				Price:             price,
+				Salt:              salt,
+				ReduceOnly:        false,
+			},
+		}}
+
+	// it's incorrect but should not affect the test results
+	ioc.Id = getIdFromLimitOrder(ioc)
+	return ioc
 }
 
 func TestGetUnfilledBaseAssetQuantity(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ava-labs/subnet-evm/metrics"
 	"github.com/ava-labs/subnet-evm/utils"
@@ -424,6 +425,11 @@ func (db *InMemoryDatabase) getCleanOrder(order *Order, blockNumber *big.Int) *O
 				log.Warn("eligible order is in Execution_Failed state", "orderId", order.String(), "retryInBlocks", orderStatus.BlockNumber+RETRY_AFTER_BLOCKS-blockNumber.Uint64())
 			}
 		}
+	}
+
+	expireAt := order.getExpireAt()
+	if expireAt.Sign() == 1 && expireAt.Int64() <= time.Now().Unix() {
+		eligibleForExecution = false
 	}
 
 	if eligibleForExecution {
