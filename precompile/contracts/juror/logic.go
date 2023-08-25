@@ -9,7 +9,6 @@ import (
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 type OrderType uint8
@@ -294,7 +293,6 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *orderbook.Li
 
 // IOC Orders
 func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *ValidatePlaceIOCOrdersInput) (orderHashes [][32]byte, err error) {
-	log.Info("ValidatePlaceIOCOrders", "input", inputStruct)
 	orders := inputStruct.Orders
 	if len(orders) == 0 {
 		return nil, errors.New("no orders")
@@ -319,7 +317,6 @@ func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *Valida
 		if order.ExpireAt.Uint64() < blockTimestamp {
 			return nil, errors.New("ioc expired")
 		}
-		log.Info("ValidatePlaceIOCOrders", "order.ExpireAt", order.ExpireAt.Uint64(), "expireWithin", expireWithin)
 		if order.ExpireAt.Uint64() > expireWithin {
 			return nil, errors.New("ioc expiration too far")
 		}
