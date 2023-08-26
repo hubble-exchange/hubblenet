@@ -18,12 +18,13 @@ import (
 )
 
 type InMemoryDatabase struct {
-	mu              *sync.RWMutex              `json:"-"`
-	OrderMap        map[common.Hash]*Order     `json:"order_map"`  // ID => order
-	TraderMap       map[common.Address]*Trader `json:"trader_map"` // address => trader info
-	NextFundingTime uint64                     `json:"next_funding_time"`
-	LastPrice       map[Market]*big.Int        `json:"last_price"`
-	configService   IConfigService
+	mu                        *sync.RWMutex              `json:"-"`
+	OrderMap                  map[common.Hash]*Order     `json:"order_map"`  // ID => order
+	TraderMap                 map[common.Address]*Trader `json:"trader_map"` // address => trader info
+	NextFundingTime           uint64                     `json:"next_funding_time"`
+	LastPrice                 map[Market]*big.Int        `json:"last_price"`
+	CumulativePremiumFraction map[Market]*big.Int        `json:"cumulative_last_premium_fraction"`
+	configService             IConfigService
 }
 
 func NewInMemoryDatabase(configService IConfigService) *InMemoryDatabase {
@@ -482,15 +483,9 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 
 	previousSize := db.TraderMap[trader].Positions[market].Size
 	if previousSize == nil || previousSize.Sign() == 0 {
-		// for a new position, LastPremiumFraction for a trader is set to the cumulativePremiumFraction in the same tx when the position is opened
-		// so it might look like we can simply set the LastPremiumFraction of the trader to the cumulativePremiumFraction at the blockNumber
-		// however, there is a possibility that the funding is updated in a tx just after the tx in which trader position was changed
-		// so we retrieve both the values from the configService at the end of the block we are currently processing
-		// note that now these values are set to whatever the values are at the END OF THE BLOCK, NOT the values at the end of the tx
-		// for even more context refer to how this is being handled in limitOrderProcesser.UpdateLastPremiumFractionFromStorage
-		cumulativePremiumFraction := db.configService.GetCumulativePremiumFractionAtBlock(market, blockNumber)
-		db.TraderMap[trader].Positions[market].LastPremiumFraction = db.configService.GetLastPremiumFractionAtBlock(market, &trader, blockNumber)
-		db.TraderMap[trader].Positions[market].UnrealisedFunding = dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, db.TraderMap[trader].Positions[market].LastPremiumFraction), size /* new position size */))
+		// this is also set in the AMM contract when a new position is opened, without emitting a FundingPaid event
+		db.TraderMap[trader].Positions[market].LastPremiumFraction = db.CumulativePremiumFraction[market]
+		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
 	}
 
 	db.TraderMap[trader].Positions[market].Size = size
@@ -509,6 +504,7 @@ func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, cumulativePre
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
+	db.CumulativePremiumFraction[market] = cumulativePremiumFraction
 	for _, trader := range db.TraderMap {
 		position := trader.Positions[market]
 		if position != nil {

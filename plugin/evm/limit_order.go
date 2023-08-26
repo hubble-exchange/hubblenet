@@ -143,7 +143,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 		log.Root().SetHandler(logHandler)
 
 		// needs to be run everytime as long as the db.UpdatePosition uses configService.GetCumulativePremiumFraction
-		lop.UpdateLastPremiumFractionFromStorage(lastAcceptedBlockNumber.Uint64())
+		// lop.UpdateLastPremiumFractionFromStorage(lastAcceptedBlockNumber.Uint64())
 	}
 
 	lop.mu.Unlock()

@@ -69,7 +69,10 @@ func (cs *ConfigService) getStateAtCurrentBlock() *state.StateDB {
 }
 
 func (cs *ConfigService) getStateAtBlock(number uint64) *state.StateDB {
-	stateDB, _ := cs.blockChain.StateAt(cs.blockChain.GetHeaderByNumber(number).Root)
+	stateDB, err := cs.blockChain.StateAt(cs.blockChain.GetHeaderByNumber(number).Root)
+	if err != nil {
+		panic(err)
+	}
 	return stateDB
 }
 
