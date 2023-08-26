@@ -18,7 +18,9 @@ type IConfigService interface {
 	GetActiveMarketsCount() int64
 	GetUnderlyingPrices() []*big.Int
 	GetLastPremiumFraction(market Market, trader *common.Address) *big.Int
+	GetLastPremiumFractionAtBlock(market Market, trader *common.Address, blockNumber uint64) *big.Int
 	GetCumulativePremiumFraction(market Market) *big.Int
+	GetCumulativePremiumFractionAtBlock(market Market, blockNumber uint64) *big.Int
 	GetAcceptableBounds(market Market) (*big.Int, *big.Int)
 	GetAcceptableBoundsForLiquidation(market Market) (*big.Int, *big.Int)
 }
@@ -66,6 +68,11 @@ func (cs *ConfigService) getStateAtCurrentBlock() *state.StateDB {
 	return stateDB
 }
 
+func (cs *ConfigService) getStateAtBlock(number uint64) *state.StateDB {
+	stateDB, _ := cs.blockChain.StateAt(cs.blockChain.GetHeaderByNumber(number).Root)
+	return stateDB
+}
+
 func (cs *ConfigService) GetActiveMarketsCount() int64 {
 	return bibliophile.GetActiveMarketsCount(cs.getStateAtCurrentBlock())
 }
@@ -79,7 +86,19 @@ func (cs *ConfigService) GetLastPremiumFraction(market Market, trader *common.Ad
 	return bibliophile.GetLastPremiumFraction(cs.getStateAtCurrentBlock(), markets[market], trader)
 }
 
+func (cs *ConfigService) GetLastPremiumFractionAtBlock(market Market, trader *common.Address, number uint64) *big.Int {
+	state := cs.getStateAtBlock(number)
+	markets := bibliophile.GetMarkets(state)
+	return bibliophile.GetLastPremiumFraction(state, markets[market], trader)
+}
+
 func (cs *ConfigService) GetCumulativePremiumFraction(market Market) *big.Int {
 	markets := bibliophile.GetMarkets(cs.getStateAtCurrentBlock())
 	return bibliophile.GetCumulativePremiumFraction(cs.getStateAtCurrentBlock(), markets[market])
+}
+
+func (cs *ConfigService) GetCumulativePremiumFractionAtBlock(market Market, number uint64) *big.Int {
+	state := cs.getStateAtBlock(number)
+	markets := bibliophile.GetMarkets(state)
+	return bibliophile.GetCumulativePremiumFraction(state, markets[market])
 }

@@ -211,7 +211,7 @@ type LimitOrderDatabase interface {
 	UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, blockNumber uint64)
 	GetLongOrders(market Market, lowerbound *big.Int, blockNumber *big.Int) []Order
 	GetShortOrders(market Market, upperbound *big.Int, blockNumber *big.Int) []Order
-	UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool)
+	UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool, blockNumber uint64)
 	UpdateMargin(trader common.Address, collateral Collateral, addAmount *big.Int)
 	UpdateReservedMargin(trader common.Address, addAmount *big.Int)
 	UpdateUnrealisedFunding(market Market, cumulativePremiumFraction *big.Int)
@@ -468,7 +468,7 @@ func (db *InMemoryDatabase) UpdateReservedMargin(trader common.Address, addAmoun
 	db.TraderMap[trader].Margin.Reserved.Add(db.TraderMap[trader].Margin.Reserved, addAmount)
 }
 
-func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool) {
+func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market, size *big.Int, openNotional *big.Int, isLiquidation bool, blockNumber uint64) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -480,9 +480,17 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 		db.TraderMap[trader].Positions[market] = &Position{}
 	}
 
-	previousSize := big.NewInt(0)
-	if db.TraderMap[trader].Positions[market].Size != nil {
-		previousSize.Set(db.TraderMap[trader].Positions[market].Size)
+	previousSize := db.TraderMap[trader].Positions[market].Size
+	if previousSize == nil || previousSize.Sign() == 0 {
+		// for a new position, LastPremiumFraction for a trader is set to the cumulativePremiumFraction in the same tx when the position is opened
+		// so it might look like we can simply set the LastPremiumFraction of the trader to the cumulativePremiumFraction at the blockNumber
+		// however, there is a possibility that the funding is updated in a tx just after the tx in which trader position was changed
+		// so we retrieve both the values from the configService at the end of the block we are currently processing
+		// note that now these values are set to whatever the values are at the END OF THE BLOCK, NOT the values at the end of the tx
+		// for even more context refer to how this is being handled in limitOrderProcesser.UpdateLastPremiumFractionFromStorage
+		cumulativePremiumFraction := db.configService.GetCumulativePremiumFractionAtBlock(market, blockNumber)
+		db.TraderMap[trader].Positions[market].LastPremiumFraction = db.configService.GetLastPremiumFractionAtBlock(market, &trader, blockNumber)
+		db.TraderMap[trader].Positions[market].UnrealisedFunding = dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, db.TraderMap[trader].Positions[market].LastPremiumFraction), size /* new position size */))
 	}
 
 	db.TraderMap[trader].Positions[market].Size = size
@@ -490,17 +498,6 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 
 	if !isLiquidation {
 		db.TraderMap[trader].Positions[market].LiquidationThreshold = getLiquidationThreshold(db.configService.getMaxLiquidationRatio(market), db.configService.getMinSizeRequirement(market), size)
-	}
-
-	// replace null values with 0
-	if db.TraderMap[trader].Positions[market].UnrealisedFunding == nil {
-		// no matter when they open the position, unrealised funding will be 0 because it is settled in the same tx
-		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
-	}
-
-	if previousSize.Sign() == 0 {
-		// for a new position, this needs to be set properly
-		db.TraderMap[trader].Positions[market].LastPremiumFraction = db.configService.GetCumulativePremiumFraction(market)
 	}
 
 	// adjust the liquidation threshold if > resultant position size (for both isLiquidation = true/false)
