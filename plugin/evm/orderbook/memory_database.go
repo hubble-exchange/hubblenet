@@ -33,12 +33,13 @@ func NewInMemoryDatabase(configService IConfigService) *InMemoryDatabase {
 	traderMap := map[common.Address]*Trader{}
 
 	return &InMemoryDatabase{
-		OrderMap:        orderMap,
-		TraderMap:       traderMap,
-		NextFundingTime: 0,
-		LastPrice:       lastPrice,
-		mu:              &sync.RWMutex{},
-		configService:   configService,
+		OrderMap:                  orderMap,
+		TraderMap:                 traderMap,
+		NextFundingTime:           0,
+		LastPrice:                 lastPrice,
+		CumulativePremiumFraction: map[Market]*big.Int{},
+		mu:                        &sync.RWMutex{},
+		configService:             configService,
 	}
 }
 
@@ -481,11 +482,18 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 		db.TraderMap[trader].Positions[market] = &Position{}
 	}
 
+	if db.CumulativePremiumFraction[market] == nil {
+		panic(fmt.Sprintf("CumulativePremiumFraction is nil %d %d", market, blockNumber))
+	}
 	previousSize := db.TraderMap[trader].Positions[market].Size
 	if previousSize == nil || previousSize.Sign() == 0 {
 		// this is also set in the AMM contract when a new position is opened, without emitting a FundingPaid event
 		db.TraderMap[trader].Positions[market].LastPremiumFraction = db.CumulativePremiumFraction[market]
 		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
+	} else {
+		if db.TraderMap[trader].Positions[market].LastPremiumFraction.Cmp(db.CumulativePremiumFraction[market]) != 0 {
+			panic(fmt.Sprintf("premium mismatch %s %v %v %d", trader, db.TraderMap[trader], db.CumulativePremiumFraction[market], blockNumber))
+		}
 	}
 
 	db.TraderMap[trader].Positions[market].Size = size
