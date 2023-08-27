@@ -20,11 +20,12 @@ const (
 	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 17
 	RED_STONE_ADAPTER_SLOT          int64 = 21
 	RED_STONE_FEED_ID_SLOT          int64 = 22
-	BIDS_SLOT                       int64 = 23
-	ASKS_SLOT                       int64 = 24
-	BIDS_HEAD_SLOT                  int64 = 25
-	ASKS_HEAD_SLOT                  int64 = 26
 	IMPACT_MARGIN_NOTIONAL_SLOT     int64 = 27
+	LAST_TRADE_PRICE_SLOT           int64 = 28
+	BIDS_SLOT                       int64 = 29
+	ASKS_SLOT                       int64 = 30
+	BIDS_HEAD_SLOT                  int64 = 31
+	ASKS_HEAD_SLOT                  int64 = 32
 )
 
 const (
