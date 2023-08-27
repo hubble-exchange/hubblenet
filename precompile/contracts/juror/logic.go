@@ -388,33 +388,38 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 }
 
 func GetPrevTick(bibliophile b.BibliophileClient, input GetPrevTickInput) (*big.Int, error) {
-	bibliophile.GetAccessibleState().GetStateDB()
+	if input.Tick.Sign() == 0 {
+		return nil, errors.New("tick price cannot be zero")
+	}
 	if input.IsBid {
 		bidsHead := bibliophile.GetBidsHead(input.Amm)
-		if input.Tick.Cmp(bidsHead) > 0 {
-			return nil, fmt.Errorf("tick %d is greater than bidsHead %d", input.Tick, bidsHead)
+		if input.Tick.Cmp(bidsHead) != -1 {
+			return nil, fmt.Errorf("tick %d is greater than or equal to bidsHead %d", input.Tick, bidsHead)
 		}
 		currentTick := bidsHead
 		for {
 			nextTick := bibliophile.GetNextBidPrice(input.Amm, currentTick)
-			if nextTick.Cmp(input.Tick) < 0 {
+			if nextTick.Cmp(input.Tick) != 1 {
 				return currentTick, nil
 			}
 			currentTick = nextTick
 		}
-	} else {
-		askHead := bibliophile.GetAsksHead(input.Amm)
-		if input.Tick.Cmp(askHead) < 0 {
-			return nil, fmt.Errorf("tick %d is less than askHead %d", input.Tick, askHead)
+	}
+	askHead := bibliophile.GetAsksHead(input.Amm)
+	if askHead.Sign() == 0 {
+		return nil, errors.New("asksHead is zero")
+	}
+	if input.Tick.Cmp(askHead) != 1 {
+		return nil, fmt.Errorf("tick %d is less than or equal to asksHead %d", input.Tick, askHead)
+	}
+	currentTick := askHead
+	for {
+		nextTick := bibliophile.GetNextAskPrice(input.Amm, currentTick)
+		fmt.Println("currentTick", currentTick, "nextTick", nextTick, "input.Tick", input.Tick)
+		if nextTick.Cmp(input.Tick) != -1 || nextTick.Sign() == 0 {
+			return currentTick, nil
 		}
-		currentTick := askHead
-		for {
-			nextTick := bibliophile.GetNextAskPrice(input.Amm, currentTick)
-			if nextTick.Cmp(input.Tick) > 0 {
-				return currentTick, nil
-			}
-			currentTick = nextTick
-		}
+		currentTick = nextTick
 	}
 }
 

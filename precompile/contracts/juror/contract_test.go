@@ -1851,6 +1851,250 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 	})
 }
 
+func TestGetPrevTick(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockBibliophile := b.NewMockBibliophileClient(ctrl)
+	ammAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+	t.Run("when input tick price is 0", func(t *testing.T) {
+		t.Run("For a bid", func(t *testing.T) {
+			input := GetPrevTickInput{
+				Amm:   ammAddress,
+				Tick:  big.NewInt(0),
+				IsBid: true,
+			}
+			output, err := GetPrevTick(mockBibliophile, input)
+			assert.Equal(t, "tick price cannot be zero", err.Error())
+			var expectedPrevTick *big.Int = nil
+			assert.Equal(t, expectedPrevTick, output)
+		})
+		t.Run("For an ask", func(t *testing.T) {
+			input := GetPrevTickInput{
+				Amm:   ammAddress,
+				Tick:  big.NewInt(0),
+				IsBid: false,
+			}
+			output, err := GetPrevTick(mockBibliophile, input)
+			assert.Equal(t, "tick price cannot be zero", err.Error())
+			var expectedPrevTick *big.Int = nil
+			assert.Equal(t, expectedPrevTick, output)
+		})
+	})
+	t.Run("when input tick price > 0", func(t *testing.T) {
+		t.Run("For a bid", func(t *testing.T) {
+			bidsHead := big.NewInt(10000000) // 10
+			t.Run("when bid price >= bidsHead", func(t *testing.T) {
+				//covers bidsHead == 0
+				t.Run("it returns error when bid price == bidsHead", func(t *testing.T) {
+					input := GetPrevTickInput{
+						Amm:   ammAddress,
+						Tick:  big.NewInt(0).Set(bidsHead),
+						IsBid: true,
+					}
+					mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(bidsHead).Times(1)
+					prevTick, err := GetPrevTick(mockBibliophile, input)
+					assert.Equal(t, fmt.Sprintf("tick %v is greater than or equal to bidsHead %v", input.Tick, bidsHead), err.Error())
+					var expectedPrevTick *big.Int = nil
+					assert.Equal(t, expectedPrevTick, prevTick)
+				})
+				t.Run("it returns error when bid price > bidsHead", func(t *testing.T) {
+					input := GetPrevTickInput{
+						Amm:   ammAddress,
+						Tick:  big.NewInt(0).Add(bidsHead, big.NewInt(1)),
+						IsBid: true,
+					}
+					mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(bidsHead).Times(1)
+					prevTick, err := GetPrevTick(mockBibliophile, input)
+					assert.Equal(t, fmt.Sprintf("tick %v is greater than or equal to bidsHead %v", input.Tick, bidsHead), err.Error())
+					var expectedPrevTick *big.Int = nil
+					assert.Equal(t, expectedPrevTick, prevTick)
+				})
+			})
+			t.Run("when bid price < bidsHead", func(t *testing.T) {
+				t.Run("when there is only 1 bid in orderbook", func(t *testing.T) {
+					t.Run("it returns bidsHead as prevTick", func(t *testing.T) {
+						input := GetPrevTickInput{
+							Amm:   ammAddress,
+							Tick:  big.NewInt(0).Div(bidsHead, big.NewInt(2)),
+							IsBid: true,
+						}
+						mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(bidsHead).Times(1)
+						mockBibliophile.EXPECT().GetNextBidPrice(input.Amm, bidsHead).Return(big.NewInt(0)).Times(1)
+						prevTick, err := GetPrevTick(mockBibliophile, input)
+						assert.Equal(t, nil, err)
+						assert.Equal(t, bidsHead, prevTick)
+					})
+				})
+				t.Run("when there are more than 1 bids in orderbook", func(t *testing.T) {
+					bids := []*big.Int{big.NewInt(10000000), big.NewInt(9000000), big.NewInt(8000000), big.NewInt(7000000)}
+					t.Run("when bid price does not match any bids in orderbook", func(t *testing.T) {
+						t.Run("it returns prevTick when bid price falls between bids in orderbook", func(t *testing.T) {
+							input := GetPrevTickInput{
+								Amm:   ammAddress,
+								Tick:  big.NewInt(8100000),
+								IsBid: true,
+							}
+							mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(bidsHead).Times(1)
+							mockBibliophile.EXPECT().GetNextBidPrice(input.Amm, bids[0]).Return(bids[1]).Times(1)
+							mockBibliophile.EXPECT().GetNextBidPrice(input.Amm, bids[1]).Return(bids[2]).Times(1)
+							prevTick, err := GetPrevTick(mockBibliophile, input)
+							assert.Equal(t, nil, err)
+							assert.Equal(t, bids[1], prevTick)
+						})
+						t.Run("it returns prevTick when bid price is lowest in orderbook", func(t *testing.T) {
+							input := GetPrevTickInput{
+								Amm:   ammAddress,
+								Tick:  big.NewInt(400000),
+								IsBid: true,
+							}
+							mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(bidsHead).Times(1)
+							for i := 0; i < len(bids)-1; i++ {
+								mockBibliophile.EXPECT().GetNextBidPrice(input.Amm, bids[i]).Return(bids[i+1]).Times(1)
+							}
+							mockBibliophile.EXPECT().GetNextBidPrice(input.Amm, bids[len(bids)-1]).Return(big.NewInt(0)).Times(1)
+							prevTick, err := GetPrevTick(mockBibliophile, input)
+							assert.Equal(t, nil, err)
+							assert.Equal(t, bids[len(bids)-1], prevTick)
+						})
+					})
+					t.Run("when bid price matches a bid in orderbook", func(t *testing.T) {
+						t.Run("it returns prevTick", func(t *testing.T) {
+							input := GetPrevTickInput{
+								Amm:   ammAddress,
+								Tick:  bids[2],
+								IsBid: true,
+							}
+							mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(bidsHead).Times(1)
+							mockBibliophile.EXPECT().GetNextBidPrice(input.Amm, bids[0]).Return(bids[1]).Times(1)
+							mockBibliophile.EXPECT().GetNextBidPrice(input.Amm, bids[1]).Return(bids[2]).Times(1)
+							prevTick, err := GetPrevTick(mockBibliophile, input)
+							assert.Equal(t, nil, err)
+							assert.Equal(t, bids[1], prevTick)
+						})
+					})
+				})
+			})
+		})
+		t.Run("For an ask", func(t *testing.T) {
+			t.Run("when asksHead is 0", func(t *testing.T) {
+				t.Run("it returns error", func(t *testing.T) {
+					asksHead := big.NewInt(0)
+
+					mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
+					input := GetPrevTickInput{
+						Amm:   ammAddress,
+						Tick:  big.NewInt(10),
+						IsBid: false,
+					}
+					prevTick, err := GetPrevTick(mockBibliophile, input)
+					assert.Equal(t, "asksHead is zero", err.Error())
+					var expectedPrevTick *big.Int = nil
+					assert.Equal(t, expectedPrevTick, prevTick)
+				})
+			})
+			t.Run("when asksHead > 0", func(t *testing.T) {
+				asksHead := big.NewInt(10000000)
+				t.Run("it returns error when ask price == asksHead", func(t *testing.T) {
+					mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
+					input := GetPrevTickInput{
+						Amm:   ammAddress,
+						Tick:  big.NewInt(0).Set(asksHead),
+						IsBid: false,
+					}
+					prevTick, err := GetPrevTick(mockBibliophile, input)
+					assert.Equal(t, fmt.Sprintf("tick %d is less than or equal to asksHead %d", input.Tick, asksHead), err.Error())
+					var expectedPrevTick *big.Int = nil
+					assert.Equal(t, expectedPrevTick, prevTick)
+				})
+				t.Run("it returns error when ask price < asksHead", func(t *testing.T) {
+					mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
+					input := GetPrevTickInput{
+						Amm:   ammAddress,
+						Tick:  big.NewInt(0).Sub(asksHead, big.NewInt(1)),
+						IsBid: false,
+					}
+					prevTick, err := GetPrevTick(mockBibliophile, input)
+					assert.Equal(t, fmt.Sprintf("tick %d is less than or equal to asksHead %d", input.Tick, asksHead), err.Error())
+					var expectedPrevTick *big.Int = nil
+					assert.Equal(t, expectedPrevTick, prevTick)
+				})
+				t.Run("when ask price > asksHead", func(t *testing.T) {
+					t.Run("when there is only one ask in orderbook", func(t *testing.T) {
+						t.Run("it returns asksHead as prevTick", func(t *testing.T) {
+							mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
+							input := GetPrevTickInput{
+								Amm:   ammAddress,
+								Tick:  big.NewInt(0).Add(asksHead, big.NewInt(1)),
+								IsBid: false,
+							}
+							mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asksHead).Return(big.NewInt(0)).Times(1)
+							prevTick, err := GetPrevTick(mockBibliophile, input)
+							assert.Equal(t, nil, err)
+							var expectedPrevTick *big.Int = asksHead
+							assert.Equal(t, expectedPrevTick, prevTick)
+						})
+					})
+					t.Run("when there are multiple asks in orderbook", func(t *testing.T) {
+						asks := []*big.Int{asksHead, big.NewInt(11000000), big.NewInt(12000000), big.NewInt(13000000)}
+						t.Run("when ask price does not match any asks in orderbook", func(t *testing.T) {
+							t.Run("it returns prevTick when ask price falls between asks in orderbook", func(t *testing.T) {
+								mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
+								askPrice := big.NewInt(11500000)
+								input := GetPrevTickInput{
+									Amm:   ammAddress,
+									Tick:  askPrice,
+									IsBid: false,
+								}
+								mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asksHead).Return(asks[0]).Times(1)
+								mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asks[0]).Return(asks[1]).Times(1)
+								mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asks[1]).Return(asks[2]).Times(1)
+								prevTick, err := GetPrevTick(mockBibliophile, input)
+								assert.Equal(t, nil, err)
+								var expectedPrevTick *big.Int = asks[1]
+								assert.Equal(t, expectedPrevTick, prevTick)
+							})
+							t.Run("it returns prevTick when ask price is highest in orderbook", func(t *testing.T) {
+								mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
+								askPrice := big.NewInt(0).Add(asks[len(asks)-1], big.NewInt(1))
+								input := GetPrevTickInput{
+									Amm:   ammAddress,
+									Tick:  askPrice,
+									IsBid: false,
+								}
+								mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asksHead).Return(asks[0]).Times(1)
+								mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asks[0]).Return(asks[1]).Times(1)
+								mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asks[1]).Return(asks[2]).Times(1)
+								mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asks[2]).Return(big.NewInt(0)).Times(1)
+								prevTick, err := GetPrevTick(mockBibliophile, input)
+								assert.Equal(t, nil, err)
+								var expectedPrevTick *big.Int = asks[2]
+								assert.Equal(t, expectedPrevTick, prevTick)
+							})
+						})
+						t.Run("when ask price does not match any asks in orderbook", func(t *testing.T) {
+							t.Run("it returns prevTick", func(t *testing.T) {
+								mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
+								askPrice := asks[1]
+								input := GetPrevTickInput{
+									Amm:   ammAddress,
+									Tick:  askPrice,
+									IsBid: false,
+								}
+								mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asksHead).Return(asks[0]).Times(1)
+								mockBibliophile.EXPECT().GetNextAskPrice(input.Amm, asks[0]).Return(asks[1]).Times(1)
+								prevTick, err := GetPrevTick(mockBibliophile, input)
+								assert.Equal(t, nil, err)
+								var expectedPrevTick *big.Int = asks[0]
+								assert.Equal(t, expectedPrevTick, prevTick)
+							})
+						})
+					})
+				})
+			})
+		})
+	})
+}
+
 func getOrder(ammIndex *big.Int, trader common.Address, baseAssetQuantity *big.Int, price *big.Int, salt *big.Int, reduceOnly bool, postOnly bool) ILimitOrderBookOrderV2 {
 	return ILimitOrderBookOrderV2{
 		AmmIndex:          ammIndex,
