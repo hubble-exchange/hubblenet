@@ -2095,6 +2095,205 @@ func TestGetPrevTick(t *testing.T) {
 	})
 }
 
+func TestSampleImpactBid(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockBibliophile := b.NewMockBibliophileClient(ctrl)
+	ammAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+	t.Run("when impactMarginNotional is zero", func(t *testing.T) {
+		mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(big.NewInt(0)).Times(1)
+		output := SampleImpactBid(mockBibliophile, ammAddress)
+		assert.Equal(t, big.NewInt(0), output)
+	})
+	t.Run("when impactMarginNotional is > zero", func(t *testing.T) {
+		impactMarginNotional := big.NewInt(4000000000) // 4000 units
+		t.Run("when bidsHead is 0", func(t *testing.T) {
+			mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+			mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(big.NewInt(0)).Times(1)
+			output := SampleImpactBid(mockBibliophile, ammAddress)
+			assert.Equal(t, big.NewInt(0), output)
+		})
+		t.Run("when bidsHead > 0", func(t *testing.T) {
+			bidsHead := big.NewInt(20000000) // 20 units
+			t.Run("when bids in orderbook are not enough to cover impactMarginNotional", func(t *testing.T) {
+				t.Run("when there is only one bid in orderbook it returns bidsHead", func(t *testing.T) {
+					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+					mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(bidsHead).Times(1)
+					mockBibliophile.EXPECT().GetBidSize(ammAddress, bidsHead).Return(big.NewInt(1e18)).Times(1)
+					mockBibliophile.EXPECT().GetNextBidPrice(ammAddress, bidsHead).Return(big.NewInt(0)).Times(1)
+					output := SampleImpactBid(mockBibliophile, ammAddress)
+					assert.Equal(t, bidsHead, output)
+				})
+				t.Run("when there are multiple bids, it tries to fill with available bids and average price is returned for rest", func(t *testing.T) {
+					bids := []*big.Int{bidsHead, big.NewInt(2100000), big.NewInt(2200000), big.NewInt(2300000)}
+					size := big.NewInt(1e18) // 1 ether
+					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+					mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(bidsHead).Times(1)
+					for i := 0; i < len(bids); i++ {
+						mockBibliophile.EXPECT().GetBidSize(ammAddress, bids[i]).Return(size).Times(1)
+						if i != len(bids)-1 {
+							mockBibliophile.EXPECT().GetNextBidPrice(ammAddress, bids[i]).Return(bids[i+1]).Times(1)
+						} else {
+							mockBibliophile.EXPECT().GetNextBidPrice(ammAddress, bids[i]).Return(big.NewInt(0)).Times(1)
+						}
+					}
+
+					accumulatedMarginNotional := big.NewInt(0)
+					for i := 0; i < len(bids); i++ {
+						accumulatedMarginNotional.Add(accumulatedMarginNotional, divideTwoBigInts(multiplyTwoBigInts(bids[i], size), big.NewInt(1e18)))
+					}
+					//asserting to check if testing conditions are setup correctly
+					assert.Equal(t, -1, accumulatedMarginNotional.Cmp(impactMarginNotional))
+					accBaseQ := big.NewInt(0).Mul(size, big.NewInt(int64(len(bids))))
+					expectedSampleImpactBid := divideTwoBigInts(multiplyTwoBigInts(accumulatedMarginNotional, big.NewInt(1e18)), accBaseQ)
+					output := SampleImpactBid(mockBibliophile, ammAddress)
+					assert.Equal(t, expectedSampleImpactBid, output)
+				})
+			})
+			t.Run("when bids in orderbook are enough to cover impactMarginNotional", func(t *testing.T) {
+				t.Run("when there is only one bid in orderbook it returns bidsHead", func(t *testing.T) {
+					newBidsHead := impactMarginNotional
+					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+					mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(newBidsHead).Times(1)
+					mockBibliophile.EXPECT().GetBidSize(ammAddress, newBidsHead).Return(big.NewInt(1e18)).Times(1)
+					mockBibliophile.EXPECT().GetNextBidPrice(ammAddress, newBidsHead).Return(big.NewInt(0)).Times(1)
+					output := SampleImpactBid(mockBibliophile, ammAddress)
+					assert.Equal(t, newBidsHead, output)
+				})
+				t.Run("when there are multiple bids, it tries to fill with available bids and average price is returned for rest", func(t *testing.T) {
+					newBidsHead := big.NewInt(2000000000) // 2000 units
+					bids := []*big.Int{newBidsHead}
+					for i := int64(1); i < 6; i++ {
+						bids = append(bids, big.NewInt(0).Sub(newBidsHead, big.NewInt(i)))
+					}
+					size := big.NewInt(6e17) // 0.6 ether
+					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+					mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(newBidsHead).Times(1)
+					mockBibliophile.EXPECT().GetNextBidPrice(ammAddress, bids[0]).Return(bids[1]).Times(1)
+					mockBibliophile.EXPECT().GetNextBidPrice(ammAddress, bids[1]).Return(bids[2]).Times(1)
+					mockBibliophile.EXPECT().GetNextBidPrice(ammAddress, bids[2]).Return(bids[3]).Times(1)
+					mockBibliophile.EXPECT().GetBidSize(ammAddress, bids[0]).Return(size).Times(1)
+					mockBibliophile.EXPECT().GetBidSize(ammAddress, bids[1]).Return(size).Times(1)
+					mockBibliophile.EXPECT().GetBidSize(ammAddress, bids[2]).Return(size).Times(1)
+					mockBibliophile.EXPECT().GetBidSize(ammAddress, bids[3]).Return(size).Times(1)
+
+					output := SampleImpactBid(mockBibliophile, ammAddress)
+					// 3 bids are filled and 3 are left
+					totalBaseQ := big.NewInt(0).Mul(size, big.NewInt(3))
+					filledQuote := big.NewInt(0)
+					for i := 0; i < 3; i++ {
+						filledQuote.Add(filledQuote, (divideTwoBigInts(multiplyTwoBigInts(bids[i], size), big.NewInt(1e18))))
+					}
+					unfulFilledQuote := big.NewInt(0).Sub(impactMarginNotional, filledQuote)
+					fmt.Println("unfulFilledQuote", unfulFilledQuote, "totalBaseQ", totalBaseQ, "filledQuote", filledQuote)
+					baseQAtTick := big.NewInt(0).Div(big.NewInt(0).Mul(unfulFilledQuote, big.NewInt(1e6)), bids[3])
+					expectedOutput := big.NewInt(0).Div(big.NewInt(0).Mul(impactMarginNotional, big.NewInt(1e18)), big.NewInt(0).Add(totalBaseQ, baseQAtTick))
+					assert.Equal(t, expectedOutput, output)
+				})
+			})
+		})
+	})
+}
+
+func TestSampleImpactAsk(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockBibliophile := b.NewMockBibliophileClient(ctrl)
+	ammAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+	t.Run("when impactMarginNotional is zero", func(t *testing.T) {
+		mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(big.NewInt(0)).Times(1)
+		output := SampleImpactAsk(mockBibliophile, ammAddress)
+		assert.Equal(t, big.NewInt(0), output)
+	})
+	t.Run("when impactMarginNotional is > zero", func(t *testing.T) {
+		impactMarginNotional := big.NewInt(4000000000) // 4000 units
+		t.Run("when asksHead is 0", func(t *testing.T) {
+			mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+			mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(big.NewInt(0)).Times(1)
+			output := SampleImpactAsk(mockBibliophile, ammAddress)
+			assert.Equal(t, big.NewInt(0), output)
+		})
+		t.Run("when asksHead > 0", func(t *testing.T) {
+			asksHead := big.NewInt(20000000) // 20 units
+			t.Run("when asks in orderbook are not enough to cover impactMarginNotional", func(t *testing.T) {
+				t.Run("when there is only one ask in orderbook it returns asksHead", func(t *testing.T) {
+					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+					mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
+					mockBibliophile.EXPECT().GetAskSize(ammAddress, asksHead).Return(big.NewInt(1e18)).Times(1)
+					mockBibliophile.EXPECT().GetNextAskPrice(ammAddress, asksHead).Return(big.NewInt(0)).Times(1)
+					output := SampleImpactAsk(mockBibliophile, ammAddress)
+					assert.Equal(t, asksHead, output)
+				})
+				t.Run("when there are multiple asks, it tries to fill with available asks and average price is returned for rest", func(t *testing.T) {
+					asks := []*big.Int{asksHead, big.NewInt(2100000), big.NewInt(2200000), big.NewInt(2300000)}
+					size := big.NewInt(1e18) // 1 ether
+					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+					mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
+					for i := 0; i < len(asks); i++ {
+						mockBibliophile.EXPECT().GetAskSize(ammAddress, asks[i]).Return(size).Times(1)
+						if i != len(asks)-1 {
+							mockBibliophile.EXPECT().GetNextAskPrice(ammAddress, asks[i]).Return(asks[i+1]).Times(1)
+						} else {
+							mockBibliophile.EXPECT().GetNextAskPrice(ammAddress, asks[i]).Return(big.NewInt(0)).Times(1)
+						}
+					}
+
+					accumulatedMarginNotional := big.NewInt(0)
+					for i := 0; i < len(asks); i++ {
+						accumulatedMarginNotional.Add(accumulatedMarginNotional, divideTwoBigInts(multiplyTwoBigInts(asks[i], size), big.NewInt(1e18)))
+					}
+					//asserting to check if testing conditions are setup correctly
+					assert.Equal(t, -1, accumulatedMarginNotional.Cmp(impactMarginNotional))
+					accBaseQ := big.NewInt(0).Mul(size, big.NewInt(int64(len(asks))))
+					expectedSampleImpactAsk := divideTwoBigInts(multiplyTwoBigInts(accumulatedMarginNotional, big.NewInt(1e18)), accBaseQ)
+					output := SampleImpactAsk(mockBibliophile, ammAddress)
+					assert.Equal(t, expectedSampleImpactAsk, output)
+				})
+			})
+			t.Run("when asks in orderbook are enough to cover impactMarginNotional", func(t *testing.T) {
+				t.Run("when there is only one ask in orderbook it returns asksHead", func(t *testing.T) {
+					newAsksHead := impactMarginNotional
+					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+					mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(newAsksHead).Times(1)
+					mockBibliophile.EXPECT().GetAskSize(ammAddress, newAsksHead).Return(big.NewInt(1e18)).Times(1)
+					mockBibliophile.EXPECT().GetNextAskPrice(ammAddress, newAsksHead).Return(big.NewInt(0)).Times(1)
+					output := SampleImpactAsk(mockBibliophile, ammAddress)
+					assert.Equal(t, newAsksHead, output)
+				})
+				t.Run("when there are multiple asks, it tries to fill with available asks and average price is returned for rest", func(t *testing.T) {
+					newAsksHead := big.NewInt(2000000000) // 2000 units
+					asks := []*big.Int{newAsksHead}
+					for i := int64(1); i < 6; i++ {
+						asks = append(asks, big.NewInt(0).Add(newAsksHead, big.NewInt(i)))
+					}
+					size := big.NewInt(6e17) // 0.6 ether
+					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
+					mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(newAsksHead).Times(1)
+					mockBibliophile.EXPECT().GetNextAskPrice(ammAddress, asks[0]).Return(asks[1]).Times(1)
+					mockBibliophile.EXPECT().GetNextAskPrice(ammAddress, asks[1]).Return(asks[2]).Times(1)
+					mockBibliophile.EXPECT().GetNextAskPrice(ammAddress, asks[2]).Return(asks[3]).Times(1)
+					mockBibliophile.EXPECT().GetAskSize(ammAddress, asks[0]).Return(size).Times(1)
+					mockBibliophile.EXPECT().GetAskSize(ammAddress, asks[1]).Return(size).Times(1)
+					mockBibliophile.EXPECT().GetAskSize(ammAddress, asks[2]).Return(size).Times(1)
+					mockBibliophile.EXPECT().GetAskSize(ammAddress, asks[3]).Return(size).Times(1)
+
+					// accBaseQ := big.NewInt(0).Mul(size, big.NewInt(int64(len(asks))))
+					output := SampleImpactAsk(mockBibliophile, ammAddress)
+					// 3 asks are filled and 3 are left
+					totalBaseQ := big.NewInt(0).Mul(size, big.NewInt(3))
+					filledQuote := big.NewInt(0)
+					for i := 0; i < 3; i++ {
+						filledQuote.Add(filledQuote, (divideTwoBigInts(multiplyTwoBigInts(asks[i], size), big.NewInt(1e18))))
+					}
+					unfulFilledQuote := big.NewInt(0).Sub(impactMarginNotional, filledQuote)
+					baseQAtTick := big.NewInt(0).Div(big.NewInt(0).Mul(unfulFilledQuote, big.NewInt(1e6)), asks[3])
+					expectedOutput := big.NewInt(0).Div(big.NewInt(0).Mul(impactMarginNotional, big.NewInt(1e18)), big.NewInt(0).Add(totalBaseQ, baseQAtTick))
+					assert.Equal(t, expectedOutput, output)
+				})
+			})
+		})
+	})
+}
 func getOrder(ammIndex *big.Int, trader common.Address, baseAssetQuantity *big.Int, price *big.Int, salt *big.Int, reduceOnly bool, postOnly bool) ILimitOrderBookOrderV2 {
 	return ILimitOrderBookOrderV2{
 		AmmIndex:          ammIndex,

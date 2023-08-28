@@ -425,22 +425,29 @@ func GetPrevTick(bibliophile b.BibliophileClient, input GetPrevTickInput) (*big.
 
 func SampleImpactBid(bibliophile b.BibliophileClient, ammAddress common.Address) *big.Int {
 	impactMarginNotional := bibliophile.GetImpactMarginNotional(ammAddress)
+	if impactMarginNotional.Sign() == 0 {
+		return big.NewInt(0)
+	}
+	tick := bibliophile.GetBidsHead(ammAddress)
+	if tick.Sign() == 0 {
+		return big.NewInt(0)
+	}
 	accNotional := big.NewInt(0)
 	accBaseQ := big.NewInt(0)
-	tick := bibliophile.GetBidsHead(ammAddress)
-	for {
-		nextTick := bibliophile.GetNextBidPrice(ammAddress, tick)
+	for accNotional.Cmp(impactMarginNotional) != 0 && tick.Sign() != 0 {
 		amount := bibliophile.GetBidSize(ammAddress, tick)
-		next := new(big.Int).Add(accNotional, new(big.Int).Div(new(big.Int).Mul(amount, tick), big.NewInt(1e18)))
-		if next.Cmp(impactMarginNotional) > 0 {
+		quote := big.NewInt(0).Div(big.NewInt(0).Mul(amount, tick), big.NewInt(1e18))
+		accumulator := new(big.Int).Add(accNotional, quote)
+		if accumulator.Cmp(impactMarginNotional) == 1 {
 			break
 		}
-		accNotional = next
+		accNotional = accumulator
 		accBaseQ.Add(accBaseQ, amount)
-		if accNotional.Cmp(impactMarginNotional) == 0 {
-			break
-		}
+		nextTick := bibliophile.GetNextBidPrice(ammAddress, tick)
 		tick = nextTick
+	}
+	if tick.Sign() == 0 {
+		return big.NewInt(0).Div(big.NewInt(0).Mul(accNotional, big.NewInt(1e18)), accBaseQ)
 	}
 	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e6)), tick)
 	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
@@ -448,22 +455,29 @@ func SampleImpactBid(bibliophile b.BibliophileClient, ammAddress common.Address)
 
 func SampleImpactAsk(bibliophile b.BibliophileClient, ammAddress common.Address) *big.Int {
 	impactMarginNotional := bibliophile.GetImpactMarginNotional(ammAddress)
+	if impactMarginNotional.Sign() == 0 {
+		return big.NewInt(0)
+	}
+	tick := bibliophile.GetAsksHead(ammAddress)
+	if tick.Sign() == 0 {
+		return big.NewInt(0)
+	}
 	accNotional := big.NewInt(0)
 	accBaseQ := big.NewInt(0)
-	tick := bibliophile.GetAsksHead(ammAddress)
-	for {
-		nextTick := bibliophile.GetNextAskPrice(ammAddress, tick)
+	for accNotional.Cmp(impactMarginNotional) != 0 && tick.Sign() != 0 {
 		amount := bibliophile.GetAskSize(ammAddress, tick)
-		next := new(big.Int).Add(accNotional, new(big.Int).Div(new(big.Int).Mul(amount, tick), big.NewInt(1e18)))
-		if next.Cmp(impactMarginNotional) > 0 {
+		quote := big.NewInt(0).Div(big.NewInt(0).Mul(amount, tick), big.NewInt(1e18))
+		accumulator := new(big.Int).Add(accNotional, quote)
+		if accumulator.Cmp(impactMarginNotional) == 1 {
 			break
 		}
-		accNotional = next
+		accNotional = accumulator
 		accBaseQ.Add(accBaseQ, amount)
-		if accNotional.Cmp(impactMarginNotional) == 0 {
-			break
-		}
+		nextTick := bibliophile.GetNextAskPrice(ammAddress, tick)
 		tick = nextTick
+	}
+	if tick.Sign() == 0 {
+		return big.NewInt(0).Div(big.NewInt(0).Mul(accNotional, big.NewInt(1e18)), accBaseQ)
 	}
 	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e6)), tick)
 	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
