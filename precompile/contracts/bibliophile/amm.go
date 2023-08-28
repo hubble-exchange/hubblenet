@@ -173,7 +173,7 @@ func GetNextAsk(stateDB contract.StateDB, market common.Address, price *big.Int)
 }
 
 func GetImpactMarginNotional(stateDB contract.StateDB, market common.Address) *big.Int {
-	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(big.NewInt(IMPACT_MARGIN_NOTIONAL_SLOT))).Bytes())
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(IMPACT_MARGIN_NOTIONAL_SLOT))).Big()
 }
 
 // Utils

@@ -415,7 +415,6 @@ func GetPrevTick(bibliophile b.BibliophileClient, input GetPrevTickInput) (*big.
 	currentTick := askHead
 	for {
 		nextTick := bibliophile.GetNextAskPrice(input.Amm, currentTick)
-		fmt.Println("currentTick", currentTick, "nextTick", nextTick, "input.Tick", input.Tick)
 		if nextTick.Cmp(input.Tick) != -1 || nextTick.Sign() == 0 {
 			return currentTick, nil
 		}

@@ -1957,7 +1957,7 @@ func TestGetPrevTick(t *testing.T) {
 							assert.Equal(t, bids[len(bids)-1], prevTick)
 						})
 					})
-					t.Run("when bid price matches a bid in orderbook", func(t *testing.T) {
+					t.Run("when bid price matches another bid's price in orderbook", func(t *testing.T) {
 						t.Run("it returns prevTick", func(t *testing.T) {
 							input := GetPrevTickInput{
 								Amm:   ammAddress,
@@ -2071,7 +2071,7 @@ func TestGetPrevTick(t *testing.T) {
 								assert.Equal(t, expectedPrevTick, prevTick)
 							})
 						})
-						t.Run("when ask price does not match any asks in orderbook", func(t *testing.T) {
+						t.Run("when ask price matches another ask's price in orderbook", func(t *testing.T) {
 							t.Run("it returns prevTick", func(t *testing.T) {
 								mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(asksHead).Times(1)
 								askPrice := asks[1]
