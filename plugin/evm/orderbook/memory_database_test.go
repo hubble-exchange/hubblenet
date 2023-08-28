@@ -652,8 +652,40 @@ func createLimitOrder(positionType PositionType, userAddress string, baseAssetQu
 		BlockNumber:             blockNumber,
 		ReduceOnly:              false,
 	}
-	lo.Id = getIdFromLimitOrder(lo)
+	lo.Id = getIdFromOrder(lo)
 	return lo
+}
+
+func createIOCOrder(positionType PositionType, userAddress string, baseAssetQuantity *big.Int, price *big.Int, status Status, blockNumber *big.Int, salt *big.Int, expireDuration *big.Int) Order {
+	now := big.NewInt(time.Now().Unix())
+	expireAt := big.NewInt(0).Add(now, expireDuration)
+	ioc := Order{
+		OrderType:               IOCOrderType,
+		Market:                  market,
+		PositionType:            positionType,
+		UserAddress:             userAddress,
+		FilledBaseAssetQuantity: big.NewInt(0),
+		BaseAssetQuantity:       baseAssetQuantity,
+		Price:                   price,
+		Salt:                    salt,
+		BlockNumber:             blockNumber,
+		ReduceOnly:              false,
+		RawOrder: &IOCOrder{
+			OrderType: uint8(IOCOrderType),
+			ExpireAt:  expireAt,
+			LimitOrder: LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress(userAddress),
+				BaseAssetQuantity: baseAssetQuantity,
+				Price:             price,
+				Salt:              salt,
+				ReduceOnly:        false,
+			},
+		}}
+
+	// it's incorrect but should not affect the test results
+	ioc.Id = getIdFromOrder(ioc)
+	return ioc
 }
 
 func TestGetUnfilledBaseAssetQuantity(t *testing.T) {

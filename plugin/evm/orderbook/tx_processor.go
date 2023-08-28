@@ -31,9 +31,10 @@ type LimitOrderTxProcessor interface {
 	PurgeOrderBookTxs()
 	ExecuteMatchedOrdersTx(incomingOrder Order, matchedOrder Order, fillAmount *big.Int) error
 	ExecuteFundingPaymentTx() error
+	ExecuteSamplePITx() error
 	ExecuteLiquidation(trader common.Address, matchedOrder Order, fillAmount *big.Int) error
 	UpdateMetrics(block *types.Block)
-	ExecuteLimitOrderCancel(orderIds []LimitOrder) error
+	ExecuteLimitOrderCancel(orderIds []LimitOrderV2) error
 }
 
 type ValidatorTxFeeConfig struct {
@@ -115,6 +116,12 @@ func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
 	return err
 }
 
+func (lotp *limitOrderTxProcessor) ExecuteSamplePITx() error {
+	txHash, err := lotp.executeLocalTx(lotp.clearingHouseContractAddress, lotp.clearingHouseABI, "samplePI")
+	log.Info("ExecuteSamplePITx", "txHash", txHash.String(), "err", err)
+	return err
+}
+
 func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder Order, shortOrder Order, fillAmount *big.Int) error {
 	var err error
 	orders := make([][]byte, 2)
@@ -134,8 +141,8 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder Order, short
 	return err
 }
 
-func (lotp *limitOrderTxProcessor) ExecuteLimitOrderCancel(orders []LimitOrder) error {
-	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelOrders", orders)
+func (lotp *limitOrderTxProcessor) ExecuteLimitOrderCancel(orders []LimitOrderV2) error {
+	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelOrdersWithLowMargin", orders)
 	log.Info("ExecuteLimitOrderCancel", "orders", orders, "txHash", txHash.String(), "err", err)
 	return err
 }
