@@ -522,168 +522,185 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 			assert.Equal(t, output.Res.ReserveAmount, big.NewInt(0))
 		})
 		t.Run("when baseAssetQuantity is not 0", func(t *testing.T) {
-			t.Run("when baseAssetQuantity is not a multiple of minSizeRequirement", func(t *testing.T) {
-				t.Run("when |baseAssetQuantity| is >0 but less than minSizeRequirement", func(t *testing.T) {
-					t.Run("it returns error for a long Order", func(t *testing.T) {
-						minSizeRequirement := big.NewInt(0).Add(longBaseAssetQuantity, big.NewInt(1))
-						order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
-
-						mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(ammAddress).Times(1)
-						mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-						output := ValidatePlaceLimitOrderV2(mockBibliophile, order, trader)
-						assert.Equal(t, ErrNotMultiple.Error(), output.Errs)
-						expectedOrderHash, _ := GetLimitOrderV2Hash(&order)
-						assert.Equal(t, common.BytesToHash(output.Orderhash[:]), expectedOrderHash)
-						assert.Equal(t, output.Res.Amm, ammAddress)
-						assert.Equal(t, output.Res.ReserveAmount, big.NewInt(0))
-					})
-					t.Run("it returns error for a short Order", func(t *testing.T) {
-						minSizeRequirement := big.NewInt(0).Sub(shortBaseAssetQuantity, big.NewInt(1))
-						order := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
-
-						mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(ammAddress).Times(1)
-						mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-						output := ValidatePlaceLimitOrderV2(mockBibliophile, order, trader)
-						assert.Equal(t, ErrNotMultiple.Error(), output.Errs)
-						expectedOrderHash, _ := GetLimitOrderV2Hash(&order)
-						assert.Equal(t, expectedOrderHash, common.BytesToHash(output.Orderhash[:]))
-						assert.Equal(t, ammAddress, output.Res.Amm)
-						assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
-					})
+			t.Run("when sender is not the trader and is not trading authority, it returns error", func(t *testing.T) {
+				sender := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C9")
+				t.Run("it returns error for a long order", func(t *testing.T) {
+					order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+					mockBibliophile.EXPECT().IsTradingAuthority(order.Trader, sender).Return(false).Times(1)
+					output := ValidatePlaceLimitOrderV2(mockBibliophile, order, sender)
+					assert.Equal(t, ErrNoTradingAuthority.Error(), output.Errs)
 				})
-				t.Run("when |baseAssetQuantity| is > minSizeRequirement but not a multiple of minSizeRequirement", func(t *testing.T) {
-					t.Run("it returns error for a long Order", func(t *testing.T) {
-						minSizeRequirement := big.NewInt(0).Div(big.NewInt(0).Mul(longBaseAssetQuantity, big.NewInt(3)), big.NewInt(2))
-						order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
-
-						mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(ammAddress).Times(1)
-						mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-						output := ValidatePlaceLimitOrderV2(mockBibliophile, order, trader)
-						assert.Equal(t, ErrNotMultiple.Error(), output.Errs)
-						expectedOrderHash, _ := GetLimitOrderV2Hash(&order)
-						assert.Equal(t, expectedOrderHash, common.BytesToHash(output.Orderhash[:]))
-						assert.Equal(t, ammAddress, output.Res.Amm)
-						assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
-					})
-					t.Run("it returns error for a short Order", func(t *testing.T) {
-						minSizeRequirement := big.NewInt(0).Div(big.NewInt(0).Mul(longBaseAssetQuantity, big.NewInt(3)), big.NewInt(2))
-						order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
-
-						mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(ammAddress).Times(1)
-						mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-						output := ValidatePlaceLimitOrderV2(mockBibliophile, order, trader)
-						assert.Equal(t, ErrNotMultiple.Error(), output.Errs)
-						expectedOrderHash, _ := GetLimitOrderV2Hash(&order)
-						assert.Equal(t, expectedOrderHash, common.BytesToHash(output.Orderhash[:]))
-						assert.Equal(t, ammAddress, output.Res.Amm)
-						assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
-					})
+				t.Run("it returns error for a short order", func(t *testing.T) {
+					order := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+					mockBibliophile.EXPECT().IsTradingAuthority(order.Trader, sender).Return(false).Times(1)
+					output := ValidatePlaceLimitOrderV2(mockBibliophile, order, sender)
+					assert.Equal(t, ErrNoTradingAuthority.Error(), output.Errs)
 				})
 			})
-			t.Run("when baseAssetQuantity is a multiple of minSizeRequirement", func(t *testing.T) {
-				minSizeRequirement := big.NewInt(0).Div(longBaseAssetQuantity, big.NewInt(2))
+			t.Run("when either sender is trader or a trading authority", func(t *testing.T) {
+				t.Run("when baseAssetQuantity is not a multiple of minSizeRequirement", func(t *testing.T) {
+					t.Run("when |baseAssetQuantity| is >0 but less than minSizeRequirement", func(t *testing.T) {
+						t.Run("it returns error for a long Order", func(t *testing.T) {
+							minSizeRequirement := big.NewInt(0).Add(longBaseAssetQuantity, big.NewInt(1))
+							order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
 
-				t.Run("when order was placed earlier", func(t *testing.T) {
-					t.Run("when order status is placed", func(t *testing.T) {
-						t.Run("it returns error for a longOrder", func(t *testing.T) {
-							longOrder := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
-
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
-							mockBibliophile.EXPECT().GetMinSizeRequirement(longOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-							orderHash, err := GetLimitOrderV2Hash(&longOrder)
-							if err != nil {
-								panic("error in getting longOrder hash")
-							}
-							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Placed)).Times(1)
-							output := ValidatePlaceLimitOrderV2(mockBibliophile, longOrder, trader)
-							assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
-							assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
-							assert.Equal(t, ammAddress, output.Res.Amm)
-							assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+							output := ValidatePlaceLimitOrderV2(mockBibliophile, order, trader)
+							assert.Equal(t, ErrNotMultiple.Error(), output.Errs)
+							expectedOrderHash, _ := GetLimitOrderV2Hash(&order)
+							assert.Equal(t, common.BytesToHash(output.Orderhash[:]), expectedOrderHash)
+							assert.Equal(t, output.Res.Amm, ammAddress)
+							assert.Equal(t, output.Res.ReserveAmount, big.NewInt(0))
 						})
-						t.Run("it returns error for a shortOrder", func(t *testing.T) {
-							shortOrder := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+						t.Run("it returns error for a short Order", func(t *testing.T) {
+							minSizeRequirement := big.NewInt(0).Sub(shortBaseAssetQuantity, big.NewInt(1))
+							order := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
 
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
-							mockBibliophile.EXPECT().GetMinSizeRequirement(shortOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-							orderHash, err := GetLimitOrderV2Hash(&shortOrder)
-							if err != nil {
-								panic("error in getting shortOrder hash")
-							}
-							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Placed)).Times(1)
-							output := ValidatePlaceLimitOrderV2(mockBibliophile, shortOrder, trader)
-							assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
-							assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+							output := ValidatePlaceLimitOrderV2(mockBibliophile, order, trader)
+							assert.Equal(t, ErrNotMultiple.Error(), output.Errs)
+							expectedOrderHash, _ := GetLimitOrderV2Hash(&order)
+							assert.Equal(t, expectedOrderHash, common.BytesToHash(output.Orderhash[:]))
 							assert.Equal(t, ammAddress, output.Res.Amm)
 							assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
 						})
 					})
-					t.Run("when order status is filled", func(t *testing.T) {
-						t.Run("it returns error for a longOrder", func(t *testing.T) {
-							longOrder := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+					t.Run("when |baseAssetQuantity| is > minSizeRequirement but not a multiple of minSizeRequirement", func(t *testing.T) {
+						t.Run("it returns error for a long Order", func(t *testing.T) {
+							minSizeRequirement := big.NewInt(0).Div(big.NewInt(0).Mul(longBaseAssetQuantity, big.NewInt(3)), big.NewInt(2))
+							order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
 
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
-							mockBibliophile.EXPECT().GetMinSizeRequirement(longOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-							orderHash, err := GetLimitOrderV2Hash(&longOrder)
-							if err != nil {
-								panic("error in getting longOrder hash")
-							}
-							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Filled)).Times(1)
-							output := ValidatePlaceLimitOrderV2(mockBibliophile, longOrder, trader)
-							assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
-							assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+							output := ValidatePlaceLimitOrderV2(mockBibliophile, order, trader)
+							assert.Equal(t, ErrNotMultiple.Error(), output.Errs)
+							expectedOrderHash, _ := GetLimitOrderV2Hash(&order)
+							assert.Equal(t, expectedOrderHash, common.BytesToHash(output.Orderhash[:]))
 							assert.Equal(t, ammAddress, output.Res.Amm)
 							assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
 						})
-						t.Run("it returns error for a shortOrder", func(t *testing.T) {
-							shortOrder := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+						t.Run("it returns error for a short Order", func(t *testing.T) {
+							minSizeRequirement := big.NewInt(0).Div(big.NewInt(0).Mul(longBaseAssetQuantity, big.NewInt(3)), big.NewInt(2))
+							order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
 
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
-							mockBibliophile.EXPECT().GetMinSizeRequirement(shortOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-							orderHash, err := GetLimitOrderV2Hash(&shortOrder)
-							if err != nil {
-								panic("error in getting shortOrder hash")
-							}
-							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Filled)).Times(1)
-							output := ValidatePlaceLimitOrderV2(mockBibliophile, shortOrder, trader)
-							assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
-							assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+							output := ValidatePlaceLimitOrderV2(mockBibliophile, order, trader)
+							assert.Equal(t, ErrNotMultiple.Error(), output.Errs)
+							expectedOrderHash, _ := GetLimitOrderV2Hash(&order)
+							assert.Equal(t, expectedOrderHash, common.BytesToHash(output.Orderhash[:]))
 							assert.Equal(t, ammAddress, output.Res.Amm)
 							assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
 						})
 					})
-					t.Run("when order status is cancelled", func(t *testing.T) {
-						t.Run("it returns error for a longOrder", func(t *testing.T) {
-							longOrder := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+				})
+				t.Run("when baseAssetQuantity is a multiple of minSizeRequirement", func(t *testing.T) {
+					minSizeRequirement := big.NewInt(0).Div(longBaseAssetQuantity, big.NewInt(2))
 
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
-							mockBibliophile.EXPECT().GetMinSizeRequirement(longOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-							orderHash, err := GetLimitOrderV2Hash(&longOrder)
-							if err != nil {
-								panic("error in getting longOrder hash")
-							}
-							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Cancelled)).Times(1)
-							output := ValidatePlaceLimitOrderV2(mockBibliophile, longOrder, trader)
-							assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
-							assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
-							assert.Equal(t, ammAddress, output.Res.Amm)
-							assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
+					t.Run("when order was placed earlier", func(t *testing.T) {
+						t.Run("when order status is placed", func(t *testing.T) {
+							t.Run("it returns error for a longOrder", func(t *testing.T) {
+								longOrder := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+
+								mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+								mockBibliophile.EXPECT().GetMinSizeRequirement(longOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+								orderHash, err := GetLimitOrderV2Hash(&longOrder)
+								if err != nil {
+									panic("error in getting longOrder hash")
+								}
+								mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Placed)).Times(1)
+								output := ValidatePlaceLimitOrderV2(mockBibliophile, longOrder, trader)
+								assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
+								assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
+								assert.Equal(t, ammAddress, output.Res.Amm)
+								assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
+							})
+							t.Run("it returns error for a shortOrder", func(t *testing.T) {
+								shortOrder := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+
+								mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+								mockBibliophile.EXPECT().GetMinSizeRequirement(shortOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+								orderHash, err := GetLimitOrderV2Hash(&shortOrder)
+								if err != nil {
+									panic("error in getting shortOrder hash")
+								}
+								mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Placed)).Times(1)
+								output := ValidatePlaceLimitOrderV2(mockBibliophile, shortOrder, trader)
+								assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
+								assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
+								assert.Equal(t, ammAddress, output.Res.Amm)
+								assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
+							})
 						})
-						t.Run("it returns error for a shortOrder", func(t *testing.T) {
-							shortOrder := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+						t.Run("when order status is filled", func(t *testing.T) {
+							t.Run("it returns error for a longOrder", func(t *testing.T) {
+								longOrder := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
 
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
-							mockBibliophile.EXPECT().GetMinSizeRequirement(shortOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
-							orderHash, err := GetLimitOrderV2Hash(&shortOrder)
-							if err != nil {
-								panic("error in getting shortOrder hash")
-							}
-							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Cancelled)).Times(1)
-							output := ValidatePlaceLimitOrderV2(mockBibliophile, shortOrder, trader)
-							assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
-							assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
-							assert.Equal(t, ammAddress, output.Res.Amm)
-							assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
+								mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+								mockBibliophile.EXPECT().GetMinSizeRequirement(longOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+								orderHash, err := GetLimitOrderV2Hash(&longOrder)
+								if err != nil {
+									panic("error in getting longOrder hash")
+								}
+								mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Filled)).Times(1)
+								output := ValidatePlaceLimitOrderV2(mockBibliophile, longOrder, trader)
+								assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
+								assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
+								assert.Equal(t, ammAddress, output.Res.Amm)
+								assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
+							})
+							t.Run("it returns error for a shortOrder", func(t *testing.T) {
+								shortOrder := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+
+								mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+								mockBibliophile.EXPECT().GetMinSizeRequirement(shortOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+								orderHash, err := GetLimitOrderV2Hash(&shortOrder)
+								if err != nil {
+									panic("error in getting shortOrder hash")
+								}
+								mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Filled)).Times(1)
+								output := ValidatePlaceLimitOrderV2(mockBibliophile, shortOrder, trader)
+								assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
+								assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
+								assert.Equal(t, ammAddress, output.Res.Amm)
+								assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
+							})
+						})
+						t.Run("when order status is cancelled", func(t *testing.T) {
+							t.Run("it returns error for a longOrder", func(t *testing.T) {
+								longOrder := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+
+								mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+								mockBibliophile.EXPECT().GetMinSizeRequirement(longOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+								orderHash, err := GetLimitOrderV2Hash(&longOrder)
+								if err != nil {
+									panic("error in getting longOrder hash")
+								}
+								mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Cancelled)).Times(1)
+								output := ValidatePlaceLimitOrderV2(mockBibliophile, longOrder, trader)
+								assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
+								assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
+								assert.Equal(t, ammAddress, output.Res.Amm)
+								assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
+							})
+							t.Run("it returns error for a shortOrder", func(t *testing.T) {
+								shortOrder := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+
+								mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+								mockBibliophile.EXPECT().GetMinSizeRequirement(shortOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
+								orderHash, err := GetLimitOrderV2Hash(&shortOrder)
+								if err != nil {
+									panic("error in getting shortOrder hash")
+								}
+								mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Cancelled)).Times(1)
+								output := ValidatePlaceLimitOrderV2(mockBibliophile, shortOrder, trader)
+								assert.Equal(t, ErrOrderAlreadyExists.Error(), output.Errs)
+								assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
+								assert.Equal(t, ammAddress, output.Res.Amm)
+								assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
+							})
 						})
 					})
 				})
@@ -1543,27 +1560,24 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 	ammAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 	assertLowMargin := false
 
-	t.Run("when order.trader != trader(sent as argument)", func(t *testing.T) {
-		t.Run("for a longOrder", func(t *testing.T) {
-			longOrder := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
-			input := getValidateCancelLimitOrderInput(longOrder, common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"), assertLowMargin)
+	t.Run("when sender is not the trader and is not trading authority, it returns error", func(t *testing.T) {
+		sender := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C9")
+		t.Run("it returns error for a long order", func(t *testing.T) {
+			order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+			input := getValidateCancelLimitOrderInput(order, sender, assertLowMargin)
+			mockBibliophile.EXPECT().IsTradingAuthority(order.Trader, sender).Return(false).Times(1)
 			output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
-			assert.Equal(t, "trader mismatch", output.Err)
-			assert.Equal(t, common.Hash{}, common.BytesToHash(output.OrderHash[:]))
-			assert.Equal(t, common.Address{}, output.Res.Amm)
-			assert.Equal(t, big.NewInt(0), output.Res.UnfilledAmount)
+			assert.Equal(t, ErrNoTradingAuthority.Error(), output.Err)
 		})
-		t.Run("for a shortOrder", func(t *testing.T) {
-			shortOrder := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
-			input := getValidateCancelLimitOrderInput(shortOrder, common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"), assertLowMargin)
+		t.Run("it returns error for a short order", func(t *testing.T) {
+			order := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+			input := getValidateCancelLimitOrderInput(order, sender, assertLowMargin)
+			mockBibliophile.EXPECT().IsTradingAuthority(order.Trader, sender).Return(false).Times(1)
 			output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
-			assert.Equal(t, "trader mismatch", output.Err)
-			assert.Equal(t, common.Hash{}, common.BytesToHash(output.OrderHash[:]))
-			assert.Equal(t, common.Address{}, output.Res.Amm)
-			assert.Equal(t, big.NewInt(0), output.Res.UnfilledAmount)
+			assert.Equal(t, ErrNoTradingAuthority.Error(), output.Err)
 		})
 	})
-	t.Run("when order.trader == trader", func(t *testing.T) {
+	t.Run("when either sender is trader or a trading authority", func(t *testing.T) {
 		t.Run("When order status is not placed", func(t *testing.T) {
 			t.Run("when order status was never placed", func(t *testing.T) {
 				t.Run("it returns error for a longOrder", func(t *testing.T) {

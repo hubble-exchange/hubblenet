@@ -77,6 +77,7 @@ var (
 	ErrCrossingMarket                     = errors.New("crossing market")
 	ErrOpenOrders                         = errors.New("open orders")
 	ErrOpenReduceOnlyOrders               = errors.New("open reduce only orders")
+	ErrNoTradingAuthority                 = errors.New("no trading authority")
 )
 
 // Business Logic
@@ -509,8 +510,8 @@ func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *Va
 
 func validateCancelLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address, assertLowMargin bool) (errorString string, orderHash [32]byte, ammAddress common.Address, unfilledAmount *big.Int) {
 	unfilledAmount = big.NewInt(0)
-	if order.Trader != trader {
-		errorString = "trader mismatch"
+	if order.Trader != trader && !bibliophile.IsTradingAuthority(order.Trader, trader) {
+		errorString = ErrNoTradingAuthority.Error()
 		return
 	}
 	orderHash, err := GetLimitOrderV2Hash(&order)
@@ -556,6 +557,10 @@ func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrde
 	orderHash, err := GetLimitOrderV2Hash(&order)
 	if err != nil {
 		errorString = err.Error()
+		return
+	}
+	if order.Trader != trader && !bibliophile.IsTradingAuthority(order.Trader, trader) {
+		errorString = ErrNoTradingAuthority.Error()
 		return
 	}
 	ammAddress = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
