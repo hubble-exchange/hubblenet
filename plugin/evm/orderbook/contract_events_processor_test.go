@@ -324,13 +324,14 @@ func TestHandleOrderBookEvent(t *testing.T) {
 		}
 		limitOrder.Id = getIdFromOrder(*limitOrder)
 		db.Add(limitOrder)
-		// t.Run("When data in log unpack fails", func(t *testing.T) {
-		// 	orderCancelledEventData := []byte{}
-		// 	log := getEventLog(OrderBookContractAddress, topics, orderCancelledEventData, blockNumber)
-		// 	cep.ProcessEvents([]*types.Log{log})
-		// 	actualLimitOrder := db.GetOrderBookData().OrderMap[orderId]
-		// 	assert.Equal(t, limitOrder, actualLimitOrder)
-		// })
+		t.Run("When data in log unpack fails", func(t *testing.T) {
+			orderCancelledEventData := []byte{}
+			log := getEventLog(OrderBookContractAddress, topics, orderCancelledEventData, blockNumber)
+			cep.ProcessEvents([]*types.Log{log})
+			orderId := getIdFromOrder(*limitOrder)
+			actualLimitOrder := db.GetOrderBookData().OrderMap[orderId]
+			assert.Equal(t, limitOrder, actualLimitOrder)
+		})
 		t.Run("When data in log unpack succeeds", func(t *testing.T) {
 			orderCancelledEventData, _ := event.Inputs.NonIndexed().Pack(timestamp)
 			log := getEventLog(OrderBookContractAddress, topics, orderCancelledEventData, blockNumber)

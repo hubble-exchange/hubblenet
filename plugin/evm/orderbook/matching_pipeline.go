@@ -261,9 +261,11 @@ func matchLongAndShortOrder(lotp LimitOrderTxProcessor, longOrder, shortOrder Or
 	}
 	if longOrder.BlockNumber.Cmp(shortOrder.BlockNumber) > 0 && longOrder.isPostOnly() {
 		log.Warn("post only long order matched with a resting order", "longOrder", longOrder, "shortOrder", shortOrder)
+		return longOrder, shortOrder, false
 	}
 	if shortOrder.BlockNumber.Cmp(longOrder.BlockNumber) > 0 && shortOrder.isPostOnly() {
 		log.Warn("post only short order matched with a resting order", "longOrder", longOrder, "shortOrder", shortOrder)
+		return longOrder, shortOrder, false
 	}
 	if err := lotp.ExecuteMatchedOrdersTx(longOrder, shortOrder, fillAmount); err != nil {
 		return longOrder, shortOrder, false
