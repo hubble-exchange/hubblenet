@@ -121,13 +121,14 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 		}
 
 		logHandler := log.Root().GetHandler()
+		errorOnlyHandler := ErrorOnlyHandler(logHandler)
 		log.Info("ListenAndProcessTransactions - beginning sync", " till block number", lastAcceptedBlockNumber)
 		JUMP := big.NewInt(3999)
 		toBlock := utils.BigIntMin(lastAcceptedBlockNumber, big.NewInt(0).Add(fromBlock, JUMP))
 		for toBlock.Cmp(fromBlock) > 0 {
 			logs := lop.getLogs(fromBlock, toBlock)
 			// set the log handler to discard logs so that the ProcessEvents doesn't spam the logs
-			log.Root().SetHandler(log.DiscardHandler())
+			log.Root().SetHandler(errorOnlyHandler)
 			lop.contractEventProcessor.ProcessEvents(logs)
 			lop.contractEventProcessor.ProcessAcceptedEvents(logs, true)
 			lop.memoryDb.Accept(toBlock.Uint64(), 0) // will delete stale orders from the memorydb

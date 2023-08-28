@@ -483,16 +483,33 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 	}
 
 	if db.CumulativePremiumFraction[market] == nil {
-		panic(fmt.Sprintf("CumulativePremiumFraction is nil %d %d", market, blockNumber))
+		db.CumulativePremiumFraction[market] = big.NewInt(0)
 	}
+
 	previousSize := db.TraderMap[trader].Positions[market].Size
 	if previousSize == nil || previousSize.Sign() == 0 {
 		// this is also set in the AMM contract when a new position is opened, without emitting a FundingPaid event
 		db.TraderMap[trader].Positions[market].LastPremiumFraction = db.CumulativePremiumFraction[market]
 		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
-	} else {
-		if db.TraderMap[trader].Positions[market].LastPremiumFraction.Cmp(db.CumulativePremiumFraction[market]) != 0 {
-			panic(fmt.Sprintf("premium mismatch %s %v %v %d", trader, db.TraderMap[trader], db.CumulativePremiumFraction[market], blockNumber))
+	}
+
+	if blockNumber <= 1530589 {
+		for market, position := range db.TraderMap[trader].Positions {
+			if db.CumulativePremiumFraction[market] == nil {
+				db.CumulativePremiumFraction[market] = big.NewInt(0)
+			}
+			if position.LastPremiumFraction == nil {
+				position.LastPremiumFraction = big.NewInt(0)
+			}
+			if position.Size != nil && (position.LastPremiumFraction.Cmp(db.CumulativePremiumFraction[market]) != 0) {
+				// this only happened when pending funding is 0
+				pendingFunding := calcPendingFunding(db.CumulativePremiumFraction[market], position.LastPremiumFraction, position.Size)
+				if pendingFunding.Sign() != 0 {
+					log.Error("pendingFunding is not 0", "trader", trader.String(), "market", market, "position", position, "pendingFunding", pendingFunding, "lastPremiumFraction", position.LastPremiumFraction, "cumulativePremiumFraction", db.CumulativePremiumFraction[market])
+				}
+				position.LastPremiumFraction = db.CumulativePremiumFraction[market]
+			}
+			// else those values would have been updated via the FundingPaid event
 		}
 	}
 
@@ -516,9 +533,37 @@ func (db *InMemoryDatabase) UpdateUnrealisedFunding(market Market, cumulativePre
 	for _, trader := range db.TraderMap {
 		position := trader.Positions[market]
 		if position != nil {
-			position.UnrealisedFunding = dividePrecisionSize(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, position.LastPremiumFraction), position.Size))
+			position.UnrealisedFunding = calcPendingFunding(cumulativePremiumFraction, position.LastPremiumFraction, position.Size)
 		}
 	}
+}
+
+func calcPendingFunding(cumulativePremiumFraction, lastPremiumFraction, size *big.Int) *big.Int {
+	if size == nil || size.Sign() == 0 {
+		return big.NewInt(0)
+	}
+
+	if cumulativePremiumFraction == nil {
+		cumulativePremiumFraction = big.NewInt(0)
+	}
+
+	if lastPremiumFraction == nil {
+		lastPremiumFraction = big.NewInt(0)
+	}
+
+	// Calculate difference
+	diff := new(big.Int).Sub(cumulativePremiumFraction, lastPremiumFraction)
+
+	// Multiply by size
+	result := new(big.Int).Mul(diff, size)
+
+	// Handle negative rounding
+	if result.Sign() < 0 {
+		result.Add(result, big.NewInt(1e18-1))
+	}
+
+	// Divide by 1e18
+	return result.Div(result, SIZE_BASE_PRECISION)
 }
 
 func (db *InMemoryDatabase) ResetUnrealisedFunding(market Market, trader common.Address, cumulativePremiumFraction *big.Int) {
