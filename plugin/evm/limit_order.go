@@ -418,7 +418,7 @@ func (lop *limitOrderProcesser) getLogs(fromBlock, toBlock *big.Int) []*types.Lo
 	return logs
 }
 
-func (lop *limitOrderProcesser) UpdateLastPremiumFractionFromStorage(blockNumber uint64) {
+func (lop *limitOrderProcesser) UpdateLastPremiumFractionFromStorage() {
 	traderMap := lop.memoryDb.GetOrderBookData().TraderMap
 	count := 0
 	start := time.Now()
