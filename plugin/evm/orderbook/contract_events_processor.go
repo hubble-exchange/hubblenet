@@ -546,6 +546,32 @@ func (cep *ContractEventsProcessor) PushtoTraderFeed(events []*types.Log, blockS
 				orderId = event.Topics[2]
 				trader = getAddressFromTopicHash(event.Topics[1])
 
+			case cep.orderBookABI.Events["OrderAccepted"].ID:
+				err := cep.orderBookABI.UnpackIntoMap(args, "OrderAccepted", event.Data)
+				if err != nil {
+					log.Error("error in orderBookABI.UnpackIntoMap", "method", "OrderAccepted", "err", err)
+					continue
+				}
+				eventName = "OrderAccepted"
+				order := LimitOrderV2{}
+				order.DecodeFromRawOrder(args["order"])
+				args["order"] = order.Map()
+				orderId = event.Topics[2]
+				trader = getAddressFromTopicHash(event.Topics[1])
+
+			case cep.orderBookABI.Events["OrderRejected"].ID:
+				err := cep.orderBookABI.UnpackIntoMap(args, "OrderRejected", event.Data)
+				if err != nil {
+					log.Error("error in orderBookABI.UnpackIntoMap", "method", "OrderRejected", "err", err)
+					continue
+				}
+				eventName = "OrderRejected"
+				order := LimitOrderV2{}
+				order.DecodeFromRawOrder(args["order"])
+				args["order"] = order.Map()
+				orderId = event.Topics[2]
+				trader = getAddressFromTopicHash(event.Topics[1])
+
 			case cep.orderBookABI.Events["OrderMatched"].ID:
 				err := cep.orderBookABI.UnpackIntoMap(args, "OrderMatched", event.Data)
 				if err != nil {
@@ -569,6 +595,26 @@ func (cep *ContractEventsProcessor) PushtoTraderFeed(events []*types.Log, blockS
 					continue
 				}
 				eventName = "OrderCancelled"
+				orderId = event.Topics[2]
+				trader = getAddressFromTopicHash(event.Topics[1])
+
+			case cep.orderBookABI.Events["OrderCancelAccepted"].ID:
+				err := cep.orderBookABI.UnpackIntoMap(args, "OrderCancelAccepted", event.Data)
+				if err != nil {
+					log.Error("error in orderBookABI.UnpackIntoMap", "method", "OrderCancelAccepted", "err", err)
+					continue
+				}
+				eventName = "OrderCancelAccepted"
+				orderId = event.Topics[2]
+				trader = getAddressFromTopicHash(event.Topics[1])
+
+			case cep.orderBookABI.Events["OrderCancelRejected"].ID:
+				err := cep.orderBookABI.UnpackIntoMap(args, "OrderCancelRejected", event.Data)
+				if err != nil {
+					log.Error("error in orderBookABI.UnpackIntoMap", "method", "OrderCancelRejected", "err", err)
+					continue
+				}
+				eventName = "OrderCancelRejected"
 				orderId = event.Topics[2]
 				trader = getAddressFromTopicHash(event.Topics[1])
 
