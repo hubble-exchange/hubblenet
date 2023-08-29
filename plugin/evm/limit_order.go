@@ -142,9 +142,6 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 		lop.snapshotSavedBlockNumber = lastAcceptedBlockNumber.Uint64()
 		log.Info("Set snapshotSavedBlockNumber", "snapshotSavedBlockNumber", lop.snapshotSavedBlockNumber)
 		log.Root().SetHandler(logHandler)
-
-		// needs to be run everytime as long as the db.UpdatePosition uses configService.GetCumulativePremiumFraction
-		// lop.UpdateLastPremiumFractionFromStorage(lastAcceptedBlockNumber.Uint64())
 	}
 
 	lop.mu.Unlock()
@@ -421,19 +418,14 @@ func (lop *limitOrderProcesser) getLogs(fromBlock, toBlock *big.Int) []*types.Lo
 	return logs
 }
 
-// before the rc9 release of contracts in hubble-protocol, it was possible that the lastPremiumFraction for a trader was updated without emitting a corresponding event.
-// This only happened in markets for which trader had a 0 position.
-// Since we build the entire memory db state based on events alone, we miss these updates and hence need to read directly from the storage and update the memorydb.
-// note that in rc9 release this was changed and the "FundingPaid" event will always be emitted whenever the lastPremiumFraction is updated (EXCEPT for the case when trader opens a new position in the market)
-// so while we still need this update for backwards compatibility, it can be removed when there is a fresh deployment of the entire system.
 func (lop *limitOrderProcesser) UpdateLastPremiumFractionFromStorage(blockNumber uint64) {
 	traderMap := lop.memoryDb.GetOrderBookData().TraderMap
 	count := 0
 	start := time.Now()
 	for traderAddr, trader := range traderMap {
 		for market := range trader.Positions {
-			lastPremiumFraction := lop.configService.GetLastPremiumFractionAtBlock(market, &traderAddr, blockNumber)
-			cumulativePremiumFraction := lop.configService.GetCumulativePremiumFractionAtBlock(market, blockNumber)
+			lastPremiumFraction := lop.configService.GetLastPremiumFraction(market, &traderAddr)
+			cumulativePremiumFraction := lop.configService.GetCumulativePremiumFraction(market)
 			lop.memoryDb.UpdateLastPremiumFraction(market, traderAddr, lastPremiumFraction, cumulativePremiumFraction)
 			count++
 		}

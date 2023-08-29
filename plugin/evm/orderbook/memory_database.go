@@ -493,6 +493,11 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 		db.TraderMap[trader].Positions[market].UnrealisedFunding = big.NewInt(0)
 	}
 
+	// before the rc9 release (completed at block 1530589) hubble-protocol, it was possible that the lastPremiumFraction for a trader was updated without emitting a corresponding event.
+	// This only happened in markets for which trader had a 0 position.
+	// Since we build the entire memory db state based on events alone, we miss these updates and hence "forcibly" set LastPremiumFraction = CumulativePremiumFraction for a trader in all markets
+	// note that in rc9 release this was changed and the "FundingPaid" event will always be emitted whenever the lastPremiumFraction is updated (EXCEPT for the case when trader opens a new position in the market - handled above)
+	// so while we still need this update for backwards compatibility, it can be removed when there is a fresh deployment of the entire system.
 	if blockNumber <= 1530589 {
 		for market, position := range db.TraderMap[trader].Positions {
 			if db.CumulativePremiumFraction[market] == nil {
@@ -501,15 +506,14 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 			if position.LastPremiumFraction == nil {
 				position.LastPremiumFraction = big.NewInt(0)
 			}
-			if position.Size != nil && (position.LastPremiumFraction.Cmp(db.CumulativePremiumFraction[market]) != 0) {
-				// this only happened when pending funding is 0
-				pendingFunding := calcPendingFunding(db.CumulativePremiumFraction[market], position.LastPremiumFraction, position.Size)
-				if pendingFunding.Sign() != 0 {
-					log.Error("pendingFunding is not 0", "trader", trader.String(), "market", market, "position", position, "pendingFunding", pendingFunding, "lastPremiumFraction", position.LastPremiumFraction, "cumulativePremiumFraction", db.CumulativePremiumFraction[market])
+			if position.LastPremiumFraction.Cmp(db.CumulativePremiumFraction[market]) != 0 {
+				if position.Size == nil || position.Size.Sign() == 0 || calcPendingFunding(db.CumulativePremiumFraction[market], position.LastPremiumFraction, position.Size).Sign() == 0 {
+					// expected scenario
+					position.LastPremiumFraction = db.CumulativePremiumFraction[market]
+				} else {
+					log.Error("pendingFunding is not 0", "trader", trader.String(), "market", market, "position", position, "pendingFunding", calcPendingFunding(db.CumulativePremiumFraction[market], position.LastPremiumFraction, position.Size), "lastPremiumFraction", position.LastPremiumFraction, "cumulativePremiumFraction", db.CumulativePremiumFraction[market])
 				}
-				position.LastPremiumFraction = db.CumulativePremiumFraction[market]
 			}
-			// else those values would have been updated via the FundingPaid event
 		}
 	}
 
