@@ -508,9 +508,10 @@ func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *Va
 	}
 }
 
-func validateCancelLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address, assertLowMargin bool) (errorString string, orderHash [32]byte, ammAddress common.Address, unfilledAmount *big.Int) {
+func validateCancelLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, sender common.Address, assertLowMargin bool) (errorString string, orderHash [32]byte, ammAddress common.Address, unfilledAmount *big.Int) {
 	unfilledAmount = big.NewInt(0)
-	if order.Trader != trader && !bibliophile.IsTradingAuthority(order.Trader, trader) {
+	trader := order.Trader
+	if trader != sender && !bibliophile.IsTradingAuthority(trader, sender) {
 		errorString = ErrNoTradingAuthority.Error()
 		return
 	}
@@ -552,14 +553,15 @@ func ValidatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrde
 	}
 }
 
-func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address) (errorString string, orderHash [32]byte, ammAddress common.Address, reserveAmount *big.Int) {
+func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, sender common.Address) (errorString string, orderHash [32]byte, ammAddress common.Address, reserveAmount *big.Int) {
 	reserveAmount = big.NewInt(0)
 	orderHash, err := GetLimitOrderV2Hash(&order)
 	if err != nil {
 		errorString = err.Error()
 		return
 	}
-	if order.Trader != trader && !bibliophile.IsTradingAuthority(order.Trader, trader) {
+	trader := order.Trader
+	if trader != sender && !bibliophile.IsTradingAuthority(trader, sender) {
 		errorString = ErrNoTradingAuthority.Error()
 		return
 	}

@@ -21,7 +21,7 @@ type BibliophileClient interface {
 	GetLongOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	GetShortOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	GetReduceOnlyAmount(trader common.Address, ammIndex *big.Int) *big.Int
-	IsTradingAuthority(senderOrSigner, trader common.Address) bool
+	IsTradingAuthority(trader, senderOrSigner common.Address) bool
 	// Limit Order
 	GetBlockPlaced(orderHash [32]byte) *big.Int
 	GetOrderFilledAmount(orderHash [32]byte) *big.Int
