@@ -2,6 +2,7 @@ package juror
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -76,6 +77,7 @@ var (
 	ErrCrossingMarket                     = errors.New("crossing market")
 	ErrOpenOrders                         = errors.New("open orders")
 	ErrOpenReduceOnlyOrders               = errors.New("open reduce only orders")
+	ErrNoTradingAuthority                 = errors.New("no trading authority")
 )
 
 // Business Logic
@@ -386,6 +388,114 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 	}, nil
 }
 
+func GetPrevTick(bibliophile b.BibliophileClient, input GetPrevTickInput) (*big.Int, error) {
+	if input.Tick.Sign() == 0 {
+		return nil, errors.New("tick price cannot be zero")
+	}
+	if input.IsBid {
+		bidsHead := bibliophile.GetBidsHead(input.Amm)
+		if input.Tick.Cmp(bidsHead) != -1 {
+			return nil, fmt.Errorf("tick %d is greater than or equal to bidsHead %d", input.Tick, bidsHead)
+		}
+		currentTick := bidsHead
+		for {
+			nextTick := bibliophile.GetNextBidPrice(input.Amm, currentTick)
+			if nextTick.Cmp(input.Tick) != 1 {
+				return currentTick, nil
+			}
+			currentTick = nextTick
+		}
+	}
+	askHead := bibliophile.GetAsksHead(input.Amm)
+	if askHead.Sign() == 0 {
+		return nil, errors.New("asksHead is zero")
+	}
+	if input.Tick.Cmp(askHead) != 1 {
+		return nil, fmt.Errorf("tick %d is less than or equal to asksHead %d", input.Tick, askHead)
+	}
+	currentTick := askHead
+	for {
+		nextTick := bibliophile.GetNextAskPrice(input.Amm, currentTick)
+		if nextTick.Cmp(input.Tick) != -1 || nextTick.Sign() == 0 {
+			return currentTick, nil
+		}
+		currentTick = nextTick
+	}
+}
+
+func SampleImpactBid(bibliophile b.BibliophileClient, ammAddress common.Address) *big.Int {
+	impactMarginNotional := bibliophile.GetImpactMarginNotional(ammAddress)
+	if impactMarginNotional.Sign() == 0 {
+		return big.NewInt(0)
+	}
+	tick := bibliophile.GetBidsHead(ammAddress)
+	if tick.Sign() == 0 {
+		return big.NewInt(0)
+	}
+	accNotional := big.NewInt(0)
+	accBaseQ := big.NewInt(0)
+	for accNotional.Cmp(impactMarginNotional) != 0 && tick.Sign() != 0 {
+		amount := bibliophile.GetBidSize(ammAddress, tick)
+		quote := big.NewInt(0).Div(big.NewInt(0).Mul(amount, tick), big.NewInt(1e18))
+		accumulator := new(big.Int).Add(accNotional, quote)
+		if accumulator.Cmp(impactMarginNotional) == 1 {
+			break
+		}
+		accNotional = accumulator
+		accBaseQ.Add(accBaseQ, amount)
+		nextTick := bibliophile.GetNextBidPrice(ammAddress, tick)
+		tick = nextTick
+	}
+	if tick.Sign() == 0 {
+		return big.NewInt(0).Div(big.NewInt(0).Mul(accNotional, big.NewInt(1e18)), accBaseQ)
+	}
+	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e18)), tick)
+	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
+}
+
+func SampleImpactAsk(bibliophile b.BibliophileClient, ammAddress common.Address) *big.Int {
+	impactMarginNotional := bibliophile.GetImpactMarginNotional(ammAddress)
+	if impactMarginNotional.Sign() == 0 {
+		return big.NewInt(0)
+	}
+	tick := bibliophile.GetAsksHead(ammAddress)
+	if tick.Sign() == 0 {
+		return big.NewInt(0)
+	}
+	accNotional := big.NewInt(0)
+	accBaseQ := big.NewInt(0)
+	for accNotional.Cmp(impactMarginNotional) != 0 && tick.Sign() != 0 {
+		amount := bibliophile.GetAskSize(ammAddress, tick)
+		quote := big.NewInt(0).Div(big.NewInt(0).Mul(amount, tick), big.NewInt(1e18))
+		accumulator := new(big.Int).Add(accNotional, quote)
+		if accumulator.Cmp(impactMarginNotional) == 1 {
+			break
+		}
+		accNotional = accumulator
+		accBaseQ.Add(accBaseQ, amount)
+		nextTick := bibliophile.GetNextAskPrice(ammAddress, tick)
+		tick = nextTick
+	}
+	if tick.Sign() == 0 {
+		return big.NewInt(0).Div(big.NewInt(0).Mul(accNotional, big.NewInt(1e18)), accBaseQ)
+	}
+	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e18)), tick)
+	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
+}
+
+func GetQuote(bibliophile b.BibliophileClient, ammAddress common.Address, baseAssetQuantity *big.Int) *big.Int {
+	return new(big.Int).Div(new(big.Int).Mul(new(big.Int).Abs(baseAssetQuantity), bibliophile.GetLastPrice(ammAddress)), big.NewInt(1e18))
+}
+
+func GetBaseQuote(bibliophile b.BibliophileClient, ammAddress common.Address, quoteAssetQuantity *big.Int) *big.Int {
+	isLong := quoteAssetQuantity.Sign() >= 0
+	baseAssetQuantity := new(big.Int).Div(new(big.Int).Mul(quoteAssetQuantity, big.NewInt(1e6)), bibliophile.GetLastPrice(ammAddress))
+	if isLong {
+		return baseAssetQuantity
+	}
+	return new(big.Int).Neg(baseAssetQuantity)
+}
+
 func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *ValidateCancelLimitOrderInput) *ValidateCancelLimitOrderOutput {
 	errorString, orderHash, ammAddress, unfilledAmount := validateCancelLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader, inputStruct.AssertLowMargin)
 	return &ValidateCancelLimitOrderOutput{
@@ -398,10 +508,11 @@ func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *Va
 	}
 }
 
-func validateCancelLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address, assertLowMargin bool) (errorString string, orderHash [32]byte, ammAddress common.Address, unfilledAmount *big.Int) {
+func validateCancelLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, sender common.Address, assertLowMargin bool) (errorString string, orderHash [32]byte, ammAddress common.Address, unfilledAmount *big.Int) {
 	unfilledAmount = big.NewInt(0)
-	if order.Trader != trader {
-		errorString = "trader mismatch"
+	trader := order.Trader
+	if trader != sender && !bibliophile.IsTradingAuthority(trader, sender) {
+		errorString = ErrNoTradingAuthority.Error()
 		return
 	}
 	orderHash, err := GetLimitOrderV2Hash(&order)
@@ -442,11 +553,16 @@ func ValidatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrde
 	}
 }
 
-func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, trader common.Address) (errorString string, orderHash [32]byte, ammAddress common.Address, reserveAmount *big.Int) {
+func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrderBookOrderV2, sender common.Address) (errorString string, orderHash [32]byte, ammAddress common.Address, reserveAmount *big.Int) {
 	reserveAmount = big.NewInt(0)
 	orderHash, err := GetLimitOrderV2Hash(&order)
 	if err != nil {
 		errorString = err.Error()
+		return
+	}
+	trader := order.Trader
+	if trader != sender && !bibliophile.IsTradingAuthority(trader, sender) {
+		errorString = ErrNoTradingAuthority.Error()
 		return
 	}
 	ammAddress = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())

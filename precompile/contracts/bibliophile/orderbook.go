@@ -69,15 +69,6 @@ func orderInfoMappingStorageSlot(orderHash [32]byte) *big.Int {
 	return new(big.Int).SetBytes(crypto.Keccak256(append(orderHash[:], common.LeftPadBytes(big.NewInt(ORDER_INFO_SLOT).Bytes(), 32)...)))
 }
 
-// func reduceOnlyAmountMappingStorageSlotForTrader(traderAddress common.Address) []byte {
-// 	return crypto.Keccak256(append(traderAddress.Bytes(), common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...))
-// }
-
-// func reduceOnlyAmountMappingStorageSlotForTraderAndMarket(traderAddress common.Address, market uint64) *big.Int {
-// 	x := reduceOnlyAmountMappingStorageSlotForTrader(traderAddress)
-// 	return new(big.Int).SetBytes(crypto.Keccak256(append(x, common.LeftPadBytes(big.NewInt(REDUCE_ONLY_AMOUNT_SLOT).Bytes(), 32)...)))
-// }
-
 func IsTradingAuthority(stateDB contract.StateDB, trader, senderOrSigner common.Address) bool {
 	tradingAuthorityMappingSlot := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(IS_TRADING_AUTHORITY_SLOT).Bytes(), 32)...))
 	tradingAuthorityMappingSlot = crypto.Keccak256(append(common.LeftPadBytes(senderOrSigner.Bytes(), 32), tradingAuthorityMappingSlot...))

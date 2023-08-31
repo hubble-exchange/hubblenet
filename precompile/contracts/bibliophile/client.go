@@ -8,34 +8,41 @@ import (
 )
 
 type BibliophileClient interface {
-	GetSize(market common.Address, trader *common.Address) *big.Int
-	GetMinSizeRequirement(marketId int64) *big.Int
-	GetMinAllowableMargin() *big.Int
+	//margin account
 	GetAvailableMargin(trader common.Address) *big.Int
-	GetTakerFee() *big.Int
-	GetBidsHead(market common.Address) *big.Int
-	GetAsksHead(market common.Address) *big.Int
+	//clearing house
 	GetMarketAddressFromMarketID(marketId int64) common.Address
+	GetMinAllowableMargin() *big.Int
+	GetTakerFee() *big.Int
+	//orderbook
+	GetSize(market common.Address, trader *common.Address) *big.Int
 	DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error)
 	DetermineLiquidationFillPrice(marketId int64, baseAssetQuantity, price *big.Int) (*big.Int, error)
-	GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int)
 	GetLongOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	GetShortOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	GetReduceOnlyAmount(trader common.Address, ammIndex *big.Int) *big.Int
-
-	// Misc
-	IsTradingAuthority(senderOrSigner, trader common.Address) bool
-
+	IsTradingAuthority(trader, senderOrSigner common.Address) bool
 	// Limit Order
 	GetBlockPlaced(orderHash [32]byte) *big.Int
 	GetOrderFilledAmount(orderHash [32]byte) *big.Int
 	GetOrderStatus(orderHash [32]byte) int64
-
 	// IOC Order
 	IOC_GetBlockPlaced(orderHash [32]byte) *big.Int
 	IOC_GetOrderFilledAmount(orderHash [32]byte) *big.Int
 	IOC_GetOrderStatus(orderHash [32]byte) int64
 	IOC_GetExpirationCap() *big.Int
+
+	// AMM
+	GetMinSizeRequirement(marketId int64) *big.Int
+	GetLastPrice(ammAddress common.Address) *big.Int
+	GetBidSize(ammAddress common.Address, price *big.Int) *big.Int
+	GetAskSize(ammAddress common.Address, price *big.Int) *big.Int
+	GetNextBidPrice(ammAddress common.Address, price *big.Int) *big.Int
+	GetNextAskPrice(ammAddress common.Address, price *big.Int) *big.Int
+	GetImpactMarginNotional(ammAddress common.Address) *big.Int
+	GetBidsHead(market common.Address) *big.Int
+	GetAsksHead(market common.Address) *big.Int
+	GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int)
 
 	GetAccessibleState() contract.AccessibleState
 }
@@ -113,6 +120,30 @@ func (b *bibliophileClient) IsTradingAuthority(trader, senderOrSigner common.Add
 
 func (b *bibliophileClient) IOC_GetExpirationCap() *big.Int {
 	return iocGetExpirationCap(b.accessibleState.GetStateDB())
+}
+
+func (b *bibliophileClient) GetLastPrice(ammAddress common.Address) *big.Int {
+	return getLastPrice(b.accessibleState.GetStateDB(), ammAddress)
+}
+
+func (b *bibliophileClient) GetBidSize(ammAddress common.Address, price *big.Int) *big.Int {
+	return GetBidSize(b.accessibleState.GetStateDB(), ammAddress, price)
+}
+
+func (b *bibliophileClient) GetAskSize(ammAddress common.Address, price *big.Int) *big.Int {
+	return GetAskSize(b.accessibleState.GetStateDB(), ammAddress, price)
+}
+
+func (b *bibliophileClient) GetNextBidPrice(ammAddress common.Address, price *big.Int) *big.Int {
+	return GetNextBid(b.accessibleState.GetStateDB(), ammAddress, price)
+}
+
+func (b *bibliophileClient) GetNextAskPrice(ammAddress common.Address, price *big.Int) *big.Int {
+	return GetNextAsk(b.accessibleState.GetStateDB(), ammAddress, price)
+}
+
+func (b *bibliophileClient) GetImpactMarginNotional(ammAddress common.Address) *big.Int {
+	return GetImpactMarginNotional(b.accessibleState.GetStateDB(), ammAddress)
 }
 
 func (b *bibliophileClient) GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int) {
