@@ -148,28 +148,28 @@ func GetLastPremiumFraction(stateDB contract.StateDB, market common.Address, tra
 	return fromTwosComplement(stateDB.GetState(market, common.BigToHash(new(big.Int).Add(positionsStorageSlot(trader), big.NewInt(2)))).Bytes())
 }
 
-func bidsStorageSlot(price *big.Int) *big.Int {
-	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(price.Bytes(), 32), common.LeftPadBytes(big.NewInt(BIDS_SLOT).Bytes(), 32)...)))
+func bidsStorageSlot(price *big.Int) common.Hash {
+	return common.BytesToHash(crypto.Keccak256(append(common.LeftPadBytes(price.Bytes(), 32), common.LeftPadBytes(big.NewInt(BIDS_SLOT).Bytes(), 32)...)))
 }
 
-func asksStorageSlot(price *big.Int) *big.Int {
-	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(price.Bytes(), 32), common.LeftPadBytes(big.NewInt(ASKS_SLOT).Bytes(), 32)...)))
+func asksStorageSlot(price *big.Int) common.Hash {
+	return common.BytesToHash(crypto.Keccak256(append(common.LeftPadBytes(price.Bytes(), 32), common.LeftPadBytes(big.NewInt(ASKS_SLOT).Bytes(), 32)...)))
 }
 
 func GetBidSize(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
-	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(bidsStorageSlot(price), big.NewInt(1)))).Big()
+	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(bidsStorageSlot(price).Big(), big.NewInt(1)))).Big()
 }
 
 func GetAskSize(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
-	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(asksStorageSlot(price), big.NewInt(1)))).Big()
+	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(asksStorageSlot(price).Big(), big.NewInt(1)))).Big()
 }
 
 func GetNextBid(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
-	return stateDB.GetState(market, common.BigToHash(bidsStorageSlot(price))).Big()
+	return stateDB.GetState(market, bidsStorageSlot(price)).Big()
 }
 
 func GetNextAsk(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
-	return stateDB.GetState(market, common.BigToHash(asksStorageSlot(price))).Big()
+	return stateDB.GetState(market, asksStorageSlot(price)).Big()
 }
 
 func GetImpactMarginNotional(stateDB contract.StateDB, market common.Address) *big.Int {
