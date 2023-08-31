@@ -449,7 +449,7 @@ func SampleImpactBid(bibliophile b.BibliophileClient, ammAddress common.Address)
 	if tick.Sign() == 0 {
 		return big.NewInt(0).Div(big.NewInt(0).Mul(accNotional, big.NewInt(1e18)), accBaseQ)
 	}
-	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e6)), tick)
+	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e18)), tick)
 	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
 }
 
@@ -479,7 +479,7 @@ func SampleImpactAsk(bibliophile b.BibliophileClient, ammAddress common.Address)
 	if tick.Sign() == 0 {
 		return big.NewInt(0).Div(big.NewInt(0).Mul(accNotional, big.NewInt(1e18)), accBaseQ)
 	}
-	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e6)), tick)
+	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e18)), tick)
 	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
 }
 

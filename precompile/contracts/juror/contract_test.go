@@ -2200,7 +2200,8 @@ func TestSampleImpactBid(t *testing.T) {
 					}
 					unfulFilledQuote := big.NewInt(0).Sub(impactMarginNotional, filledQuote)
 					fmt.Println("unfulFilledQuote", unfulFilledQuote, "totalBaseQ", totalBaseQ, "filledQuote", filledQuote)
-					baseQAtTick := big.NewInt(0).Div(big.NewInt(0).Mul(unfulFilledQuote, big.NewInt(1e6)), bids[3])
+					// as quantity is in 1e18 baseQ = price * 1e18 / price
+					baseQAtTick := big.NewInt(0).Div(big.NewInt(0).Mul(unfulFilledQuote, big.NewInt(1e18)), bids[3])
 					expectedOutput := big.NewInt(0).Div(big.NewInt(0).Mul(impactMarginNotional, big.NewInt(1e18)), big.NewInt(0).Add(totalBaseQ, baseQAtTick))
 					assert.Equal(t, expectedOutput, output)
 				})
@@ -2300,7 +2301,7 @@ func TestSampleImpactAsk(t *testing.T) {
 						filledQuote.Add(filledQuote, (divideTwoBigInts(multiplyTwoBigInts(asks[i], size), big.NewInt(1e18))))
 					}
 					unfulFilledQuote := big.NewInt(0).Sub(impactMarginNotional, filledQuote)
-					baseQAtTick := big.NewInt(0).Div(big.NewInt(0).Mul(unfulFilledQuote, big.NewInt(1e6)), asks[3])
+					baseQAtTick := big.NewInt(0).Div(big.NewInt(0).Mul(unfulFilledQuote, big.NewInt(1e18)), asks[3])
 					expectedOutput := big.NewInt(0).Div(big.NewInt(0).Mul(impactMarginNotional, big.NewInt(1e18)), big.NewInt(0).Add(totalBaseQ, baseQAtTick))
 					assert.Equal(t, expectedOutput, output)
 				})
