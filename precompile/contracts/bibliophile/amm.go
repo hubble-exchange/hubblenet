@@ -165,11 +165,11 @@ func GetAskSize(stateDB contract.StateDB, market common.Address, price *big.Int)
 }
 
 func GetNextBid(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
-	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(bidsStorageSlot(price), big.NewInt(0)))).Big()
+	return stateDB.GetState(market, common.BigToHash(bidsStorageSlot(price))).Big()
 }
 
 func GetNextAsk(stateDB contract.StateDB, market common.Address, price *big.Int) *big.Int {
-	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(asksStorageSlot(price), big.NewInt(0)))).Big()
+	return stateDB.GetState(market, common.BigToHash(asksStorageSlot(price))).Big()
 }
 
 func GetImpactMarginNotional(stateDB contract.StateDB, market common.Address) *big.Int {
