@@ -13,18 +13,12 @@ const (
 	MARGIN_ACCOUNT_GENESIS_ADDRESS        = "0x0300000000000000000000000000000000000001"
 	VAR_MARGIN_MAPPING_STORAGE_SLOT int64 = 10
 	VAR_RESERVED_MARGIN_SLOT        int64 = 11
-	MA_MIN_ALLOWABLE_MARGIN_SLOT    int64 = 12
 )
 
 func GetNormalizedMargin(stateDB contract.StateDB, trader common.Address) *big.Int {
 	// this is only written for single hUSD collateral
 	// TODO: generalize for multiple collaterals
 	return getMargin(stateDB, big.NewInt(0), trader)
-}
-
-// GetMinAllowableMarginMA returns the minimum allowable margin for a trader set in MarginAccount
-func getMinAllowableMarginMA(stateDB contract.StateDB) *big.Int {
-	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BytesToHash(common.LeftPadBytes(big.NewInt(MA_MIN_ALLOWABLE_MARGIN_SLOT).Bytes(), 32))).Bytes())
 }
 
 func getMargin(stateDB contract.StateDB, collateralIdx *big.Int, trader common.Address) *big.Int {
@@ -46,7 +40,7 @@ func GetAvailableMargin(stateDB contract.StateDB, trader common.Address) *big.In
 	output := GetNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayment, Mode: mode}, timestamp)
 	notionalPostion := output.NotionalPosition
 	margin := output.Margin
-	utitlizedMargin := divide1e6(big.NewInt(0).Mul(notionalPostion, getMinAllowableMarginMA(stateDB)))
+	utitlizedMargin := divide1e6(big.NewInt(0).Mul(notionalPostion, GetMinAllowableMargin(stateDB)))
 	reservedMargin := getReservedMargin(stateDB, trader)
 	return big.NewInt(0).Sub(big.NewInt(0).Sub(margin, utitlizedMargin), reservedMargin)
 }

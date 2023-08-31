@@ -234,20 +234,6 @@ func (mr *MockBibliophileClientMockRecorder) GetMinAllowableMargin() *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMinAllowableMargin", reflect.TypeOf((*MockBibliophileClient)(nil).GetMinAllowableMargin))
 }
 
-// GetMinAllowableMarginOB mocks base method.
-func (m *MockBibliophileClient) GetMinAllowableMarginOB() *big.Int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMinAllowableMarginOB")
-	ret0, _ := ret[0].(*big.Int)
-	return ret0
-}
-
-// GetMinAllowableMarginOB indicates an expected call of GetMinAllowableMarginOB.
-func (mr *MockBibliophileClientMockRecorder) GetMinAllowableMarginOB() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMinAllowableMarginOB", reflect.TypeOf((*MockBibliophileClient)(nil).GetMinAllowableMarginOB))
-}
-
 // GetMinSizeRequirement mocks base method.
 func (m *MockBibliophileClient) GetMinSizeRequirement(marketId int64) *big.Int {
 	m.ctrl.T.Helper()
@@ -372,20 +358,6 @@ func (m *MockBibliophileClient) GetTakerFee() *big.Int {
 func (mr *MockBibliophileClientMockRecorder) GetTakerFee() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTakerFee", reflect.TypeOf((*MockBibliophileClient)(nil).GetTakerFee))
-}
-
-// GetTakerFeeOB mocks base method.
-func (m *MockBibliophileClient) GetTakerFeeOB() *big.Int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTakerFeeOB")
-	ret0, _ := ret[0].(*big.Int)
-	return ret0
-}
-
-// GetTakerFeeOB indicates an expected call of GetTakerFeeOB.
-func (mr *MockBibliophileClientMockRecorder) GetTakerFeeOB() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTakerFeeOB", reflect.TypeOf((*MockBibliophileClient)(nil).GetTakerFeeOB))
 }
 
 // GetUpperAndLowerBoundForMarket mocks base method.
