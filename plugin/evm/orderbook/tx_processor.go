@@ -288,6 +288,9 @@ func (lotp *limitOrderTxProcessor) UpdateMetrics(block *types.Block) {
 	timestamp := new(big.Int).SetUint64(block.Header().Time)
 	signer := types.MakeSigner(lotp.backend.ChainConfig(), bigblock, timestamp.Uint64())
 
+	currentBlock := lotp.backend.CurrentBlock() // head block
+	headBlockLagHistogram.Update(int64(currentBlock.Number.Uint64() - block.NumberU64()))
+
 	for i := 0; i < len(txs); i++ {
 		tx := txs[i]
 		receipt := receipts[i]
@@ -314,13 +317,15 @@ func (lotp *limitOrderTxProcessor) UpdateMetrics(block *types.Block) {
 			if contractAddress != nil && lotp.orderBookContractAddress == *contractAddress {
 				note := "success"
 				if receipt.Status == 0 {
-					log.Error("orderbook tx failed", "method", method.Name, "tx", tx.Hash().String(), "receipt", receipt)
+					log.Error("orderbook tx failed", "method", method.Name, "tx", tx.Hash().String(),
+						"receipt.Status", receipt.Status, "receipt.CumulativeGasUsed", receipt.CumulativeGasUsed,
+						"receipt.GasUsed", receipt.GasUsed, "receipt.EffectiveGasPrice", receipt.EffectiveGasPrice,
+						"receipt.BlockNumber", receipt.BlockNumber)
 					note = "failure"
 				}
 				counterName := fmt.Sprintf("orderbooktxs/%s/%s", method.Name, note)
 				metrics.GetOrRegisterCounter(counterName, nil).Inc(1)
 			}
-
 		}
 
 		// measure the gas usage irrespective of whether the tx is from this validator or not
