@@ -668,14 +668,6 @@ func multiply1e6(number *big.Int) *big.Int {
 	return new(big.Int).Mul(number, big.NewInt(1e6))
 }
 
-func divide1e18(number *big.Int) *big.Int {
-	return big.NewInt(0).Div(number, big.NewInt(1e18))
-}
-
-func multiply1e18(number *big.Int) *big.Int {
-	return new(big.Int).Mul(number, big.NewInt(1e18))
-}
-
 func formatOrder(orderBytes []byte) interface{} {
 	decodeStep0, err := decodeTypeAndEncodedOrder(orderBytes)
 	if err != nil {
