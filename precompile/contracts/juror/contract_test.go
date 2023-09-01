@@ -2130,13 +2130,13 @@ func TestSampleImpactBid(t *testing.T) {
 		t.Run("when bidsHead > 0", func(t *testing.T) {
 			bidsHead := big.NewInt(20000000) // 20 units
 			t.Run("when bids in orderbook are not enough to cover impactMarginNotional", func(t *testing.T) {
-				t.Run("when there is only one bid in orderbook it returns bidsHead", func(t *testing.T) {
+				t.Run("when there is only one bid in orderbook it returns 0", func(t *testing.T) {
 					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
 					mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(bidsHead).Times(1)
 					mockBibliophile.EXPECT().GetBidSize(ammAddress, bidsHead).Return(big.NewInt(1e18)).Times(1)
 					mockBibliophile.EXPECT().GetNextBidPrice(ammAddress, bidsHead).Return(big.NewInt(0)).Times(1)
 					output := SampleImpactBid(mockBibliophile, ammAddress)
-					assert.Equal(t, bidsHead, output)
+					assert.Equal(t, big.NewInt(0), output)
 				})
 				t.Run("when there are multiple bids, it tries to fill with available bids and average price is returned for rest", func(t *testing.T) {
 					bids := []*big.Int{bidsHead, big.NewInt(2100000), big.NewInt(2200000), big.NewInt(2300000)}
@@ -2158,10 +2158,11 @@ func TestSampleImpactBid(t *testing.T) {
 					}
 					//asserting to check if testing conditions are setup correctly
 					assert.Equal(t, -1, accumulatedMarginNotional.Cmp(impactMarginNotional))
-					accBaseQ := big.NewInt(0).Mul(size, big.NewInt(int64(len(bids))))
-					expectedSampleImpactBid := divideTwoBigInts(multiplyTwoBigInts(accumulatedMarginNotional, big.NewInt(1e18)), accBaseQ)
+					// accBaseQ := big.NewInt(0).Mul(size, big.NewInt(int64(len(bids))))
+					// expectedSampleImpactBid := divideTwoBigInts(multiplyTwoBigInts(accumulatedMarginNotional, big.NewInt(1e18)), accBaseQ)
 					output := SampleImpactBid(mockBibliophile, ammAddress)
-					assert.Equal(t, expectedSampleImpactBid, output)
+					assert.Equal(t, big.NewInt(0), output)
+					// assert.Equal(t, expectedSampleImpactBid, output)
 				})
 			})
 			t.Run("when bids in orderbook are enough to cover impactMarginNotional", func(t *testing.T) {
@@ -2170,7 +2171,6 @@ func TestSampleImpactBid(t *testing.T) {
 					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
 					mockBibliophile.EXPECT().GetBidsHead(ammAddress).Return(newBidsHead).Times(1)
 					mockBibliophile.EXPECT().GetBidSize(ammAddress, newBidsHead).Return(big.NewInt(1e18)).Times(1)
-					mockBibliophile.EXPECT().GetNextBidPrice(ammAddress, newBidsHead).Return(big.NewInt(0)).Times(1)
 					output := SampleImpactBid(mockBibliophile, ammAddress)
 					assert.Equal(t, newBidsHead, output)
 				})
@@ -2237,7 +2237,7 @@ func TestSampleImpactAsk(t *testing.T) {
 					mockBibliophile.EXPECT().GetAskSize(ammAddress, asksHead).Return(big.NewInt(1e18)).Times(1)
 					mockBibliophile.EXPECT().GetNextAskPrice(ammAddress, asksHead).Return(big.NewInt(0)).Times(1)
 					output := SampleImpactAsk(mockBibliophile, ammAddress)
-					assert.Equal(t, asksHead, output)
+					assert.Equal(t, big.NewInt(0), output)
 				})
 				t.Run("when there are multiple asks, it tries to fill with available asks and average price is returned for rest", func(t *testing.T) {
 					asks := []*big.Int{asksHead, big.NewInt(2100000), big.NewInt(2200000), big.NewInt(2300000)}
@@ -2259,10 +2259,8 @@ func TestSampleImpactAsk(t *testing.T) {
 					}
 					//asserting to check if testing conditions are setup correctly
 					assert.Equal(t, -1, accumulatedMarginNotional.Cmp(impactMarginNotional))
-					accBaseQ := big.NewInt(0).Mul(size, big.NewInt(int64(len(asks))))
-					expectedSampleImpactAsk := divideTwoBigInts(multiplyTwoBigInts(accumulatedMarginNotional, big.NewInt(1e18)), accBaseQ)
 					output := SampleImpactAsk(mockBibliophile, ammAddress)
-					assert.Equal(t, expectedSampleImpactAsk, output)
+					assert.Equal(t, big.NewInt(0), output)
 				})
 			})
 			t.Run("when asks in orderbook are enough to cover impactMarginNotional", func(t *testing.T) {
@@ -2271,7 +2269,6 @@ func TestSampleImpactAsk(t *testing.T) {
 					mockBibliophile.EXPECT().GetImpactMarginNotional(ammAddress).Return(impactMarginNotional).Times(1)
 					mockBibliophile.EXPECT().GetAsksHead(ammAddress).Return(newAsksHead).Times(1)
 					mockBibliophile.EXPECT().GetAskSize(ammAddress, newAsksHead).Return(big.NewInt(1e18)).Times(1)
-					mockBibliophile.EXPECT().GetNextAskPrice(ammAddress, newAsksHead).Return(big.NewInt(0)).Times(1)
 					output := SampleImpactAsk(mockBibliophile, ammAddress)
 					assert.Equal(t, newAsksHead, output)
 				})
@@ -2292,18 +2289,17 @@ func TestSampleImpactAsk(t *testing.T) {
 					mockBibliophile.EXPECT().GetAskSize(ammAddress, asks[2]).Return(size).Times(1)
 					mockBibliophile.EXPECT().GetAskSize(ammAddress, asks[3]).Return(size).Times(1)
 
-					// accBaseQ := big.NewInt(0).Mul(size, big.NewInt(int64(len(asks))))
-					output := SampleImpactAsk(mockBibliophile, ammAddress)
+					// 2000 * .6 + 2001 * .6 + 2002 * .6 = 3,601.8
 					// 3 asks are filled and 3 are left
-					totalBaseQ := big.NewInt(0).Mul(size, big.NewInt(3))
+					accBaseQ := big.NewInt(0).Mul(size, big.NewInt(3))
 					filledQuote := big.NewInt(0)
 					for i := 0; i < 3; i++ {
-						filledQuote.Add(filledQuote, (divideTwoBigInts(multiplyTwoBigInts(asks[i], size), big.NewInt(1e18))))
+						filledQuote.Add(filledQuote, divide1e6(big.NewInt(0).Mul(asks[i], size)))
 					}
-					unfulFilledQuote := big.NewInt(0).Sub(impactMarginNotional, filledQuote)
-					baseQAtTick := big.NewInt(0).Div(big.NewInt(0).Mul(unfulFilledQuote, big.NewInt(1e18)), asks[3])
-					expectedOutput := big.NewInt(0).Div(big.NewInt(0).Mul(impactMarginNotional, big.NewInt(1e18)), big.NewInt(0).Add(totalBaseQ, baseQAtTick))
-					assert.Equal(t, expectedOutput, output)
+					_impactMarginNotional := new(big.Int).Mul(impactMarginNotional, big.NewInt(1e12))
+					baseQAtTick := new(big.Int).Div(multiply1e6(big.NewInt(0).Sub(_impactMarginNotional, filledQuote)), asks[3])
+					expectedOutput := new(big.Int).Div(multiply1e6(_impactMarginNotional), new(big.Int).Add(baseQAtTick, accBaseQ))
+					assert.Equal(t, expectedOutput, SampleImpactAsk(mockBibliophile, ammAddress))
 				})
 			})
 		})

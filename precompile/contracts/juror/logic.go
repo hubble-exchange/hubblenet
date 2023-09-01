@@ -73,6 +73,7 @@ var (
 	ErrBaseAssetQuantityZero              = errors.New("baseAssetQuantity is zero")
 	ErrReduceOnlyBaseAssetQuantityInvalid = errors.New("reduce only order must reduce position")
 	ErrNetReduceOnlyAmountExceeded        = errors.New("net reduce only amount exceeded")
+	ErrStaleReduceOnlyOrders              = errors.New("cancel stale reduce only orders")
 	ErrInsufficientMargin                 = errors.New("insufficient margin")
 	ErrCrossingMarket                     = errors.New("crossing market")
 	ErrOpenOrders                         = errors.New("open orders")
@@ -388,35 +389,35 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 	}, nil
 }
 
+// Liquidity Probing Methods
+
 func GetPrevTick(bibliophile b.BibliophileClient, input GetPrevTickInput) (*big.Int, error) {
 	if input.Tick.Sign() == 0 {
 		return nil, errors.New("tick price cannot be zero")
 	}
 	if input.IsBid {
-		bidsHead := bibliophile.GetBidsHead(input.Amm)
-		if input.Tick.Cmp(bidsHead) != -1 {
-			return nil, fmt.Errorf("tick %d is greater than or equal to bidsHead %d", input.Tick, bidsHead)
+		currentTick := bibliophile.GetBidsHead(input.Amm)
+		if input.Tick.Cmp(currentTick) >= 0 {
+			return nil, fmt.Errorf("tick %d is greater than or equal to bidsHead %d", input.Tick, currentTick)
 		}
-		currentTick := bidsHead
 		for {
 			nextTick := bibliophile.GetNextBidPrice(input.Amm, currentTick)
-			if nextTick.Cmp(input.Tick) != 1 {
+			if nextTick.Cmp(input.Tick) <= 0 {
 				return currentTick, nil
 			}
 			currentTick = nextTick
 		}
 	}
-	askHead := bibliophile.GetAsksHead(input.Amm)
-	if askHead.Sign() == 0 {
+	currentTick := bibliophile.GetAsksHead(input.Amm)
+	if currentTick.Sign() == 0 {
 		return nil, errors.New("asksHead is zero")
 	}
-	if input.Tick.Cmp(askHead) != 1 {
-		return nil, fmt.Errorf("tick %d is less than or equal to asksHead %d", input.Tick, askHead)
+	if input.Tick.Cmp(currentTick) <= 0 {
+		return nil, fmt.Errorf("tick %d is less than or equal to asksHead %d", input.Tick, currentTick)
 	}
-	currentTick := askHead
 	for {
 		nextTick := bibliophile.GetNextAskPrice(input.Amm, currentTick)
-		if nextTick.Cmp(input.Tick) != -1 || nextTick.Sign() == 0 {
+		if nextTick.Cmp(input.Tick) >= 0 || nextTick.Sign() == 0 {
 			return currentTick, nil
 		}
 		currentTick = nextTick
@@ -428,29 +429,32 @@ func SampleImpactBid(bibliophile b.BibliophileClient, ammAddress common.Address)
 	if impactMarginNotional.Sign() == 0 {
 		return big.NewInt(0)
 	}
-	tick := bibliophile.GetBidsHead(ammAddress)
-	if tick.Sign() == 0 {
+	return _sampleImpactBid(bibliophile, ammAddress, impactMarginNotional)
+}
+
+func _sampleImpactBid(bibliophile b.BibliophileClient, ammAddress common.Address, _impactMarginNotional *big.Int) *big.Int {
+	if _impactMarginNotional.Sign() == 0 {
 		return big.NewInt(0)
 	}
+	impactMarginNotional := new(big.Int).Mul(_impactMarginNotional, big.NewInt(1e12))
 	accNotional := big.NewInt(0)
 	accBaseQ := big.NewInt(0)
-	for accNotional.Cmp(impactMarginNotional) != 0 && tick.Sign() != 0 {
+	tick := bibliophile.GetBidsHead(ammAddress)
+	for tick.Sign() != 0 {
 		amount := bibliophile.GetBidSize(ammAddress, tick)
-		quote := big.NewInt(0).Div(big.NewInt(0).Mul(amount, tick), big.NewInt(1e18))
-		accumulator := new(big.Int).Add(accNotional, quote)
-		if accumulator.Cmp(impactMarginNotional) == 1 {
+		accumulator := new(big.Int).Add(accNotional, divide1e6(big.NewInt(0).Mul(amount, tick)))
+		if accumulator.Cmp(impactMarginNotional) >= 0 {
 			break
 		}
 		accNotional = accumulator
 		accBaseQ.Add(accBaseQ, amount)
-		nextTick := bibliophile.GetNextBidPrice(ammAddress, tick)
-		tick = nextTick
+		tick = bibliophile.GetNextBidPrice(ammAddress, tick)
 	}
 	if tick.Sign() == 0 {
-		return big.NewInt(0).Div(big.NewInt(0).Mul(accNotional, big.NewInt(1e18)), accBaseQ)
+		return big.NewInt(0)
 	}
-	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e18)), tick)
-	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
+	baseQAtTick := new(big.Int).Div(multiply1e6(new(big.Int).Sub(impactMarginNotional, accNotional)), tick)
+	return new(big.Int).Div(multiply1e6(impactMarginNotional), new(big.Int).Add(baseQAtTick, accBaseQ)) // return value is in 6 decimals
 }
 
 func SampleImpactAsk(bibliophile b.BibliophileClient, ammAddress common.Address) *big.Int {
@@ -458,44 +462,47 @@ func SampleImpactAsk(bibliophile b.BibliophileClient, ammAddress common.Address)
 	if impactMarginNotional.Sign() == 0 {
 		return big.NewInt(0)
 	}
-	tick := bibliophile.GetAsksHead(ammAddress)
-	if tick.Sign() == 0 {
+	return _sampleImpactAsk(bibliophile, ammAddress, impactMarginNotional)
+}
+
+func _sampleImpactAsk(bibliophile b.BibliophileClient, ammAddress common.Address, _impactMarginNotional *big.Int) *big.Int {
+	if _impactMarginNotional.Sign() == 0 {
 		return big.NewInt(0)
 	}
+	impactMarginNotional := new(big.Int).Mul(_impactMarginNotional, big.NewInt(1e12))
+	tick := bibliophile.GetAsksHead(ammAddress)
 	accNotional := big.NewInt(0)
 	accBaseQ := big.NewInt(0)
-	for accNotional.Cmp(impactMarginNotional) != 0 && tick.Sign() != 0 {
+	for tick.Sign() != 0 {
 		amount := bibliophile.GetAskSize(ammAddress, tick)
-		quote := big.NewInt(0).Div(big.NewInt(0).Mul(amount, tick), big.NewInt(1e18))
-		accumulator := new(big.Int).Add(accNotional, quote)
-		if accumulator.Cmp(impactMarginNotional) == 1 {
+		accumulator := new(big.Int).Add(accNotional, divide1e6(big.NewInt(0).Mul(amount, tick)))
+		if accumulator.Cmp(impactMarginNotional) >= 0 {
 			break
 		}
 		accNotional = accumulator
 		accBaseQ.Add(accBaseQ, amount)
-		nextTick := bibliophile.GetNextAskPrice(ammAddress, tick)
-		tick = nextTick
+		tick = bibliophile.GetNextAskPrice(ammAddress, tick)
 	}
 	if tick.Sign() == 0 {
-		return big.NewInt(0).Div(big.NewInt(0).Mul(accNotional, big.NewInt(1e18)), accBaseQ)
+		return big.NewInt(0)
 	}
-	baseQAtTick := new(big.Int).Div(new(big.Int).Mul(new(big.Int).Sub(impactMarginNotional, accNotional), big.NewInt(1e18)), tick)
-	return new(big.Int).Div(new(big.Int).Mul(impactMarginNotional, big.NewInt(1e18)), new(big.Int).Add(baseQAtTick, accBaseQ))
+	baseQAtTick := new(big.Int).Div(multiply1e6(new(big.Int).Sub(impactMarginNotional, accNotional)), tick)
+	return new(big.Int).Div(multiply1e6(impactMarginNotional), new(big.Int).Add(baseQAtTick, accBaseQ)) // return value is in 6 decimals
 }
 
 func GetQuote(bibliophile b.BibliophileClient, ammAddress common.Address, baseAssetQuantity *big.Int) *big.Int {
-	return new(big.Int).Div(new(big.Int).Mul(new(big.Int).Abs(baseAssetQuantity), bibliophile.GetLastPrice(ammAddress)), big.NewInt(1e18))
+	return big.NewInt(0)
 }
 
 func GetBaseQuote(bibliophile b.BibliophileClient, ammAddress common.Address, quoteAssetQuantity *big.Int) *big.Int {
-	isLong := quoteAssetQuantity.Sign() >= 0
-	baseAssetQuantity := new(big.Int).Div(new(big.Int).Mul(quoteAssetQuantity, big.NewInt(1e6)), bibliophile.GetLastPrice(ammAddress))
-	if isLong {
-		return baseAssetQuantity
+	if quoteAssetQuantity.Sign() > 0 { // get the qoute to long quoteQuantity dollars
+		return _sampleImpactAsk(bibliophile, ammAddress, quoteAssetQuantity)
 	}
-	return new(big.Int).Neg(baseAssetQuantity)
+	// get the qoute to short quoteQuantity dollars
+	return _sampleImpactBid(bibliophile, ammAddress, new(big.Int).Neg(quoteAssetQuantity))
 }
 
+// Limit Orders V2
 func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *ValidateCancelLimitOrderInput) *ValidateCancelLimitOrderOutput {
 	errorString, orderHash, ammAddress, unfilledAmount := validateCancelLimitOrderV2(bibliophile, inputStruct.Order, inputStruct.Trader, inputStruct.AssertLowMargin)
 	return &ValidateCancelLimitOrderOutput{
@@ -580,12 +587,20 @@ func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrde
 		errorString = ErrOrderAlreadyExists.Error()
 		return
 	}
+
+	posSize := bibliophile.GetSize(ammAddress, &trader)
+	reduceOnlyAmount := bibliophile.GetReduceOnlyAmount(trader, order.AmmIndex)
+	// this should only happen when a trader with open reduce only orders was liquidated
+	if (posSize.Sign() == 0 && reduceOnlyAmount.Sign() != 0) || (posSize.Sign() != 0 && new(big.Int).Mul(posSize, reduceOnlyAmount).Sign() == 1) {
+		// if position is non-zero then reduceOnlyAmount should be zero or have the opposite sign as posSize
+		errorString = ErrStaleReduceOnlyOrders.Error()
+		return
+	}
+
 	var orderSide Side = Side(Long)
 	if order.BaseAssetQuantity.Sign() == -1 {
 		orderSide = Side(Short)
 	}
-	posSize := bibliophile.GetSize(ammAddress, &trader)
-	reduceOnlyAmount := bibliophile.GetReduceOnlyAmount(trader, order.AmmIndex)
 	if order.ReduceOnly {
 		if !reducesPosition(posSize, order.BaseAssetQuantity) {
 			errorString = ErrReduceOnlyBaseAssetQuantityInvalid.Error()
@@ -646,4 +661,20 @@ func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrd
 	takerFee := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, bibliophile.GetTakerFee()), big.NewInt(1e6))
 	requiredMargin.Add(requiredMargin, takerFee)
 	return requiredMargin
+}
+
+func divide1e6(number *big.Int) *big.Int {
+	return big.NewInt(0).Div(number, big.NewInt(1e6))
+}
+
+func multiply1e6(number *big.Int) *big.Int {
+	return new(big.Int).Mul(number, big.NewInt(1e6))
+}
+
+func divide1e18(number *big.Int) *big.Int {
+	return big.NewInt(0).Div(number, big.NewInt(1e18))
+}
+
+func multiply1e18(number *big.Int) *big.Int {
+	return new(big.Int).Mul(number, big.NewInt(1e18))
 }
