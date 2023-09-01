@@ -102,7 +102,7 @@ type IOrderHandlerPlaceOrderRes struct {
 
 type GetBaseQuoteInput struct {
 	Amm           common.Address
-	QouteQuantity *big.Int
+	QuoteQuantity *big.Int
 }
 
 type GetPrevTickInput struct {
@@ -180,7 +180,7 @@ func UnpackGetBaseQuoteInput(input []byte) (GetBaseQuoteInput, error) {
 
 // PackGetBaseQuote packs [inputStruct] of type GetBaseQuoteInput into the appropriate arguments for getBaseQuote.
 func PackGetBaseQuote(inputStruct GetBaseQuoteInput) ([]byte, error) {
-	return JurorABI.Pack("getBaseQuote", inputStruct.Amm, inputStruct.QouteQuantity)
+	return JurorABI.Pack("getBaseQuote", inputStruct.Amm, inputStruct.QuoteQuantity)
 }
 
 // PackGetBaseQuoteOutput attempts to pack given base of type *big.Int
@@ -203,7 +203,7 @@ func getBaseQuote(accessibleState contract.AccessibleState, caller common.Addres
 
 	// CUSTOM CODE STARTS HERE
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
-	baseQuote := GetBaseQuote(bibliophile, inputStruct.Amm, inputStruct.QouteQuantity)
+	baseQuote := GetBaseQuote(bibliophile, inputStruct.Amm, inputStruct.QuoteQuantity)
 
 	packedOutput, err := PackGetBaseQuoteOutput(baseQuote)
 	if err != nil {

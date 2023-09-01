@@ -33,11 +33,9 @@ func getReservedMargin(stateDB contract.StateDB, trader common.Address) *big.Int
 }
 
 func GetAvailableMargin(stateDB contract.StateDB, trader common.Address) *big.Int {
-	//As this function is implemented after V2ActivationDate we can hardcode. Change this if we do another migration
-	timestamp := big.NewInt(0).Add(V2ActivationDate, big.NewInt(1))
 	includeFundingPayment := true
-	mode := uint8(1) //Min_Allowable_Margin
-	output := GetNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayment, Mode: mode}, timestamp)
+	mode := uint8(1) // Min_Allowable_Margin
+	output := GetNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayment, Mode: mode}, nil)
 	notionalPostion := output.NotionalPosition
 	margin := output.Margin
 	utitlizedMargin := divide1e6(big.NewInt(0).Mul(notionalPostion, GetMinAllowableMargin(stateDB)))

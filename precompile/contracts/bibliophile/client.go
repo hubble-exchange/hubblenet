@@ -127,27 +127,27 @@ func (b *bibliophileClient) GetLastPrice(ammAddress common.Address) *big.Int {
 }
 
 func (b *bibliophileClient) GetBidSize(ammAddress common.Address, price *big.Int) *big.Int {
-	return GetBidSize(b.accessibleState.GetStateDB(), ammAddress, price)
+	return getBidSize(b.accessibleState.GetStateDB(), ammAddress, price)
 }
 
 func (b *bibliophileClient) GetAskSize(ammAddress common.Address, price *big.Int) *big.Int {
-	return GetAskSize(b.accessibleState.GetStateDB(), ammAddress, price)
+	return getAskSize(b.accessibleState.GetStateDB(), ammAddress, price)
 }
 
 func (b *bibliophileClient) GetNextBidPrice(ammAddress common.Address, price *big.Int) *big.Int {
-	return GetNextBid(b.accessibleState.GetStateDB(), ammAddress, price)
+	return getNextBid(b.accessibleState.GetStateDB(), ammAddress, price)
 }
 
 func (b *bibliophileClient) GetNextAskPrice(ammAddress common.Address, price *big.Int) *big.Int {
-	return GetNextAsk(b.accessibleState.GetStateDB(), ammAddress, price)
+	return getNextAsk(b.accessibleState.GetStateDB(), ammAddress, price)
 }
 
 func (b *bibliophileClient) GetImpactMarginNotional(ammAddress common.Address) *big.Int {
-	return GetImpactMarginNotional(b.accessibleState.GetStateDB(), ammAddress)
+	return getImpactMarginNotional(b.accessibleState.GetStateDB(), ammAddress)
 }
 
 func (b *bibliophileClient) GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int) {
-	return GetAcceptableBoundsForLiquidation(b.accessibleState.GetStateDB(), marketId)
+	return GetAcceptableBounds(b.accessibleState.GetStateDB(), marketId)
 }
 
 func (b *bibliophileClient) GetBidsHead(market common.Address) *big.Int {

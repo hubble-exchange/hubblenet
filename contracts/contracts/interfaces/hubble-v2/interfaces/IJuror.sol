@@ -46,13 +46,14 @@ interface IJuror {
     function getPrevTick(address amm, bool isBid, uint tick) external view returns (uint prevTick);
     function sampleImpactBid(address amm) external view returns (uint impactBid);
     function sampleImpactAsk(address amm) external view returns (uint impactAsk);
-    function getQuote(address amm, uint256 baseAssetQuantity) external view returns (uint256 quote);
-    function getBaseQuote(address amm, uint256 qouteQuantity) external view returns (uint256 base);
+    function getQuote(address amm, int256 baseAssetQuantity) external view returns (uint256 rate);
+    function getBaseQuote(address amm, int256 quoteQuantity) external view returns (uint256 rate);
 }
 
 interface ILimitOrderBook {
     struct OrderV2 {
         uint256 ammIndex;
+        address trader;
         int256 baseAssetQuantity;
         uint256 price;
         uint256 salt;
@@ -64,6 +65,7 @@ interface ILimitOrderBook {
 interface IImmediateOrCancelOrders {
     struct Order {
         uint8 orderType;
+        uint256 expireAt;
         uint256 ammIndex;
         address trader;
         int256 baseAssetQuantity;
