@@ -105,6 +105,75 @@ var ClearingHouseAbi = []byte(`{"abi": [
     "inputs": [
       {
         "indexed": false,
+        "internalType": "uint256",
+        "name": "nextSampleTime",
+        "type": "uint256"
+      }
+    ],
+    "name": "NotifyNextPISample",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "idx",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "blockNumber",
+        "type": "uint256"
+      }
+    ],
+    "name": "PISampleSkipped",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "idx",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "int256",
+        "name": "premiumIndex",
+        "type": "int256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "blockNumber",
+        "type": "uint256"
+      }
+    ],
+    "name": "PISampledUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
         "internalType": "address",
         "name": "account",
         "type": "address"
@@ -258,19 +327,6 @@ var ClearingHouseAbi = []byte(`{"abi": [
       }
     ],
     "name": "ReferralBonusAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "nextSampleTime",
-        "type": "uint256"
-      }
-    ],
-    "name": "SamplePI",
     "type": "event"
   },
   {

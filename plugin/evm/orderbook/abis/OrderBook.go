@@ -1579,5 +1579,4 @@ var OrderBookAbi = []byte(`{"abi": [
     "stateMutability": "payable",
     "type": "function"
   }
-]
-}`)
+]}`)
