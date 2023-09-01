@@ -255,7 +255,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 				BlockNumber:             big.NewInt(int64(event.BlockNumber)),
 				OrderType:               LimitOrderType,
 			}
-			log.Info("LimitOrder/OrderAccepted", "order", limitOrder, "number", event.BlockNumber, "timestamp", timestamp)
+			log.Info("LimitOrder/OrderAccepted", "order", limitOrder, "timestamp", timestamp)
 			cep.database.Add(&limitOrder)
 		} else {
 			log.Info("LimitOrder/OrderAccepted removed", "args", args, "orderId", orderId.String(), "number", event.BlockNumber)
@@ -477,12 +477,13 @@ func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {
 
 	// event NotifyNextPISample(uint nextSampleTime);
 	case cep.clearingHouseABI.Events["NotifyNextPISample"].ID:
-		err := cep.clearingHouseABI.UnpackIntoMap(args, "SamplePI", event.Data)
+		err := cep.clearingHouseABI.UnpackIntoMap(args, "NotifyNextPISample", event.Data)
 		if err != nil {
-			log.Error("error in clearingHouseABI.UnpackIntoMap", "method", "SamplePI", "err", err)
+			log.Error("error in clearingHouseABI.UnpackIntoMap", "method", "NotifyNextPISample", "err", err)
 			return
 		}
 		nextSampleTime := args["nextSampleTime"].(*big.Int)
+		log.Info("NotifyNextPISample", "nextSampleTime", nextSampleTime)
 		cep.database.UpdateNextSamplePITime(nextSampleTime.Uint64())
 	}
 }
@@ -725,9 +726,9 @@ func (cep *ContractEventsProcessor) updateMetrics(logs []*types.Log) {
 		}
 
 		switch event_.Name {
-		case "OrderPlaced":
+		case "OrderPlaced", "OrderAccepted":
 			orderPlacedCount++
-		case "OrderCancelled":
+		case "OrderCancelled", "OrderCancelAccepted":
 			orderCancelledCount++
 		}
 	}
