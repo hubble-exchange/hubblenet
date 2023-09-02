@@ -10,6 +10,7 @@ import (
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type OrderType uint8
