@@ -64,6 +64,7 @@ var (
 	ErrNotMultiple       = errors.New("not multiple")
 
 	ErrInvalidOrder                       = errors.New("invalid order")
+	ErrInvalidPrice                       = errors.New("invalid price")
 	ErrCancelledOrder                     = errors.New("cancelled order")
 	ErrFilledOrder                        = errors.New("filled order")
 	ErrOrderAlreadyExists                 = errors.New("order already exists")
@@ -578,6 +579,10 @@ func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrde
 	orderHash, err := GetLimitOrderV2Hash(&order)
 	if err != nil {
 		errorString = err.Error()
+		return
+	}
+	if order.Price.Sign() != 1 {
+		errorString = ErrInvalidPrice.Error()
 		return
 	}
 	trader := order.Trader

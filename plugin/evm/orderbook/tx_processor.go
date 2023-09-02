@@ -113,7 +113,7 @@ func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, mat
 }
 
 func (lotp *limitOrderTxProcessor) ExecuteFundingPaymentTx() error {
-	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "settleFunding")
+	txHash, err := lotp.executeLocalTx(lotp.clearingHouseContractAddress, lotp.clearingHouseABI, "settleFunding")
 	log.Info("ExecuteFundingPaymentTx", "txHash", txHash.String(), "err", err)
 	return err
 }
