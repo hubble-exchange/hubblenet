@@ -5,6 +5,7 @@
 package juror
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -540,6 +541,7 @@ func validateOrdersAndDetermineFillPrice(accessibleState contract.AccessibleStat
 		return nil, remainingGas, err
 	}
 
+	log.Info("validateOrdersAndDetermineFillPrice", "orders[0]", hex.EncodeToString(inputStruct.Data[0]), "orders[1]", hex.EncodeToString(inputStruct.Data[1]), "fillAmount", inputStruct.FillAmount)
 	// CUSTOM CODE STARTS HERE
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
 	output, err := ValidateOrdersAndDetermineFillPrice(bibliophile, &inputStruct)
@@ -621,6 +623,8 @@ func PackValidatePlaceLimitOrder(inputStruct ValidatePlaceLimitOrderInput) ([]by
 // PackValidatePlaceLimitOrderOutput attempts to pack given [outputStruct] of type ValidatePlaceLimitOrderOutput
 // to conform the ABI outputs.
 func PackValidatePlaceLimitOrderOutput(outputStruct ValidatePlaceLimitOrderOutput) ([]byte, error) {
+	// @todo orderHash looks ugly
+	// lvl=info msg=validatePlaceLimitOrder                  outputStruct="{Errs: Orderhash:[163 9 195 151 255 44 17 22 177 218 216 139 75 238 217 56 226 244 244 41 106 243 100 63 204 145 170 96 95 106 252 157] Res:{ReserveAmount:+6015000 Amm:0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf}}"
 	log.Info("validatePlaceLimitOrder", "outputStruct", outputStruct)
 	return JurorABI.PackOutput("validatePlaceLimitOrder",
 		outputStruct.Errs,

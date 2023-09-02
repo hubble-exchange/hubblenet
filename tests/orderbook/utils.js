@@ -51,24 +51,25 @@ function getOrder(market, traderAddress, baseAssetQuantity, price, salt, reduceO
     }
 }
 
-function getOrderV2(market, baseAssetQuantity, price, salt, reduceOnly=false, postOnly=false) {
+function getOrderV2(ammIndex, trader, baseAssetQuantity, price, salt, reduceOnly=false, postOnly=false) {
     return {
-        ammIndex: market,
-        baseAssetQuantity: baseAssetQuantity,
-        price: price,
+        ammIndex,
+        trader,
+        baseAssetQuantity,
+        price,
         salt: BigNumber.from(salt),
-        reduceOnly: reduceOnly,
-        postOnly: postOnly
+        reduceOnly,
+        postOnly
     }
 }
 
 function getIOCOrder(expireAt, ammIndex, trader, baseAssetQuantity, price, salt, reduceOnly=false) {
     return {
         orderType: 1,
-        expireAt: expireAt, 
+        expireAt: expireAt,
         ammIndex: ammIndex,
         trader: trader,
-        baseAssetQuantity: baseAssetQuantity, 
+        baseAssetQuantity: baseAssetQuantity,
         price: price,
         salt: salt,
         reduceOnly: false
@@ -77,11 +78,13 @@ function getIOCOrder(expireAt, ammIndex, trader, baseAssetQuantity, price, salt,
 
 //Convert to wei units to support 18 decimals
 function multiplySize(size) {
+    // return _1e18.mul(size)
     return ethers.utils.parseEther(size.toString())
 }
 
 function multiplyPrice(price) {
-    return ethers.utils.parseUnits(price.toString(), 6)
+    return _1e6.mul(price)
+    // return ethers.utils.parseUnits(price.toString(), 6)
 }
 
 async function getDomain() {
@@ -106,7 +109,16 @@ async function placeOrderFromLimitOrder(order, trader) {
 }
 
 async function placeOrderFromLimitOrderV2(order, trader) {
-    const tx = await orderBook.connect(trader).placeOrders([order], trader.address)
+    // console.log({ placeOrderEstimateGas: (await orderBook.connect(trader).estimateGas.placeOrders([order])).toNumber() })
+    // return orderBook.connect(trader).placeOrders([order])
+    const tx = await orderBook.connect(trader).placeOrders([order])
+    const txReceipt = await tx.wait()
+    return { tx, txReceipt }
+}
+
+async function placeV2Orders(orders, trader) {
+    console.log({ placeOrdersEstimateGas: (await orderBook.connect(trader).estimateGas.placeOrders(orders)).toNumber() })
+    const tx = await orderBook.connect(trader).placeOrders(orders)
     const txReceipt = await tx.wait()
     return { tx, txReceipt }
 }
@@ -124,7 +136,16 @@ async function cancelOrderFromLimitOrder(order, trader) {
 }
 
 async function cancelOrderFromLimitOrderV2(order, trader) {
-    const tx = await orderBook.connect(trader).cancelOrders([order], trader.address)
+    // console.log({ estimateGas: (await orderBook.connect(trader).estimateGas.cancelOrders([order])).toNumber() })
+    // return orderBook.connect(trader).cancelOrders([order])
+    const tx = await orderBook.connect(trader).cancelOrders([order])
+    const txReceipt = await tx.wait()
+    return { tx, txReceipt }
+}
+
+async function cancelV2Orders(orders, trader) {
+    console.log({ cancelV2OrdersEstimateGas: (await orderBook.connect(trader).estimateGas.cancelOrders(orders)).toNumber() })
+    const tx = await orderBook.connect(trader).cancelOrders(orders)
     const txReceipt = await tx.wait()
     return { tx, txReceipt }
 }
@@ -152,9 +173,11 @@ async function removeMargin(trader, amount) {
 
 async function removeAllAvailableMargin(trader) {
     margin = await marginAccount.getAvailableMargin(trader.address)
+    console.log("margin", margin.toString())
     marginAccountHelper = await getMarginAccountHelper()
     if (margin.toNumber() > 0) {
-        const tx = await marginAccountHelper.connect(trader).removeMarginInUSD(margin.toNumber())
+        const tx = await marginAccountHelper.connect(trader).removeMarginInUSD(5e11)
+        // const tx = await marginAccountHelper.connect(trader).removeMarginInUSD(margin.toNumber())
         await tx.wait()
     }
     return
@@ -266,6 +289,10 @@ async function getOrderBookEvents(fromBlock=0) {
     console.log("events", events)
 }
 
+function bnToFloat(num, decimals = 6) {
+    return parseFloat(ethers.utils.formatUnits(num.toString(), decimals))
+}
+
 module.exports = {
     _1e6,
     _1e12,
@@ -293,7 +320,7 @@ module.exports = {
     getTakerFee,
     governance,
     hubblebibliophile,
-    ioc, 
+    ioc,
     juror,
     juror2,
     marginAccount,
@@ -311,4 +338,7 @@ module.exports = {
     sleep,
     url,
     waitForOrdersToMatch,
+    placeV2Orders,
+    cancelV2Orders,
+    bnToFloat
 }

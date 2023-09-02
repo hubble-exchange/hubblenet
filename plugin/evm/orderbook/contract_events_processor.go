@@ -485,6 +485,22 @@ func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {
 		nextSampleTime := args["nextSampleTime"].(*big.Int)
 		log.Info("NotifyNextPISample", "nextSampleTime", nextSampleTime)
 		cep.database.UpdateNextSamplePITime(nextSampleTime.Uint64())
+
+	case cep.clearingHouseABI.Events["PISampledUpdated"].ID:
+		err := cep.clearingHouseABI.UnpackIntoMap(args, "PISampledUpdated", event.Data)
+		if err != nil {
+			log.Error("error in clearingHouseABI.UnpackIntoMap", "method", "PISampledUpdated", "err", err)
+			return
+		}
+		log.Info("PISampledUpdated", "args", args)
+
+	case cep.clearingHouseABI.Events["PISampleSkipped"].ID:
+		err := cep.clearingHouseABI.UnpackIntoMap(args, "PISampleSkipped", event.Data)
+		if err != nil {
+			log.Error("error in clearingHouseABI.UnpackIntoMap", "method", "PISampleSkipped", "err", err)
+			return
+		}
+		log.Info("PISampleSkipped", "args", args)
 	}
 }
 

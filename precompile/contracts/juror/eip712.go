@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/ava-labs/subnet-evm/accounts/abi"
+	// "github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+	// "github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
@@ -39,32 +40,26 @@ func GetLimitOrderHash(o *orderbook.LimitOrder) (hash common.Hash, err error) {
 }
 
 func GetLimitOrderV2Hash(o *ILimitOrderBookOrderV2) (common.Hash, error) {
-	// bytes32 ORDERV2_TYPEHASH = crypto.keccak256("OrderV2(uint256 ammIndex,address trader,int256 baseAssetQuantity,uint256 price,uint256 salt,bool reduceOnly,bool postOnly)");
-	// return keccak256(abi.encode(ORDERV2_TYPEHASH, order));
-	limitOrderType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-		{Name: "ammIndex", Type: "uint256"},
-		{Name: "trader", Type: "address"},
-		{Name: "baseAssetQuantity", Type: "int256"},
-		{Name: "price", Type: "uint256"},
-		{Name: "salt", Type: "uint256"},
-		{Name: "reduceOnly", Type: "bool"},
-		{Name: "postOnly", Type: "bool"},
-	})
+	order := &orderbook.LimitOrderV2{
+		LimitOrder: orderbook.LimitOrder{
+			AmmIndex:          o.AmmIndex,
+			BaseAssetQuantity: o.BaseAssetQuantity,
+			Price:             o.Price,
+			Salt:              o.Salt,
+			ReduceOnly:        o.ReduceOnly,
+			Trader:            o.Trader,
+		},
+		PostOnly: o.PostOnly,
+	}
+	return GetLimitOrderV2Hash_2(order)
+}
+
+func GetLimitOrderV2Hash_2(order *orderbook.LimitOrderV2) (common.Hash, error) {
+	data, err := order.EncodeToABIWithoutType()
 	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed getting abi type: %w", err)
+		return common.Hash{}, err
 	}
-	typeHash, _ := abi.NewType("bytes32", "", nil)
-	args := abi.Arguments{
-		{Type: typeHash, Name: "TypeHash"},
-		{Type: limitOrderType, Name: "LimitOrderType"},
-	}
-	var hash [32]byte
-	copy(hash[:], crypto.Keccak256([]byte("OrderV2(uint256 ammIndex,address trader,int256 baseAssetQuantity,uint256 price,uint256 salt,bool reduceOnly,bool postOnly)")))
-	encodedData, err := args.Pack(hash, o)
-	if err != nil {
-		return common.Hash{}, fmt.Errorf("limit order v2 packing failed: %w", err)
-	}
-	return crypto.Keccak256Hash(encodedData), nil
+	return common.BytesToHash(crypto.Keccak256(data)), nil
 }
 
 func getIOCOrderHash(o *orderbook.IOCOrder) (hash common.Hash, err error) {

@@ -92,24 +92,30 @@ func DecodeLimitOrder(encodedOrder []byte) (*LimitOrder, error) {
 }
 
 // LimitOrderV2
-func (order *LimitOrderV2) EncodeToABI() ([]byte, error) {
+func (order *LimitOrderV2) EncodeToABIWithoutType() ([]byte, error) {
 	limitOrderV2Type, err := getOrderType("limit_v2")
 	if err != nil {
-		return nil, fmt.Errorf("failed getting abi type: %w", err)
+		return nil, err
 	}
 	encodedLimitOrderV2, err := abi.Arguments{{Type: limitOrderV2Type}}.Pack(order)
 	if err != nil {
+		return nil, err
+	}
+	return encodedLimitOrderV2, nil
+}
+
+func (order *LimitOrderV2) EncodeToABI() ([]byte, error) {
+	encodedLimitOrderV2, err := order.EncodeToABIWithoutType()
+	if err != nil {
 		return nil, fmt.Errorf("limit order packing failed: %w", err)
 	}
-
 	orderType, _ := abi.NewType("uint8", "uint8", nil)
 	orderBytesType, _ := abi.NewType("bytes", "bytes", nil)
-	// 0 means ordertype = limit order
-	encodedOrder, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Pack(uint8(0), encodedLimitOrderV2)
+	// 2 means ordertype = limit order V2
+	encodedOrder, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Pack(uint8(2) /* Limit Order v2 */, encodedLimitOrderV2)
 	if err != nil {
 		return nil, fmt.Errorf("order encoding failed: %w", err)
 	}
-
 	return encodedOrder, nil
 }
 

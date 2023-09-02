@@ -22,24 +22,25 @@ const {
     waitForOrdersToMatch,
 } = utils
 
-describe.only("Test validatePlaceLimitOrder", async function () {
+describe("Test validatePlaceLimitOrder", async function () {
     market = BigNumber.from(0)
-    longBaseAssetQuantity = multiplySize(0.1) 
-    shortBaseAssetQuantity = multiplySize(-0.1) 
+    longBaseAssetQuantity = multiplySize(0.1)
+    shortBaseAssetQuantity = multiplySize(-0.1)
     price = multiplyPrice(1800)
     initialMargin = multiplyPrice(600000)
 
     context("when order's baseAssetQuantity is 0", async function () {
         it("returns error", async function () {
-            longOrder = getOrderV2(market, 0, price, getRandomSalt()) 
+            longOrder = getOrderV2(market, alice.address, 0, price, getRandomSalt())
             response = await juror.validatePlaceLimitOrder(longOrder, alice.address)
             expect(response.err).to.eq("baseAssetQuantity is zero")
-            longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+            longOrderHash = await orderBook.getOrderHashV2(longOrder)
             expect(response.orderHash).to.eq(longOrderHash)
             // expect(response.res.reserveAmount.toNumber()).to.eq(0)
             // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
         })
     })
+
     context("when order's baseAssetQuantity is not 0", async function () {
         context("when order's baseAssetQuantity is not a multiple of minSizeRequirement", async function () {
             it("returns error when order's baseAssetQuantity.abs() is > 0 but < minSizeRequirement", async function () {
@@ -47,19 +48,19 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                 let invalidLongBaseAssetQuantity = minSizeRequirement.sub(1)
 
                 //longOrder
-                longOrder = getOrderV2(market, invalidLongBaseAssetQuantity, price, getRandomSalt()) 
+                longOrder = getOrderV2(market, alice.address, invalidLongBaseAssetQuantity, price, getRandomSalt())
                 response = await juror.validatePlaceLimitOrder(longOrder, alice.address)
                 expect(response.err).to.eq("not multiple")
-                // longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                // longOrderHash = await orderBook.getOrderHashV2(longOrder)
                 // expect(response.orderHash).to.eq(longOrderHash)
                 // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                 // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
 
                 //shortOrder
-                shortOrder = getOrderV2(market, invalidLongBaseAssetQuantity.mul("-1"), price, getRandomSalt()) 
+                shortOrder = getOrderV2(market, alice.address, invalidLongBaseAssetQuantity.mul("-1"), price, getRandomSalt())
                 response = await juror.validatePlaceLimitOrder(shortOrder, alice.address)
                 expect(response.err).to.eq("not multiple")
-                // shortOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                // shortOrderHash = await orderBook.getOrderHashV2(longOrder)
                 // expect(response.orderHash).to.eq(shortOrderHash)
                 // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                 // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
@@ -69,19 +70,19 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                 let invalidLongBaseAssetQuantity = minSizeRequirement.mul(3).div(2)
 
                 //longOrder
-                longOrder = getOrderV2(market, invalidLongBaseAssetQuantity, price, getRandomSalt()) 
+                longOrder = getOrderV2(market, alice.address, invalidLongBaseAssetQuantity, price, getRandomSalt())
                 response = await juror.validatePlaceLimitOrder(longOrder, alice.address)
                 expect(response.err).to.eq("not multiple")
-                // longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                // longOrderHash = await orderBook.getOrderHashV2(longOrder)
                 // expect(response.orderHash).to.eq(longOrderHash)
                 // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                 // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
 
                 //shortOrder
-                shortOrder = getOrderV2(market, invalidLongBaseAssetQuantity.mul("-1"), price, getRandomSalt()) 
+                shortOrder = getOrderV2(market, alice.address, invalidLongBaseAssetQuantity.mul("-1"), price, getRandomSalt())
                 response = await juror.validatePlaceLimitOrder(shortOrder, alice.address)
                 expect(response.err).to.eq("not multiple")
-                // shortOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                // shortOrderHash = await orderBook.getOrderHashV2(longOrder)
                 // expect(response.orderHash).to.eq(shortOrderHash)
                 // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                 // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
@@ -99,7 +100,7 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                 })
                 context("when order's status is placed", function() {
                     it("returns error for a longOrder", async function() {
-                        let longOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt())
+                        let longOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt())
                         console.log("placing order")
                         response = await placeOrderFromLimitOrderV2(longOrder, alice)
                         response = await juror.validatePlaceLimitOrder(longOrder, alice.address)
@@ -107,20 +108,20 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                         await cancelOrderFromLimitOrderV2(longOrder, alice)
 
                         expect(response.err).to.eq("order already exists")
-                        longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                        longOrderHash = await orderBook.getOrderHashV2(longOrder)
                         expect(response.orderHash).to.eq(longOrderHash)
                         // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                         // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
                     })
-                    it.only("returns error for a shortOrder", async function() {
-                        let shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt()) 
-                        await placeOrderFromLimitOrderV2(shortOrder, bob) 
+                    it("returns error for a shortOrder", async function() {
+                        let shortOrder = getOrderV2(market, bob.address, shortBaseAssetQuantity, price, getRandomSalt())
+                        await placeOrderFromLimitOrderV2(shortOrder, bob)
                         response = await juror.validatePlaceLimitOrder(shortOrder, bob.address)
                         //cleanup
                         await cancelOrderFromLimitOrderV2(shortOrder, bob)
 
                         expect(response.err).to.eq("order already exists")
-                        shortOrderHash = await orderBook.getOrderHashV2(shortOrder, bob.address)
+                        shortOrderHash = await orderBook.getOrderHashV2(shortOrder)
                         expect(response.orderHash).to.eq(shortOrderHash)
                         // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                         // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
@@ -129,26 +130,26 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                 context.skip("when order status is filled", async function () {
                     it("returns error", async function() {
                         await utils.enableValidatorMatching()
-                        let longOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt())
-                        let shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt()) 
+                        let longOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt())
+                        let shortOrder = getOrderV2(market, bob.address, shortBaseAssetQuantity, price, getRandomSalt())
                         await placeOrderFromLimitOrderV2(longOrder, alice)
-                        await placeOrderFromLimitOrderV2(shortOrder, bob) 
+                        await placeOrderFromLimitOrderV2(shortOrder, bob)
                         await waitForOrdersToMatch()
                         responseLong = await juror.validatePlaceLimitOrder(longOrder, alice.address)
                         responseShort = await juror.validatePlaceLimitOrder(shortOrder, alice.address)
                         //cleanup
                         await placeOrderFromLimitOrderV2(longOrder, bob)
-                        await placeOrderFromLimitOrderV2(shortOrder, alice) 
+                        await placeOrderFromLimitOrderV2(shortOrder, alice)
                         await waitForOrdersToMatch()
 
                         expect(responseLong.err).to.eq("order already exists")
-                        longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                        longOrderHash = await orderBook.getOrderHashV2(longOrder)
                         expect(responseLong.orderHash).to.eq(longOrderHash)
                         // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                         // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
 
                         // expect(responseShort.err).to.eq("order already exists")
-                        // shortOrderHash = await orderBook.getOrderHashV2(shortOrder, alice.address)
+                        // shortOrderHash = await orderBook.getOrderHashV2(shortOrder)
                         // expect(responseShort.orderHash).to.eq(shortOrderHash)
                         // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                         // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
@@ -156,28 +157,28 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                 })
                 context("when order status is cancelled", async function () {
                     it("returns error for a longOrder", async function() {
-                        let longOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt())
+                        let longOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt())
                         await placeOrderFromLimitOrderV2(longOrder, alice)
                         await cancelOrderFromLimitOrderV2(longOrder, alice)
 
                         response = await juror.validatePlaceLimitOrder(longOrder, alice.address)
                         expect(response.err).to.eq("order already exists")
-                        longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                        longOrderHash = await orderBook.getOrderHashV2(longOrder)
                         expect(response.orderHash).to.eq(longOrderHash)
                         // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                         // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
                     })
                     it.skip("returns error for a shortOrder", async function() {
-                        let shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt()) 
+                        let shortOrder = getOrderV2(market, bob.address, shortBaseAssetQuantity, price, getRandomSalt())
                         await addMargin(bob, initialMargin)
-                        await placeOrderFromLimitOrderV2(shortOrder, bob) 
+                        await placeOrderFromLimitOrderV2(shortOrder, bob)
                         await cancelOrderFromLimitOrderV2(shortOrder, bob)
                         response = await juror.validatePlaceLimitOrder(shortOrder, bob.address)
                         //cleanup
                         await removeAllAvailableMargin(bob)
 
                         expect(response.err).to.eq("order already exists")
-                        shortOrderHash = await orderBook.getOrderHashV2(shortOrder, alice.address)
+                        shortOrderHash = await orderBook.getOrderHashV2(shortOrder)
                         expect(response.orderHash).to.eq(shortOrderHash)
                         // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                         // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
@@ -196,23 +197,23 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                             await removeAllAvailableMargin(bob)
                         })
                         it("returns error", async function () {
-                            let longOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt())
-                            let shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt()) 
+                            let longOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt())
+                            let shortOrder = getOrderV2(market, bob.address, shortBaseAssetQuantity, price, getRandomSalt())
                             await placeOrderFromLimitOrderV2(longOrder, alice)
-                            await placeOrderFromLimitOrderV2(shortOrder, bob) 
+                            await placeOrderFromLimitOrderV2(shortOrder, bob)
                             await waitForOrdersToMatch()
 
-                            longReduceOnlyOrder = getOrderV2(market, longBaseAssetQuantity.div(2), price, getRandomSalt())
+                            longReduceOnlyOrder = getOrderV2(market, bob.address, longBaseAssetQuantity.div(2), price, getRandomSalt())
                             await placeOrderFromLimitOrderV2(longReduceOnlyOrder, bob)
                             response = await juror.validatePlaceLimitOrder(longOrder, bob.address)
                             //cleanup
                             await cancelOrderFromLimitOrderV2(longReduceOnlyOrder, bob)
                             await placeOrderFromLimitOrderV2(longOrder, bob)
-                            await placeOrderFromLimitOrderV2(shortOrder, alice) 
+                            await placeOrderFromLimitOrderV2(shortOrder, alice)
                             await waitForOrdersToMatch()
 
                             expect(responseLong.err).to.eq("")
-                            longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                            longOrderHash = await orderBook.getOrderHashV2(longOrder)
                             expect(responseLong.orderHash).to.eq(longOrderHash)
                         })
                     })
@@ -220,8 +221,8 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                         context("when trader does not have sufficient margin", async function() {
                             it("returns error", async function() {
                                 await removeAllAvailableMargin(alice)
-                                let longOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt())
-                                longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                                let longOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt())
+                                longOrderHash = await orderBook.getOrderHashV2(longOrder)
                                 response = await juror.validatePlaceLimitOrder(longOrder, alice.address)
                                 expect(response.err).to.eq("insufficient margin")
                                 expect(response.orderHash).to.eq(longOrderHash)
@@ -236,7 +237,7 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                                     await removeAllAvailableMargin(alice)
                                 })
                                 it("returns success", async function () {
-                                    let longOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt())
+                                    let longOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt())
                                     response = await juror.validatePlaceLimitOrder(longOrder, alice.address)
 
                                     minAllowableMargin = await clearingHouse.minAllowableMargin()
@@ -244,9 +245,9 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                                     expect(response.err).to.eq("")
                                     quoteAsset = longBaseAssetQuantity.mul(price).div(_1e18)
                                     expectedReserveAmount = quoteAsset.mul(minAllowableMargin).div(_1e6)
-                                    expectedTakerFee = quoteAsset.mul(takerFee).div(_1e6) 
+                                    expectedTakerFee = quoteAsset.mul(takerFee).div(_1e6)
                                     expect(response.res.reserveAmount.toString()).to.eq(expectedReserveAmount.add(expectedTakerFee).toString())
-                                    longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                                    longOrderHash = await orderBook.getOrderHashV2(longOrder)
                                     expect(response.orderHash).to.eq(longOrderHash)
                                 })
                             })
@@ -260,7 +261,7 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                                 context.skip("for a long order", async function() {
                                     context("when there is no asks in orderbook", async function() {
                                         it("returns success", async function() {
-                                            longPostOnlyOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt(), false, true) 
+                                            longPostOnlyOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt(), false, true)
                                             response = await juror.validatePlaceLimitOrder(longPostOnlyOrder, alice.address)
 
                                             minAllowableMargin = await clearingHouse.minAllowableMargin()
@@ -268,14 +269,14 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                                             longPostOnlyOrderHash = await orderBook.getOrderHashV2(longPostOnlyOrder, alice.address)
                                             quoteAsset = longBaseAssetQuantity.mul(price).div(_1e18)
                                             expectedReserveAmount = quoteAsset.mul(minAllowableMargin).div(_1e6)
-                                            expectedTakerFee = quoteAsset.mul(takerFee).div(_1e6) 
+                                            expectedTakerFee = quoteAsset.mul(takerFee).div(_1e6)
                                             expect(response.err).to.eq("")
                                             expect(response.res.reserveAmount.toString()).to.eq(expectedReserveAmount.add(expectedTakerFee).toString())
                                             expect(response.orderHash).to.eq(longPostOnlyOrderHash)
                                         })
                                     })
                                     context("when there are asks in orderbook", async function() {
-                                        let shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt(), false, false)
+                                        let shortOrder = getOrderV2(market, bob.address, shortBaseAssetQuantity, price, getRandomSalt(), false, false)
                                         let minAllowableMargin, takerFee
 
                                         this.beforeAll(async function(){
@@ -293,13 +294,13 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                                         context("when order's price < asksHead price", async function(){
                                             it("returns success", async function() {
                                                 newPrice = price.sub(1)
-                                                longPostOnlyOrder = getOrderV2(market, longBaseAssetQuantity, newPrice, getRandomSalt(), false, true) 
+                                                longPostOnlyOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, newPrice, getRandomSalt(), false, true)
                                                 response = await juror.validatePlaceLimitOrder(longPostOnlyOrder, alice.address)
 
                                                 longPostOnlyOrderHash = await orderBook.getOrderHashV2(longPostOnlyOrder, alice.address)
                                                 quoteAsset = longBaseAssetQuantity.mul(newPrice).div(_1e18)
                                                 expectedReserveAmount = quoteAsset.mul(minAllowableMargin).div(_1e6)
-                                                expectedTakerFee = quoteAsset.mul(takerFee).div(_1e6) 
+                                                expectedTakerFee = quoteAsset.mul(takerFee).div(_1e6)
                                                 expect(response.err).to.eq("")
                                                 expect(response.res.reserveAmount.toString()).to.eq(expectedReserveAmount.add(expectedTakerFee).toString())
                                                 expect(response.orderHash).to.eq(longPostOnlyOrderHash)
@@ -307,10 +308,10 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                                         })
                                         context("when order's price >= asksHead price", async function(){
                                             it("returns error if price == asksHead", async function() {
-                                                shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt(), false, false)
+                                                shortOrder = getOrderV2(market, bob.address, shortBaseAssetQuantity, price, getRandomSalt(), false, false)
                                                 await placeOrderFromLimitOrderV2(shortOrder, bob)
 
-                                                longPostOnlyOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt(), false, true) 
+                                                longPostOnlyOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt(), false, true)
                                                 response = await juror.validatePlaceLimitOrder(longPostOnlyOrder, alice.address)
                                                 longPostOnlyOrderHash = await orderBook.getOrderHashV2(longPostOnlyOrder, alice.address)
                                                 expect(response.err).to.eq("crossing market")
@@ -318,10 +319,10 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                                             })
                                             it("returns error if price > asksHead", async function() {
                                                 newPrice = price.add(1)
-                                                shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt(), false, false)
+                                                shortOrder = getOrderV2(market, bob.address, shortBaseAssetQuantity, price, getRandomSalt(), false, false)
                                                 await placeOrderFromLimitOrderV2(shortOrder, bob)
 
-                                                longPostOnlyOrder = getOrderV2(market, longBaseAssetQuantity, newPrice, getRandomSalt(), false, true) 
+                                                longPostOnlyOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, newPrice, getRandomSalt(), false, true)
                                                 response = await juror.validatePlaceLimitOrder(longPostOnlyOrder, alice.address)
                                                 longPostOnlyOrderHash = await orderBook.getOrderHashV2(longPostOnlyOrder, alice.address)
                                                 expect(response.err).to.eq("crossing market")
@@ -362,32 +363,35 @@ describe.only("Test validatePlaceLimitOrder", async function () {
                             await removeAllAvailableMargin(bob)
                             await addMargin(alice, initialMargin)
                             await addMargin(bob, initialMargin)
-                            longOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt())
-                            shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt())
+                            longOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt())
+                            shortOrder = getOrderV2(market, bob.address, shortBaseAssetQuantity, price, getRandomSalt())
                             await placeOrderFromLimitOrderV2(longOrder, alice)
                             await placeOrderFromLimitOrderV2(shortOrder, bob)
                             await waitForOrdersToMatch()
+
+                            longOrder.trader = bob.address
                             await placeOrderFromLimitOrderV2(longOrder, bob)
+                            shortOrder.trader = bob.address
                             await placeOrderFromLimitOrderV2(shortOrder, alice)
                             await waitForOrdersToMatch()
                             await removeAllAvailableMargin(alice)
                             await removeAllAvailableMargin(bob)
                             return
-                            longReduceOnlyOrder = getOrderV2(market, longBaseAssetQuantity, price, getRandomSalt(), true)
+                            longReduceOnlyOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, getRandomSalt(), true)
                             shortReduceOnlyOrder = getOrderV2(market, shortBaseAssetQuantity, price, getRandomSalt(), true)
                             //longOrder
                             response = await juror.validatePlaceLimitOrder(longReduceOnlyOrder, alice.address)
                             expect(response.err).to.eq("reduce only order must reduce position")
-                            // longOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                            // longOrderHash = await orderBook.getOrderHashV2(longOrder)
                             // expect(response.orderHash).to.eq(longOrderHash)
                             // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                             // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")
 
                             //shortOrder
-                            shortOrder = getOrderV2(market, invalidLongBaseAssetQuantity.mul("-1"), price, getRandomSalt()) 
+                            shortOrder = getOrderV2(market, alice.address, invalidLongBaseAssetQuantity.mul("-1"), price, getRandomSalt())
                             response = await juror.validatePlaceLimitOrder(shortOrder, alice.address)
                             expect(response.err).to.eq("reduce only order must reduce position")
-                            // shortOrderHash = await orderBook.getOrderHashV2(longOrder, alice.address)
+                            // shortOrderHash = await orderBook.getOrderHashV2(longOrder)
                             // expect(response.orderHash).to.eq(shortOrderHash)
                             // expect(response.res.reserveAmount.toNumber()).to.eq(0)
                             // expect(response.res.amm.toString()).to.eq("0x0000000000000000000000000000000000000000")

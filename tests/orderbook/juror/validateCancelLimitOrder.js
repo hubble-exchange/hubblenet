@@ -17,8 +17,8 @@ const {
 
 describe("Testing ValidateCancelLimitOrder", async function() {
     market = BigNumber.from(0)
-    longBaseAssetQuantity = multiplySize(0.1) 
-    shortBaseAssetQuantity = multiplySize("-0.1") 
+    longBaseAssetQuantity = multiplySize(0.1)
+    shortBaseAssetQuantity = multiplySize("-0.1")
     price = multiplyPrice(1800)
     salt = getRandomSalt()
     initialMargin = multiplyPrice(500000)
@@ -27,22 +27,15 @@ describe("Testing ValidateCancelLimitOrder", async function() {
         context("when order's status is invalid", async function() {
             it("should return error", async function() {
                 assertLowMargin = false
-                longOrder = getOrderV2(market, longBaseAssetQuantity, price, salt)
-                try {
-                    await juror.validateCancelLimitOrder(longOrder, alice.address, assertLowMargin)
-                } catch (error) {
-                    error_message = JSON.parse(error.error.body).error.message
-                    expect(error_message).to.equal("invalid order")
-                }
-                shortOrder = getOrderV2(market, shortBaseAssetQuantity, price, salt, true)
-                try {
-                    await juror.validateCancelLimitOrder(shortOrder, alice.address, assertLowMargin)
-                } catch (error) {
-                    error_message = JSON.parse(error.error.body).error.message
-                    expect(error_message).to.equal("invalid order")
-                    return
-                }
-                expect.fail("Expected throw not received");
+                longOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, salt)
+                let { err, orderHash } = await juror.validateCancelLimitOrder(longOrder, alice.address, assertLowMargin)
+                expect(err).to.equal("Invalid")
+                expect(orderHash).to.equal(await utils.orderBook.getOrderHashV2(longOrder))
+
+                shortOrder = getOrderV2(market, alice.address, shortBaseAssetQuantity, price, salt, true)
+                ;({ err, orderHash } = await juror.validateCancelLimitOrder(shortOrder, alice.address, assertLowMargin))
+                expect(err).to.equal("Invalid")
+                expect(orderHash).to.equal(await utils.orderBook.getOrderHashV2(shortOrder))
             })
         })
         context("when order's status is cancelled", async function() {
@@ -54,17 +47,12 @@ describe("Testing ValidateCancelLimitOrder", async function() {
             })
 
             it("should return error", async function() {
-                longOrder = getOrderV2(market, longBaseAssetQuantity, price, salt)
-                console.log("placing order")
+                longOrder = getOrderV2(market, alice.address, longBaseAssetQuantity, price, salt)
                 await placeOrderFromLimitOrder(longOrder, alice)
-                console.log("cancelling order")
                 await cancelOrderFromLimitOrder(longOrder, alice)
-                try {
-                    await juror.validateCancelLimitOrder(longOrder, alice.address, assertLowMargin)
-                } catch (error) {
-                    error_message = JSON.parse(error.error.body).error.message
-                    expect(error_message).to.equal("cancelled order")
-                }
+                let { err, orderHash } = await juror.validateCancelLimitOrder(longOrder, alice.address, assertLowMargin)
+                expect(err).to.equal("Cancelled")
+                expect(orderHash).to.equal(await utils.orderBook.getOrderHashV2(longOrder))
             })
         })
         it("should return error when order's status is filled", async function() {

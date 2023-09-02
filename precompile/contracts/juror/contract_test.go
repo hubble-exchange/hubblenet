@@ -17,6 +17,7 @@ import (
 	"github.com/ava-labs/subnet-evm/precompile/testutils"
 	"github.com/ava-labs/subnet-evm/vmerrs"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -83,6 +84,56 @@ func TestRun(t *testing.T) {
 			test.Run(t, Module, state.NewTestStateDB(t))
 		})
 	}
+}
+
+func TestDecodeLimitOrderV2(t *testing.T) {
+	t.Run("long order", func(t *testing.T) {
+		order := orderbook.LimitOrderV2{
+			LimitOrder: orderbook.LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
+				BaseAssetQuantity: big.NewInt(5000000000000000000),
+				Price:             big.NewInt(1000000000),
+				Salt:              big.NewInt(1688634162305),
+				ReduceOnly:        false,
+			},
+			PostOnly: false,
+		}
+		testDecodeTypeAndEncodedOrder(
+			t,
+			strings.TrimPrefix("0x0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707c8100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "0x"),
+			strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707c8100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "0x"),
+			LimitV2,
+			order,
+		)
+		data, _ := order.EncodeToABIWithoutType()
+		fmt.Println("orderHash", hex.EncodeToString(data))
+		assert.Equal(t, "0eae995f01ba77432ac79d444e35b386f4f8712a11f02220fb5b1bf45fec976d", hex.EncodeToString(crypto.Keccak256(data)))
+	})
+
+	t.Run("short order", func(t *testing.T) {
+		order := orderbook.LimitOrderV2{
+			LimitOrder: orderbook.LimitOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
+				BaseAssetQuantity: big.NewInt(-5000000000000000000),
+				Price:             big.NewInt(1000000000),
+				Salt:              big.NewInt(1688634162305),
+				ReduceOnly:        true,
+			},
+			PostOnly: true,
+		}
+		testDecodeTypeAndEncodedOrder(
+			t,
+			strings.TrimPrefix("0x0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bcffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707c8100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001", "0x"),
+			strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bcffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707c8100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001", "0x"),
+			LimitV2,
+			order,
+		)
+		data, _ := order.EncodeToABIWithoutType()
+		// fmt.Println("EncodeToABIWithoutType", hex.EncodeToString(data))
+		assert.Equal(t, "e82ce5d02b8b263efdcad48446b683eb2cc2caa8fe6cf0602df5919944f1f124", hex.EncodeToString(crypto.Keccak256(data)))
+	})
 }
 
 func TestDecodeLimitOrder(t *testing.T) {
@@ -159,7 +210,7 @@ func TestDecodeLimitOrder(t *testing.T) {
 	})
 }
 
-func testDecodeTypeAndEncodedOrder(t *testing.T, typedEncodedOrder string, encodedOrder string, orderType OrderType, expectedOutput orderbook.LimitOrder) {
+func testDecodeTypeAndEncodedOrder(t *testing.T, typedEncodedOrder string, encodedOrder string, orderType OrderType, expectedOutput interface{}) {
 	testData, err := hex.DecodeString(typedEncodedOrder)
 	assert.Nil(t, err)
 
@@ -168,10 +219,26 @@ func testDecodeTypeAndEncodedOrder(t *testing.T, typedEncodedOrder string, encod
 
 	assert.Equal(t, orderType, decodeStep.OrderType)
 	assert.Equal(t, encodedOrder, hex.EncodeToString(decodeStep.EncodedOrder))
-	testDecodeLimitOrder(t, encodedOrder, expectedOutput)
+	if orderType == Limit {
+		testDecodeLimitOrder(t, encodedOrder, expectedOutput)
+	} else if orderType == LimitV2 {
+		testDecodeLimitOrderV2(t, encodedOrder, expectedOutput)
+	}
 }
 
-func testDecodeLimitOrder(t *testing.T, encodedOrder string, expectedOutput orderbook.LimitOrder) {
+func testDecodeLimitOrderV2(t *testing.T, encodedOrder string, expectedOutput interface{}) {
+	testData, err := hex.DecodeString(encodedOrder)
+	assert.Nil(t, err)
+
+	result, err := orderbook.DecodeLimitOrderV2(testData)
+	fmt.Println(result)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assertLimitOrderEquality(t, expectedOutput.(orderbook.LimitOrderV2).LimitOrder, result.LimitOrder)
+	assert.Equal(t, expectedOutput.(orderbook.LimitOrderV2).PostOnly, result.PostOnly)
+}
+
+func testDecodeLimitOrder(t *testing.T, encodedOrder string, expectedOutput interface{}) {
 	testData, err := hex.DecodeString(encodedOrder)
 	assert.Nil(t, err)
 
@@ -179,7 +246,7 @@ func testDecodeLimitOrder(t *testing.T, encodedOrder string, expectedOutput orde
 	fmt.Println(result)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assertLimitOrderEquality(t, expectedOutput, *result)
+	assertLimitOrderEquality(t, expectedOutput.(orderbook.LimitOrder), *result)
 }
 
 func assertLimitOrderEquality(t *testing.T, expected, actual orderbook.LimitOrder) {
@@ -387,7 +454,7 @@ func TestValidateExecuteLimitOrder(t *testing.T) {
 		mockBibliophile.EXPECT().GetBlockPlaced(orderHash).Return(blockPlaced).Times(1)                              // placed
 		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(marketAddress).Times(1) // placed
 
-		m, err := validateExecuteLimitOrder(mockBibliophile, order, Long, fillAmount)
+		m, err := validateExecuteLimitOrder(mockBibliophile, order, Long, fillAmount, orderHash)
 		assert.Nil(t, err)
 		assertMetadataEquality(t, &Metadata{
 			AmmIndex:          new(big.Int).Set(order.AmmIndex),
@@ -528,12 +595,15 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 					order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
 					mockBibliophile.EXPECT().IsTradingAuthority(order.Trader, sender).Return(false).Times(1)
 					output := ValidatePlaceLimitOrderV2(mockBibliophile, order, sender)
+					assert.Equal(t, "de9b5c2bf047cda53602c6a3223cd4b84b2b659f2ad6bc4b3fb29aed156185bd", hex.EncodeToString(output.Orderhash[:]))
 					assert.Equal(t, ErrNoTradingAuthority.Error(), output.Errs)
 				})
 				t.Run("it returns error for a short order", func(t *testing.T) {
 					order := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
 					mockBibliophile.EXPECT().IsTradingAuthority(order.Trader, sender).Return(false).Times(1)
 					output := ValidatePlaceLimitOrderV2(mockBibliophile, order, sender)
+					// fmt.Println("Orderhash", hex.EncodeToString(output.Orderhash[:]))
+					assert.Equal(t, "8c9158cccd9795896fef87cc969deb425499f230ae9a4427d314f89ac76a0288", hex.EncodeToString(output.Orderhash[:]))
 					assert.Equal(t, ErrNoTradingAuthority.Error(), output.Errs)
 				})
 			})

@@ -3,6 +3,7 @@ package orderbook
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -131,12 +132,14 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder Order, short
 		log.Error("EncodeLimitOrder failed for longOrder", "order", longOrder, "err", err)
 		return err
 	}
+
 	orders[1], err = shortOrder.RawOrder.EncodeToABI()
 	if err != nil {
 		log.Error("EncodeLimitOrder failed for shortOrder", "order", shortOrder, "err", err)
 		return err
 	}
 
+	log.Info("ExecuteMatchedOrdersTx", "orders[0]", hex.EncodeToString(orders[0]), "orders[1]", hex.EncodeToString(orders[1]), "fillAmount", prettifyScaledBigInt(fillAmount, 18))
 	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "executeMatchedOrders", orders, fillAmount)
 	log.Info("ExecuteMatchedOrdersTx", "LongOrder", longOrder, "ShortOrder", shortOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String(), "err", err)
 	return err

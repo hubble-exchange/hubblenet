@@ -10,6 +10,7 @@ import (
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type OrderType uint8
@@ -18,6 +19,7 @@ type OrderType uint8
 const (
 	Limit OrderType = iota
 	IOC
+	LimitV2
 )
 
 type DecodeStep struct {
@@ -91,6 +93,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 	}
 
 	decodeStep0, err := decodeTypeAndEncodedOrder(inputStruct.Data[0])
+	log.Info("decodeStep0", "decodeStep0", decodeStep0, "err", err)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +103,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 	}
 
 	decodeStep1, err := decodeTypeAndEncodedOrder(inputStruct.Data[1])
+	log.Info("decodeStep1", "decodeStep1", decodeStep1, "err", err)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +218,11 @@ func validateOrder(bibliophile b.BibliophileClient, orderType OrderType, encoded
 		if err != nil {
 			return nil, err
 		}
-		return validateExecuteLimitOrder(bibliophile, order, side, fillAmount)
+		orderHash, err := GetLimitOrderHash(order)
+		if err != nil {
+			return nil, err
+		}
+		return validateExecuteLimitOrder(bibliophile, order, side, fillAmount, orderHash)
 	}
 	if orderType == IOC {
 		order, err := orderbook.DecodeIOCOrder(encodedOrder)
@@ -223,16 +231,24 @@ func validateOrder(bibliophile b.BibliophileClient, orderType OrderType, encoded
 		}
 		return validateExecuteIOCOrder(bibliophile, order, side, fillAmount)
 	}
+	if orderType == LimitV2 {
+		order, err := orderbook.DecodeLimitOrderV2(encodedOrder)
+		if err != nil {
+			return nil, err
+		}
+		orderHash, err := GetLimitOrderV2Hash_2(order)
+		if err != nil {
+			return nil, err
+		}
+		// order.postOnly field is not required to be validated while matching
+		return validateExecuteLimitOrder(bibliophile, &order.LimitOrder, side, fillAmount, orderHash)
+	}
 	return nil, errors.New("invalid order type")
 }
 
 // Limit Orders
 
-func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *orderbook.LimitOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
-	orderHash, err := GetLimitOrderHash(order)
-	if err != nil {
-		return nil, err
-	}
+func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *orderbook.LimitOrder, side Side, fillAmount *big.Int, orderHash [32]byte) (metadata *Metadata, err error) {
 	if err := validateLimitOrderLike(bibliophile, order, bibliophile.GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.GetOrderStatus(orderHash)), side, fillAmount); err != nil {
 		return nil, err
 	}
@@ -694,6 +710,19 @@ func formatOrder(orderBytes []byte) interface{} {
 		}
 		orderJson := order.Map()
 		orderHash, err := getIOCOrderHash(order)
+		if err != nil {
+			return orderJson
+		}
+		orderJson["hash"] = orderHash.String()
+		return orderJson
+	}
+	if decodeStep0.OrderType == LimitV2 {
+		order, err := orderbook.DecodeLimitOrderV2(decodeStep0.EncodedOrder)
+		if err != nil {
+			return decodeStep0
+		}
+		orderJson := order.Map()
+		orderHash, err := GetLimitOrderV2Hash_2(order)
 		if err != nil {
 			return orderJson
 		}
