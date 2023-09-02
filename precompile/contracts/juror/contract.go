@@ -5,7 +5,6 @@
 package juror
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
