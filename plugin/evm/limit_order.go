@@ -242,7 +242,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 						lop.memoryDb.Accept(snapshotBlockNumber, snapshotBlock.Timestamp())
 						err := lop.saveMemoryDBSnapshot(big.NewInt(int64(snapshotBlockNumber)))
 						if err != nil {
-							log.Error("Error in saving memory DB snapshot", "err", err)
+							log.Error("Error in saving memory DB snapshot", "err", err, "snapshotBlockNumber", snapshotBlockNumber, "current blockNumber", blockNumber, "blockNumberFloor", blockNumberFloor)
 						}
 					}
 
