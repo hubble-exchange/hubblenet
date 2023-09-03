@@ -441,7 +441,7 @@ func validateCancelLimitOrder(accessibleState contract.AccessibleState, caller c
 	}
 	// CUSTOM CODE STARTS HERE
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
-	output := ValidateCancelLimitOrderV2(bibliophile, &inputStruct)
+	output := ValidateCancelLimitOrderV2(bibliophile, &inputStruct, new(big.Int).SetUint64(accessibleState.GetBlockContext().Timestamp()))
 	packedOutput, err := PackValidateCancelLimitOrderOutput(*output)
 	if err != nil {
 		return nil, remainingGas, err
