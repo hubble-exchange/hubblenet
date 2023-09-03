@@ -232,12 +232,15 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 					// If n is the block at which snapshot should be saved(n is multiple of [snapshotInterval]), save the snapshot
 					// when logs of block number >= n + 1 are received before applying them in memory db
 
-					blockNumberFloor := ((blockNumber - 1) / snapshotInterval) * snapshotInterval
+					// snapshot should be saved at block number = blockNumber - 1 because Accepted logs
+					// have been applied in memory DB at this point
+					snapshotBlockNumber := blockNumber - 1
+					blockNumberFloor := ((snapshotBlockNumber) / snapshotInterval) * snapshotInterval
 					if blockNumberFloor > lop.snapshotSavedBlockNumber {
-						log.Info("Saving memory DB snapshot", "blockNumber", blockNumber, "blockNumberFloor", blockNumberFloor)
-						floorBlock := lop.blockChain.GetBlockByNumber(blockNumberFloor)
-						lop.memoryDb.Accept(blockNumberFloor, floorBlock.Timestamp())
-						err := lop.saveMemoryDBSnapshot(big.NewInt(int64(blockNumberFloor)))
+						log.Info("Saving memory DB snapshot", "snapshotBlockNumber", snapshotBlockNumber, "current blockNumber", blockNumber, "blockNumberFloor", blockNumberFloor)
+						snapshotBlock := lop.blockChain.GetBlockByNumber(snapshotBlockNumber)
+						lop.memoryDb.Accept(snapshotBlockNumber, snapshotBlock.Timestamp())
+						err := lop.saveMemoryDBSnapshot(big.NewInt(int64(snapshotBlockNumber)))
 						if err != nil {
 							log.Error("Error in saving memory DB snapshot", "err", err)
 						}
