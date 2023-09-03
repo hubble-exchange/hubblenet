@@ -264,6 +264,8 @@ func (db *InMemoryDatabase) LoadFromSnapshot(snapshot Snapshot) error {
 	db.TraderMap = snapshot.Data.TraderMap
 	db.LastPrice = snapshot.Data.LastPrice
 	db.NextFundingTime = snapshot.Data.NextFundingTime
+	db.NextSamplePITime = snapshot.Data.NextSamplePITime
+	db.CumulativePremiumFraction = snapshot.Data.CumulativePremiumFraction
 
 	return nil
 }
