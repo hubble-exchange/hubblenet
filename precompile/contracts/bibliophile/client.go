@@ -176,5 +176,6 @@ func (b *bibliophileClient) GetReduceOnlyAmount(trader common.Address, ammIndex 
 }
 
 func (b *bibliophileClient) GetAvailableMargin(trader common.Address) *big.Int {
-	return GetAvailableMargin(b.accessibleState.GetStateDB(), trader)
+	blockTimestamp := new(big.Int).SetUint64(b.accessibleState.GetBlockContext().Timestamp())
+	return GetAvailableMargin(b.accessibleState.GetStateDB(), trader, blockTimestamp)
 }

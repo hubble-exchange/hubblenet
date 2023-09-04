@@ -32,10 +32,18 @@ func getReservedMargin(stateDB contract.StateDB, trader common.Address) *big.Int
 	return stateDB.GetState(common.HexToAddress(MARGIN_ACCOUNT_GENESIS_ADDRESS), common.BytesToHash(baseMappingHash)).Big()
 }
 
-func GetAvailableMargin(stateDB contract.StateDB, trader common.Address) *big.Int {
+// Monday, 4 September 2023 10:05:00
+var V5ActivationDate *big.Int = new(big.Int).SetInt64(1693821900)
+
+func GetAvailableMargin(stateDB contract.StateDB, trader common.Address, blockTimestamp *big.Int) *big.Int {
 	includeFundingPayment := true
 	mode := uint8(1) // Min_Allowable_Margin
-	output := GetNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayment, Mode: mode}, nil)
+	var output GetNotionalPositionAndMarginOutput
+	if blockTimestamp != nil && blockTimestamp.Cmp(V5ActivationDate) == 1 {
+		output = GetNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayment, Mode: mode}, blockTimestamp)
+	} else {
+		output = GetNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayment, Mode: mode}, nil)
+	}
 	notionalPostion := output.NotionalPosition
 	margin := output.Margin
 	utitlizedMargin := divide1e6(big.NewInt(0).Mul(notionalPostion, GetMinAllowableMargin(stateDB)))
