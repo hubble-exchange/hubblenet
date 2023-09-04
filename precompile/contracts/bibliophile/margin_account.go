@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	// "github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -48,5 +49,6 @@ func GetAvailableMargin(stateDB contract.StateDB, trader common.Address, blockTi
 	margin := output.Margin
 	utitlizedMargin := divide1e6(big.NewInt(0).Mul(notionalPostion, GetMinAllowableMargin(stateDB)))
 	reservedMargin := getReservedMargin(stateDB, trader)
+	// log.Info("GetAvailableMargin", "trader", trader, "notionalPostion", notionalPostion, "margin", margin, "utitlizedMargin", utitlizedMargin, "reservedMargin", reservedMargin)
 	return big.NewInt(0).Sub(big.NewInt(0).Sub(margin, utitlizedMargin), reservedMargin)
 }
