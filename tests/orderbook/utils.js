@@ -173,11 +173,10 @@ async function removeMargin(trader, amount) {
 
 async function removeAllAvailableMargin(trader) {
     margin = await marginAccount.getAvailableMargin(trader.address)
-    console.log("margin", margin.toString())
     marginAccountHelper = await getMarginAccountHelper()
     if (margin.toNumber() > 0) {
-        const tx = await marginAccountHelper.connect(trader).removeMarginInUSD(5e11)
-        // const tx = await marginAccountHelper.connect(trader).removeMarginInUSD(margin.toNumber())
+        // const tx = await marginAccountHelper.connect(trader).removeMarginInUSD(5e11)
+        const tx = await marginAccountHelper.connect(trader).removeMarginInUSD(margin.toNumber())
         await tx.wait()
     }
     return
@@ -286,11 +285,53 @@ async function getTakerFee() {
 async function getOrderBookEvents(fromBlock=0) {
     block = await provider.getBlock("latest")
     events = await orderBook.queryFilter("*",fromBlock,block.number)
-    console.log("events", events)
+    return events
 }
 
 function bnToFloat(num, decimals = 6) {
     return parseFloat(ethers.utils.formatUnits(num.toString(), decimals))
+}
+
+async function getRequiredMarginForLongOrder(price, baseAssetQuantity) {
+    minAllowableMargin = await clearingHouse.minAllowableMargin()
+    takerFee = await clearingHouse.takerFee()
+
+    quoteAsset = baseAssetQuantity.mul(price).div(_1e18).abs()
+    requiredMargin = quoteAsset.mul(minAllowableMargin).div(_1e6)
+    requiredTakerFee = quoteAsset.mul(takerFee).div(_1e6)
+    totalRequiredMargin = requiredMargin.add(requiredTakerFee)
+    return totalRequiredMargin
+}
+
+async function getRequiredMarginForShortOrder(price, baseAssetQuantity) {
+    minAllowableMargin = await clearingHouse.minAllowableMargin()
+    takerFee = await clearingHouse.takerFee()
+
+    amm = await getAMMContract(market)
+    oraclePrice = await amm.getUnderlyingPrice()
+    maxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
+    upperBound = oraclePrice.mul(maxOracleSpreadRatio.add(_1e6)).div(_1e6)
+    if (price < upperBound) {
+        price = upperBound
+    }
+    // for shortOrder we use upperBound to reservePrice as it is the worst price
+    quoteAsset = baseAssetQuantity.mul(price).div(_1e18).abs()
+    requiredMargin = quoteAsset.mul(minAllowableMargin).div(_1e6)
+    requiredTakerFee = quoteAsset.mul(takerFee).div(_1e6)
+    return requiredMargin.add(requiredTakerFee)
+}
+
+async function getEventsFromOrderBookTx(transactionHash) {
+    tx = await provider.getTransaction(transactionHash)
+    events = await getOrderBookEvents(tx.blockNumber)
+    var orderBookLogsWithEvent = []
+    for(i = 0; i < events.length; i++) {
+        if(events[i].transactionHash == transactionHash) {
+            orderBookLogsWithEvent.push(events[i])
+            break
+        }
+    }
+    return orderBookLogsWithEvent
 }
 
 module.exports = {
@@ -310,6 +351,7 @@ module.exports = {
     encodeLimitOrderWithType,
     getAMMContract,
     getDomain,
+    getEventsFromOrderBookTx,
     getIOCOrder,
     getOrder,
     getOrderV2,
@@ -317,6 +359,8 @@ module.exports = {
     getMinSizeRequirement,
     getOrderBookEvents,
     getRandomSalt,
+    getRequiredMarginForLongOrder,
+    getRequiredMarginForShortOrder,
     getTakerFee,
     governance,
     hubblebibliophile,
