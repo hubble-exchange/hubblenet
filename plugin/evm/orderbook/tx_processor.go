@@ -3,6 +3,7 @@ package orderbook
 import (
 	"context"
 	"crypto/ecdsa"
+
 	// "encoding/hex"
 	"errors"
 	"fmt"
@@ -36,7 +37,7 @@ type LimitOrderTxProcessor interface {
 	ExecuteSamplePITx() error
 	ExecuteLiquidation(trader common.Address, matchedOrder Order, fillAmount *big.Int) error
 	UpdateMetrics(block *types.Block)
-	ExecuteLimitOrderCancel(orderIds []LimitOrderV2) error
+	ExecuteLimitOrderCancel(orderIds []LimitOrder) error
 }
 
 type ValidatorTxFeeConfig struct {
@@ -145,7 +146,7 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder Order, short
 	return err
 }
 
-func (lotp *limitOrderTxProcessor) ExecuteLimitOrderCancel(orders []LimitOrderV2) error {
+func (lotp *limitOrderTxProcessor) ExecuteLimitOrderCancel(orders []LimitOrder) error {
 	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "cancelOrdersWithLowMargin", orders)
 	log.Info("ExecuteLimitOrderCancel", "orders", orders, "txHash", txHash.String(), "err", err)
 	return err
@@ -363,7 +364,7 @@ func (lotp *limitOrderTxProcessor) UpdateMetrics(block *types.Block) {
 	}
 }
 
-func EncodeLimitOrder(order LimitOrder) ([]byte, error) {
+func EncodeLimitOrder(order OrderCommon) ([]byte, error) {
 	limitOrderType, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "ammIndex", Type: "uint256"},
 		{Name: "trader", Type: "address"},

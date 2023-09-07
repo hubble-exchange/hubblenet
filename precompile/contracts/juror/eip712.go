@@ -9,6 +9,7 @@ import (
 	"github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+
 	// "github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -40,8 +41,8 @@ func GetLimitOrderHash(o *orderbook.LimitOrder) (hash common.Hash, err error) {
 }
 
 func GetLimitOrderV2Hash(o *ILimitOrderBookOrderV2) (common.Hash, error) {
-	order := &orderbook.LimitOrderV2{
-		LimitOrder: orderbook.LimitOrder{
+	order := &orderbook.LimitOrder{
+		OrderCommon: orderbook.OrderCommon{
 			AmmIndex:          o.AmmIndex,
 			BaseAssetQuantity: o.BaseAssetQuantity,
 			Price:             o.Price,
@@ -54,7 +55,7 @@ func GetLimitOrderV2Hash(o *ILimitOrderBookOrderV2) (common.Hash, error) {
 	return GetLimitOrderV2Hash_2(order)
 }
 
-func GetLimitOrderV2Hash_2(order *orderbook.LimitOrderV2) (common.Hash, error) {
+func GetLimitOrderV2Hash_2(order *orderbook.LimitOrder) (common.Hash, error) {
 	data, err := order.EncodeToABIWithoutType()
 	if err != nil {
 		return common.Hash{}, err

@@ -88,8 +88,8 @@ func TestRun(t *testing.T) {
 
 func TestDecodeLimitOrderV2(t *testing.T) {
 	t.Run("long order", func(t *testing.T) {
-		order := orderbook.LimitOrderV2{
-			LimitOrder: orderbook.LimitOrder{
+		order := orderbook.LimitOrder{
+			OrderCommon: orderbook.OrderCommon{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
 				BaseAssetQuantity: big.NewInt(5000000000000000000),
@@ -112,8 +112,8 @@ func TestDecodeLimitOrderV2(t *testing.T) {
 	})
 
 	t.Run("short order", func(t *testing.T) {
-		order := orderbook.LimitOrderV2{
-			LimitOrder: orderbook.LimitOrder{
+		order := orderbook.LimitOrder{
+			OrderCommon: orderbook.OrderCommon{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
 				BaseAssetQuantity: big.NewInt(-5000000000000000000),
@@ -143,7 +143,7 @@ func TestDecodeLimitOrder(t *testing.T) {
 			strings.TrimPrefix("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707c810000000000000000000000000000000000000000000000000000000000000000", "0x"),
 			strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892a707c810000000000000000000000000000000000000000000000000000000000000000", "0x"),
 			Limit,
-			orderbook.LimitOrder{
+			orderbook.OrderCommon{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
 				BaseAssetQuantity: big.NewInt(5000000000000000000),
@@ -160,7 +160,7 @@ func TestDecodeLimitOrder(t *testing.T) {
 			strings.TrimPrefix("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892aa1ea840000000000000000000000000000000000000000000000000000000000000001", "0x"),
 			strings.TrimPrefix("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892aa1ea840000000000000000000000000000000000000000000000000000000000000001", "0x"),
 			Limit,
-			orderbook.LimitOrder{
+			orderbook.OrderCommon{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
 				BaseAssetQuantity: big.NewInt(5000000000000000000),
@@ -173,14 +173,17 @@ func TestDecodeLimitOrder(t *testing.T) {
 
 	t.Run("short order", func(t *testing.T) {
 		order := orderbook.LimitOrder{
-			AmmIndex:          big.NewInt(0),
-			Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
-			BaseAssetQuantity: big.NewInt(-5000000000000000000),
-			Price:             big.NewInt(1000000000),
-			Salt:              big.NewInt(1688634161989),
-			ReduceOnly:        false,
+			OrderCommon: orderbook.OrderCommon{
+				AmmIndex:          big.NewInt(0),
+				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+				BaseAssetQuantity: big.NewInt(-5000000000000000000),
+				Price:             big.NewInt(1000000000),
+				Salt:              big.NewInt(1688634161989),
+				ReduceOnly:        false,
+			},
+			PostOnly: false,
 		}
-		orderHash, err := GetLimitOrderHash(&order)
+		orderHash, err := GetLimitOrderV2Hash_2(&order)
 		assert.Nil(t, err)
 		assert.Equal(t, "0xe2b234026813aa51e862bc104ab96bd318f71e61d49f9674b01b98c8c514461b", orderHash.Hex())
 		testDecodeTypeAndEncodedOrder(
@@ -198,7 +201,7 @@ func TestDecodeLimitOrder(t *testing.T) {
 			strings.TrimPrefix("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892aa1e96a0000000000000000000000000000000000000000000000000000000000000001", "0x"),
 			strings.TrimPrefix("0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c0000000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000001892aa1e96a0000000000000000000000000000000000000000000000000000000000000001", "0x"),
 			Limit,
-			orderbook.LimitOrder{
+			orderbook.OrderCommon{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 				BaseAssetQuantity: big.NewInt(-5000000000000000000),
@@ -230,12 +233,12 @@ func testDecodeLimitOrderV2(t *testing.T, encodedOrder string, expectedOutput in
 	testData, err := hex.DecodeString(encodedOrder)
 	assert.Nil(t, err)
 
-	result, err := orderbook.DecodeLimitOrderV2(testData)
+	result, err := orderbook.DecodeLimitOrder(testData)
 	fmt.Println(result)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assertLimitOrderEquality(t, expectedOutput.(orderbook.LimitOrderV2).LimitOrder, result.LimitOrder)
-	assert.Equal(t, expectedOutput.(orderbook.LimitOrderV2).PostOnly, result.PostOnly)
+	assertLimitOrderEquality(t, expectedOutput.(orderbook.LimitOrder).OrderCommon, result.OrderCommon)
+	assert.Equal(t, expectedOutput.(orderbook.LimitOrder).PostOnly, result.PostOnly)
 }
 
 func testDecodeLimitOrder(t *testing.T, encodedOrder string, expectedOutput interface{}) {
@@ -246,10 +249,10 @@ func testDecodeLimitOrder(t *testing.T, encodedOrder string, expectedOutput inte
 	fmt.Println(result)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assertLimitOrderEquality(t, expectedOutput.(orderbook.LimitOrder), *result)
+	assertLimitOrderEquality(t, expectedOutput.(orderbook.LimitOrder).OrderCommon, *&result.OrderCommon)
 }
 
-func assertLimitOrderEquality(t *testing.T, expected, actual orderbook.LimitOrder) {
+func assertLimitOrderEquality(t *testing.T, expected, actual orderbook.OrderCommon) {
 	assert.Equal(t, expected.AmmIndex.Int64(), actual.AmmIndex.Int64())
 	assert.Equal(t, expected.Trader, actual.Trader)
 	assert.Equal(t, expected.BaseAssetQuantity, actual.BaseAssetQuantity)
@@ -265,7 +268,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	mockBibliophile := b.NewMockBibliophileClient(ctrl)
 
 	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
-	order := &orderbook.LimitOrder{
+	order := &orderbook.OrderCommon{
 		AmmIndex:          big.NewInt(0),
 		Trader:            trader,
 		BaseAssetQuantity: big.NewInt(10),
@@ -338,7 +341,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	})
 
 	t.Run("Side=Short", func(t *testing.T) {
-		order := &orderbook.LimitOrder{
+		order := &orderbook.OrderCommon{
 			AmmIndex:          big.NewInt(0),
 			Trader:            trader,
 			BaseAssetQuantity: big.NewInt(-10),
@@ -409,7 +412,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	})
 
 	t.Run("invalid side", func(t *testing.T) {
-		order := &orderbook.LimitOrder{
+		order := &orderbook.OrderCommon{
 			AmmIndex:          big.NewInt(0),
 			Trader:            trader,
 			BaseAssetQuantity: big.NewInt(10),
@@ -434,18 +437,21 @@ func TestValidateExecuteLimitOrder(t *testing.T) {
 	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
 
 	order := &orderbook.LimitOrder{
-		AmmIndex:          big.NewInt(534),
-		Trader:            trader,
-		BaseAssetQuantity: big.NewInt(10),
-		Price:             big.NewInt(20),
-		Salt:              big.NewInt(1),
-		ReduceOnly:        false,
+		OrderCommon: orderbook.OrderCommon{
+			AmmIndex:          big.NewInt(534),
+			Trader:            trader,
+			BaseAssetQuantity: big.NewInt(10),
+			Price:             big.NewInt(20),
+			Salt:              big.NewInt(1),
+			ReduceOnly:        false,
+		},
+		PostOnly: false,
 	}
 	filledAmount := big.NewInt(5)
 	fillAmount := big.NewInt(5)
 
 	t.Run("validateExecuteLimitOrder", func(t *testing.T) {
-		orderHash, err := GetLimitOrderHash(order)
+		orderHash, err := GetLimitOrderV2Hash_2(order)
 		assert.Nil(t, err)
 
 		blockPlaced := big.NewInt(42)
@@ -481,7 +487,7 @@ func TestDecodeIOCOrder(t *testing.T) {
 		order := &orderbook.IOCOrder{
 			OrderType: 1,
 			ExpireAt:  big.NewInt(1688994854),
-			LimitOrder: orderbook.LimitOrder{
+			OrderCommon: orderbook.OrderCommon{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 				BaseAssetQuantity: big.NewInt(5000000000000000000),
@@ -506,7 +512,7 @@ func TestDecodeIOCOrder(t *testing.T) {
 		order := &orderbook.IOCOrder{
 			OrderType: 1,
 			ExpireAt:  big.NewInt(1688994854),
-			LimitOrder: orderbook.LimitOrder{
+			OrderCommon: orderbook.OrderCommon{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 				BaseAssetQuantity: big.NewInt(-5000000000000000000),
@@ -551,7 +557,7 @@ func testDecodeIOCOrder(t *testing.T, encodedOrder []byte, expectedOutput *order
 func assertIOCOrderEquality(t *testing.T, expected, actual *orderbook.IOCOrder) {
 	assert.Equal(t, expected.OrderType, actual.OrderType)
 	assert.Equal(t, expected.ExpireAt.Int64(), actual.ExpireAt.Int64())
-	assertLimitOrderEquality(t, expected.LimitOrder, actual.LimitOrder)
+	assertLimitOrderEquality(t, expected.OrderCommon, actual.OrderCommon)
 }
 
 // @todo
@@ -1636,14 +1642,14 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 			order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
 			input := getValidateCancelLimitOrderInput(order, sender, assertLowMargin)
 			mockBibliophile.EXPECT().IsTradingAuthority(order.Trader, sender).Return(false).Times(1)
-			output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+			output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 			assert.Equal(t, ErrNoTradingAuthority.Error(), output.Err)
 		})
 		t.Run("it returns error for a short order", func(t *testing.T) {
 			order := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
 			input := getValidateCancelLimitOrderInput(order, sender, assertLowMargin)
 			mockBibliophile.EXPECT().IsTradingAuthority(order.Trader, sender).Return(false).Times(1)
-			output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+			output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 			assert.Equal(t, ErrNoTradingAuthority.Error(), output.Err)
 		})
 	})
@@ -1655,7 +1661,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 					orderHash := getOrderV2Hash(longOrder)
 					mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Invalid)).Times(1)
 					input := getValidateCancelLimitOrderInput(longOrder, trader, assertLowMargin)
-					output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+					output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 					assert.Equal(t, "Invalid", output.Err)
 					assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 					assert.Equal(t, common.Address{}, output.Res.Amm)
@@ -1666,7 +1672,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 					orderHash := getOrderV2Hash(shortOrder)
 					mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Invalid)).Times(1)
 					input := getValidateCancelLimitOrderInput(shortOrder, trader, assertLowMargin)
-					output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+					output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 					assert.Equal(t, "Invalid", output.Err)
 					assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 					assert.Equal(t, common.Address{}, output.Res.Amm)
@@ -1679,7 +1685,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 					orderHash := getOrderV2Hash(longOrder)
 					mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Cancelled)).Times(1)
 					input := getValidateCancelLimitOrderInput(longOrder, trader, assertLowMargin)
-					output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+					output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 					assert.Equal(t, "Cancelled", output.Err)
 					assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 					assert.Equal(t, common.Address{}, output.Res.Amm)
@@ -1690,7 +1696,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 					orderHash := getOrderV2Hash(shortOrder)
 					mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Cancelled)).Times(1)
 					input := getValidateCancelLimitOrderInput(shortOrder, trader, assertLowMargin)
-					output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+					output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 					assert.Equal(t, "Cancelled", output.Err)
 					assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 					assert.Equal(t, common.Address{}, output.Res.Amm)
@@ -1703,7 +1709,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 					orderHash := getOrderV2Hash(longOrder)
 					mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Filled)).Times(1)
 					input := getValidateCancelLimitOrderInput(longOrder, trader, assertLowMargin)
-					output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+					output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 					assert.Equal(t, "Filled", output.Err)
 					assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 					assert.Equal(t, common.Address{}, output.Res.Amm)
@@ -1714,7 +1720,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 					orderHash := getOrderV2Hash(shortOrder)
 					mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Filled)).Times(1)
 					input := getValidateCancelLimitOrderInput(shortOrder, trader, assertLowMargin)
-					output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+					output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 					assert.Equal(t, "Filled", output.Err)
 					assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 					assert.Equal(t, common.Address{}, output.Res.Amm)
@@ -1734,7 +1740,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Placed)).Times(1)
 							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader).Return(big.NewInt(0)).Times(1)
 							input := getValidateCancelLimitOrderInput(longOrder, trader, assertLowMargin)
-							output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "Not Low Margin", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 							assert.Equal(t, common.Address{}, output.Res.Amm)
@@ -1747,7 +1753,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Placed)).Times(1)
 							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader).Return(big.NewInt(0)).Times(1)
 							input := getValidateCancelLimitOrderInput(shortOrder, trader, assertLowMargin)
-							output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 
 							assert.Equal(t, "Not Low Margin", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
@@ -1764,7 +1770,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Placed)).Times(1)
 							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader).Return(newMargin).Times(1)
 							input := getValidateCancelLimitOrderInput(longOrder, trader, assertLowMargin)
-							output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "Not Low Margin", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 							assert.Equal(t, common.Address{}, output.Res.Amm)
@@ -1777,7 +1783,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Placed)).Times(1)
 							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader).Return(newMargin).Times(1)
 							input := getValidateCancelLimitOrderInput(shortOrder, trader, assertLowMargin)
-							output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "Not Low Margin", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 							assert.Equal(t, common.Address{}, output.Res.Amm)
@@ -1797,7 +1803,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 
 							input := getValidateCancelLimitOrderInput(longOrder, trader, assertLowMargin)
-							output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 							assert.Equal(t, ammAddress, output.Res.Amm)
@@ -1813,7 +1819,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 
 							input := getValidateCancelLimitOrderInput(shortOrder, trader, assertLowMargin)
-							output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 							assert.Equal(t, ammAddress, output.Res.Amm)
@@ -1832,7 +1838,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 
 							input := getValidateCancelLimitOrderInput(longOrder, trader, assertLowMargin)
-							output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 							assert.Equal(t, ammAddress, output.Res.Amm)
@@ -1850,7 +1856,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 
 							input := getValidateCancelLimitOrderInput(shortOrder, trader, assertLowMargin)
-							output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 							assert.Equal(t, ammAddress, output.Res.Amm)
@@ -1872,7 +1878,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 						mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 
 						input := getValidateCancelLimitOrderInput(longOrder, trader, assertLowMargin)
-						output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+						output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 						assert.Equal(t, "", output.Err)
 						assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 						assert.Equal(t, ammAddress, output.Res.Amm)
@@ -1887,7 +1893,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 						mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 
 						input := getValidateCancelLimitOrderInput(shortOrder, trader, assertLowMargin)
-						output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+						output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 						assert.Equal(t, "", output.Err)
 						assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 						assert.Equal(t, ammAddress, output.Res.Amm)
@@ -1905,7 +1911,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 						mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 
 						input := getValidateCancelLimitOrderInput(longOrder, trader, assertLowMargin)
-						output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+						output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 						assert.Equal(t, "", output.Err)
 						assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 						assert.Equal(t, ammAddress, output.Res.Amm)
@@ -1922,7 +1928,7 @@ func TestValidateCancelLimitOrder(t *testing.T) {
 						mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 
 						input := getValidateCancelLimitOrderInput(shortOrder, trader, assertLowMargin)
-						output := ValidateCancelLimitOrderV2(mockBibliophile, &input, nil)
+						output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 						assert.Equal(t, "", output.Err)
 						assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
 						assert.Equal(t, ammAddress, output.Res.Amm)
