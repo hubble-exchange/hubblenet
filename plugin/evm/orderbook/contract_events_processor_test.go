@@ -37,7 +37,6 @@ func TestProcessEvents(t *testing.T) {
 		shortOrderId := getIdFromLimitOrder(shortOrder)
 
 		ordersPlacedBlockNumber := uint64(12)
-		// event OrderAccepted(address indexed trader, bytes32 indexed orderHash, OrderV2 order, uint timestamp);
 		orderAcceptedEvent := getEventFromABI(limitOrderBookABI, "OrderAccepted")
 		longOrderAcceptedEventTopics := []common.Hash{orderAcceptedEvent.ID, traderAddress.Hash(), longOrderId}
 		longOrderAcceptedEventData, err := orderAcceptedEvent.Inputs.NonIndexed().Pack(longOrder, timestamp)

@@ -926,17 +926,6 @@ func createPlaceOrderTx(t *testing.T, vm *VM, trader common.Address, privateKey 
 		ReduceOnly:        false,
 		PostOnly:          false,
 	}
-	// order := orderbook.LimitOrder{
-	// 	Common: orderbook.Common{
-	// 		Trader:            trader,
-	// 		AmmIndex:          big.NewInt(0),
-	// 		BaseAssetQuantity: big.NewInt(0).Mul(size, _1e18),
-	// 		Price:             big.NewInt(0).Mul(price, _1e6),
-	// 		Salt:              salt,
-	// 		ReduceOnly:        false,
-	// 	},
-	// 	PostOnly: false,
-	// }
 	data, err := orderBookABI.Pack("placeOrder", order)
 	if err != nil {
 		t.Fatalf("orderBookABI.Pack failed: %v", err)

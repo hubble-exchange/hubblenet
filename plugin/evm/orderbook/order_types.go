@@ -39,7 +39,7 @@ type IOCOrder struct {
 	ExpireAt  *big.Int `json:"expireAt"`
 }
 
-// LimitOrderV2
+// LimitOrder
 func (order *LimitOrder) EncodeToABIWithoutType() ([]byte, error) {
 	limitOrderType, err := getOrderType("limit")
 	if err != nil {
@@ -59,8 +59,8 @@ func (order *LimitOrder) EncodeToABI() ([]byte, error) {
 	}
 	orderType, _ := abi.NewType("uint8", "uint8", nil)
 	orderBytesType, _ := abi.NewType("bytes", "bytes", nil)
-	// 2 means ordertype = limit order
-	encodedOrder, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Pack(uint8(2) /* Limit Order v2 */, encodedLimitOrder)
+	// 0 means ordertype = limit order
+	encodedOrder, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Pack(uint8(0) /* Limit Order */, encodedLimitOrder)
 	if err != nil {
 		return nil, fmt.Errorf("order encoding failed: %w", err)
 	}

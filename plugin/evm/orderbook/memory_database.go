@@ -166,7 +166,7 @@ func (order Order) isPostOnly() bool {
 }
 
 func (order Order) String() string {
-	return fmt.Sprintf("Order: Id: %s, OrderType: %s, Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, PostOnly: %v, BlockNumber: %s", order.Id, order.OrderType, order.Market, order.PositionType, order.Trader, prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, order.isPostOnly(), order.BlockNumber)
+	return fmt.Sprintf("Order: Id: %s, OrderType: %s, Market: %v, PositionType: %v, UserAddress: %v, BaseAssetQuantity: %s, FilledBaseAssetQuantity: %s, Salt: %v, Price: %s, ReduceOnly: %v, PostOnly: %v, BlockNumber: %s", order.Id, order.OrderType, order.Market, order.PositionType, order.Trader.String(), prettifyScaledBigInt(order.BaseAssetQuantity, 18), prettifyScaledBigInt(order.FilledBaseAssetQuantity, 18), order.Salt, prettifyScaledBigInt(order.Price, 6), order.ReduceOnly, order.isPostOnly(), order.BlockNumber)
 }
 
 func (order Order) ToOrderMin() OrderMin {
