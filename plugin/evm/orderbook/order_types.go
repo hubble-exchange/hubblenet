@@ -11,6 +11,7 @@ import (
 )
 
 type ContractOrder interface {
+	EncodeToABIWithoutType() ([]byte, error)
 	EncodeToABI() ([]byte, error)
 	DecodeFromRawOrder(rawOrder interface{})
 	Map() map[string]interface{}
@@ -100,6 +101,18 @@ func DecodeLimitOrder(encodedOrder []byte) (*LimitOrder, error) {
 
 // ----------------------------------------------------------------------------
 // IOCOrder
+
+func (order *IOCOrder) EncodeToABIWithoutType() ([]byte, error) {
+	iocOrderType, err := getOrderType("ioc")
+	if err != nil {
+		return nil, err
+	}
+	encodedIOCOrder, err := abi.Arguments{{Type: iocOrderType}}.Pack(order)
+	if err != nil {
+		return nil, err
+	}
+	return encodedIOCOrder, nil
+}
 
 func (order *IOCOrder) EncodeToABI() ([]byte, error) {
 	iocOrderType, err := getOrderType("ioc")

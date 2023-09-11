@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -159,8 +158,10 @@ func (order Order) getExpireAt() *big.Int {
 }
 
 func (order Order) isPostOnly() bool {
-	if rawOrder, ok := order.RawOrder.(*LimitOrder); ok {
-		return rawOrder.PostOnly
+	if order.OrderType == LimitOrderType {
+		if rawOrder, ok := order.RawOrder.(*LimitOrder); ok {
+			return rawOrder.PostOnly
+		}
 	}
 	return false
 }
@@ -783,9 +784,8 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 
 func (db *InMemoryDatabase) getTraderOrders(trader common.Address, orderType OrderType) []Order {
 	traderOrders := []Order{}
-	_trader := trader.String()
 	for _, order := range db.OrderMap {
-		if strings.EqualFold(order.Trader.String(), _trader) && order.OrderType == orderType {
+		if order.Trader == trader && order.OrderType == orderType {
 			traderOrders = append(traderOrders, deepCopyOrder(order))
 		}
 	}
@@ -794,9 +794,8 @@ func (db *InMemoryDatabase) getTraderOrders(trader common.Address, orderType Ord
 
 func (db *InMemoryDatabase) getAllTraderOrders(trader common.Address) []Order {
 	traderOrders := []Order{}
-	_trader := trader.String()
 	for _, order := range db.OrderMap {
-		if strings.EqualFold(order.Trader.String(), _trader) {
+		if order.Trader == trader {
 			traderOrders = append(traderOrders, deepCopyOrder(order))
 		}
 	}
@@ -804,7 +803,7 @@ func (db *InMemoryDatabase) getAllTraderOrders(trader common.Address) []Order {
 }
 
 func (db *InMemoryDatabase) getReduceOnlyOrderDisplay(order *Order) *Order {
-	trader := common.HexToAddress(order.Trader.String())
+	trader := order.Trader
 	if db.TraderMap[trader] == nil {
 		return nil
 	}

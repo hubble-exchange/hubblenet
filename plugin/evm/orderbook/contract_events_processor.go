@@ -119,7 +119,7 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 	removed := event.Removed
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
-	// event OrderMatched(address indexed trader, bytes32 indexed orderHash, uint256 fillAmount, uint price, uint openInterestNotional, uint timestamp);
+	// event OrderMatched(address indexed trader, bytes32 indexed orderHash, uint256 fillAmount, uint price, uint openInterestNotional, uint timestamp, bool isLiquidation);
 	case cep.orderBookABI.Events["OrderMatched"].ID:
 		err := cep.orderBookABI.UnpackIntoMap(args, "OrderMatched", event.Data)
 		if err != nil {
