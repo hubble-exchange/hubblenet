@@ -234,7 +234,7 @@ func validateOrder(bibliophile b.BibliophileClient, orderType OrderType, encoded
 // Limit Orders
 
 func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *orderbook.LimitOrder, side Side, fillAmount *big.Int, orderHash [32]byte) (metadata *Metadata, err error) {
-	if err := validateLimitOrderLike(bibliophile, &order.OrderCommon, bibliophile.GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.GetOrderStatus(orderHash)), side, fillAmount); err != nil {
+	if err := validateLimitOrderLike(bibliophile, &order.BaseOrder, bibliophile.GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.GetOrderStatus(orderHash)), side, fillAmount); err != nil {
 		return nil, err
 	}
 	return &Metadata{
@@ -247,7 +247,7 @@ func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *orderbook
 	}, nil
 }
 
-func validateLimitOrderLike(bibliophile b.BibliophileClient, order *orderbook.OrderCommon, filledAmount *big.Int, status OrderStatus, side Side, fillAmount *big.Int) error {
+func validateLimitOrderLike(bibliophile b.BibliophileClient, order *orderbook.BaseOrder, filledAmount *big.Int, status OrderStatus, side Side, fillAmount *big.Int) error {
 	if status != Placed {
 		return ErrInvalidOrder
 	}
@@ -344,7 +344,7 @@ func ValidatePlaceIOCOrders(bibliophile b.BibliophileClient, inputStruct *Valida
 		orderHashes[i], err = GetIOCOrderHash(&orderbook.IOCOrder{
 			OrderType: order.OrderType,
 			ExpireAt:  order.ExpireAt,
-			OrderCommon: orderbook.OrderCommon{
+			BaseOrder: orderbook.BaseOrder{
 				AmmIndex:          order.AmmIndex,
 				Trader:            order.Trader,
 				BaseAssetQuantity: order.BaseAssetQuantity,
@@ -374,7 +374,7 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *orderbook.I
 	if err != nil {
 		return nil, err
 	}
-	if err := validateLimitOrderLike(bibliophile, &order.OrderCommon, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
+	if err := validateLimitOrderLike(bibliophile, &order.BaseOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
 		return nil, err
 	}
 	return &Metadata{

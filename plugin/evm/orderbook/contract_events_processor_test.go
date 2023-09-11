@@ -748,7 +748,7 @@ func getEventFromABI(contractABI abi.ABI, eventName string) abi.Event {
 
 func getLimitOrder(ammIndex *big.Int, traderAddress common.Address, baseAssetQuantity *big.Int, price *big.Int, salt *big.Int) LimitOrder {
 	return LimitOrder{
-		OrderCommon: OrderCommon{
+		BaseOrder: BaseOrder{
 			AmmIndex:          ammIndex,
 			Trader:            traderAddress,
 			BaseAssetQuantity: baseAssetQuantity,

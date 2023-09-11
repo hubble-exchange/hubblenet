@@ -17,8 +17,8 @@ type ContractOrder interface {
 	Map() map[string]interface{}
 }
 
-// OrderCommon is the set of common fields among the order types
-type OrderCommon struct {
+// BaseOrder is the set of common fields among the order types
+type BaseOrder struct {
 	AmmIndex          *big.Int       `json:"ammIndex"`
 	Trader            common.Address `json:"trader"`
 	BaseAssetQuantity *big.Int       `json:"baseAssetQuantity"`
@@ -29,13 +29,13 @@ type OrderCommon struct {
 
 // LimitOrder type is copy of Order struct defined in LimitOrderbook contract
 type LimitOrder struct {
-	OrderCommon
+	BaseOrder
 	PostOnly bool `json:"postOnly"`
 }
 
 // IOCOrder type is copy of IOCOrder struct defined in Orderbook contract
 type IOCOrder struct {
-	OrderCommon
+	BaseOrder
 	OrderType uint8    `json:"orderType"`
 	ExpireAt  *big.Int `json:"expireAt"`
 }

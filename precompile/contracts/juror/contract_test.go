@@ -93,7 +93,7 @@ func TestDecodeLimitOrder(t *testing.T) {
 			strings.TrimPrefix("0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c80000000000000000000000000000000000000000000000004563918244f4000000000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000018a82b01e9d00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "0x"),
 			Limit,
 			orderbook.LimitOrder{
-				OrderCommon: orderbook.OrderCommon{
+				BaseOrder: orderbook.BaseOrder{
 					AmmIndex:          big.NewInt(0),
 					Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 					BaseAssetQuantity: big.NewInt(5000000000000000000),
@@ -113,7 +113,7 @@ func TestDecodeLimitOrder(t *testing.T) {
 			strings.TrimPrefix("0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c80000000000000000000000000000000000000000000000004563918244f4000000000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000018a82b4121c00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000", "0x"),
 			Limit,
 			orderbook.LimitOrder{
-				OrderCommon: orderbook.OrderCommon{
+				BaseOrder: orderbook.BaseOrder{
 					AmmIndex:          big.NewInt(0),
 					Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 					BaseAssetQuantity: big.NewInt(5000000000000000000),
@@ -128,7 +128,7 @@ func TestDecodeLimitOrder(t *testing.T) {
 
 	t.Run("short order", func(t *testing.T) {
 		order := orderbook.LimitOrder{
-			OrderCommon: orderbook.OrderCommon{
+			BaseOrder: orderbook.BaseOrder{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 				BaseAssetQuantity: big.NewInt(-5000000000000000000),
@@ -157,7 +157,7 @@ func TestDecodeLimitOrder(t *testing.T) {
 			strings.TrimPrefix("0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c000000000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000018a82b7597700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000", "0x"),
 			Limit,
 			orderbook.LimitOrder{
-				OrderCommon: orderbook.OrderCommon{
+				BaseOrder: orderbook.BaseOrder{
 					AmmIndex:          big.NewInt(0),
 					Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 					BaseAssetQuantity: big.NewInt(-5000000000000000000),
@@ -176,7 +176,7 @@ func TestDecodeLimitOrder(t *testing.T) {
 			strings.TrimPrefix("0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8ffffffffffffffffffffffffffffffffffffffffffffffffba9c6e7dbb0c000000000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000018a82b8382e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001", "0x"),
 			Limit,
 			orderbook.LimitOrder{
-				OrderCommon: orderbook.OrderCommon{
+				BaseOrder: orderbook.BaseOrder{
 					AmmIndex:          big.NewInt(0),
 					Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 					BaseAssetQuantity: big.NewInt(-5000000000000000000),
@@ -210,11 +210,11 @@ func testDecodeLimitOrder(t *testing.T, encodedOrder string, expectedOutput inte
 	fmt.Println(result)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assertLimitOrderEquality(t, expectedOutput.(orderbook.LimitOrder).OrderCommon, *&result.OrderCommon)
+	assertLimitOrderEquality(t, expectedOutput.(orderbook.LimitOrder).BaseOrder, *&result.BaseOrder)
 	assert.Equal(t, expectedOutput.(orderbook.LimitOrder).PostOnly, result.PostOnly)
 }
 
-func assertLimitOrderEquality(t *testing.T, expected, actual orderbook.OrderCommon) {
+func assertLimitOrderEquality(t *testing.T, expected, actual orderbook.BaseOrder) {
 	assert.Equal(t, expected.AmmIndex.Int64(), actual.AmmIndex.Int64())
 	assert.Equal(t, expected.Trader, actual.Trader)
 	assert.Equal(t, expected.BaseAssetQuantity, actual.BaseAssetQuantity)
@@ -230,7 +230,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	mockBibliophile := b.NewMockBibliophileClient(ctrl)
 
 	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
-	order := &orderbook.OrderCommon{
+	order := &orderbook.BaseOrder{
 		AmmIndex:          big.NewInt(0),
 		Trader:            trader,
 		BaseAssetQuantity: big.NewInt(10),
@@ -303,7 +303,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	})
 
 	t.Run("Side=Short", func(t *testing.T) {
-		order := &orderbook.OrderCommon{
+		order := &orderbook.BaseOrder{
 			AmmIndex:          big.NewInt(0),
 			Trader:            trader,
 			BaseAssetQuantity: big.NewInt(-10),
@@ -374,7 +374,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	})
 
 	t.Run("invalid side", func(t *testing.T) {
-		order := &orderbook.OrderCommon{
+		order := &orderbook.BaseOrder{
 			AmmIndex:          big.NewInt(0),
 			Trader:            trader,
 			BaseAssetQuantity: big.NewInt(10),
@@ -399,7 +399,7 @@ func TestValidateExecuteLimitOrder(t *testing.T) {
 	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
 
 	order := &orderbook.LimitOrder{
-		OrderCommon: orderbook.OrderCommon{
+		BaseOrder: orderbook.BaseOrder{
 			AmmIndex:          big.NewInt(534),
 			Trader:            trader,
 			BaseAssetQuantity: big.NewInt(10),
@@ -449,7 +449,7 @@ func TestDecodeIOCOrder(t *testing.T) {
 		order := &orderbook.IOCOrder{
 			OrderType: 1,
 			ExpireAt:  big.NewInt(1688994854),
-			OrderCommon: orderbook.OrderCommon{
+			BaseOrder: orderbook.BaseOrder{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 				BaseAssetQuantity: big.NewInt(5000000000000000000),
@@ -474,7 +474,7 @@ func TestDecodeIOCOrder(t *testing.T) {
 		order := &orderbook.IOCOrder{
 			OrderType: 1,
 			ExpireAt:  big.NewInt(1688994854),
-			OrderCommon: orderbook.OrderCommon{
+			BaseOrder: orderbook.BaseOrder{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 				BaseAssetQuantity: big.NewInt(-5000000000000000000),
@@ -519,7 +519,7 @@ func testDecodeIOCOrder(t *testing.T, encodedOrder []byte, expectedOutput *order
 func assertIOCOrderEquality(t *testing.T, expected, actual *orderbook.IOCOrder) {
 	assert.Equal(t, expected.OrderType, actual.OrderType)
 	assert.Equal(t, expected.ExpireAt.Int64(), actual.ExpireAt.Int64())
-	assertLimitOrderEquality(t, expected.OrderCommon, actual.OrderCommon)
+	assertLimitOrderEquality(t, expected.BaseOrder, actual.BaseOrder)
 }
 
 // @todo

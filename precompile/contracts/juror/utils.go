@@ -9,7 +9,7 @@ import (
 
 func GetLimitOrderHashFromContractStruct(o *ILimitOrderBookOrderV2) (common.Hash, error) {
 	order := &orderbook.LimitOrder{
-		OrderCommon: orderbook.OrderCommon{
+		BaseOrder: orderbook.BaseOrder{
 			AmmIndex:          o.AmmIndex,
 			BaseAssetQuantity: o.BaseAssetQuantity,
 			Price:             o.Price,

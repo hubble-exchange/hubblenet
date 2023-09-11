@@ -684,7 +684,7 @@ func createIOCOrder(positionType PositionType, userAddress string, baseAssetQuan
 		RawOrder: &IOCOrder{
 			OrderType: uint8(IOCOrderType),
 			ExpireAt:  expireAt,
-			OrderCommon: OrderCommon{
+			BaseOrder: BaseOrder{
 				AmmIndex:          big.NewInt(0),
 				Trader:            common.HexToAddress(userAddress),
 				BaseAssetQuantity: baseAssetQuantity,
