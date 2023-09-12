@@ -16,7 +16,6 @@ type BibliophileClient interface {
 	GetTakerFee() *big.Int
 	//orderbook
 	GetSize(market common.Address, trader *common.Address) *big.Int
-	DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error)
 	DetermineLiquidationFillPrice(marketId int64, baseAssetQuantity, price *big.Int) (*big.Int, error)
 	GetLongOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	GetShortOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int
@@ -81,10 +80,6 @@ func (b *bibliophileClient) GetTakerFee() *big.Int {
 
 func (b *bibliophileClient) GetMarketAddressFromMarketID(marketID int64) common.Address {
 	return getMarketAddressFromMarketID(marketID, b.accessibleState.GetStateDB())
-}
-
-func (b *bibliophileClient) DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
-	return DetermineFillPrice(b.accessibleState.GetStateDB(), marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
 }
 
 func (b *bibliophileClient) DetermineLiquidationFillPrice(marketId int64, baseAssetQuantity, price *big.Int) (*big.Int, error) {
