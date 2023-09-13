@@ -69,8 +69,8 @@ var (
 	ErrCancelledOrder                     = errors.New("cancelled order")
 	ErrFilledOrder                        = errors.New("filled order")
 	ErrOrderAlreadyExists                 = errors.New("order already exists")
-	ErrTooLow                             = errors.New("OB_long_order_price_too_low")
-	ErrTooHigh                            = errors.New("OB_short_order_price_too_high")
+	ErrTooLow                             = errors.New("long price below lower bound")
+	ErrTooHigh                            = errors.New("short price above upper bound")
 	ErrOverFill                           = errors.New("overfill")
 	ErrReduceOnlyAmountExceeded           = errors.New("not reducing pos")
 	ErrBaseAssetQuantityZero              = errors.New("baseAssetQuantity is zero")
@@ -126,7 +126,10 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 		return nil, ErrNotMultiple
 	}
 
-	fillPriceAndModes, err := DetermineFillPrice(bibliophile, m0, m1)
+	fillPriceAndModes, err := determineFillPrice(bibliophile, m0, m1)
+	if err != nil {
+		return nil, err
+	}
 
 	output := &ValidateOrdersAndDetermineFillPriceOutput{
 		Instructions: [2]IClearingHouseInstruction{
@@ -167,9 +170,16 @@ type FillPriceAndModes struct {
 	Mode1     executionMode
 }
 
-func DetermineFillPrice(bibliophile b.BibliophileClient, m0, m1 *Metadata) (*FillPriceAndModes, error) {
+func determineFillPrice(bibliophile b.BibliophileClient, m0, m1 *Metadata) (*FillPriceAndModes, error) {
 	output := FillPriceAndModes{}
 	upperBound, lowerBound := bibliophile.GetUpperAndLowerBoundForMarket(m0.AmmIndex.Int64())
+	if m0.Price.Cmp(lowerBound) == -1 {
+		return nil, ErrTooLow
+	}
+	if m1.Price.Cmp(upperBound) == 1 {
+		return nil, ErrTooHigh
+	}
+
 	blockDiff := m0.BlockPlaced.Cmp(m1.BlockPlaced)
 	if blockDiff == -1 {
 		// order0 came first, can't be IOC order
@@ -240,7 +250,7 @@ func ValidateLiquidationOrderAndDetermineFillPrice(bibliophile b.BibliophileClie
 		return nil, ErrNotMultiple
 	}
 
-	fillPrice, err := bibliophile.DetermineLiquidationFillPrice(m0.AmmIndex.Int64(), m0.BaseAssetQuantity, m0.Price)
+	fillPrice, err := determineLiquidationFillPrice(bibliophile, m0)
 	if err != nil {
 		return nil, err
 	}
@@ -258,6 +268,25 @@ func ValidateLiquidationOrderAndDetermineFillPrice(bibliophile b.BibliophileClie
 		FillAmount:   fillAmount,
 	}
 	return output, nil
+}
+
+func determineLiquidationFillPrice(bibliophile b.BibliophileClient, m0 *Metadata) (*big.Int, error) {
+	liqUpperBound, liqLowerBound := bibliophile.GetAcceptableBoundsForLiquidation(m0.AmmIndex.Int64())
+	upperBound, lowerBound := bibliophile.GetUpperAndLowerBoundForMarket(m0.AmmIndex.Int64())
+	if m0.BaseAssetQuantity.Sign() > 0 {
+		// we are liquidating a long position
+		// do not allow liquidation if order.Price < liqLowerBound, because that gives scope for malicious activity to a validator
+		if m0.Price.Cmp(liqLowerBound) == -1 {
+			return nil, ErrTooLow
+		}
+		return utils.BigIntMin(m0.Price, upperBound /* oracle spread upper bound */), nil
+	}
+
+	// we are liquidating a short position
+	if m0.Price.Cmp(liqUpperBound) == 1 {
+		return nil, ErrTooHigh
+	}
+	return utils.BigIntMax(m0.Price, lowerBound /* oracle spread lower bound */), nil
 }
 
 func decodeTypeAndEncodedOrder(data []byte) (*DecodeStep, error) {
