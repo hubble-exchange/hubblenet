@@ -278,8 +278,8 @@ func (db *InMemoryDatabase) Accept(acceptedBlockNumber, blockTimestamp uint64) {
 
 	count := db.configService.GetActiveMarketsCount()
 	for m := int64(0); m < count; m++ {
-		longOrders := db.GetLongOrders(Market(m), nil, nil)
-		shortOrders := db.GetShortOrders(Market(m), nil, nil)
+		longOrders := db.getLongOrdersWithoutLock(Market(m), nil, nil, false)
+		shortOrders := db.getShortOrdersWithoutLock(Market(m), nil, nil, false)
 
 		for _, longOrder := range longOrders {
 			status := shouldRemove(acceptedBlockNumber, blockTimestamp, longOrder)
@@ -480,12 +480,19 @@ func (db *InMemoryDatabase) UpdateNextSamplePITime(nextSamplePITime uint64) {
 func (db *InMemoryDatabase) GetLongOrders(market Market, lowerbound *big.Int, blockNumber *big.Int) []Order {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+	return db.getLongOrdersWithoutLock(market, lowerbound, blockNumber, true)
+}
 
+func (db *InMemoryDatabase) getLongOrdersWithoutLock(market Market, lowerbound *big.Int, blockNumber *big.Int, shouldClean bool) []Order {
 	var longOrders []Order
 	for _, order := range db.OrderMap {
 		if order.PositionType == LONG && order.Market == market && (lowerbound == nil || order.Price.Cmp(lowerbound) >= 0) {
-			if _order := db.getCleanOrder(order, blockNumber); _order != nil {
-				longOrders = append(longOrders, *_order)
+			if shouldClean {
+				if _order := db.getCleanOrder(order, blockNumber); _order != nil {
+					longOrders = append(longOrders, *_order)
+				}
+			} else {
+				longOrders = append(longOrders, *order)
 			}
 		}
 	}
@@ -496,12 +503,19 @@ func (db *InMemoryDatabase) GetLongOrders(market Market, lowerbound *big.Int, bl
 func (db *InMemoryDatabase) GetShortOrders(market Market, upperbound *big.Int, blockNumber *big.Int) []Order {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+	return db.getShortOrdersWithoutLock(market, upperbound, blockNumber, true)
+}
 
+func (db *InMemoryDatabase) getShortOrdersWithoutLock(market Market, upperbound *big.Int, blockNumber *big.Int, shouldClean bool) []Order {
 	var shortOrders []Order
 	for _, order := range db.OrderMap {
 		if order.PositionType == SHORT && order.Market == market && (upperbound == nil || order.Price.Cmp(upperbound) <= 0) {
-			if _order := db.getCleanOrder(order, blockNumber); _order != nil {
-				shortOrders = append(shortOrders, *_order)
+			if shouldClean {
+				if _order := db.getCleanOrder(order, blockNumber); _order != nil {
+					shortOrders = append(shortOrders, *_order)
+				}
+			} else {
+				shortOrders = append(shortOrders, *order)
 			}
 		}
 	}
