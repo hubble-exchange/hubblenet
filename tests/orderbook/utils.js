@@ -292,7 +292,10 @@ function bnToFloat(num, decimals = 6) {
     return parseFloat(ethers.utils.formatUnits(num.toString(), decimals))
 }
 
-async function getRequiredMarginForLongOrder(price, baseAssetQuantity) {
+async function getRequiredMarginForLongOrder(longOrder) {
+    price = longOrder.price
+    baseAssetQuantity = longOrder.baseAssetQuantity
+
     minAllowableMargin = await clearingHouse.minAllowableMargin()
     takerFee = await clearingHouse.takerFee()
 
@@ -303,11 +306,13 @@ async function getRequiredMarginForLongOrder(price, baseAssetQuantity) {
     return totalRequiredMargin
 }
 
-async function getRequiredMarginForShortOrder(price, baseAssetQuantity) {
+async function getRequiredMarginForShortOrder(shortOrder) {
+    price = shortOrder.price
+    baseAssetQuantity = shortOrder.baseAssetQuantity
+
     minAllowableMargin = await clearingHouse.minAllowableMargin()
     takerFee = await clearingHouse.takerFee()
-
-    amm = await getAMMContract(market)
+    amm = await getAMMContract(shortOrder.ammIndex)
     oraclePrice = await amm.getUnderlyingPrice()
     maxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
     upperBound = oraclePrice.mul(maxOracleSpreadRatio.add(_1e6)).div(_1e6)

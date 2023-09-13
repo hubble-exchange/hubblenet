@@ -27,7 +27,7 @@ const {
     waitForOrdersToMatch,
 } = require("../utils")
 
-describe.only("Juror tests", async function() {
+describe("Juror tests", async function() {
     context("Alice is a new user and tries to place a valid longOrder", async function() {
         // Alice is a new user and tries to place a valid longOrder - should fail
         // After user adds margin and tries to place a valid order - should succeed
@@ -52,7 +52,7 @@ describe.only("Juror tests", async function() {
             expect(output.res.amm).to.equal(expectedAmmAddress)
         })
         it("should succeed after trader deposits margin and return reserve margin", async function() {
-            totalRequiredMargin = await getRequiredMarginForLongOrder(longOrder.price, longOrder.baseAssetQuantity)
+            totalRequiredMargin = await getRequiredMarginForLongOrder(longOrder)
             await addMargin(alice, totalRequiredMargin)
             output = await juror.validatePlaceLimitOrder(longOrder, alice.address)
             expect(output.err).to.equal("")
@@ -161,7 +161,7 @@ describe.only("Juror tests", async function() {
             expect(output.res.amm).to.equal(expectedAmmAddress)
         })
         it("after depositing margin, it should fail if trading authority tries to place order without authorization", async function() {
-            totalRequiredMargin = await getRequiredMarginForShortOrder(shortOrder.price, shortOrder.baseAssetQuantity) 
+            totalRequiredMargin = await getRequiredMarginForShortOrder(shortOrder)
             await addMargin(bob, totalRequiredMargin)
             const tx = await orderBook.connect(bob).revokeTradingAuthority(tradingAuthority.address)
             await tx.wait()
@@ -293,7 +293,7 @@ describe.only("Juror tests", async function() {
 
         context("should succeed when market maker tries to place valid postonly orders in blank orderbook", async function() {
             it("should succeed if market maker tries to place a valid postonly longOrder", async function() {
-                totalRequiredMargin = await getRequiredMarginForLongOrder(longOrder.price, longOrder.baseAssetQuantity) 
+                totalRequiredMargin = await getRequiredMarginForLongOrder(longOrder)
                 output = await juror.validatePlaceLimitOrder(longOrder, marketMaker.address)
                 expect(output.err).to.equal("")
                 expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
@@ -311,7 +311,7 @@ describe.only("Juror tests", async function() {
                 expect(orderStatus.filledAmount.toNumber()).to.equal(0)
             })
             it("should succeed if market maker tries to place a valid postonly shortOrder", async function() {
-                totalRequiredMargin = await getRequiredMarginForShortOrder(shortOrder.price, shortOrder.baseAssetQuantity)
+                totalRequiredMargin = await getRequiredMarginForShortOrder(shortOrder)
                 output = await juror.validatePlaceLimitOrder(shortOrder, marketMaker.address)
                 expect(output.err).to.equal("")
                 expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
@@ -377,7 +377,7 @@ describe.only("Juror tests", async function() {
                 expect(output.err).to.equal("crossing market")
                 expectedOrderHash = await orderBook.getOrderHashV2(longOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
-                totalRequiredMarginForLongOrder2 = await getRequiredMarginForLongOrder(longOrder2.price, longOrder2.baseAssetQuantity)
+                totalRequiredMarginForLongOrder2 = await getRequiredMarginForLongOrder(longOrder2)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMarginForLongOrder2.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
                 expect(output.res.amm).to.equal(expectedAmmAddress)
@@ -396,7 +396,7 @@ describe.only("Juror tests", async function() {
                 expect(output.err).to.equal("crossing market")
                 expectedOrderHash = await orderBook.getOrderHashV2(longOrder3)
                 expect(output.orderHash).to.equal(expectedOrderHash)
-                totalRequiredMarginForLongOrder3 = await getRequiredMarginForLongOrder(longOrder3.price, longOrder3.baseAssetQuantity)
+                totalRequiredMarginForLongOrder3 = await getRequiredMarginForLongOrder(longOrder3)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMarginForLongOrder3.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
                 expect(output.res.amm).to.equal(expectedAmmAddress)
@@ -416,7 +416,7 @@ describe.only("Juror tests", async function() {
                 expect(output.err).to.equal("crossing market")
                 expectedOrderHash = await orderBook.getOrderHashV2(shortOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
-                totalRequiredMarginForShortOrder2 = await getRequiredMarginForShortOrder(shortOrder2.price, shortOrder2.baseAssetQuantity) 
+                totalRequiredMarginForShortOrder2 = await getRequiredMarginForShortOrder(shortOrder2)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMarginForShortOrder2.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
                 expect(output.res.amm).to.equal(expectedAmmAddress)
@@ -436,7 +436,7 @@ describe.only("Juror tests", async function() {
                 expect(output.err).to.equal("crossing market")
                 expectedOrderHash = await orderBook.getOrderHashV2(shortOrder3)
                 expect(output.orderHash).to.equal(expectedOrderHash)
-                totalRequiredMarginForShortOrder3 = await getRequiredMarginForShortOrder(shortOrder3.price, shortOrder3.baseAssetQuantity)
+                totalRequiredMarginForShortOrder3 = await getRequiredMarginForShortOrder(shortOrder3)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMarginForShortOrder3.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
                 
@@ -453,7 +453,7 @@ describe.only("Juror tests", async function() {
             it("should succeed if market maker tries to place another postonly longOrder with lower price than all shortOrders", async function() {
                 lowerPrice = shortOrder.price.sub(1)
                 longOrder4 = getOrderV2(market, marketMaker.address, longOrderBaseAssetQuantity, lowerPrice, getRandomSalt(), false, true)
-                totalRequiredMargin = await getRequiredMarginForLongOrder(longOrder4.price, longOrder4.baseAssetQuantity)
+                totalRequiredMargin = await getRequiredMarginForLongOrder(longOrder4)
                 output = await juror.validatePlaceLimitOrder(longOrder4, marketMaker.address)
                 expect(output.err).to.equal("")
                 expectedOrderHash = await orderBook.getOrderHashV2(longOrder4)
@@ -473,7 +473,7 @@ describe.only("Juror tests", async function() {
             it("should succeed if market maker tries to place another postonly shortOrder with higher price than all longOrders", async function() {
                 higherPrice = longOrder4.price.add(1)
                 shortOrder4 = getOrderV2(market, marketMaker.address, shortOrderBaseAssetQuantity, higherPrice, getRandomSalt(), false, true)
-                totalRequiredMargin = await getRequiredMarginForShortOrder(shortOrder4.price, shortOrder4.baseAssetQuantity)
+                totalRequiredMargin = await getRequiredMarginForShortOrder(shortOrder4)
                 output = await juror.validatePlaceLimitOrder(shortOrder4, marketMaker.address)
                 expect(output.err).to.equal("")
                 expectedOrderHash = await orderBook.getOrderHashV2(shortOrder4)
@@ -724,7 +724,7 @@ describe.only("Juror tests", async function() {
             it("should fail when alice has a open shortOrder and tries to place a short reduceOnly order", async function() {
                 let shortOrderBaseAssetQuantity = longOrderBaseAssetQuantity.div(2).mul(-1)
                 let shortOrder = getOrderV2(market, alice.address, shortOrderBaseAssetQuantity, shortOrderPrice, getRandomSalt(), false, false)
-                requiredMargin = await getRequiredMarginForShortOrder(shortOrder.price, shortOrder.baseAssetQuantity)
+                requiredMargin = await getRequiredMarginForShortOrder(shortOrder)
                 await addMargin(alice, requiredMargin)
                 await placeOrderFromLimitOrderV2(shortOrder, alice)
 
@@ -845,7 +845,7 @@ describe.only("Juror tests", async function() {
                 // so that longOrderNormal does not matches with reduceOnlyShortOrder
                 price = reduceOnlyShortOrder.price.sub(1)
                 longOrderNormal = getOrderV2(market, alice.address, longOrderBaseAssetQuantity, price, getRandomSalt(), false, false)
-                expectedReserveAmount = await getRequiredMarginForLongOrder(longOrderNormal.price, longOrderNormal.baseAssetQuantity)
+                expectedReserveAmount = await getRequiredMarginForLongOrder(longOrderNormal)
                 output = await juror.validatePlaceLimitOrder(longOrderNormal, alice.address)
                 expect(output.err).to.equal("")
                 expectedOrderHash = await orderBook.getOrderHashV2(longOrderNormal)
@@ -953,7 +953,7 @@ describe.only("Juror tests", async function() {
             it("should fail when bob has a open longOrder and tries to place a long reduceOnly order", async function() {
                 let longOrderSize = shortOrderBaseAssetQuantity.div(2).mul(-1)
                 let longOrder = getOrderV2(market, bob.address, longOrderSize, longOrderPrice, getRandomSalt(), false, false)
-                requiredMargin = await getRequiredMarginForLongOrder(longOrder.price, longOrder.baseAssetQuantity)
+                requiredMargin = await getRequiredMarginForLongOrder(longOrder)
                 await addMargin(bob, requiredMargin)
                 await placeOrderFromLimitOrderV2(longOrder, bob)
 
@@ -1074,7 +1074,7 @@ describe.only("Juror tests", async function() {
                 // so that shortOrderNormal does not matches with reduceOnlyLongOrder
                 price = reduceOnlyLongOrder.price.add(1)
                 shortOrderNormal = getOrderV2(market, bob.address, shortOrderBaseAssetQuantity, price, getRandomSalt(), false, false)
-                expectedReserveAmount = await getRequiredMarginForShortOrder(shortOrderNormal.price, shortOrderNormal.baseAssetQuantity)
+                expectedReserveAmount = await getRequiredMarginForShortOrder(shortOrderNormal)
                 output = await juror.validatePlaceLimitOrder(shortOrderNormal, bob.address)
                 expect(output.err).to.equal("")
                 expectedOrderHash = await orderBook.getOrderHashV2(shortOrderNormal)
