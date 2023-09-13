@@ -829,34 +829,44 @@ func (db *InMemoryDatabase) getReduceOnlyOrderDisplay(order *Order) *Order {
 	}
 }
 
-func sortLongOrders(orders []Order) []Order {
+func sortLongOrders(orders []Order) {
 	sort.SliceStable(orders, func(i, j int) bool {
-		if orders[i].Price.Cmp(orders[j].Price) == 1 {
+		priceDiff := orders[i].Price.Cmp(orders[j].Price)
+		if priceDiff == 1 {
 			return true
-		}
-		if orders[i].Price.Cmp(orders[j].Price) == 0 {
-			if orders[i].BlockNumber.Cmp(orders[j].BlockNumber) == -1 {
+		} else if priceDiff == 0 {
+			blockDiff := orders[i].BlockNumber.Cmp(orders[j].BlockNumber)
+			if blockDiff == -1 { // i was placed before j
 				return true
+			} else if blockDiff == 0 { // i and j were placed in the same block
+				if orders[i].OrderType == IOCOrderType {
+					// prioritize fulfilling IOC orders first, because they are short lived
+					return true
+				}
 			}
 		}
 		return false
 	})
-	return orders
 }
 
-func sortShortOrders(orders []Order) []Order {
+func sortShortOrders(orders []Order) {
 	sort.SliceStable(orders, func(i, j int) bool {
-		if orders[i].Price.Cmp(orders[j].Price) == -1 {
+		priceDiff := orders[i].Price.Cmp(orders[j].Price)
+		if priceDiff == -1 {
 			return true
-		}
-		if orders[i].Price.Cmp(orders[j].Price) == 0 {
-			if orders[i].BlockNumber.Cmp(orders[j].BlockNumber) == -1 {
+		} else if priceDiff == 0 {
+			blockDiff := orders[i].BlockNumber.Cmp(orders[j].BlockNumber)
+			if blockDiff == -1 { // i was placed before j
 				return true
+			} else if blockDiff == 0 { // i and j were placed in the same block
+				if orders[i].OrderType == IOCOrderType {
+					// prioritize fulfilling IOC orders first, because they are short lived
+					return true
+				}
 			}
 		}
 		return false
 	})
-	return orders
 }
 
 func (db *InMemoryDatabase) GetOrderBookData() InMemoryDatabase {
