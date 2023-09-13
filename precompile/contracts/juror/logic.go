@@ -617,8 +617,8 @@ func validatePlaceLimitOrderV2(bibliophile b.BibliophileClient, order ILimitOrde
 	posSize := bibliophile.GetSize(ammAddress, &trader)
 	reduceOnlyAmount := bibliophile.GetReduceOnlyAmount(trader, order.AmmIndex)
 	// this should only happen when a trader with open reduce only orders was liquidated
-	if (posSize.Sign() == 0 && reduceOnlyAmount.Sign() != 0) || (posSize.Sign() != 0 && new(big.Int).Mul(posSize, reduceOnlyAmount).Sign() == 1) {
-		// if position is non-zero then reduceOnlyAmount should be zero or have the opposite sign as posSize
+	if reduceOnlyAmount.Sign() != 0 && new(big.Int).Mul(posSize, reduceOnlyAmount).Sign() != -1 {
+		// if reduceOnlyAmount is not zero then position should be opposite to reduceOnlyAmount
 		errorString = ErrStaleReduceOnlyOrders.Error()
 		return
 	}
