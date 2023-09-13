@@ -271,7 +271,6 @@ func (db *InMemoryDatabase) LoadFromSnapshot(snapshot Snapshot) error {
 	return nil
 }
 
-// assumes that lock is held by the caller
 func (db *InMemoryDatabase) Accept(acceptedBlockNumber, blockTimestamp uint64) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
