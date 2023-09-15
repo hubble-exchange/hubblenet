@@ -25,13 +25,117 @@ func TestgetDatabase(t *testing.T) {
 	assert.NotNil(t, inMemoryDatabase)
 }
 
+func TestAddSequence(t *testing.T) {
+	baseAssetQuantity := big.NewInt(10)
+	db := getDatabase()
+
+	t.Run("Long orders", func(t *testing.T) {
+		order1 := createLimitOrder(LONG, userAddress, baseAssetQuantity, big.NewInt(20), status, big.NewInt(2), big.NewInt(1))
+		db.Add(&order1)
+
+		assert.Equal(t, 1, len(db.Orders))
+		assert.Equal(t, 1, len(db.LongOrders[market]))
+		assert.Equal(t, db.LongOrders[market][0].Id, order1.Id)
+
+		order2 := createLimitOrder(LONG, userAddress, baseAssetQuantity, big.NewInt(21), status, big.NewInt(2), big.NewInt(2))
+		db.Add(&order2)
+
+		assert.Equal(t, 2, len(db.Orders))
+		assert.Equal(t, 2, len(db.LongOrders[market]))
+		assert.Equal(t, db.LongOrders[market][0].Id, order2.Id)
+		assert.Equal(t, db.LongOrders[market][1].Id, order1.Id)
+
+		order3 := createLimitOrder(LONG, userAddress, baseAssetQuantity, big.NewInt(19), status, big.NewInt(2), big.NewInt(3))
+		db.Add(&order3)
+
+		assert.Equal(t, 3, len(db.Orders))
+		assert.Equal(t, 3, len(db.LongOrders[market]))
+		assert.Equal(t, db.LongOrders[market][0].Id, order2.Id)
+		assert.Equal(t, db.LongOrders[market][1].Id, order1.Id)
+		assert.Equal(t, db.LongOrders[market][2].Id, order3.Id)
+
+		// block number
+		order4 := createLimitOrder(LONG, userAddress, baseAssetQuantity, big.NewInt(20), status, big.NewInt(3), big.NewInt(4))
+		db.Add(&order4)
+
+		assert.Equal(t, 4, len(db.Orders))
+		assert.Equal(t, 4, len(db.LongOrders[market]))
+		assert.Equal(t, db.LongOrders[market][0].Id, order2.Id)
+		assert.Equal(t, db.LongOrders[market][1].Id, order1.Id)
+		assert.Equal(t, db.LongOrders[market][2].Id, order4.Id)
+		assert.Equal(t, db.LongOrders[market][3].Id, order3.Id)
+
+		// ioc order
+		order5 := createIOCOrder(LONG, userAddress, baseAssetQuantity, big.NewInt(20), status, big.NewInt(2), big.NewInt(5), big.NewInt(2))
+		db.Add(&order5)
+
+		assert.Equal(t, 5, len(db.Orders))
+		assert.Equal(t, 5, len(db.LongOrders[market]))
+		assert.Equal(t, db.LongOrders[market][0].Id, order2.Id)
+		assert.Equal(t, db.LongOrders[market][1].Id, order5.Id)
+		assert.Equal(t, db.LongOrders[market][2].Id, order1.Id)
+		assert.Equal(t, db.LongOrders[market][3].Id, order4.Id)
+		assert.Equal(t, db.LongOrders[market][4].Id, order3.Id)
+	})
+
+	t.Run("Short orders", func(t *testing.T) {
+		baseAssetQuantity = big.NewInt(-10)
+		order1 := createLimitOrder(SHORT, userAddress, baseAssetQuantity, big.NewInt(20), status, big.NewInt(2), big.NewInt(6))
+		db.Add(&order1)
+
+		assert.Equal(t, 6, len(db.Orders))
+		assert.Equal(t, 1, len(db.ShortOrders[market]))
+		assert.Equal(t, db.ShortOrders[market][0].Id, order1.Id)
+
+		order2 := createLimitOrder(SHORT, userAddress, baseAssetQuantity, big.NewInt(19), status, big.NewInt(2), big.NewInt(7))
+		db.Add(&order2)
+
+		assert.Equal(t, 7, len(db.Orders))
+		assert.Equal(t, 2, len(db.ShortOrders[market]))
+		assert.Equal(t, db.ShortOrders[market][0].Id, order2.Id)
+		assert.Equal(t, db.ShortOrders[market][1].Id, order1.Id)
+
+		order3 := createLimitOrder(SHORT, userAddress, baseAssetQuantity, big.NewInt(21), status, big.NewInt(2), big.NewInt(8))
+		db.Add(&order3)
+
+		assert.Equal(t, 8, len(db.Orders))
+		assert.Equal(t, 3, len(db.ShortOrders[market]))
+		assert.Equal(t, db.ShortOrders[market][0].Id, order2.Id)
+		assert.Equal(t, db.ShortOrders[market][1].Id, order1.Id)
+		assert.Equal(t, db.ShortOrders[market][2].Id, order3.Id)
+
+		// block number
+		order4 := createLimitOrder(SHORT, userAddress, baseAssetQuantity, big.NewInt(20), status, big.NewInt(3), big.NewInt(9))
+		db.Add(&order4)
+
+		assert.Equal(t, 9, len(db.Orders))
+		assert.Equal(t, 4, len(db.ShortOrders[market]))
+		assert.Equal(t, db.ShortOrders[market][0].Id, order2.Id)
+		assert.Equal(t, db.ShortOrders[market][1].Id, order1.Id)
+		assert.Equal(t, db.ShortOrders[market][2].Id, order4.Id)
+		assert.Equal(t, db.ShortOrders[market][3].Id, order3.Id)
+
+		// ioc order
+		order5 := createIOCOrder(SHORT, userAddress, baseAssetQuantity, big.NewInt(20), status, big.NewInt(2), big.NewInt(10), big.NewInt(2))
+		db.Add(&order5)
+
+		assert.Equal(t, 10, len(db.Orders))
+		assert.Equal(t, 5, len(db.ShortOrders[market]))
+		assert.Equal(t, db.ShortOrders[market][0].Id, order2.Id)
+		assert.Equal(t, db.ShortOrders[market][1].Id, order5.Id)
+		assert.Equal(t, db.ShortOrders[market][2].Id, order1.Id)
+		assert.Equal(t, db.ShortOrders[market][3].Id, order4.Id)
+		assert.Equal(t, db.ShortOrders[market][4].Id, order3.Id)
+	})
+}
+
 func TestAdd(t *testing.T) {
 	baseAssetQuantity := big.NewInt(-10)
 	inMemoryDatabase := getDatabase()
 	salt := big.NewInt(time.Now().Unix())
 	limitOrder := createLimitOrder(positionType, userAddress, baseAssetQuantity, price, status, blockNumber, salt)
 	inMemoryDatabase.Add(&limitOrder)
-	returnedOrder := inMemoryDatabase.OrderMap[limitOrder.Id]
+	returnedOrder := inMemoryDatabase.Orders[limitOrder.Id]
 	assert.Equal(t, limitOrder.PositionType, returnedOrder.PositionType)
 	assert.Equal(t, limitOrder.Trader, returnedOrder.Trader)
 	assert.Equal(t, limitOrder.BaseAssetQuantity, returnedOrder.BaseAssetQuantity)
@@ -305,7 +409,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 			filledQuantity := big.NewInt(2)
 
 			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, limitOrder.Id, 69)
-			updatedLimitOrder := inMemoryDatabase.OrderMap[limitOrder.Id]
+			updatedLimitOrder := inMemoryDatabase.Orders[limitOrder.Id]
 
 			assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, big.NewInt(0).Neg(filledQuantity))
 			assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, filledQuantity.Mul(filledQuantity, big.NewInt(-1)))
@@ -320,7 +424,7 @@ func TestUpdateFulfilledBaseAssetQuantityLimitOrder(t *testing.T) {
 
 			filledQuantity := big.NewInt(2)
 			inMemoryDatabase.UpdateFilledBaseAssetQuantity(filledQuantity, limitOrder.Id, 69)
-			updatedLimitOrder := inMemoryDatabase.OrderMap[limitOrder.Id]
+			updatedLimitOrder := inMemoryDatabase.Orders[limitOrder.Id]
 
 			assert.Equal(t, updatedLimitOrder.FilledBaseAssetQuantity, filledQuantity)
 		})
@@ -437,15 +541,15 @@ func TestAccept(t *testing.T) {
 
 		err := inMemoryDatabase.SetOrderStatus(orderId1, FulFilled, "", 51)
 		assert.Nil(t, err)
-		assert.Equal(t, inMemoryDatabase.OrderMap[orderId1].getOrderStatus().Status, FulFilled)
+		assert.Equal(t, inMemoryDatabase.Orders[orderId1].getOrderStatus().Status, FulFilled)
 
 		inMemoryDatabase.Accept(51, 51)
 
 		// fulfilled order is deleted
-		_, ok := inMemoryDatabase.OrderMap[orderId1]
+		_, ok := inMemoryDatabase.Orders[orderId1]
 		assert.False(t, ok)
 		// unfulfilled order still exists
-		_, ok = inMemoryDatabase.OrderMap[orderId2]
+		_, ok = inMemoryDatabase.Orders[orderId2]
 		assert.True(t, ok)
 	})
 
@@ -454,11 +558,11 @@ func TestAccept(t *testing.T) {
 		orderId := addLimitOrder(inMemoryDatabase)
 		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, "", 51)
 		assert.Nil(t, err)
-		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].getOrderStatus().Status, FulFilled)
+		assert.Equal(t, inMemoryDatabase.Orders[orderId].getOrderStatus().Status, FulFilled)
 
 		inMemoryDatabase.Accept(52, 52)
 
-		_, ok := inMemoryDatabase.OrderMap[orderId]
+		_, ok := inMemoryDatabase.Orders[orderId]
 		assert.False(t, ok)
 	})
 
@@ -467,11 +571,11 @@ func TestAccept(t *testing.T) {
 		orderId := addLimitOrder(inMemoryDatabase)
 		err := inMemoryDatabase.SetOrderStatus(orderId, FulFilled, "", 51)
 		assert.Nil(t, err)
-		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].getOrderStatus().Status, FulFilled)
+		assert.Equal(t, inMemoryDatabase.Orders[orderId].getOrderStatus().Status, FulFilled)
 
 		inMemoryDatabase.Accept(50, 50)
 
-		_, ok := inMemoryDatabase.OrderMap[orderId]
+		_, ok := inMemoryDatabase.Orders[orderId]
 		assert.True(t, ok)
 	})
 
@@ -480,7 +584,7 @@ func TestAccept(t *testing.T) {
 		orderId := addLimitOrder(inMemoryDatabase)
 		inMemoryDatabase.Accept(50, 50)
 
-		_, ok := inMemoryDatabase.OrderMap[orderId]
+		_, ok := inMemoryDatabase.Orders[orderId]
 		assert.True(t, ok)
 	})
 }
@@ -501,7 +605,7 @@ func TestRevertLastStatus(t *testing.T) {
 		err := inMemoryDatabase.RevertLastStatus(orderId)
 		assert.Nil(t, err)
 
-		assert.Equal(t, len(inMemoryDatabase.OrderMap[orderId].LifecycleList), 0)
+		assert.Equal(t, len(inMemoryDatabase.Orders[orderId].LifecycleList), 0)
 	})
 
 	t.Run("revert status for fulfilled order", func(t *testing.T) {
@@ -513,8 +617,8 @@ func TestRevertLastStatus(t *testing.T) {
 		err = inMemoryDatabase.RevertLastStatus(orderId)
 		assert.Nil(t, err)
 
-		assert.Equal(t, len(inMemoryDatabase.OrderMap[orderId].LifecycleList), 1)
-		assert.Equal(t, inMemoryDatabase.OrderMap[orderId].LifecycleList[0].BlockNumber, uint64(2))
+		assert.Equal(t, len(inMemoryDatabase.Orders[orderId].LifecycleList), 1)
+		assert.Equal(t, inMemoryDatabase.Orders[orderId].LifecycleList[0].BlockNumber, uint64(2))
 	})
 
 	t.Run("revert status for accepted + fulfilled order - expect error", func(t *testing.T) {
