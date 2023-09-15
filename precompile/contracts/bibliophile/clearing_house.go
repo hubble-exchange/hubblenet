@@ -52,6 +52,17 @@ func GetMarkets(stateDB contract.StateDB) []common.Address {
 	return markets
 }
 
+type GetNotionalPositionAndMarginInput struct {
+	Trader                 common.Address
+	IncludeFundingPayments bool
+	Mode                   uint8
+}
+
+type GetNotionalPositionAndMarginOutput struct {
+	NotionalPosition *big.Int
+	Margin           *big.Int
+}
+
 func GetNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
 	margin := GetNormalizedMargin(stateDB, input.Trader)
 	if input.IncludeFundingPayments {
@@ -116,21 +127,21 @@ func getPosSizes(stateDB contract.StateDB, trader *common.Address) []*big.Int {
 	return positionSizes
 }
 
-func _getPositionSizesAndUpperBoundsForMarkets(stateDB contract.StateDB, trader *common.Address) GetPositionSizesAndUpperBoundsForMarketsOutput {
-	markets := GetMarkets(stateDB)
-	positionSizes := make([]*big.Int, len(markets))
-	upperBounds := make([]*big.Int, len(markets))
-	for i, market := range markets {
-		positionSizes[i] = getSize(stateDB, market, trader)
-		oraclePrice := getUnderlyingPrice(stateDB, market)
-		spreadLimit := GetMaxOraclePriceSpread(stateDB, int64(i))
-		upperBounds[i], _ = calculateBounds(spreadLimit, oraclePrice)
-	}
-	return GetPositionSizesAndUpperBoundsForMarketsOutput{
-		PosSizes:    positionSizes,
-		UpperBounds: upperBounds,
-	}
-}
+// func _getPositionSizesAndUpperBoundsForMarkets(stateDB contract.StateDB, trader *common.Address) GetPositionSizesAndUpperBoundsForMarketsOutput {
+// 	markets := GetMarkets(stateDB)
+// 	positionSizes := make([]*big.Int, len(markets))
+// 	upperBounds := make([]*big.Int, len(markets))
+// 	for i, market := range markets {
+// 		positionSizes[i] = getSize(stateDB, market, trader)
+// 		oraclePrice := getUnderlyingPrice(stateDB, market)
+// 		spreadLimit := GetMaxOraclePriceSpread(stateDB, int64(i))
+// 		upperBounds[i], _ = calculateBounds(spreadLimit, oraclePrice)
+// 	}
+// 	return GetPositionSizesAndUpperBoundsForMarketsOutput{
+// 		PosSizes:    positionSizes,
+// 		UpperBounds: upperBounds,
+// 	}
+// }
 
 // getMarketAddressFromMarketID returns the market address for a given marketID
 func getMarketAddressFromMarketID(marketID int64, stateDB contract.StateDB) common.Address {
