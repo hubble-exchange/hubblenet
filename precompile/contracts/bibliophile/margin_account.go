@@ -36,7 +36,7 @@ func getReservedMargin(stateDB contract.StateDB, trader common.Address) *big.Int
 func GetAvailableMargin(stateDB contract.StateDB, trader common.Address) *big.Int {
 	includeFundingPayment := true
 	mode := uint8(1) // Min_Allowable_Margin
-	output := GetNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayment, Mode: mode})
+	output := getNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayment, Mode: mode})
 	notionalPostion := output.NotionalPosition
 	margin := output.Margin
 	utitlizedMargin := divide1e6(big.NewInt(0).Mul(notionalPostion, GetMinAllowableMargin(stateDB)))

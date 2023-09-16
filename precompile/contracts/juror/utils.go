@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func GetLimitOrderHashFromContractStruct(o *ILimitOrderBookOrderV2) (common.Hash, error) {
+func GetLimitOrderHashFromContractStruct(o *ILimitOrderBookOrder) (common.Hash, error) {
 	order := &orderbook.LimitOrder{
 		BaseOrder: orderbook.BaseOrder{
 			AmmIndex:          o.AmmIndex,

@@ -63,7 +63,7 @@ type GetNotionalPositionAndMarginOutput struct {
 	Margin           *big.Int
 }
 
-func GetNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
+func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
 	margin := GetNormalizedMargin(stateDB, input.Trader)
 	if input.IncludeFundingPayments {
 		margin.Sub(margin, GetTotalFunding(stateDB, &input.Trader))

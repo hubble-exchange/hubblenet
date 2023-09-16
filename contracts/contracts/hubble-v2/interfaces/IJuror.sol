@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import { IOrderHandler } from "./IOrderHandler.sol";
 
 interface IJuror {
-    enum FailingReason { Order0, Order1, Generic }
+    enum BadElement { Order0, Order1, Generic }
 
     // Order Matching
     function validateOrdersAndDetermineFillPrice(
@@ -12,7 +12,7 @@ interface IJuror {
         int256 fillAmount
     )   external
         view
-        returns(string memory err, FailingReason reason, IOrderHandler.MatchingValidationRes memory res);
+        returns(string memory err, BadElement reason, IOrderHandler.MatchingValidationRes memory res);
 
     function validateLiquidationOrderAndDetermineFillPrice(bytes calldata data, uint256 liquidationAmount)
         external
@@ -23,7 +23,7 @@ interface IJuror {
     function validatePlaceLimitOrder(ILimitOrderBook.Order calldata order, address sender)
         external
         view
-        returns (string memory errs, bytes32 orderhash, IOrderHandler.PlaceOrderRes memory res);
+        returns (string memory err, bytes32 orderhash, IOrderHandler.PlaceOrderRes memory res);
 
     function validateCancelLimitOrder(ILimitOrderBook.Order memory order, address sender, bool assertLowMargin)
         external
