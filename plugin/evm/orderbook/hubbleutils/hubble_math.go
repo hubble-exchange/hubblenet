@@ -10,20 +10,20 @@ var (
 	ONE_E_18 = big.NewInt(1e18)
 )
 
-func Mul1e6(number *big.Int) *big.Int {
-	return new(big.Int).Mul(number, ONE_E_6)
+func Mul1e6(a *big.Int) *big.Int {
+	return Mul(a, ONE_E_6)
 }
 
-func Div1e6(number *big.Int) *big.Int {
-	return new(big.Int).Div(number, ONE_E_6)
+func Div1e6(a *big.Int) *big.Int {
+	return Div(a, ONE_E_6)
 }
 
-func Mul1e18(number *big.Int) *big.Int {
-	return new(big.Int).Mul(number, ONE_E_18)
+func Mul1e18(a *big.Int) *big.Int {
+	return Mul(a, ONE_E_18)
 }
 
-func Div1e18(number *big.Int) *big.Int {
-	return new(big.Int).Div(number, ONE_E_18)
+func Div1e18(a *big.Int) *big.Int {
+	return Div(a, ONE_E_18)
 }
 
 func Add(a, b *big.Int) *big.Int {
