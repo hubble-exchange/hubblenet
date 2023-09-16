@@ -83,8 +83,8 @@ const (
 type OrderType uint8
 
 const (
-	LimitOrderType OrderType = iota
-	IOCOrderType
+	Limit OrderType = iota
+	IOC
 )
 
 func (o OrderType) String() string {
@@ -151,14 +151,14 @@ func (order Order) getOrderStatus() Lifecycle {
 }
 
 func (order Order) getExpireAt() *big.Int {
-	if order.OrderType == IOCOrderType {
+	if order.OrderType == IOC {
 		return order.RawOrder.(*IOCOrder).ExpireAt
 	}
 	return big.NewInt(0)
 }
 
 func (order Order) isPostOnly() bool {
-	if order.OrderType == LimitOrderType {
+	if order.OrderType == Limit {
 		if rawOrder, ok := order.RawOrder.(*LimitOrder); ok {
 			return rawOrder.PostOnly
 		}
@@ -351,7 +351,7 @@ func shouldRemove(acceptedBlockNumber, blockTimestamp uint64, order Order) Order
 		return REMOVE
 	}
 
-	if order.OrderType != IOCOrderType {
+	if order.OrderType != IOC {
 		return KEEP
 	}
 
@@ -845,7 +845,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 
 // assumes db.mu.RLock has been held by the caller
 func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader *Trader, availableMargin *big.Int, oraclePrices map[Market]*big.Int, ordersToCancel map[common.Address][]Order) bool {
-	traderOrders := db.getTraderOrders(addr, LimitOrderType)
+	traderOrders := db.getTraderOrders(addr, Limit)
 	sort.Slice(traderOrders, func(i, j int) bool {
 		// higher diff comes first
 		iDiff := big.NewInt(0).Abs(big.NewInt(0).Sub(traderOrders[i].Price, oraclePrices[traderOrders[i].Market]))
@@ -859,7 +859,7 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 		ordersToCancel[addr] = []Order{}
 		for _, order := range traderOrders {
 			// cannot cancel ReduceOnly orders or Market orders because no margin is reserved for them
-			if order.ReduceOnly || order.OrderType != LimitOrderType {
+			if order.ReduceOnly || order.OrderType != Limit {
 				continue
 			}
 			ordersToCancel[addr] = append(ordersToCancel[addr], order)
@@ -932,7 +932,7 @@ func sortLongOrders(orders []Order) {
 			if blockDiff == -1 { // i was placed before j
 				return true
 			} else if blockDiff == 0 { // i and j were placed in the same block
-				if orders[i].OrderType == IOCOrderType {
+				if orders[i].OrderType == IOC {
 					// prioritize fulfilling IOC orders first, because they are short lived
 					return true
 				}
@@ -952,7 +952,7 @@ func sortShortOrders(orders []Order) {
 			if blockDiff == -1 { // i was placed before j
 				return true
 			} else if blockDiff == 0 { // i and j were placed in the same block
-				if orders[i].OrderType == IOCOrderType {
+				if orders[i].OrderType == IOC {
 					// prioritize fulfilling IOC orders first, because they are short lived
 					return true
 				}

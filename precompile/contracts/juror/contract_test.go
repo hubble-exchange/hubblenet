@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ava-labs/subnet-evm/core/state"
+	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ava-labs/subnet-evm/precompile/testutils"
 	"github.com/ava-labs/subnet-evm/vmerrs"
 	"github.com/ethereum/go-ethereum/common"
@@ -100,7 +101,7 @@ var (
 				// populate test input here
 				testInput := ValidatePlaceIOCOrderInput{
 					Order: IImmediateOrCancelOrdersOrder{
-						OrderType:         uint8(IOC),
+						OrderType:         uint8(ob.IOC),
 						ExpireAt:          big.NewInt(0),
 						AmmIndex:          big.NewInt(0),
 						Trader:            common.Address{1},

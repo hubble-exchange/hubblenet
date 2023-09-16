@@ -671,7 +671,7 @@ func createIOCOrder(positionType PositionType, userAddress string, baseAssetQuan
 	now := big.NewInt(time.Now().Unix())
 	expireAt := big.NewInt(0).Add(now, expireDuration)
 	ioc := Order{
-		OrderType:               IOCOrderType,
+		OrderType:               IOC,
 		Market:                  market,
 		PositionType:            positionType,
 		Trader:                  common.HexToAddress(userAddress),
@@ -682,7 +682,7 @@ func createIOCOrder(positionType PositionType, userAddress string, baseAssetQuan
 		BlockNumber:             blockNumber,
 		ReduceOnly:              false,
 		RawOrder: &IOCOrder{
-			OrderType: uint8(IOCOrderType),
+			OrderType: uint8(IOC),
 			ExpireAt:  expireAt,
 			BaseOrder: BaseOrder{
 				AmmIndex:          big.NewInt(0),

@@ -207,7 +207,7 @@ func TestValidateExecuteLimitOrder(t *testing.T) {
 	fillAmount := big.NewInt(5)
 
 	t.Run("validateExecuteLimitOrder", func(t *testing.T) {
-		orderHash, err := GetLimitOrderHash(order)
+		orderHash, err := order.Hash()
 		assert.Nil(t, err)
 
 		blockPlaced := big.NewInt(42)

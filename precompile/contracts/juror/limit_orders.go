@@ -3,49 +3,10 @@ package juror
 import (
 	"math/big"
 
+	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
+	"github.com/ethereum/go-ethereum/common"
 )
-
-func ValidateCancelLimitOrder(bibliophile b.BibliophileClient, inputStruct *ValidateCancelLimitOrderInput) (response ValidateCancelLimitOrderOutput) {
-	order := inputStruct.Order
-	sender := inputStruct.Sender
-	assertLowMargin := inputStruct.AssertLowMargin
-
-	response.Res.UnfilledAmount = big.NewInt(0)
-
-	trader := order.Trader
-	if (!assertLowMargin && trader != sender && !bibliophile.IsTradingAuthority(trader, sender)) ||
-		(assertLowMargin && !bibliophile.IsValidator(sender)) {
-		response.Err = ErrNoTradingAuthority.Error()
-		return
-	}
-	orderHash, err := GetLimitOrderHashFromContractStruct(&order)
-	response.OrderHash = orderHash
-	if err != nil {
-		response.Err = err.Error()
-		return
-	}
-	switch status := OrderStatus(bibliophile.GetOrderStatus(orderHash)); status {
-	case Invalid:
-		response.Err = "Invalid"
-		return
-	case Filled:
-		response.Err = "Filled"
-		return
-	case Cancelled:
-		response.Err = "Cancelled"
-		return
-	default:
-	}
-	if assertLowMargin && bibliophile.GetAvailableMargin(trader).Sign() != -1 {
-		response.Err = "Not Low Margin"
-		return
-	}
-	response.Res.UnfilledAmount = big.NewInt(0).Sub(order.BaseAssetQuantity, bibliophile.GetOrderFilledAmount(orderHash))
-	response.Res.Amm = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
-
-	return response
-}
 
 func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *ValidatePlaceLimitOrderInput) (response ValidatePlaceLimitOrderOutput) {
 	order := inputStruct.Order
@@ -136,4 +97,63 @@ func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *Valid
 		}
 	}
 	return response
+}
+
+func ValidateCancelLimitOrder(bibliophile b.BibliophileClient, inputStruct *ValidateCancelLimitOrderInput) (response ValidateCancelLimitOrderOutput) {
+	order := inputStruct.Order
+	sender := inputStruct.Sender
+	assertLowMargin := inputStruct.AssertLowMargin
+
+	response.Res.UnfilledAmount = big.NewInt(0)
+
+	trader := order.Trader
+	if (!assertLowMargin && trader != sender && !bibliophile.IsTradingAuthority(trader, sender)) ||
+		(assertLowMargin && !bibliophile.IsValidator(sender)) {
+		response.Err = ErrNoTradingAuthority.Error()
+		return
+	}
+	orderHash, err := GetLimitOrderHashFromContractStruct(&order)
+	response.OrderHash = orderHash
+	if err != nil {
+		response.Err = err.Error()
+		return
+	}
+	switch status := OrderStatus(bibliophile.GetOrderStatus(orderHash)); status {
+	case Invalid:
+		response.Err = "Invalid"
+		return
+	case Filled:
+		response.Err = "Filled"
+		return
+	case Cancelled:
+		response.Err = "Cancelled"
+		return
+	default:
+	}
+	if assertLowMargin && bibliophile.GetAvailableMargin(trader).Sign() != -1 {
+		response.Err = "Not Low Margin"
+		return
+	}
+	response.Res.UnfilledAmount = big.NewInt(0).Sub(order.BaseAssetQuantity, bibliophile.GetOrderFilledAmount(orderHash))
+	response.Res.Amm = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
+
+	return response
+}
+
+func ILimitOrderBookOrderToLimitOrder(o *ILimitOrderBookOrder) *ob.LimitOrder {
+	return &ob.LimitOrder{
+		BaseOrder: ob.BaseOrder{
+			AmmIndex:          o.AmmIndex,
+			Trader:            o.Trader,
+			BaseAssetQuantity: o.BaseAssetQuantity,
+			Price:             o.Price,
+			Salt:              o.Salt,
+			ReduceOnly:        o.ReduceOnly,
+		},
+		PostOnly: o.PostOnly,
+	}
+}
+
+func GetLimitOrderHashFromContractStruct(o *ILimitOrderBookOrder) (common.Hash, error) {
+	return ILimitOrderBookOrderToLimitOrder(o).Hash()
 }

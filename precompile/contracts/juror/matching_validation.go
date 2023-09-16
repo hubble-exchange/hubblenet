@@ -4,26 +4,11 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/ava-labs/subnet-evm/accounts/abi"
-	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
-
-type OrderType uint8
-
-// has to be exact same as expected in contracts
-const (
-	Limit OrderType = iota
-	IOC
-	PostOnly
-)
-
-type DecodeStep struct {
-	OrderType    OrderType
-	EncodedOrder []byte
-}
 
 type Metadata struct {
 	AmmIndex          *big.Int
@@ -32,7 +17,8 @@ type Metadata struct {
 	Price             *big.Int
 	BlockPlaced       *big.Int
 	OrderHash         common.Hash
-	OrderType         OrderType
+	OrderType         ob.OrderType
+	PostOnly          bool
 }
 
 type Side uint8
@@ -103,7 +89,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 		return ValidateOrdersAndDetermineFillPriceOutput{Err: ErrInvalidFillAmount.Error(), Element: uint8(Generic)}
 	}
 
-	decodeStep0, err := decodeTypeAndEncodedOrder(inputStruct.Data[0])
+	decodeStep0, err := ob.DecodeTypeAndEncodedOrder(inputStruct.Data[0])
 	if err != nil {
 		return ValidateOrdersAndDetermineFillPriceOutput{Err: err.Error(), Element: uint8(Order0)}
 	}
@@ -112,7 +98,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 		return ValidateOrdersAndDetermineFillPriceOutput{Err: err.Error(), Element: uint8(Order0)}
 	}
 
-	decodeStep1, err := decodeTypeAndEncodedOrder(inputStruct.Data[1])
+	decodeStep1, err := ob.DecodeTypeAndEncodedOrder(inputStruct.Data[1])
 	if err != nil {
 		return ValidateOrdersAndDetermineFillPriceOutput{Err: err.Error(), Element: uint8(Order1)}
 	}
@@ -194,29 +180,29 @@ func determineFillPrice(bibliophile b.BibliophileClient, m0, m1 *Metadata) (*Fil
 	blockDiff := m0.BlockPlaced.Cmp(m1.BlockPlaced)
 	if blockDiff == -1 {
 		// order0 came first, can't be IOC order
-		if m0.OrderType == IOC {
+		if m0.OrderType == ob.IOC {
 			return nil, ErrIOCOrderExpired, Order0
 		}
 		// order1 came second, can't be post only order
-		if m1.OrderType == PostOnly {
+		if m1.OrderType == ob.Limit && m1.PostOnly {
 			return nil, ErrCrossingMarket, Order1
 		}
 		output.Mode0 = Maker
 		output.Mode1 = Taker
 	} else if blockDiff == 1 {
 		// order1 came first, can't be IOC order
-		if m1.OrderType == IOC {
+		if m1.OrderType == ob.IOC {
 			return nil, ErrIOCOrderExpired, Order1
 		}
 		// order0 came second, can't be post only order
-		if m0.OrderType == PostOnly {
+		if m0.OrderType == ob.Limit && m0.PostOnly {
 			return nil, ErrCrossingMarket, Order0
 		}
 		output.Mode0 = Taker
 		output.Mode1 = Maker
 	} else {
 		// both orders were placed in same block
-		if m1.OrderType == IOC {
+		if m1.OrderType == ob.IOC {
 			// order1 is IOC, order0 is Limit or post only
 			output.Mode0 = Maker
 			output.Mode1 = Taker
@@ -243,7 +229,7 @@ func ValidateLiquidationOrderAndDetermineFillPrice(bibliophile b.BibliophileClie
 		return ValidateLiquidationOrderAndDetermineFillPriceOutput{Err: ErrInvalidFillAmount.Error()}
 	}
 
-	decodeStep0, err := decodeTypeAndEncodedOrder(inputStruct.Data)
+	decodeStep0, err := ob.DecodeTypeAndEncodedOrder(inputStruct.Data)
 	if err != nil {
 		return ValidateLiquidationOrderAndDetermineFillPriceOutput{Err: err.Error()}
 	}
@@ -302,39 +288,23 @@ func determineLiquidationFillPrice(bibliophile b.BibliophileClient, m0 *Metadata
 	return utils.BigIntMax(m0.Price, lowerBound /* oracle spread lower bound */), nil
 }
 
-func decodeTypeAndEncodedOrder(data []byte) (*DecodeStep, error) {
-	orderType, _ := abi.NewType("uint8", "uint8", nil)
-	orderBytesType, _ := abi.NewType("bytes", "bytes", nil)
-	decodedValues, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Unpack(data)
-	if err != nil {
-		return nil, err
-	}
-	return &DecodeStep{
-		OrderType:    OrderType(decodedValues[0].(uint8)),
-		EncodedOrder: decodedValues[1].([]byte),
-	}, nil
-}
-
-func validateOrder(bibliophile b.BibliophileClient, orderType OrderType, encodedOrder []byte, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
-	if orderType == Limit {
-		order, err := orderbook.DecodeLimitOrder(encodedOrder)
+func validateOrder(bibliophile b.BibliophileClient, orderType ob.OrderType, encodedOrder []byte, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	if orderType == ob.Limit {
+		order, err := ob.DecodeLimitOrder(encodedOrder)
 		if err != nil {
 			return nil, err
 		}
-		orderHash, err := GetLimitOrderHash(order)
+		orderHash, err := order.Hash()
 		if err != nil {
 			return nil, err
 		}
-		metadata, err := validateExecuteLimitOrder(bibliophile, order, side, fillAmount, orderHash)
-		if order.PostOnly {
-			metadata.OrderType = PostOnly
-		}
+		metadata, err = validateExecuteLimitOrder(bibliophile, order, side, fillAmount, orderHash)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if orderType == IOC {
-		order, err := orderbook.DecodeIOCOrder(encodedOrder)
+	if orderType == ob.IOC {
+		order, err := ob.DecodeIOCOrder(encodedOrder)
 		if err != nil {
 			return nil, err
 		}
@@ -343,9 +313,7 @@ func validateOrder(bibliophile b.BibliophileClient, orderType OrderType, encoded
 	return nil, errors.New("invalid order type")
 }
 
-// Limit Orders
-
-func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *orderbook.LimitOrder, side Side, fillAmount *big.Int, orderHash [32]byte) (metadata *Metadata, err error) {
+func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *ob.LimitOrder, side Side, fillAmount *big.Int, orderHash [32]byte) (metadata *Metadata, err error) {
 	if err := validateLimitOrderLike(bibliophile, &order.BaseOrder, bibliophile.GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.GetOrderStatus(orderHash)), side, fillAmount); err != nil {
 		return nil, err
 	}
@@ -356,11 +324,38 @@ func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *orderbook
 		BlockPlaced:       bibliophile.GetBlockPlaced(orderHash),
 		Price:             order.Price,
 		OrderHash:         orderHash,
-		OrderType:         Limit,
+		OrderType:         ob.Limit,
+		PostOnly:          order.PostOnly,
 	}, nil
 }
 
-func validateLimitOrderLike(bibliophile b.BibliophileClient, order *orderbook.BaseOrder, filledAmount *big.Int, status OrderStatus, side Side, fillAmount *big.Int) error {
+func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	if ob.OrderType(order.OrderType) != ob.IOC {
+		return nil, errors.New("not ioc order")
+	}
+	if order.ExpireAt.Uint64() < bibliophile.GetAccessibleState().GetBlockContext().Timestamp() {
+		return nil, errors.New("ioc expired")
+	}
+	orderHash, err := order.Hash()
+	if err != nil {
+		return nil, err
+	}
+	if err := validateLimitOrderLike(bibliophile, &order.BaseOrder, bibliophile.IOC_GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.IOC_GetOrderStatus(orderHash)), side, fillAmount); err != nil {
+		return nil, err
+	}
+	return &Metadata{
+		AmmIndex:          order.AmmIndex,
+		Trader:            order.Trader,
+		BaseAssetQuantity: order.BaseAssetQuantity,
+		BlockPlaced:       bibliophile.IOC_GetBlockPlaced(orderHash),
+		Price:             order.Price,
+		OrderHash:         orderHash,
+		OrderType:         ob.IOC,
+		PostOnly:          false,
+	}, nil
+}
+
+func validateLimitOrderLike(bibliophile b.BibliophileClient, order *ob.BaseOrder, filledAmount *big.Int, status OrderStatus, side Side, fillAmount *big.Int) error {
 	if status != Placed {
 		return ErrInvalidOrder
 	}
@@ -418,6 +413,8 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *orderbook.Ba
 	return nil
 }
 
+// Common
+
 func reducesPosition(positionSize *big.Int, baseAssetQuantity *big.Int) bool {
 	if positionSize.Sign() == 1 && baseAssetQuantity.Sign() == -1 && big.NewInt(0).Add(positionSize, baseAssetQuantity).Sign() != -1 {
 		return true
@@ -450,31 +447,31 @@ func multiply1e6(number *big.Int) *big.Int {
 }
 
 func formatOrder(orderBytes []byte) interface{} {
-	decodeStep0, err := decodeTypeAndEncodedOrder(orderBytes)
+	decodeStep0, err := ob.DecodeTypeAndEncodedOrder(orderBytes)
 	if err != nil {
 		return orderBytes
 	}
 
-	if decodeStep0.OrderType == Limit {
-		order, err := orderbook.DecodeLimitOrder(decodeStep0.EncodedOrder)
+	if decodeStep0.OrderType == ob.Limit {
+		order, err := ob.DecodeLimitOrder(decodeStep0.EncodedOrder)
 		if err != nil {
 			return decodeStep0
 		}
 		orderJson := order.Map()
-		orderHash, err := GetLimitOrderHash(order)
+		orderHash, err := order.Hash()
 		if err != nil {
 			return orderJson
 		}
 		orderJson["hash"] = orderHash.String()
 		return orderJson
 	}
-	if decodeStep0.OrderType == IOC {
-		order, err := orderbook.DecodeIOCOrder(decodeStep0.EncodedOrder)
+	if decodeStep0.OrderType == ob.IOC {
+		order, err := ob.DecodeIOCOrder(decodeStep0.EncodedOrder)
 		if err != nil {
 			return decodeStep0
 		}
 		orderJson := order.Map()
-		orderHash, err := GetIOCOrderHash(order)
+		orderHash, err := order.Hash()
 		if err != nil {
 			return orderJson
 		}
