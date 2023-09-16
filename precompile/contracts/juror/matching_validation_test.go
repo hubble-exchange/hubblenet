@@ -9,7 +9,8 @@ import (
 
 	"testing"
 
-	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
@@ -24,7 +25,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	mockBibliophile := b.NewMockBibliophileClient(ctrl)
 
 	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
-	order := &orderbook.BaseOrder{
+	order := &ob.BaseOrder{
 		AmmIndex:          big.NewInt(0),
 		Trader:            trader,
 		BaseAssetQuantity: big.NewInt(10),
@@ -97,7 +98,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	})
 
 	t.Run("Side=Short", func(t *testing.T) {
-		order := &orderbook.BaseOrder{
+		order := &ob.BaseOrder{
 			AmmIndex:          big.NewInt(0),
 			Trader:            trader,
 			BaseAssetQuantity: big.NewInt(-10),
@@ -168,7 +169,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	})
 
 	t.Run("invalid side", func(t *testing.T) {
-		order := &orderbook.BaseOrder{
+		order := &ob.BaseOrder{
 			AmmIndex:          big.NewInt(0),
 			Trader:            trader,
 			BaseAssetQuantity: big.NewInt(10),
@@ -192,8 +193,8 @@ func TestValidateExecuteLimitOrder(t *testing.T) {
 	marketAddress := common.HexToAddress("0xa72b463C21dA61cCc86069cFab82e9e8491152a0")
 	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
 
-	order := &orderbook.LimitOrder{
-		BaseOrder: orderbook.BaseOrder{
+	order := &ob.LimitOrder{
+		BaseOrder: ob.BaseOrder{
 			AmmIndex:          big.NewInt(534),
 			Trader:            trader,
 			BaseAssetQuantity: big.NewInt(10),
@@ -244,10 +245,10 @@ func TestDetermineFillPrice(t *testing.T) {
 
 	mockBibliophile := b.NewMockBibliophileClient(ctrl)
 
-	oraclePrice := multiply1e6(big.NewInt(20))                                                             // $10
+	oraclePrice := hu.Mul1e6(big.NewInt(20))                                                               // $10
 	spreadLimit := new(big.Int).Mul(big.NewInt(50), big.NewInt(1e4))                                       // 50%
-	upperbound := divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Add(big.NewInt(1e6), spreadLimit))) // $10
-	lowerbound := divide1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Sub(big.NewInt(1e6), spreadLimit))) // $30
+	upperbound := hu.Div1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Add(big.NewInt(1e6), spreadLimit))) // $10
+	lowerbound := hu.Div1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Sub(big.NewInt(1e6), spreadLimit))) // $30
 	market := int64(5)
 
 	t.Run("long order came first", func(t *testing.T) {
@@ -256,12 +257,12 @@ func TestDetermineFillPrice(t *testing.T) {
 		t.Run("long price < lower bound", func(t *testing.T) {
 			t.Run("short price < long price", func(t *testing.T) {
 				m0 := &Metadata{
-					Price:       multiply1e6(big.NewInt(9)),
+					Price:       hu.Mul1e6(big.NewInt(9)),
 					AmmIndex:    big.NewInt(market),
 					BlockPlaced: blockPlaced0,
 				}
 				m1 := &Metadata{
-					Price:       multiply1e6(big.NewInt(8)),
+					Price:       hu.Mul1e6(big.NewInt(8)),
 					BlockPlaced: blockPlaced1,
 				}
 				mockBibliophile.EXPECT().GetUpperAndLowerBoundForMarket(market).Return(upperbound, lowerbound).Times(1)
@@ -272,12 +273,12 @@ func TestDetermineFillPrice(t *testing.T) {
 
 			t.Run("short price == long price", func(t *testing.T) {
 				m0 := &Metadata{
-					Price:       multiply1e6(big.NewInt(7)),
+					Price:       hu.Mul1e6(big.NewInt(7)),
 					AmmIndex:    big.NewInt(market),
 					BlockPlaced: blockPlaced0,
 				}
 				m1 := &Metadata{
-					Price:       multiply1e6(big.NewInt(7)),
+					Price:       hu.Mul1e6(big.NewInt(7)),
 					BlockPlaced: blockPlaced1,
 				}
 				mockBibliophile.EXPECT().GetUpperAndLowerBoundForMarket(market).Return(upperbound, lowerbound).Times(1)
@@ -323,7 +324,7 @@ func TestDetermineFillPrice(t *testing.T) {
 		})
 
 		t.Run("lowerbound < long price < oracle", func(t *testing.T) {
-			longPrice := multiply1e6(big.NewInt(15))
+			longPrice := hu.Mul1e6(big.NewInt(15))
 			t.Run("short price < long price", func(t *testing.T) {
 				m0 := &Metadata{
 					Price:       longPrice,
@@ -393,7 +394,7 @@ func TestDetermineFillPrice(t *testing.T) {
 		})
 
 		t.Run("oracle < long price < upper bound", func(t *testing.T) {
-			longPrice := multiply1e6(big.NewInt(25))
+			longPrice := hu.Mul1e6(big.NewInt(25))
 			t.Run("short price < long price", func(t *testing.T) {
 				m0 := &Metadata{
 					Price:       longPrice,
@@ -537,10 +538,10 @@ func TestDetermineLiquidationFillPrice(t *testing.T) {
 
 	mockBibliophile := b.NewMockBibliophileClient(ctrl)
 
-	liqUpperBound, liqLowerBound := multiply1e6(big.NewInt(22)), multiply1e6(big.NewInt(18))
+	liqUpperBound, liqLowerBound := hu.Mul1e6(big.NewInt(22)), hu.Mul1e6(big.NewInt(18))
 
-	upperbound := multiply1e6(big.NewInt(30)) // $30
-	lowerbound := multiply1e6(big.NewInt(10)) // $10
+	upperbound := hu.Mul1e6(big.NewInt(30)) // $30
+	lowerbound := hu.Mul1e6(big.NewInt(10)) // $10
 	market := int64(7)
 
 	t.Run("long position is being liquidated", func(t *testing.T) {

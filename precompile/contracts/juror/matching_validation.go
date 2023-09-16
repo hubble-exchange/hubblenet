@@ -438,14 +438,6 @@ func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrd
 	return requiredMargin
 }
 
-func divide1e6(number *big.Int) *big.Int {
-	return big.NewInt(0).Div(number, big.NewInt(1e6))
-}
-
-func multiply1e6(number *big.Int) *big.Int {
-	return new(big.Int).Mul(number, big.NewInt(1e6))
-}
-
 func formatOrder(orderBytes []byte) interface{} {
 	decodeStep0, err := ob.DecodeTypeAndEncodedOrder(orderBytes)
 	if err != nil {
