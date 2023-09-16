@@ -15,13 +15,29 @@ func Mul1e6(number *big.Int) *big.Int {
 }
 
 func Div1e6(number *big.Int) *big.Int {
-	return big.NewInt(0).Div(number, ONE_E_6)
+	return new(big.Int).Div(number, ONE_E_6)
 }
 
 func Mul1e18(number *big.Int) *big.Int {
-	return big.NewInt(0).Mul(number, ONE_E_18)
+	return new(big.Int).Mul(number, ONE_E_18)
 }
 
 func Div1e18(number *big.Int) *big.Int {
-	return big.NewInt(0).Div(number, ONE_E_18)
+	return new(big.Int).Div(number, ONE_E_18)
+}
+
+func Add(a, b *big.Int) *big.Int {
+	return new(big.Int).Add(a, b)
+}
+
+func Sub(a, b *big.Int) *big.Int {
+	return new(big.Int).Sub(a, b)
+}
+
+func Mul(a, b *big.Int) *big.Int {
+	return new(big.Int).Mul(a, b)
+}
+
+func Div(a, b *big.Int) *big.Int {
+	return new(big.Int).Div(a, b)
 }
