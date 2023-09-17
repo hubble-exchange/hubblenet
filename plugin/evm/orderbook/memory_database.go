@@ -478,7 +478,7 @@ func (db *InMemoryDatabase) Add(order *Order) {
 	// Insert the order at the determined position
 	orders = append(orders, &Order{})            // Add an empty order to the end
 	copy(orders[position+1:], orders[position:]) // Shift orders to the right
-	orders[position] = order                     // Insert newOrder at the right position
+	orders[position] = order                     // Insert new Order at the right position
 
 	if order.PositionType == LONG {
 		db.LongOrders[market] = orders
@@ -506,23 +506,15 @@ func (db *InMemoryDatabase) deleteOrderWithoutLock(orderId common.Hash) {
 
 	market := order.Market
 	if order.PositionType == LONG {
-		marketOrders := db.LongOrders[market]
-		for i, _order := range marketOrders {
-			if _order.Id == orderId {
-				marketOrders = append(marketOrders[:i], marketOrders[i+1:]...)
-				db.LongOrders[market] = marketOrders
-				break
-			}
-		}
+		orders := db.LongOrders[market]
+		idx := getOrderIdx(orders, orderId)
+		orders = append(orders[:idx], orders[idx+1:]...)
+		db.LongOrders[market] = orders
 	} else {
-		marketOrders := db.ShortOrders[market]
-		for i, _order := range marketOrders {
-			if _order.Id == orderId {
-				marketOrders = append(marketOrders[:i], marketOrders[i+1:]...)
-				db.ShortOrders[market] = marketOrders
-				break
-			}
-		}
+		orders := db.ShortOrders[market]
+		idx := getOrderIdx(orders, orderId)
+		orders = append(orders[:idx], orders[idx+1:]...)
+		db.ShortOrders[market] = orders
 	}
 
 	delete(db.Orders, orderId)
@@ -1151,4 +1143,13 @@ func deepCopyTrader(order *Trader) *Trader {
 		Positions: positions,
 		Margin:    margin,
 	}
+}
+
+func getOrderIdx(orders []*Order, orderId common.Hash) int {
+	for i, order := range orders {
+		if order.Id == orderId {
+			return i
+		}
+	}
+	return -1
 }
