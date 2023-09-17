@@ -415,17 +415,13 @@ func (db *InMemoryDatabase) GetMarketOrders(market Market) []Order {
 
 	allOrders := []Order{}
 	longOrders := db.LongOrders[market]
-	if longOrders != nil {
-		for _, order := range db.LongOrders[market] {
-			allOrders = append(allOrders, deepCopyOrder(order))
-		}
+	for _, order := range longOrders {
+		allOrders = append(allOrders, deepCopyOrder(order))
 	}
 
 	shortOrders := db.ShortOrders[market]
-	if shortOrders != nil {
-		for _, order := range db.ShortOrders[market] {
-			allOrders = append(allOrders, deepCopyOrder(order))
-		}
+	for _, order := range shortOrders {
+		allOrders = append(allOrders, deepCopyOrder(order))
 	}
 
 	return allOrders
@@ -438,16 +434,16 @@ func (db *InMemoryDatabase) Add(order *Order) {
 	market := order.Market
 	order.LifecycleList = append(order.LifecycleList, Lifecycle{order.BlockNumber.Uint64(), Placed, ""})
 
-	var marketOrders []*Order
+	var orders []*Order
 	var position int
 	if order.PositionType == LONG {
-		marketOrders = db.LongOrders[market]
-		position = sort.Search(len(marketOrders), func(i int) bool {
-			priceDiff := order.Price.Cmp((marketOrders)[i].Price)
+		orders = db.LongOrders[market]
+		position = sort.Search(len(orders), func(i int) bool {
+			priceDiff := order.Price.Cmp(orders[i].Price)
 			if priceDiff == 1 {
 				return true
 			} else if priceDiff == 0 {
-				blockDiff := order.BlockNumber.Cmp((marketOrders)[i].BlockNumber)
+				blockDiff := order.BlockNumber.Cmp(orders[i].BlockNumber)
 				if blockDiff == -1 { // order was placed before i
 					return true
 				} else if blockDiff == 0 { // order and i were placed in the same block
@@ -461,13 +457,13 @@ func (db *InMemoryDatabase) Add(order *Order) {
 		})
 
 	} else {
-		marketOrders = db.ShortOrders[market]
-		position = sort.Search(len(marketOrders), func(i int) bool {
-			priceDiff := order.Price.Cmp((marketOrders)[i].Price)
+		orders = db.ShortOrders[market]
+		position = sort.Search(len(orders), func(i int) bool {
+			priceDiff := order.Price.Cmp(orders[i].Price)
 			if priceDiff == -1 {
 				return true
 			} else if priceDiff == 0 {
-				blockDiff := order.BlockNumber.Cmp((marketOrders)[i].BlockNumber)
+				blockDiff := order.BlockNumber.Cmp(orders[i].BlockNumber)
 				if blockDiff == -1 { // order was placed before i
 					return true
 				} else if blockDiff == 0 { // order and i were placed in the same block
@@ -482,14 +478,14 @@ func (db *InMemoryDatabase) Add(order *Order) {
 	}
 
 	// Insert the order at the determined position
-	marketOrders = append(marketOrders, &Order{})                // Add an empty order to the end
-	copy((marketOrders)[position+1:], (marketOrders)[position:]) // Shift orders to the right
-	(marketOrders)[position] = order                             // Insert newOrder at the right position
+	orders = append(orders, &Order{})            // Add an empty order to the end
+	copy(orders[position+1:], orders[position:]) // Shift orders to the right
+	orders[position] = order                     // Insert newOrder at the right position
 
 	if order.PositionType == LONG {
-		db.LongOrders[market] = marketOrders
+		db.LongOrders[market] = orders
 	} else {
-		db.ShortOrders[market] = marketOrders
+		db.ShortOrders[market] = orders
 	}
 
 	db.Orders[order.Id] = order
@@ -599,10 +595,6 @@ func (db *InMemoryDatabase) getLongOrdersWithoutLock(market Market, lowerbound *
 	var longOrders []Order
 
 	marketOrders := db.LongOrders[market]
-	if marketOrders == nil {
-		return longOrders
-	}
-
 	for _, order := range marketOrders {
 		if lowerbound != nil && order.Price.Cmp(lowerbound) < 0 {
 			// because the long orders are sorted in descending order of price, there is no point in checking further
@@ -630,9 +622,6 @@ func (db *InMemoryDatabase) getShortOrdersWithoutLock(market Market, upperbound 
 	var shortOrders []Order
 
 	marketOrders := db.ShortOrders[market]
-	if marketOrders == nil {
-		return shortOrders
-	}
 
 	for _, order := range marketOrders {
 		if upperbound != nil && order.Price.Cmp(upperbound) > 0 {
@@ -1048,46 +1037,6 @@ func (db *InMemoryDatabase) getReduceOnlyOrderDisplay(order *Order) *Order {
 	} else {
 		return nil
 	}
-}
-
-func sortLongOrders(orders []Order) {
-	sort.SliceStable(orders, func(i, j int) bool {
-		priceDiff := orders[i].Price.Cmp(orders[j].Price)
-		if priceDiff == 1 {
-			return true
-		} else if priceDiff == 0 {
-			blockDiff := orders[i].BlockNumber.Cmp(orders[j].BlockNumber)
-			if blockDiff == -1 { // i was placed before j
-				return true
-			} else if blockDiff == 0 { // i and j were placed in the same block
-				if orders[i].OrderType == IOC {
-					// prioritize fulfilling IOC orders first, because they are short lived
-					return true
-				}
-			}
-		}
-		return false
-	})
-}
-
-func sortShortOrders(orders []Order) {
-	sort.SliceStable(orders, func(i, j int) bool {
-		priceDiff := orders[i].Price.Cmp(orders[j].Price)
-		if priceDiff == -1 {
-			return true
-		} else if priceDiff == 0 {
-			blockDiff := orders[i].BlockNumber.Cmp(orders[j].BlockNumber)
-			if blockDiff == -1 { // i was placed before j
-				return true
-			} else if blockDiff == 0 { // i and j were placed in the same block
-				if orders[i].OrderType == IOC {
-					// prioritize fulfilling IOC orders first, because they are short lived
-					return true
-				}
-			}
-		}
-		return false
-	})
 }
 
 func (db *InMemoryDatabase) GetOrderBookData() InMemoryDatabase {
