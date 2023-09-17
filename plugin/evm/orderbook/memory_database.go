@@ -414,13 +414,11 @@ func (db *InMemoryDatabase) GetMarketOrders(market Market) []Order {
 	defer db.mu.RUnlock()
 
 	allOrders := []Order{}
-	longOrders := db.LongOrders[market]
-	for _, order := range longOrders {
+	for _, order := range db.LongOrders[market] {
 		allOrders = append(allOrders, deepCopyOrder(order))
 	}
 
-	shortOrders := db.ShortOrders[market]
-	for _, order := range shortOrders {
+	for _, order := range db.ShortOrders[market] {
 		allOrders = append(allOrders, deepCopyOrder(order))
 	}
 
