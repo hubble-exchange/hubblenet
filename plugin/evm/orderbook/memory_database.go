@@ -451,7 +451,7 @@ func (db *InMemoryDatabase) Add(order *Order) {
 				if blockDiff == -1 { // order was placed before i
 					return true
 				} else if blockDiff == 0 { // order and i were placed in the same block
-					if order.OrderType == IOCOrderType {
+					if order.OrderType == IOC {
 						// prioritize fulfilling IOC orders first, because they are short-lived
 						return true
 					}
@@ -471,7 +471,7 @@ func (db *InMemoryDatabase) Add(order *Order) {
 				if blockDiff == -1 { // order was placed before i
 					return true
 				} else if blockDiff == 0 { // order and i were placed in the same block
-					if order.OrderType == IOCOrderType {
+					if order.OrderType == IOC {
 						// prioritize fulfilling IOC orders first, because they are short-lived
 						return true
 					}
