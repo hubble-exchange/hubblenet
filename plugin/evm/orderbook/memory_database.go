@@ -659,7 +659,7 @@ func calcPendingFunding(cumulativePremiumFraction, lastPremiumFraction, size *bi
 	}
 
 	// Divide by 1e18
-	return result.Div(result, hu.ONE_E_18)
+	return hu.Div1e18(result)
 }
 
 func (db *InMemoryDatabase) ResetUnrealisedFunding(market Market, trader common.Address, cumulativePremiumFraction *big.Int) {
@@ -859,8 +859,8 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 				continue
 			}
 			ordersToCancel[addr] = append(ordersToCancel[addr], order)
-			orderNotional := big.NewInt(0).Abs(big.NewInt(0).Div(big.NewInt(0).Mul(order.GetUnFilledBaseAssetQuantity(), order.Price), hu.ONE_E_18)) // | size * current price |
-			marginReleased := hu.Div1e6(big.NewInt(0).Mul(orderNotional, db.configService.getMinAllowableMargin()))
+			orderNotional := big.NewInt(0).Abs(hu.Div1e18(hu.Mul(order.GetUnFilledBaseAssetQuantity(), order.Price))) // | size * current price |
+			marginReleased := hu.Div1e6(hu.Mul(orderNotional, db.configService.getMinAllowableMargin()))
 			_availableMargin.Add(_availableMargin, marginReleased)
 			if _availableMargin.Sign() >= 0 {
 				break

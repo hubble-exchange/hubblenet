@@ -51,9 +51,10 @@ func ValidatePlaceIOCorder(bibliophile b.BibliophileClient, inputStruct *Validat
 		response.Err = ErrInvalidOrder.Error()
 		return
 	}
-	// this check is as such not required, because even if this order is not reducing the position, it will be rejected by the matching engine and expire away
-	// this check is sort of also redundant because either ways user can circumvent this by placing several reduceOnly order
-	// if order.ReduceOnly {}
+	// this check is sort of redundant because either ways user can circumvent this by placing several reduceOnly order in a single tx/block
+	// if order.ReduceOnly {
+	// @todo
+	// }
 	return response
 }
 

@@ -63,11 +63,11 @@ func TestGetAllOrders(t *testing.T) {
 }
 
 func TestGetShortOrders(t *testing.T) {
-	baseAssetQuantity := big.NewInt(0).Mul(big.NewInt(-3), hu.ONE_E_18)
+	baseAssetQuantity := hu.Mul1e18(big.NewInt(-3))
 	inMemoryDatabase := getDatabase()
 	totalLongOrders := uint64(2)
 	longOrderPrice := big.NewInt(0).Add(price, big.NewInt(1))
-	longOrderBaseAssetQuantity := big.NewInt(0).Mul(big.NewInt(10), hu.ONE_E_18)
+	longOrderBaseAssetQuantity := hu.Mul1e18(big.NewInt(10))
 	for i := uint64(0); i < totalLongOrders; i++ {
 		salt := big.NewInt(0).Add(big.NewInt(int64(i)), big.NewInt(time.Now().Unix()))
 		limitOrder := createLimitOrder(LONG, userAddress, longOrderBaseAssetQuantity, longOrderPrice, status, blockNumber, salt)
@@ -213,7 +213,7 @@ func TestGetCancellableOrders(t *testing.T) {
 	}
 
 	blockNumber1 := big.NewInt(2)
-	baseAssetQuantity := big.NewInt(0).Mul(big.NewInt(-3), hu.ONE_E_18)
+	baseAssetQuantity := hu.Mul1e18(big.NewInt(-3))
 
 	salt1 := big.NewInt(101)
 	price1 := hu.Mul1e6(big.NewInt(10))

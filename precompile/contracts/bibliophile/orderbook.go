@@ -97,10 +97,10 @@ func GetAcceptableBoundsForLiquidation(stateDB contract.StateDB, marketID int64)
 }
 
 func calculateBounds(spreadLimit, oraclePrice *big.Int) (*big.Int, *big.Int) {
-	upperbound := hu.Div1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Add(hu.ONE_E_6, spreadLimit)))
+	upperbound := hu.Div1e6(hu.Mul(oraclePrice, hu.Add(hu.ONE_E_6, spreadLimit)))
 	lowerbound := big.NewInt(0)
 	if spreadLimit.Cmp(hu.ONE_E_6) == -1 {
-		lowerbound = hu.Div1e6(new(big.Int).Mul(oraclePrice, new(big.Int).Sub(hu.ONE_E_6, spreadLimit)))
+		lowerbound = hu.Div1e6(hu.Mul(oraclePrice, hu.Sub(hu.ONE_E_6, spreadLimit)))
 	}
 	return upperbound, lowerbound
 }
