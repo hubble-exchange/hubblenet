@@ -140,8 +140,9 @@ type ValidateLiquidationOrderAndDetermineFillPriceInput struct {
 }
 
 type ValidateLiquidationOrderAndDetermineFillPriceOutput struct {
-	Err string
-	Res IOrderHandlerLiquidationMatchingValidationRes
+	Err     string
+	Element uint8
+	Res     IOrderHandlerLiquidationMatchingValidationRes
 }
 
 type ValidateOrdersAndDetermineFillPriceInput struct {
