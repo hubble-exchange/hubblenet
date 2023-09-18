@@ -499,8 +499,8 @@ func (db *InMemoryDatabase) Delete(orderId common.Hash) {
 func (db *InMemoryDatabase) deleteOrderWithoutLock(orderId common.Hash) {
 	order := db.Orders[orderId]
 	if order == nil {
-		log.Error("In Delete - orderId does not exist in the database", "orderId", orderId.Hex())
-		metrics.GetOrRegisterCounter("delete_order_id_not_found", nil).Inc(1)
+		log.Error("In Delete - orderId does not exist in the db.Orders", "orderId", orderId.Hex())
+		deleteOrderIdNotFoundCounter.Inc(1)
 		return
 	}
 
@@ -508,13 +508,23 @@ func (db *InMemoryDatabase) deleteOrderWithoutLock(orderId common.Hash) {
 	if order.PositionType == LONG {
 		orders := db.LongOrders[market]
 		idx := getOrderIdx(orders, orderId)
-		orders = append(orders[:idx], orders[idx+1:]...)
-		db.LongOrders[market] = orders
+		if idx == -1 {
+			log.Error("In Delete - orderId does not exist in the db.LongOrders", "orderId", orderId.Hex())
+			deleteOrderIdNotFoundCounter.Inc(1)
+		} else {
+			orders = append(orders[:idx], orders[idx+1:]...)
+			db.LongOrders[market] = orders
+		}
 	} else {
 		orders := db.ShortOrders[market]
 		idx := getOrderIdx(orders, orderId)
-		orders = append(orders[:idx], orders[idx+1:]...)
-		db.ShortOrders[market] = orders
+		if idx == -1 {
+			log.Error("In Delete - orderId does not exist in the db.ShortOrders", "orderId", orderId.Hex())
+			deleteOrderIdNotFoundCounter.Inc(1)
+		} else {
+			orders = append(orders[:idx], orders[idx+1:]...)
+			db.ShortOrders[market] = orders
+		}
 	}
 
 	delete(db.Orders, orderId)
