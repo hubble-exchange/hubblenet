@@ -308,6 +308,56 @@ func TestGetLongOrders(t *testing.T) {
 	}
 }
 
+func TestDeleteOrders(t *testing.T) {
+	db := getDatabase()
+
+	order1 := createLimitOrder(SHORT, userAddress, big.NewInt(-10), big.NewInt(20), status, big.NewInt(2), big.NewInt(1))
+	order2 := createLimitOrder(SHORT, userAddress, big.NewInt(-10), big.NewInt(19), status, big.NewInt(2), big.NewInt(2))
+	order3 := createLimitOrder(SHORT, userAddress, big.NewInt(-10), big.NewInt(21), status, big.NewInt(2), big.NewInt(3))
+	order4 := createLimitOrder(LONG, userAddress, big.NewInt(10), big.NewInt(20), status, big.NewInt(2), big.NewInt(4))
+	order5 := createLimitOrder(LONG, userAddress, big.NewInt(10), big.NewInt(19), status, big.NewInt(2), big.NewInt(5))
+	order6 := createLimitOrder(LONG, userAddress, big.NewInt(10), big.NewInt(21), status, big.NewInt(2), big.NewInt(6))
+
+	db.Add(&order1)
+	db.Add(&order2)
+	db.Add(&order3)
+	db.Add(&order4)
+	db.Add(&order5)
+	db.Add(&order6)
+
+	assert.Equal(t, 6, len(db.Orders))
+	assert.Equal(t, 3, len(db.ShortOrders[market]))
+	assert.Equal(t, 3, len(db.LongOrders[market]))
+
+	db.Delete(order1.Id)
+	assert.Equal(t, 5, len(db.Orders))
+	assert.Equal(t, 2, len(db.ShortOrders[market]))
+	assert.Equal(t, 3, len(db.LongOrders[market]))
+	assert.Equal(t, -1, getOrderIdx(db.ShortOrders[market], order1.Id))
+	assert.Nil(t, db.Orders[order1.Id])
+
+	db.Delete(order5.Id)
+	assert.Equal(t, 4, len(db.Orders))
+	assert.Equal(t, 2, len(db.ShortOrders[market]))
+	assert.Equal(t, 2, len(db.LongOrders[market]))
+	assert.Equal(t, -1, getOrderIdx(db.LongOrders[market], order5.Id))
+	assert.Nil(t, db.Orders[order5.Id])
+
+	db.Delete(order3.Id)
+	assert.Equal(t, 3, len(db.Orders))
+	assert.Equal(t, 1, len(db.ShortOrders[market]))
+	assert.Equal(t, 2, len(db.LongOrders[market]))
+	assert.Equal(t, -1, getOrderIdx(db.ShortOrders[market], order3.Id))
+	assert.Nil(t, db.Orders[order3.Id])
+
+	db.Delete(order2.Id)
+	assert.Equal(t, 2, len(db.Orders))
+	assert.Equal(t, 0, len(db.ShortOrders[market]))
+	assert.Equal(t, 2, len(db.LongOrders[market]))
+	assert.Equal(t, -1, getOrderIdx(db.ShortOrders[market], order2.Id))
+	assert.Nil(t, db.Orders[order2.Id])
+}
+
 func TestGetCancellableOrders(t *testing.T) {
 	// also tests getTotalNotionalPositionAndUnrealizedPnl
 	inMemoryDatabase := getDatabase()
