@@ -67,6 +67,7 @@ var (
 	ErrOpenOrders                         = errors.New("open orders")
 	ErrOpenReduceOnlyOrders               = errors.New("open reduce only orders")
 	ErrNoTradingAuthority                 = errors.New("no trading authority")
+	ErrNoReferrer                         = errors.New("no referrer")
 )
 
 type BadElement uint8

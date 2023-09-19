@@ -46,6 +46,7 @@ type BibliophileClient interface {
 
 	GetAccessibleState() contract.AccessibleState
 	GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int)
+	HasReferrer(trader common.Address) bool
 }
 
 // Define a structure that will implement the Bibliophile interface
@@ -178,4 +179,8 @@ func (b *bibliophileClient) GetAvailableMargin(trader common.Address) *big.Int {
 func (b *bibliophileClient) GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int) {
 	output := getNotionalPositionAndMargin(b.accessibleState.GetStateDB(), &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayments, Mode: mode})
 	return output.NotionalPosition, output.Margin
+}
+
+func (b *bibliophileClient) HasReferrer(trader common.Address) bool {
+	return hasReferrer(b.accessibleState.GetStateDB(), trader)
 }

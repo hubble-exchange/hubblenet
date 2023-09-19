@@ -172,7 +172,7 @@ type ValidatePlaceLimitOrderInput struct {
 }
 
 type ValidatePlaceLimitOrderOutput struct {
-	Errs      string
+	Err       string
 	Orderhash [32]byte
 	Res       IOrderHandlerPlaceOrderRes
 }

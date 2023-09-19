@@ -41,3 +41,7 @@ func Mul(a, b *big.Int) *big.Int {
 func Div(a, b *big.Int) *big.Int {
 	return new(big.Int).Div(a, b)
 }
+
+func Abs(a *big.Int) *big.Int {
+	return new(big.Int).Abs(a)
+}
