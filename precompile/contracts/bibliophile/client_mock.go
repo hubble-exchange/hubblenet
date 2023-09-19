@@ -375,6 +375,20 @@ func (mr *MockBibliophileClientMockRecorder) GetUpperAndLowerBoundForMarket(mark
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpperAndLowerBoundForMarket", reflect.TypeOf((*MockBibliophileClient)(nil).GetUpperAndLowerBoundForMarket), marketId)
 }
 
+// HasReferrer mocks base method.
+func (m *MockBibliophileClient) HasReferrer(trader common.Address) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasReferrer", trader)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasReferrer indicates an expected call of HasReferrer.
+func (mr *MockBibliophileClientMockRecorder) HasReferrer(trader interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasReferrer", reflect.TypeOf((*MockBibliophileClient)(nil).HasReferrer), trader)
+}
+
 // IOC_GetBlockPlaced mocks base method.
 func (m *MockBibliophileClient) IOC_GetBlockPlaced(orderHash [32]byte) *big.Int {
 	m.ctrl.T.Helper()

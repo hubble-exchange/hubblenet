@@ -432,7 +432,7 @@ func PackValidatePlaceLimitOrder(inputStruct ValidatePlaceLimitOrderInput) ([]by
 // to conform the ABI outputs.
 func PackValidatePlaceLimitOrderOutput(outputStruct ValidatePlaceLimitOrderOutput) ([]byte, error) {
 	return JurorABI.PackOutput("validatePlaceLimitOrder",
-		outputStruct.Errs,
+		outputStruct.Err,
 		outputStruct.Orderhash,
 		outputStruct.Res,
 	)

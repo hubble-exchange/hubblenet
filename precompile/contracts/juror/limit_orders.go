@@ -98,18 +98,11 @@ func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *Valid
 	}
 
 	if order.PostOnly {
-		if orderSide == Side(Short) {
-			bidsHead := bibliophile.GetBidsHead(ammAddress)
-			if bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1 {
-				response.Err = ErrCrossingMarket.Error()
-				return
-			}
-		} else if orderSide == Side(Long) {
-			asksHead := bibliophile.GetAsksHead(ammAddress)
-			if asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1 {
-				response.Err = ErrCrossingMarket.Error()
-				return
-			}
+		asksHead := bibliophile.GetAsksHead(ammAddress)
+		bidsHead := bibliophile.GetBidsHead(ammAddress)
+		if (orderSide == Side(Short) && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == Side(Long) && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
+			response.Err = ErrCrossingMarket.Error()
+			return
 		}
 	}
 
