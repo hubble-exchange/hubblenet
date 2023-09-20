@@ -286,9 +286,7 @@ func (cep *ContractEventsProcessor) handleLimitOrderBookEvent(event *types.Log) 
 		} else {
 			log.Info("LimitOrder/OrderCancelRejected removed", "args", args, "orderId", orderId.String(), "number", event.BlockNumber)
 		}
-
 	}
-
 }
 
 func (cep *ContractEventsProcessor) handleIOCOrderBookEvent(event *types.Log) {
@@ -620,9 +618,19 @@ func (cep *ContractEventsProcessor) PushToTraderFeed(events []*types.Log, blockS
 				args["order"] = order.Map()
 				orderId = event.Topics[2]
 				trader = getAddressFromTopicHash(event.Topics[1])
+			case cep.iocOrderBookABI.Events["OrderRejected"].ID:
+				err := cep.iocOrderBookABI.UnpackIntoMap(args, "OrderRejected", event.Data)
+				if err != nil {
+					log.Error("error in iocOrderBookABI.UnpackIntoMap", "method", "OrderRejected", "err", err)
+					continue
+				}
+				eventName = "OrderRejected"
+				order := IOCOrder{}
+				order.DecodeFromRawOrder(args["order"])
+				args["order"] = order.Map()
+				orderId = event.Topics[2]
+				trader = getAddressFromTopicHash(event.Topics[1])
 			}
-		default:
-			continue
 		}
 
 		timestamp := args["timestamp"]
