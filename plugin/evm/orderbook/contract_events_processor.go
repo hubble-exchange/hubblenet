@@ -198,10 +198,10 @@ func (cep *ContractEventsProcessor) handleLimitOrderBookEvent(event *types.Log) 
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
 	// event OrderAccepted(address indexed trader, bytes32 indexed orderHash, OrderV2 order, uint timestamp);
-	case cep.orderBookABI.Events["OrderAccepted"].ID:
-		err := cep.orderBookABI.UnpackIntoMap(args, "OrderAccepted", event.Data)
+	case cep.limitOrderBookABI.Events["OrderAccepted"].ID:
+		err := cep.limitOrderBookABI.UnpackIntoMap(args, "OrderAccepted", event.Data)
 		if err != nil {
-			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderAccepted", "err", err)
+			log.Error("error in limitOrderBookABI.UnpackIntoMap", "method", "OrderAccepted", "err", err)
 			return
 		}
 
@@ -233,10 +233,10 @@ func (cep *ContractEventsProcessor) handleLimitOrderBookEvent(event *types.Log) 
 		}
 
 	// event OrderRejected(address indexed trader, bytes32 indexed orderHash, OrderV2 order, uint timestamp, string err);
-	case cep.orderBookABI.Events["OrderRejected"].ID:
-		err := cep.orderBookABI.UnpackIntoMap(args, "OrderRejected", event.Data)
+	case cep.limitOrderBookABI.Events["OrderRejected"].ID:
+		err := cep.limitOrderBookABI.UnpackIntoMap(args, "OrderRejected", event.Data)
 		if err != nil {
-			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderRejected", "err", err)
+			log.Error("error in limitOrderBookABI.UnpackIntoMap", "method", "OrderRejected", "err", err)
 			return
 		}
 
@@ -248,11 +248,11 @@ func (cep *ContractEventsProcessor) handleLimitOrderBookEvent(event *types.Log) 
 			log.Info("LimitOrder/OrderRejected removed", "args", args, "orderId", orderId.String(), "number", event.BlockNumber, "order", order)
 		}
 
-	// event OrderCancelAccepted(address indexed trader, bytes32 indexed orderHash, uint timestamp);
-	case cep.orderBookABI.Events["OrderCancelAccepted"].ID:
-		err := cep.orderBookABI.UnpackIntoMap(args, "OrderCancelAccepted", event.Data)
+	// event OrderCancelAccepted(address indexed trader, bytes32 indexed orderHash, uint timestamp, bool isAutoCancelled);
+	case cep.limitOrderBookABI.Events["OrderCancelAccepted"].ID:
+		err := cep.limitOrderBookABI.UnpackIntoMap(args, "OrderCancelAccepted", event.Data)
 		if err != nil {
-			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderCancelAccepted", "err", err)
+			log.Error("error in limitOrderBookABI.UnpackIntoMap", "method", "OrderCancelAccepted", "err", err)
 			return
 		}
 
@@ -273,10 +273,10 @@ func (cep *ContractEventsProcessor) handleLimitOrderBookEvent(event *types.Log) 
 		}
 
 	// event OrderCancelRejected(address indexed trader, bytes32 indexed orderHash, uint timestamp, string err);
-	case cep.orderBookABI.Events["OrderCancelRejected"].ID:
-		err := cep.orderBookABI.UnpackIntoMap(args, "OrderCancelRejected", event.Data)
+	case cep.limitOrderBookABI.Events["OrderCancelRejected"].ID:
+		err := cep.limitOrderBookABI.UnpackIntoMap(args, "OrderCancelRejected", event.Data)
 		if err != nil {
-			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "OrderCancelRejected", "err", err)
+			log.Error("error in limitOrderBookABI.UnpackIntoMap", "method", "OrderCancelRejected", "err", err)
 			return
 		}
 
