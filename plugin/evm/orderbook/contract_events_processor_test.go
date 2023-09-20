@@ -23,7 +23,7 @@ func TestProcessEvents(t *testing.T) {
 		db := getDatabase()
 		cep := newcep(t, db)
 		orderBookABI := getABIfromJson(abis.OrderBookAbi)
-		limitOrderBookABI := getABIfromJson(abis.OrderBookAbi)
+		limitOrderBookABI := getABIfromJson(abis.LimitOrderBookAbi)
 
 		traderAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 		ammIndex := big.NewInt(0)
@@ -60,8 +60,8 @@ func TestProcessEvents(t *testing.T) {
 		orderMatchedEventTopics1 := []common.Hash{orderMatchedEvent1.ID, traderAddress.Hash(), shortOrderId}
 		fillAmount := big.NewInt(3000000000000000000)
 		fmt.Printf("sending matched event %s and %s", longOrderId.String(), shortOrderId.String())
-		orderMatchedEventData0, _ := orderMatchedEvent0.Inputs.NonIndexed().Pack(fillAmount, price, big.NewInt(0), timestamp)
-		orderMatchedEventData1, _ := orderMatchedEvent0.Inputs.NonIndexed().Pack(fillAmount, price, big.NewInt(0), timestamp)
+		orderMatchedEventData0, _ := orderMatchedEvent0.Inputs.NonIndexed().Pack(fillAmount, price, big.NewInt(0), timestamp, false)
+		orderMatchedEventData1, _ := orderMatchedEvent0.Inputs.NonIndexed().Pack(fillAmount, price, big.NewInt(0), timestamp, false)
 		orderMatchedEventLog0 := getEventLog(OrderBookContractAddress, orderMatchedEventTopics0, orderMatchedEventData0, orderMatchedBlockNumber)
 		orderMatchedEventLog1 := getEventLog(OrderBookContractAddress, orderMatchedEventTopics1, orderMatchedEventData1, orderMatchedBlockNumber)
 		cep.ProcessEvents([]*types.Log{longOrderAcceptedEventLog, shortOrderAcceptedEventLog, orderMatchedEventLog0, orderMatchedEventLog1})
