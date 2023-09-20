@@ -41,6 +41,7 @@ type BibliophileClient interface {
 	GetImpactMarginNotional(ammAddress common.Address) *big.Int
 	GetBidsHead(market common.Address) *big.Int
 	GetAsksHead(market common.Address) *big.Int
+	GetPriceMultiplier(market common.Address) *big.Int
 	GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int)
 	GetAcceptableBoundsForLiquidation(marketId int64) (*big.Int, *big.Int)
 
@@ -158,6 +159,10 @@ func (b *bibliophileClient) GetBidsHead(market common.Address) *big.Int {
 
 func (b *bibliophileClient) GetAsksHead(market common.Address) *big.Int {
 	return getAsksHead(b.accessibleState.GetStateDB(), market)
+}
+
+func (b *bibliophileClient) GetPriceMultiplier(market common.Address) *big.Int {
+	return getMultiplier(b.accessibleState.GetStateDB(), market)
 }
 
 func (b *bibliophileClient) GetLongOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int {

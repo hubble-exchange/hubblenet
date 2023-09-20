@@ -73,6 +73,17 @@ func ValidatePlaceIOCorder(bibliophile b.BibliophileClient, inputStruct *Validat
 			return
 		}
 	}
+
+	if order.Price.Sign() != 1 {
+		response.Err = ErrInvalidPrice.Error()
+		return
+	}
+
+	ammAddress := bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
+	if hu.Mod(order.Price, bibliophile.GetPriceMultiplier(ammAddress)).Sign() != 0 {
+		response.Err = ErrPricePrecision.Error()
+		return
+	}
 	return response
 }
 

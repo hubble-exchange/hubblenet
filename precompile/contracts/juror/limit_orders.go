@@ -109,6 +109,12 @@ func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *Valid
 	if !bibliophile.HasReferrer(order.Trader) {
 		response.Err = ErrNoReferrer.Error()
 	}
+
+	if hu.Mod(order.Price, bibliophile.GetPriceMultiplier(ammAddress)).Sign() != 0 {
+		response.Err = ErrPricePrecision.Error()
+		return
+	}
+
 	return response
 }
 

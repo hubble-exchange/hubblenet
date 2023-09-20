@@ -304,6 +304,20 @@ func (mr *MockBibliophileClientMockRecorder) GetOrderStatus(orderHash interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderStatus", reflect.TypeOf((*MockBibliophileClient)(nil).GetOrderStatus), orderHash)
 }
 
+// GetPriceMultiplier mocks base method.
+func (m *MockBibliophileClient) GetPriceMultiplier(market common.Address) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPriceMultiplier", market)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetPriceMultiplier indicates an expected call of GetPriceMultiplier.
+func (mr *MockBibliophileClientMockRecorder) GetPriceMultiplier(market interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPriceMultiplier", reflect.TypeOf((*MockBibliophileClient)(nil).GetPriceMultiplier), market)
+}
+
 // GetReduceOnlyAmount mocks base method.
 func (m *MockBibliophileClient) GetReduceOnlyAmount(trader common.Address, ammIndex *big.Int) *big.Int {
 	m.ctrl.T.Helper()

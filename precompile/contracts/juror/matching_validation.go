@@ -50,6 +50,7 @@ var (
 
 	ErrInvalidOrder                       = errors.New("invalid order")
 	ErrInvalidPrice                       = errors.New("invalid price")
+	ErrPricePrecision                     = errors.New("invalid price precision")
 	ErrCancelledOrder                     = errors.New("cancelled order")
 	ErrFilledOrder                        = errors.New("filled order")
 	ErrOrderAlreadyExists                 = errors.New("order already exists")
