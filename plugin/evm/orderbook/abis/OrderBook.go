@@ -36,12 +36,6 @@ var OrderBookAbi = []byte(`{"abi": [
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "orderHash",
-        "type": "bytes32"
-      },
-      {
         "indexed": false,
         "internalType": "string",
         "name": "err",

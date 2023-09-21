@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ava-labs/avalanchego/snow/choices"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
@@ -995,6 +996,8 @@ func TestHubbleLogs(t *testing.T) {
 	setPreference(t, vm1BlockC, vm1)
 	accept(t, vm1BlockC) // reorg happens here
 	accept(t, vm2BlockC)
+
+	time.Sleep(time.Second)
 
 	// time.Sleep(2 * time.Second)
 	detail1 := vm1.limitOrderProcesser.GetOrderBookAPI().GetDetailedOrderBookData(context.Background())

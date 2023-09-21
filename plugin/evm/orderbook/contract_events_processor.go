@@ -169,26 +169,17 @@ func (cep *ContractEventsProcessor) handleOrderBookEvent(event *types.Log) {
 			}
 		}
 
-	// event MatchingValidationError(bytes32 indexed orderHash, string err);
+	// event MatchingValidationError(string err);
 	case cep.orderBookABI.Events["MatchingValidationError"].ID:
 		err := cep.orderBookABI.UnpackIntoMap(args, "MatchingValidationError", event.Data)
 		if err != nil {
 			log.Error("error in orderBookAbi.UnpackIntoMap", "method", "MatchingValidationError", "err", err)
 			return
 		}
-		orderId := event.Topics[1]
 		if !removed {
-			log.Info("MatchingValidationError", "args", args, "orderId", orderId.String(), "number", event.BlockNumber)
-			if err := cep.database.SetOrderStatus(orderId, Execution_Failed, args["err"].(string), event.BlockNumber); err != nil {
-				log.Error("error in SetOrderStatus", "method", "MatchingValidationError", "err", err)
-				return
-			}
+			log.Info("MatchingValidationError", "args", args, "number", event.BlockNumber)
 		} else {
-			log.Info("MatchingValidationError removed", "args", args, "orderId", orderId.String(), "number", event.BlockNumber)
-			if err := cep.database.RevertLastStatus(orderId); err != nil {
-				log.Error("error in SetOrderStatus", "method", "MatchingValidationError", "removed", true, "err", err)
-				return
-			}
+			log.Info("MatchingValidationError removed", "args", args, "number", event.BlockNumber)
 		}
 	}
 }
