@@ -18,6 +18,7 @@ const (
 	ORACLE_SLOT                     int64 = 6
 	UNDERLYING_ASSET_SLOT           int64 = 7
 	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 12
+	MULTIPLIER_SLOT                 int64 = 13
 	RED_STONE_ADAPTER_SLOT          int64 = 16
 	RED_STONE_FEED_ID_SLOT          int64 = 17
 	IMPACT_MARGIN_NOTIONAL_SLOT     int64 = 22
@@ -26,7 +27,6 @@ const (
 	ASKS_SLOT                       int64 = 25
 	BIDS_HEAD_SLOT                  int64 = 24
 	ASKS_HEAD_SLOT                  int64 = 25
-	MULTIPLIER_SLOT                 int64 = 30
 )
 
 const (
