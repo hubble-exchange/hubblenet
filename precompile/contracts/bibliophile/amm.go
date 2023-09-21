@@ -30,7 +30,8 @@ const (
 )
 
 const (
-	TEST_ORACLE_PRICES_MAPPING_SLOT int64 = 53
+	// this slot is from TestOracle.sol
+	TEST_ORACLE_PRICES_MAPPING_SLOT int64 = 3
 )
 
 // AMM State
