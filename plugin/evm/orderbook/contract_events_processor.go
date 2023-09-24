@@ -188,7 +188,7 @@ func (cep *ContractEventsProcessor) handleLimitOrderBookEvent(event *types.Log) 
 	removed := event.Removed
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
-	// event OrderAccepted(address indexed trader, bytes32 indexed orderHash, OrderV2 order, uint timestamp);
+	// event OrderAccepted(address indexed trader, bytes32 indexed orderHash, Order order, uint timestamp);
 	case cep.limitOrderBookABI.Events["OrderAccepted"].ID:
 		err := cep.limitOrderBookABI.UnpackIntoMap(args, "OrderAccepted", event.Data)
 		if err != nil {
@@ -223,7 +223,7 @@ func (cep *ContractEventsProcessor) handleLimitOrderBookEvent(event *types.Log) 
 			cep.database.Delete(orderId)
 		}
 
-	// event OrderRejected(address indexed trader, bytes32 indexed orderHash, OrderV2 order, uint timestamp, string err);
+	// event OrderRejected(address indexed trader, bytes32 indexed orderHash, Order order, uint timestamp, string err);
 	case cep.limitOrderBookABI.Events["OrderRejected"].ID:
 		err := cep.limitOrderBookABI.UnpackIntoMap(args, "OrderRejected", event.Data)
 		if err != nil {
@@ -284,7 +284,7 @@ func (cep *ContractEventsProcessor) handleIOCOrderBookEvent(event *types.Log) {
 	removed := event.Removed
 	args := map[string]interface{}{}
 	switch event.Topics[0] {
-	// event OrderAccepted(address indexed trader, bytes32 indexed orderHash, Order order, uint timestamp);
+	// event OrderAccepted(address indexed trader, bytes32 indexed orderHash, IImmediateOrCancelOrders.Order order, uint timestamp);
 	case cep.iocOrderBookABI.Events["OrderAccepted"].ID:
 		err := cep.iocOrderBookABI.UnpackIntoMap(args, "OrderAccepted", event.Data)
 		if err != nil {
@@ -316,7 +316,7 @@ func (cep *ContractEventsProcessor) handleIOCOrderBookEvent(event *types.Log) {
 			cep.database.Delete(orderId)
 		}
 
-	// event OrderRejected(address indexed trader, bytes32 indexed orderHash, Order order, uint timestamp, string err);
+	// event OrderRejected(address indexed trader, bytes32 indexed orderHash, IImmediateOrCancelOrders.Order order, uint timestamp, string err);
 	case cep.iocOrderBookABI.Events["OrderRejected"].ID:
 		err := cep.iocOrderBookABI.UnpackIntoMap(args, "OrderRejected", event.Data)
 		if err != nil {
