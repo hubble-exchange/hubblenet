@@ -167,7 +167,7 @@ func (lotp *MockLimitOrderTxProcessor) PurgeOrderBookTxs() {
 	lotp.Called()
 }
 
-func (lotp *MockLimitOrderTxProcessor) SetOrderBookTxsHeadBlockNumber(blockNumber uint64) {
+func (lotp *MockLimitOrderTxProcessor) SetOrderBookTxsBlockNumber(blockNumber uint64) {
 	lotp.Called()
 }
 

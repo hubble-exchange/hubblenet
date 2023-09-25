@@ -320,7 +320,7 @@ type TxPool struct {
 
 type OrderBookTxs struct {
 	txs         map[common.Address]*list
-	blockNumber uint64
+	blockNumber uint64 // the intended block number for these txs
 }
 
 type txpoolResetRequest struct {
@@ -1111,14 +1111,14 @@ func (pool *TxPool) AddOrderBookTx(tx *types.Transaction) error {
 	return nil
 }
 
-func (pool *TxPool) SetOrderBookTxsHeadBlockNumber(blockNumber uint64) {
+func (pool *TxPool) SetOrderBookTxsBlockNumber(blockNumber uint64) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
 	pool.orderBookTxs.blockNumber = blockNumber
 }
 
-func (pool *TxPool) GetOrderBookTxsHeadBlockNumber() uint64 {
+func (pool *TxPool) GetOrderBookTxsBlockNumber() uint64 {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 

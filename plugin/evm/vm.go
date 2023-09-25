@@ -703,13 +703,13 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 	}
 
 	currentHeadBlock := vm.blockChain.CurrentBlock()
-	orderbookTxsHeadBlockNumber := vm.txPool.GetOrderBookTxsHeadBlockNumber()
-	if orderbookTxsHeadBlockNumber > 0 && currentHeadBlock.Number.Uint64() > orderbookTxsHeadBlockNumber {
+	orderbookTxsBlockNumber := vm.txPool.GetOrderBookTxsBlockNumber()
+	if orderbookTxsBlockNumber > 0 && currentHeadBlock.Number.Uint64() >= orderbookTxsBlockNumber {
 		// the orderbooks txs in mempool could be outdated cuz the
 		// current head block is ahead of the orderbook txs block(the block at which matching pipeline evaluated the txs)
 		// it's possible that another validator has already included the orderbook txs in the current head block
 
-		log.Warn("buildBlock - current head block is ahead of OrderBookTxsHeadBlockNumber", "orderbookTxsHeadBlockNumber", orderbookTxsHeadBlockNumber, "currentHeadBlockNumber", currentHeadBlock.Number.Uint64())
+		log.Warn("buildBlock - current head block is ahead of OrderBookTxsBlockNumber", "orderbookTxsBlockNumber", orderbookTxsBlockNumber, "currentHeadBlockNumber", currentHeadBlock.Number.Uint64())
 		vm.txPool.PurgeOrderBookTxs()
 
 		// don't return now, attempt to generate a block without the matching orderbook txs
