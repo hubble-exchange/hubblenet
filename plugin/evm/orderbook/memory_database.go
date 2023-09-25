@@ -240,7 +240,7 @@ type LimitOrderDatabase interface {
 	Accept(acceptedBlockNumber uint64, blockTimestamp uint64)
 	SetOrderStatus(orderId common.Hash, status Status, info string, blockNumber uint64) error
 	RevertLastStatus(orderId common.Hash) error
-	GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]Order)
+	GetNaughtyTraders(oraclePrices map[Market]*big.Int, assets []hu.Collateral, markets []Market) ([]LiquidablePosition, map[common.Address][]Order)
 	GetAllOpenOrdersForTrader(trader common.Address) []Order
 	GetOpenOrdersForTraderByType(trader common.Address, orderType OrderType) []Order
 	UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int, cumlastPremiumFraction *big.Int)
@@ -913,7 +913,7 @@ func determinePositionToLiquidate(trader *Trader, addr common.Address, marginFra
 	return liquidable
 }
 
-func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, markets []Market) ([]LiquidablePosition, map[common.Address][]Order) {
+func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, assets []hu.Collateral, markets []Market) ([]LiquidablePosition, map[common.Address][]Order) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -926,7 +926,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 
 	for addr, trader := range db.TraderMap {
 		pendingFunding := getTotalFunding(trader, markets)
-		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, db.LastPrice, markets)
+		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, assets, db.LastPrice, markets)
 		if marginFraction.Cmp(db.configService.getMaintenanceMargin()) == -1 {
 			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", prettifyScaledBigInt(marginFraction, 6))
 			if len(minSizes) == 0 {

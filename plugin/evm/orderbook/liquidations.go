@@ -22,8 +22,8 @@ func (liq LiquidablePosition) GetUnfilledSize() *big.Int {
 	return big.NewInt(0).Sub(liq.Size, liq.FilledSize)
 }
 
-func calcMarginFraction(trader *Trader, pendingFunding *big.Int, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, markets []Market) *big.Int {
-	margin := new(big.Int).Sub(getNormalisedMargin(trader), pendingFunding)
+func calcMarginFraction(trader *Trader, pendingFunding *big.Int, oraclePrices map[Market]*big.Int, assets []hu.Collateral, lastPrices map[Market]*big.Int, markets []Market) *big.Int {
+	margin := new(big.Int).Sub(getNormalisedMargin(trader, assets), pendingFunding)
 	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, Maintenance_Margin, oraclePrices, lastPrices, markets)
 	if notionalPosition.Sign() == 0 {
 		return big.NewInt(math.MaxInt64)
@@ -39,9 +39,13 @@ func sortLiquidableSliceByMarginFraction(positions []LiquidablePosition) []Liqui
 	return positions
 }
 
-func getNormalisedMargin(trader *Trader) *big.Int {
-	return trader.Margin.Deposited[HUSD]
-	// @todo: Write for multi-collateral
+func getNormalisedMargin(trader *Trader, assets []hu.Collateral) *big.Int {
+	numAssets := len(assets)
+	margin := make([]*big.Int, numAssets)
+	for i := 0; i < numAssets; i++ {
+		margin[i] = trader.Margin.Deposited[Collateral(i)]
+	}
+	return hu.GetNormalizedMargin(assets, margin)
 }
 
 func getTotalFunding(trader *Trader, markets []Market) *big.Int {
@@ -55,7 +59,7 @@ func getTotalFunding(trader *Trader, markets []Market) *big.Int {
 }
 
 func getNotionalPosition(price *big.Int, size *big.Int) *big.Int {
-	return big.NewInt(0).Abs(hu.Div1e18(big.NewInt(0).Mul(size, price)))
+	return big.NewInt(0).Abs(hu.Div1e18(hu.Mul(size, price)))
 }
 
 type MarginMode uint8

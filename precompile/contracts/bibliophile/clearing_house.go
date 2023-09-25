@@ -49,7 +49,6 @@ func GetMarkets(stateDB contract.StateDB) []common.Address {
 	for i := int64(0); i < numMarkets; i++ {
 		amm := stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(baseStorageSlot, big.NewInt(i))))
 		markets[i] = common.BytesToAddress(amm.Bytes())
-
 	}
 	return markets
 }
@@ -118,6 +117,14 @@ func GetUnderlyingPrices(stateDB contract.StateDB) []*big.Int {
 	for _, market := range GetMarkets(stateDB) {
 		underlyingPrices = append(underlyingPrices, getUnderlyingPrice(stateDB, market))
 	}
+	return underlyingPrices
+}
+
+func GetCollateralPrices(stateDB contract.StateDB) []*big.Int {
+	underlyingPrices := make([]*big.Int, 0)
+	// for _, market := range GetMarkets(stateDB) {
+	// 	underlyingPrices = append(underlyingPrices, getUnderlyingPrice(stateDB, market))
+	// }
 	return underlyingPrices
 }
 
