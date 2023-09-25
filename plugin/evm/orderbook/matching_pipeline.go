@@ -86,6 +86,9 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 	}
 
 	orderBookTxsCount := pipeline.lotp.GetOrderBookTxsCount()
+	if orderBookTxsCount > 0 {
+		pipeline.lotp.SetOrderBookTxsHeadBlockNumber(blockNumber.Uint64())
+	}
 	return orderBookTxsCount > 0
 }
 
