@@ -19,13 +19,18 @@ const (
 )
 
 func GetNormalizedMargin(stateDB contract.StateDB, trader common.Address) *big.Int {
-	assets := getCollaterals(stateDB)
-	numAssets := len(assets)
-	margin := make([]*big.Int, numAssets)
-	for i := 0; i < numAssets; i++ {
-		margin[i] = getMargin(stateDB, big.NewInt(int64(i)), trader)
+	assets := GetCollaterals(stateDB)
+	margins := getMargins(stateDB, trader)
+	return hu.GetNormalizedMargin(assets, margins)
+}
+
+func getMargins(stateDB contract.StateDB, trader common.Address) []*big.Int {
+	numAssets := getCollateralCount(stateDB)
+	margins := make([]*big.Int, numAssets)
+	for i := uint8(0); i < numAssets; i++ {
+		margins[i] = getMargin(stateDB, big.NewInt(int64(i)), trader)
 	}
-	return hu.GetNormalizedMargin(assets, margin)
+	return margins
 }
 
 func getMargin(stateDB contract.StateDB, idx *big.Int, trader common.Address) *big.Int {
@@ -40,15 +45,8 @@ func getReservedMargin(stateDB contract.StateDB, trader common.Address) *big.Int
 }
 
 func GetAvailableMargin(stateDB contract.StateDB, trader common.Address) *big.Int {
-	includeFundingPayment := true
-	mode := uint8(1) // Min_Allowable_Margin
-	output := getNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayment, Mode: mode})
-	notionalPostion := output.NotionalPosition
-	margin := output.Margin
-	utitlizedMargin := hu.Div1e6(big.NewInt(0).Mul(notionalPostion, GetMinAllowableMargin(stateDB)))
-	reservedMargin := getReservedMargin(stateDB, trader)
-	// log.Info("GetAvailableMargin", "trader", trader, "notionalPostion", notionalPostion, "margin", margin, "utitlizedMargin", utitlizedMargin, "reservedMargin", reservedMargin)
-	return big.NewInt(0).Sub(big.NewInt(0).Sub(margin, utitlizedMargin), reservedMargin)
+	output := getNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: true, Mode: uint8(1)}) // Min_Allowable_Margin
+	return hu.GetAvailableMargin_(output.NotionalPosition, output.Margin, getReservedMargin(stateDB, trader), GetMinAllowableMargin(stateDB))
 }
 
 func getOracleAddress(stateDB contract.StateDB) common.Address {

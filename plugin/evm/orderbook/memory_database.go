@@ -51,7 +51,9 @@ const (
 	RETRY_AFTER_BLOCKS = 10
 )
 
-type Market int64
+type Market = hu.Market // int64
+
+// type Market int64
 
 type Collateral int
 
@@ -179,29 +181,31 @@ func (order Order) ToOrderMin() OrderMin {
 	}
 }
 
-type Position struct {
-	OpenNotional         *big.Int `json:"open_notional"`
-	Size                 *big.Int `json:"size"`
-	UnrealisedFunding    *big.Int `json:"unrealised_funding"`
-	LastPremiumFraction  *big.Int `json:"last_premium_fraction"`
-	LiquidationThreshold *big.Int `json:"liquidation_threshold"`
-}
+type Position = hu.Position
 
-func (p *Position) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&struct {
-		OpenNotional         string `json:"open_notional"`
-		Size                 string `json:"size"`
-		UnrealisedFunding    string `json:"unrealised_funding"`
-		LastPremiumFraction  string `json:"last_premium_fraction"`
-		LiquidationThreshold string `json:"liquidation_threshold"`
-	}{
-		OpenNotional:         p.OpenNotional.String(),
-		Size:                 p.Size.String(),
-		UnrealisedFunding:    p.UnrealisedFunding.String(),
-		LastPremiumFraction:  p.LastPremiumFraction.String(),
-		LiquidationThreshold: p.LiquidationThreshold.String(),
-	})
-}
+//  {
+// 	OpenNotional         *big.Int `json:"open_notional"`
+// 	Size                 *big.Int `json:"size"`
+// 	UnrealisedFunding    *big.Int `json:"unrealised_funding"`
+// 	LastPremiumFraction  *big.Int `json:"last_premium_fraction"`
+// 	LiquidationThreshold *big.Int `json:"liquidation_threshold"`
+// }
+
+// func (p *Position) MarshalJSON() ([]byte, error) {
+// 	return json.Marshal(&struct {
+// 		OpenNotional         string `json:"open_notional"`
+// 		Size                 string `json:"size"`
+// 		UnrealisedFunding    string `json:"unrealised_funding"`
+// 		LastPremiumFraction  string `json:"last_premium_fraction"`
+// 		LiquidationThreshold string `json:"liquidation_threshold"`
+// 	}{
+// 		OpenNotional:         p.OpenNotional.String(),
+// 		Size:                 p.Size.String(),
+// 		UnrealisedFunding:    p.UnrealisedFunding.String(),
+// 		LastPremiumFraction:  p.LastPremiumFraction.String(),
+// 		LiquidationThreshold: p.LiquidationThreshold.String(),
+// 	})
+// }
 
 type Margin struct {
 	Reserved  *big.Int                `json:"reserved"`
@@ -926,7 +930,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 
 	for addr, trader := range db.TraderMap {
 		pendingFunding := getTotalFunding(trader, markets)
-		marginFraction := calcMarginFraction(trader, pendingFunding, oraclePrices, assets, db.LastPrice, markets)
+		marginFraction := calcMarginFraction(trader, pendingFunding, assets, oraclePrices, db.LastPrice, markets)
 		if marginFraction.Cmp(db.configService.getMaintenanceMargin()) == -1 {
 			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", prettifyScaledBigInt(marginFraction, 6))
 			if len(minSizes) == 0 {
@@ -941,7 +945,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(oraclePrices map[Market]*big.Int, 
 			continue
 		}
 		// has orders that might be cancellable
-		availableMargin := getAvailableMargin(trader, pendingFunding, oraclePrices, db.LastPrice, db.configService.getMinAllowableMargin(), markets)
+		availableMargin := getAvailableMargin(trader, pendingFunding, assets, oraclePrices, db.LastPrice, db.configService.getMinAllowableMargin(), markets)
 		// availableMargin := getAvailableMarginWithDebugInfo(addr, trader, pendingFunding, oraclePrices, db.LastPrice, db.configService.getMinAllowableMargin(), markets)
 		if availableMargin.Sign() == -1 {
 			foundCancellableOrders := db.determineOrdersToCancel(addr, trader, availableMargin, oraclePrices, ordersToCancel)
@@ -1086,29 +1090,8 @@ func getBlankTrader() *Trader {
 	}
 }
 
-func getAvailableMargin(trader *Trader, pendingFunding *big.Int, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, minAllowableMargin *big.Int, markets []Market) *big.Int {
-	margin := new(big.Int).Sub(getNormalisedMargin(trader), pendingFunding)
-	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices, markets)
-	utilisedMargin := hu.Div1e6(new(big.Int).Mul(notionalPosition, minAllowableMargin))
-	return new(big.Int).Sub(
-		new(big.Int).Add(margin, unrealizePnL),
-		new(big.Int).Add(utilisedMargin, trader.Margin.Reserved),
-	)
-}
-
-func getAvailableMarginWithDebugInfo(addr common.Address, trader *Trader, pendingFunding *big.Int, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, minAllowableMargin *big.Int, markets []Market) *big.Int {
-	margin := new(big.Int).Sub(getNormalisedMargin(trader), pendingFunding)
-	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices, markets)
-	utilisedMargin := hu.Div1e6(new(big.Int).Mul(notionalPosition, minAllowableMargin))
-	availableMargin := new(big.Int).Sub(
-		new(big.Int).Add(margin, unrealizePnL),
-		new(big.Int).Add(utilisedMargin, trader.Margin.Reserved),
-	)
-	if availableMargin.Sign() == -1 {
-		log.Info("availableMargin < 0", "addr", addr.String(), "pendingFunding", pendingFunding, "margin", margin, "notionalPosition", notionalPosition, "unrealizePnL", unrealizePnL, "utilisedMargin", utilisedMargin, "Reserved", trader.Margin.Reserved)
-		log.Info("prices", "oraclePrices", oraclePrices, "lastPrices", lastPrices)
-	}
-	return availableMargin
+func getAvailableMargin(trader *Trader, pendingFunding *big.Int, assets []hu.Collateral, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, minAllowableMargin *big.Int, markets []Market) *big.Int {
+	return hu.GetAvailableMargin(trader.Positions, getMargins(trader, len(assets)), pendingFunding, trader.Margin.Reserved, assets, oraclePrices, lastPrices, minAllowableMargin, markets)
 }
 
 // deepCopyOrder deep copies the LimitOrder struct

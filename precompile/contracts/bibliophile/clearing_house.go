@@ -65,28 +65,27 @@ type GetNotionalPositionAndMarginOutput struct {
 }
 
 func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
-	margin := GetNormalizedMargin(stateDB, input.Trader)
-	if input.IncludeFundingPayments {
-		margin.Sub(margin, GetTotalFunding(stateDB, &input.Trader))
+	markets := GetMarkets(stateDB)
+	numMarkets := len(markets)
+	positions := make(map[int]*hu.Position, numMarkets)
+	underlyingPrices := make(map[int]*big.Int, numMarkets)
+	lastPrices := make(map[int]*big.Int, numMarkets)
+	var marketIds []int
+	for i, market := range markets {
+		positions[i] = getPosition(stateDB, getMarketAddressFromMarketID(int64(i), stateDB), &input.Trader)
+		underlyingPrices[i] = getUnderlyingPrice(stateDB, market)
+		lastPrices[i] = getLastPrice(stateDB, market)
+		marketIds = append(marketIds, i)
 	}
-	notionalPosition, unrealizedPnl := GetTotalNotionalPositionAndUnrealizedPnl(stateDB, &input.Trader, margin, GetMarginMode(input.Mode))
+	pendingFunding := big.NewInt(0)
+	if input.IncludeFundingPayments {
+		pendingFunding = GetTotalFunding(stateDB, &input.Trader)
+	}
+	notionalPosition, margin := hu.GetNotionalPositionAndMargin(positions, getMargins(stateDB, input.Trader), input.Mode, pendingFunding, GetCollaterals(stateDB), underlyingPrices, lastPrices, marketIds)
 	return GetNotionalPositionAndMarginOutput{
 		NotionalPosition: notionalPosition,
-		Margin:           hu.Add(margin, unrealizedPnl),
+		Margin:           margin,
 	}
-}
-
-func GetTotalNotionalPositionAndUnrealizedPnl(stateDB contract.StateDB, trader *common.Address, margin *big.Int, marginMode MarginMode) (*big.Int, *big.Int) {
-	notionalPosition := big.NewInt(0)
-	unrealizedPnl := big.NewInt(0)
-	for _, market := range GetMarkets(stateDB) {
-		lastPrice := getLastPrice(stateDB, market)
-		oraclePrice := getUnderlyingPrice(stateDB, market)
-		_notionalPosition, _unrealizedPnl := getOptimalPnl(stateDB, market, oraclePrice, lastPrice, trader, margin, marginMode)
-		notionalPosition.Add(notionalPosition, _notionalPosition)
-		unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
-	}
-	return notionalPosition, unrealizedPnl
 }
 
 func GetTotalFunding(stateDB contract.StateDB, trader *common.Address) *big.Int {
@@ -117,14 +116,6 @@ func GetUnderlyingPrices(stateDB contract.StateDB) []*big.Int {
 	for _, market := range GetMarkets(stateDB) {
 		underlyingPrices = append(underlyingPrices, getUnderlyingPrice(stateDB, market))
 	}
-	return underlyingPrices
-}
-
-func GetCollateralPrices(stateDB contract.StateDB) []*big.Int {
-	underlyingPrices := make([]*big.Int, 0)
-	// for _, market := range GetMarkets(stateDB) {
-	// 	underlyingPrices = append(underlyingPrices, getUnderlyingPrice(stateDB, market))
-	// }
 	return underlyingPrices
 }
 
