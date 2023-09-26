@@ -26,7 +26,7 @@ func GetClearingHouseVariables(stateDB contract.StateDB, trader common.Address) 
 	takerFee := GetTakerFee(stateDB)
 	amms := GetMarkets(stateDB)
 	activeMarketsCount := GetActiveMarketsCount(stateDB)
-	notionalPositionAndMargin := GetNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{
+	notionalPositionAndMargin := getNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{
 		Trader:                 trader,
 		IncludeFundingPayments: false,
 		Mode:                   0,

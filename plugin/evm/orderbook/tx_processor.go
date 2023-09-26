@@ -25,12 +25,12 @@ import (
 var OrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000000")
 var MarginAccountContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000001")
 var ClearingHouseContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000002")
-var IOCOrderBookContractAddress = common.HexToAddress("0x635c5F96989a4226953FE6361f12B96c5d50289b")
-
-// var IOCOrderBookContractAddress = common.HexToAddress("0x635c5F96989a4226953FE6361f12B96c5d50289b")
+var LimitOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000005")
+var IOCOrderBookContractAddress = common.HexToAddress("0x0300000000000000000000000000000000000006")
 
 type LimitOrderTxProcessor interface {
 	GetOrderBookTxsCount() uint64
+	SetOrderBookTxsBlockNumber(blockNumber uint64)
 	PurgeOrderBookTxs()
 	ExecuteMatchedOrdersTx(incomingOrder Order, matchedOrder Order, fillAmount *big.Int) error
 	ExecuteFundingPaymentTx() error
@@ -140,7 +140,6 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder Order, short
 		return err
 	}
 
-	// log.Info("ExecuteMatchedOrdersTx", "orders[0]", hex.EncodeToString(orders[0]), "orders[1]", hex.EncodeToString(orders[1]), "fillAmount", prettifyScaledBigInt(fillAmount, 18))
 	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "executeMatchedOrders", orders, fillAmount)
 	log.Info("ExecuteMatchedOrdersTx", "LongOrder", longOrder, "ShortOrder", shortOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String(), "err", err)
 	return err
@@ -230,6 +229,10 @@ func (lotp *limitOrderTxProcessor) PurgeOrderBookTxs() {
 
 func (lotp *limitOrderTxProcessor) GetOrderBookTxsCount() uint64 {
 	return lotp.txPool.GetOrderBookTxsCount()
+}
+
+func (lotp *limitOrderTxProcessor) SetOrderBookTxsBlockNumber(blockNumber uint64) {
+	lotp.txPool.SetOrderBookTxsBlockNumber(blockNumber)
 }
 
 func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity *big.Int) PositionType {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/eth"
+	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ava-labs/subnet-evm/rpc"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
@@ -113,7 +114,7 @@ func (api *OrderBookAPI) GetDebugData(ctx context.Context, trader string) GetDeb
 		notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(&trader, margin, Min_Allowable_Margin, oraclePrices, lastPrices, markets)
 		marginFraction := calcMarginFraction(&trader, pendingFunding, oraclePrices, lastPrices, markets)
 		availableMargin := getAvailableMargin(&trader, pendingFunding, oraclePrices, lastPrices, api.configService.getMinAllowableMargin(), markets)
-		utilisedMargin := divideByBasePrecision(new(big.Int).Mul(notionalPosition, minAllowableMargin))
+		utilisedMargin := hu.Div1e6(new(big.Int).Mul(notionalPosition, minAllowableMargin))
 
 		response.MarginFraction[addr] = marginFraction
 		response.AvailableMargin[addr] = availableMargin
@@ -139,14 +140,18 @@ func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*O
 	if err != nil {
 		return nil, err
 	}
-	allOrders := api.db.GetAllOrders()
-	orders := []OrderMin{}
-	for _, order := range allOrders {
-		if market == nil || order.Market == Market(*market) {
-			orders = append(orders, order.ToOrderMin())
-		}
+	var orders []Order
+	if market == nil {
+		orders = api.db.GetAllOrders()
+	} else {
+		orders = api.db.GetMarketOrders(Market(*market))
 	}
-	return &OrderBookResponse{Orders: orders}, nil
+
+	responseOrders := []OrderMin{}
+	for _, order := range orders {
+		responseOrders = append(responseOrders, order.ToOrderMin())
+	}
+	return &OrderBookResponse{Orders: responseOrders}, nil
 }
 
 func parseMarket(marketStr string) (*int, error) {
@@ -168,7 +173,7 @@ func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string, marke
 	}
 	traderOrders := []OrderForOpenOrders{}
 	traderHash := common.HexToAddress(trader)
-	orders := api.db.GetOpenOrdersForTraderByType(traderHash, LimitOrderType)
+	orders := api.db.GetOpenOrdersForTraderByType(traderHash, Limit)
 	for _, order := range orders {
 		if strings.EqualFold(order.Trader.String(), trader) && (market == nil || order.Market == Market(*market)) {
 			traderOrders = append(traderOrders, OrderForOpenOrders{

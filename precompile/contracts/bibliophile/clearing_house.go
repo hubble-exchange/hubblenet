@@ -3,6 +3,7 @@ package bibliophile
 import (
 	"math/big"
 
+	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ava-labs/subnet-evm/precompile/contract"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +16,7 @@ const (
 	MIN_ALLOWABLE_MARGIN_SLOT      int64 = 2
 	TAKER_FEE_SLOT                 int64 = 3
 	AMMS_SLOT                      int64 = 12
+	REFERRAL_SLOT                  int64 = 13
 )
 
 type MarginMode uint8
@@ -52,7 +54,18 @@ func GetMarkets(stateDB contract.StateDB) []common.Address {
 	return markets
 }
 
-func GetNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
+type GetNotionalPositionAndMarginInput struct {
+	Trader                 common.Address
+	IncludeFundingPayments bool
+	Mode                   uint8
+}
+
+type GetNotionalPositionAndMarginOutput struct {
+	NotionalPosition *big.Int
+	Margin           *big.Int
+}
+
+func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
 	margin := GetNormalizedMargin(stateDB, input.Trader)
 	if input.IncludeFundingPayments {
 		margin.Sub(margin, GetTotalFunding(stateDB, &input.Trader))
@@ -60,7 +73,7 @@ func GetNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 	notionalPosition, unrealizedPnl := GetTotalNotionalPositionAndUnrealizedPnl(stateDB, &input.Trader, margin, GetMarginMode(input.Mode))
 	return GetNotionalPositionAndMarginOutput{
 		NotionalPosition: notionalPosition,
-		Margin:           new(big.Int).Add(margin, unrealizedPnl),
+		Margin:           hu.Add(margin, unrealizedPnl),
 	}
 }
 
@@ -116,25 +129,14 @@ func getPosSizes(stateDB contract.StateDB, trader *common.Address) []*big.Int {
 	return positionSizes
 }
 
-func _getPositionSizesAndUpperBoundsForMarkets(stateDB contract.StateDB, trader *common.Address) GetPositionSizesAndUpperBoundsForMarketsOutput {
-	markets := GetMarkets(stateDB)
-	positionSizes := make([]*big.Int, len(markets))
-	upperBounds := make([]*big.Int, len(markets))
-	for i, market := range markets {
-		positionSizes[i] = getSize(stateDB, market, trader)
-		oraclePrice := getUnderlyingPrice(stateDB, market)
-		spreadLimit := GetMaxOraclePriceSpread(stateDB, int64(i))
-		upperBounds[i], _ = calculateBounds(spreadLimit, oraclePrice)
-	}
-	return GetPositionSizesAndUpperBoundsForMarketsOutput{
-		PosSizes:    positionSizes,
-		UpperBounds: upperBounds,
-	}
-}
-
 // getMarketAddressFromMarketID returns the market address for a given marketID
 func getMarketAddressFromMarketID(marketID int64, stateDB contract.StateDB) common.Address {
 	baseStorageSlot := marketsStorageSlot()
 	amm := stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(baseStorageSlot, big.NewInt(marketID))))
 	return common.BytesToAddress(amm.Bytes())
+}
+
+func getReferralAddress(stateDB contract.StateDB) common.Address {
+	referral := stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(big.NewInt(REFERRAL_SLOT)))
+	return common.BytesToAddress(referral.Bytes())
 }

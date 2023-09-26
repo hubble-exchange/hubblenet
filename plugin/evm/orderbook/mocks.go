@@ -32,6 +32,11 @@ func (db *MockLimitOrderDatabase) GetAllOrders() []Order {
 	return args.Get(0).([]Order)
 }
 
+func (db *MockLimitOrderDatabase) GetMarketOrders(market Market) []Order {
+	args := db.Called()
+	return args.Get(0).([]Order)
+}
+
 func (db *MockLimitOrderDatabase) Add(order *Order) {
 }
 
@@ -159,6 +164,10 @@ func (lotp *MockLimitOrderTxProcessor) ExecuteMatchedOrdersTx(incomingOrder Orde
 }
 
 func (lotp *MockLimitOrderTxProcessor) PurgeOrderBookTxs() {
+	lotp.Called()
+}
+
+func (lotp *MockLimitOrderTxProcessor) SetOrderBookTxsBlockNumber(blockNumber uint64) {
 	lotp.Called()
 }
 

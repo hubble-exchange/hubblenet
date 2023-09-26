@@ -16,8 +16,6 @@ type BibliophileClient interface {
 	GetTakerFee() *big.Int
 	//orderbook
 	GetSize(market common.Address, trader *common.Address) *big.Int
-	DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error)
-	DetermineLiquidationFillPrice(marketId int64, baseAssetQuantity, price *big.Int) (*big.Int, error)
 	GetLongOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	GetShortOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	GetReduceOnlyAmount(trader common.Address, ammIndex *big.Int) *big.Int
@@ -43,9 +41,13 @@ type BibliophileClient interface {
 	GetImpactMarginNotional(ammAddress common.Address) *big.Int
 	GetBidsHead(market common.Address) *big.Int
 	GetAsksHead(market common.Address) *big.Int
+	GetPriceMultiplier(market common.Address) *big.Int
 	GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int)
+	GetAcceptableBoundsForLiquidation(marketId int64) (*big.Int, *big.Int)
 
 	GetAccessibleState() contract.AccessibleState
+	GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int)
+	HasReferrer(trader common.Address) bool
 }
 
 // Define a structure that will implement the Bibliophile interface
@@ -81,14 +83,6 @@ func (b *bibliophileClient) GetTakerFee() *big.Int {
 
 func (b *bibliophileClient) GetMarketAddressFromMarketID(marketID int64) common.Address {
 	return getMarketAddressFromMarketID(marketID, b.accessibleState.GetStateDB())
-}
-
-func (b *bibliophileClient) DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
-	return DetermineFillPrice(b.accessibleState.GetStateDB(), marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
-}
-
-func (b *bibliophileClient) DetermineLiquidationFillPrice(marketId int64, baseAssetQuantity, price *big.Int) (*big.Int, error) {
-	return DetermineLiquidationFillPrice(b.accessibleState.GetStateDB(), marketId, baseAssetQuantity, price)
 }
 
 func (b *bibliophileClient) GetBlockPlaced(orderHash [32]byte) *big.Int {
@@ -155,12 +149,20 @@ func (b *bibliophileClient) GetUpperAndLowerBoundForMarket(marketId int64) (*big
 	return GetAcceptableBounds(b.accessibleState.GetStateDB(), marketId)
 }
 
+func (b *bibliophileClient) GetAcceptableBoundsForLiquidation(marketId int64) (*big.Int, *big.Int) {
+	return GetAcceptableBoundsForLiquidation(b.accessibleState.GetStateDB(), marketId)
+}
+
 func (b *bibliophileClient) GetBidsHead(market common.Address) *big.Int {
 	return getBidsHead(b.accessibleState.GetStateDB(), market)
 }
 
 func (b *bibliophileClient) GetAsksHead(market common.Address) *big.Int {
 	return getAsksHead(b.accessibleState.GetStateDB(), market)
+}
+
+func (b *bibliophileClient) GetPriceMultiplier(market common.Address) *big.Int {
+	return getMultiplier(b.accessibleState.GetStateDB(), market)
 }
 
 func (b *bibliophileClient) GetLongOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int {
@@ -177,4 +179,13 @@ func (b *bibliophileClient) GetReduceOnlyAmount(trader common.Address, ammIndex 
 
 func (b *bibliophileClient) GetAvailableMargin(trader common.Address) *big.Int {
 	return GetAvailableMargin(b.accessibleState.GetStateDB(), trader)
+}
+
+func (b *bibliophileClient) GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int) {
+	output := getNotionalPositionAndMargin(b.accessibleState.GetStateDB(), &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayments, Mode: mode})
+	return output.NotionalPosition, output.Margin
+}
+
+func (b *bibliophileClient) HasReferrer(trader common.Address) bool {
+	return hasReferrer(b.accessibleState.GetStateDB(), trader)
 }

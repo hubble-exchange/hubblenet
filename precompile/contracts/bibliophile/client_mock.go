@@ -36,34 +36,19 @@ func (m *MockBibliophileClient) EXPECT() *MockBibliophileClientMockRecorder {
 	return m.recorder
 }
 
-// DetermineFillPrice mocks base method.
-func (m *MockBibliophileClient) DetermineFillPrice(marketId int64, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 *big.Int) (*ValidateOrdersAndDetermineFillPriceOutput, error) {
+// GetAcceptableBoundsForLiquidation mocks base method.
+func (m *MockBibliophileClient) GetAcceptableBoundsForLiquidation(marketId int64) (*big.Int, *big.Int) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DetermineFillPrice", marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
-	ret0, _ := ret[0].(*ValidateOrdersAndDetermineFillPriceOutput)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DetermineFillPrice indicates an expected call of DetermineFillPrice.
-func (mr *MockBibliophileClientMockRecorder) DetermineFillPrice(marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetermineFillPrice", reflect.TypeOf((*MockBibliophileClient)(nil).DetermineFillPrice), marketId, longOrderPrice, shortOrderPrice, blockPlaced0, blockPlaced1)
-}
-
-// DetermineLiquidationFillPrice mocks base method.
-func (m *MockBibliophileClient) DetermineLiquidationFillPrice(marketId int64, baseAssetQuantity, price *big.Int) (*big.Int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DetermineLiquidationFillPrice", marketId, baseAssetQuantity, price)
+	ret := m.ctrl.Call(m, "GetAcceptableBoundsForLiquidation", marketId)
 	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
+	ret1, _ := ret[1].(*big.Int)
 	return ret0, ret1
 }
 
-// DetermineLiquidationFillPrice indicates an expected call of DetermineLiquidationFillPrice.
-func (mr *MockBibliophileClientMockRecorder) DetermineLiquidationFillPrice(marketId, baseAssetQuantity, price interface{}) *gomock.Call {
+// GetAcceptableBoundsForLiquidation indicates an expected call of GetAcceptableBoundsForLiquidation.
+func (mr *MockBibliophileClientMockRecorder) GetAcceptableBoundsForLiquidation(marketId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetermineLiquidationFillPrice", reflect.TypeOf((*MockBibliophileClient)(nil).DetermineLiquidationFillPrice), marketId, baseAssetQuantity, price)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAcceptableBoundsForLiquidation", reflect.TypeOf((*MockBibliophileClient)(nil).GetAcceptableBoundsForLiquidation), marketId)
 }
 
 // GetAccessibleState mocks base method.
@@ -276,6 +261,21 @@ func (mr *MockBibliophileClientMockRecorder) GetNextBidPrice(ammAddress, price i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNextBidPrice", reflect.TypeOf((*MockBibliophileClient)(nil).GetNextBidPrice), ammAddress, price)
 }
 
+// GetNotionalPositionAndMargin mocks base method.
+func (m *MockBibliophileClient) GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNotionalPositionAndMargin", trader, includeFundingPayments, mode)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(*big.Int)
+	return ret0, ret1
+}
+
+// GetNotionalPositionAndMargin indicates an expected call of GetNotionalPositionAndMargin.
+func (mr *MockBibliophileClientMockRecorder) GetNotionalPositionAndMargin(trader, includeFundingPayments, mode interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNotionalPositionAndMargin", reflect.TypeOf((*MockBibliophileClient)(nil).GetNotionalPositionAndMargin), trader, includeFundingPayments, mode)
+}
+
 // GetOrderFilledAmount mocks base method.
 func (m *MockBibliophileClient) GetOrderFilledAmount(orderHash [32]byte) *big.Int {
 	m.ctrl.T.Helper()
@@ -302,6 +302,20 @@ func (m *MockBibliophileClient) GetOrderStatus(orderHash [32]byte) int64 {
 func (mr *MockBibliophileClientMockRecorder) GetOrderStatus(orderHash interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderStatus", reflect.TypeOf((*MockBibliophileClient)(nil).GetOrderStatus), orderHash)
+}
+
+// GetPriceMultiplier mocks base method.
+func (m *MockBibliophileClient) GetPriceMultiplier(market common.Address) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPriceMultiplier", market)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetPriceMultiplier indicates an expected call of GetPriceMultiplier.
+func (mr *MockBibliophileClientMockRecorder) GetPriceMultiplier(market interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPriceMultiplier", reflect.TypeOf((*MockBibliophileClient)(nil).GetPriceMultiplier), market)
 }
 
 // GetReduceOnlyAmount mocks base method.
@@ -373,6 +387,20 @@ func (m *MockBibliophileClient) GetUpperAndLowerBoundForMarket(marketId int64) (
 func (mr *MockBibliophileClientMockRecorder) GetUpperAndLowerBoundForMarket(marketId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpperAndLowerBoundForMarket", reflect.TypeOf((*MockBibliophileClient)(nil).GetUpperAndLowerBoundForMarket), marketId)
+}
+
+// HasReferrer mocks base method.
+func (m *MockBibliophileClient) HasReferrer(trader common.Address) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasReferrer", trader)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasReferrer indicates an expected call of HasReferrer.
+func (mr *MockBibliophileClientMockRecorder) HasReferrer(trader interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasReferrer", reflect.TypeOf((*MockBibliophileClient)(nil).HasReferrer), trader)
 }
 
 // IOC_GetBlockPlaced mocks base method.
