@@ -4,26 +4,25 @@ const { BigNumber } = require("ethers")
 const gasLimit = 5e6 // subnet genesis file only allows for this much
 
 const {
+    addMargin,
     alice,
     bob,
+    cancelOrderFromLimitOrderV2,
     charlie,
-    getEventsFromOrderBookTx,
+    clearingHouse,
+    getEventsFromLimitOrderBookTx,
     getMinSizeRequirement,
     getOrderV2,
     getRandomSalt,
     getRequiredMarginForLongOrder,
     getRequiredMarginForShortOrder,
     juror,
+    marginAccount,
     multiplyPrice,
     multiplySize,
-    removeAllAvailableMargin,
     orderBook,
-    addMargin,
-    clearingHouse,
     placeOrderFromLimitOrderV2,
-    cancelOrderFromLimitOrderV2,
-    getOrderBookEvents,
-    marginAccount,
+    removeAllAvailableMargin,
     waitForOrdersToMatch,
 } = require("../utils")
 
@@ -45,7 +44,7 @@ describe("Juror tests", async function() {
             await removeAllAvailableMargin(alice)
             output = await juror.validatePlaceLimitOrder(longOrder, alice.address)
             expect(output.err).to.equal("insufficient margin")
-            expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.reserveAmount.toNumber()).to.equal(0)
             expectedAmmAddress = await clearingHouse.amms(market)
@@ -56,7 +55,7 @@ describe("Juror tests", async function() {
             await addMargin(alice, totalRequiredMargin)
             output = await juror.validatePlaceLimitOrder(longOrder, alice.address)
             expect(output.err).to.equal("")
-            expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMargin.toNumber())
             expectedAmmAddress = await clearingHouse.amms(market)
@@ -64,7 +63,7 @@ describe("Juror tests", async function() {
 
             // place the order
             output = await placeOrderFromLimitOrderV2(longOrder, alice)
-            orderStatus = await orderBook.orderStatus(expectedOrderHash)
+            orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
             expect(orderStatus.status).to.equal(1)
             expect(orderStatus.reservedMargin.toNumber()).to.equal(totalRequiredMargin.toNumber())
             expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -73,36 +72,29 @@ describe("Juror tests", async function() {
         it("should emit OrderRejected if trader tries to place same order again", async function() {
             output = await juror.validatePlaceLimitOrder(longOrder, alice.address)
             expect(output.err).to.equal("order already exists")
-            expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.reserveAmount.toNumber()).to.equal(0)
             expectedAmmAddress = await clearingHouse.amms(market)
             expect(output.res.amm).to.equal(expectedAmmAddress)
 
             output = await placeOrderFromLimitOrderV2(longOrder, alice)
-            events = await getOrderBookEvents(output.txReceipt.blockNumber)
-            var orderBookLogWithEvent
-            for(i = 0; i < events.length; i++) {
-                if(events[i].transactionHash == output.txReceipt.transactionHash) {
-                    orderBookLogWithEvent = events[i]
-                    break
-                }
-            }
-            expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-            expect(orderBookLogWithEvent.args.err).to.equal("order already exists")
-            expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-            expect(orderBookLogWithEvent.args.trader).to.equal(alice.address)
+            limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+            expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+            expect(limitOrderBookLogWithEvent.args.err).to.equal("order already exists")
+            expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+            expect(limitOrderBookLogWithEvent.args.trader).to.equal(alice.address)
         })
         it("should succeed if trader cancels order", async function() {
             output = await juror.validateCancelLimitOrder(longOrder, alice.address, false)
             expect(output.err).to.equal("")
-            expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.unfilledAmount.toString()).to.equal(longOrder.baseAssetQuantity.toString())
             expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
             await cancelOrderFromLimitOrderV2(longOrder, alice)
-            orderStatus = await orderBook.orderStatus(expectedOrderHash)
+            orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
             expect(orderStatus.status).to.equal(3)
             expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
             expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -111,24 +103,17 @@ describe("Juror tests", async function() {
         it("should fail if trader tries to cancel same order again", async function() {
             output = await juror.validateCancelLimitOrder(longOrder, alice.address, false)
             expect(output.err).to.equal("Cancelled")
-            expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.unfilledAmount.toString()).to.equal("0")
             expect(output.res.amm).to.equal("0x0000000000000000000000000000000000000000")
 
             output = await cancelOrderFromLimitOrderV2(longOrder, alice)
-            events = await getOrderBookEvents(output.txReceipt.blockNumber)
-            var orderBookLogWithEvent
-            for(i = 0; i < events.length; i++) {
-                if(events[i].transactionHash == output.txReceipt.transactionHash) {
-                    orderBookLogWithEvent = events[i]
-                    break
-                }
-            }
-            expect(orderBookLogWithEvent.event).to.equal("OrderCancelRejected")
-            expect(orderBookLogWithEvent.args.err).to.equal("Cancelled")
-            expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-            expect(orderBookLogWithEvent.args.trader).to.equal(alice.address)
+            limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+            expect(limitOrderBookLogWithEvent.event).to.equal("OrderCancelRejected")
+            expect(limitOrderBookLogWithEvent.args.err).to.equal("Cancelled")
+            expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+            expect(limitOrderBookLogWithEvent.args.trader).to.equal(alice.address)
         })
         it("should have available margin equal to amount deposited", async function() {
             margin = await marginAccount.getAvailableMargin(alice.address)
@@ -154,7 +139,7 @@ describe("Juror tests", async function() {
             await removeAllAvailableMargin(bob)
             output = await juror.validatePlaceLimitOrder(shortOrder, bob.address)
             expect(output.err).to.equal("insufficient margin")
-            expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.reserveAmount.toNumber()).to.equal(0)
             expectedAmmAddress = await clearingHouse.amms(market)
@@ -168,7 +153,7 @@ describe("Juror tests", async function() {
 
             output = await juror.validatePlaceLimitOrder(shortOrder, tradingAuthority.address)
             expect(output.err).to.equal("no trading authority")
-            expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.reserveAmount.toNumber()).to.equal(0)
             expectedAmmAddress = await clearingHouse.amms(market)
@@ -180,7 +165,7 @@ describe("Juror tests", async function() {
 
             output = await juror.validatePlaceLimitOrder(shortOrder, tradingAuthority.address)
             expect(output.err).to.equal("")
-            expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMargin.toNumber())
             expectedAmmAddress = await clearingHouse.amms(market)
@@ -188,7 +173,7 @@ describe("Juror tests", async function() {
 
             // place the order
             output = await placeOrderFromLimitOrderV2(shortOrder, tradingAuthority)
-            orderStatus = await orderBook.orderStatus(expectedOrderHash)
+            orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
             expect(orderStatus.status).to.equal(1)
             expect(orderStatus.reservedMargin.toNumber()).to.equal(totalRequiredMargin.toNumber())
             expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -197,36 +182,29 @@ describe("Juror tests", async function() {
         it("should emit OrderRejected if trading authority tries to place same order again", async function() {
             output = await juror.validatePlaceLimitOrder(shortOrder, tradingAuthority.address)
             expect(output.err).to.equal("order already exists")
-            expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.reserveAmount.toNumber()).to.equal(0)
             expectedAmmAddress = await clearingHouse.amms(market)
             expect(output.res.amm).to.equal(expectedAmmAddress)
 
             output = await placeOrderFromLimitOrderV2(shortOrder, tradingAuthority)
-            events = await getOrderBookEvents(output.txReceipt.blockNumber)
-            var orderBookLogWithEvent
-            for(i = 0; i < events.length; i++) {
-                if(events[i].transactionHash == output.txReceipt.transactionHash) {
-                    orderBookLogWithEvent = events[i]
-                    break
-                }
-            }
-            expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-            expect(orderBookLogWithEvent.args.err).to.equal("order already exists")
-            expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-            expect(orderBookLogWithEvent.args.trader).to.equal(shortOrder.trader)
+            limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+            expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+            expect(limitOrderBookLogWithEvent.args.err).to.equal("order already exists")
+            expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+            expect(limitOrderBookLogWithEvent.args.trader).to.equal(shortOrder.trader)
         })
         it("should succeed if trading authority cancels order", async function() {
             output = await juror.validateCancelLimitOrder(shortOrder, tradingAuthority.address, false)
             expect(output.err).to.equal("")
-            expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.unfilledAmount.toString()).to.equal(shortOrder.baseAssetQuantity.toString())
             expect(output.res.amm).to.equal(await clearingHouse.amms(market))
             
             await cancelOrderFromLimitOrderV2(shortOrder, tradingAuthority)
-            orderStatus = await orderBook.orderStatus(expectedOrderHash)
+            orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
             expect(orderStatus.status).to.equal(3)
             expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
             expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -235,24 +213,17 @@ describe("Juror tests", async function() {
         it("should fail if trading authority tries to cancel same order again", async function() {
             output = await juror.validateCancelLimitOrder(shortOrder, tradingAuthority.address, false)
             expect(output.err).to.equal("Cancelled")
-            expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+            expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
             expect(output.orderHash).to.equal(expectedOrderHash)
             expect(output.res.unfilledAmount.toString()).to.equal("0")
             expect(output.res.amm).to.equal("0x0000000000000000000000000000000000000000")
 
             output = await cancelOrderFromLimitOrderV2(shortOrder, tradingAuthority)
-            events = await getOrderBookEvents(output.txReceipt.blockNumber)
-            var orderBookLogWithEvent
-            for(i = 0; i < events.length; i++) {
-                if(events[i].transactionHash == output.txReceipt.transactionHash) {
-                    orderBookLogWithEvent = events[i]
-                    break
-                }
-            }
-            expect(orderBookLogWithEvent.event).to.equal("OrderCancelRejected")
-            expect(orderBookLogWithEvent.args.err).to.equal("Cancelled")
-            expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-            expect(orderBookLogWithEvent.args.trader).to.equal(shortOrder.trader)
+            limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+            expect(limitOrderBookLogWithEvent.event).to.equal("OrderCancelRejected")
+            expect(limitOrderBookLogWithEvent.args.err).to.equal("Cancelled")
+            expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+            expect(limitOrderBookLogWithEvent.args.trader).to.equal(shortOrder.trader)
         })
         it("should have available margin equal to amount deposited", async function() {
             margin = await marginAccount.getAvailableMargin(bob.address)
@@ -296,7 +267,7 @@ describe("Juror tests", async function() {
                 totalRequiredMargin = await getRequiredMarginForLongOrder(longOrder)
                 output = await juror.validatePlaceLimitOrder(longOrder, marketMaker.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMargin.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -304,7 +275,7 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(longOrder, marketMaker)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(totalRequiredMargin.toNumber())
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -314,7 +285,7 @@ describe("Juror tests", async function() {
                 totalRequiredMargin = await getRequiredMarginForShortOrder(shortOrder)
                 output = await juror.validatePlaceLimitOrder(shortOrder, marketMaker.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMargin.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -322,7 +293,7 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(shortOrder, marketMaker)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(totalRequiredMargin.toNumber())
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -333,37 +304,35 @@ describe("Juror tests", async function() {
             it("should emit OrderRejected if market maker tries to place same longOrder again", async function() {
                 output = await juror.validatePlaceLimitOrder(longOrder, marketMaker.address)
                 expect(output.err).to.equal("order already exists")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
                 expect(output.res.amm).to.equal(expectedAmmAddress)
 
                 output = await placeOrderFromLimitOrderV2(longOrder, marketMaker)
-                events = await getOrderBookEvents(output.txReceipt.blockNumber)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("order already exists")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(longOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("order already exists")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(longOrder.trader)
             })
 
             it("should emit OrderRejected if market maker tries to place same shortOrder again", async function() {
                 output = await juror.validatePlaceLimitOrder(shortOrder, marketMaker.address)
                 expect(output.err).to.equal("order already exists")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
                 expect(output.res.amm).to.equal(expectedAmmAddress)
 
                 output = await placeOrderFromLimitOrderV2(shortOrder, marketMaker)
-                events = await getOrderBookEvents(output.txReceipt.blockNumber)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("order already exists")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(shortOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("order already exists")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(shortOrder.trader)
             })
         })
         context("when postonly order have potential matches in orderbook", async function() {
@@ -375,7 +344,7 @@ describe("Juror tests", async function() {
                 longOrder2 = getOrderV2(market, marketMaker.address, longOrderBaseAssetQuantity, samePrice, getRandomSalt(), false, true)
                 output = await juror.validatePlaceLimitOrder(longOrder2, marketMaker.address)
                 expect(output.err).to.equal("crossing market")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder2)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 totalRequiredMarginForLongOrder2 = await getRequiredMarginForLongOrder(longOrder2)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMarginForLongOrder2.toNumber())
@@ -384,17 +353,17 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(longOrder2, marketMaker)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("crossing market")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(longOrder2.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("crossing market")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(longOrder2.trader)
 
                 higherPrice = shortOrderPrice.add(1)
                 longOrder3 = getOrderV2(market, marketMaker.address, longOrderBaseAssetQuantity, higherPrice, getRandomSalt(), false, true)
                 output = await juror.validatePlaceLimitOrder(longOrder3, marketMaker.address)
                 expect(output.err).to.equal("crossing market")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder3)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder3)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 totalRequiredMarginForLongOrder3 = await getRequiredMarginForLongOrder(longOrder3)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMarginForLongOrder3.toNumber())
@@ -403,18 +372,18 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(longOrder3, marketMaker)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("crossing market")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(longOrder3.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("crossing market")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(longOrder3.trader)
             })
             it("should fail if market maker tries to place a postonly shortOrder2 with lower or same price as longOrder", async function() {
                 samePrice = longOrder.price
                 shortOrder2 = getOrderV2(market, marketMaker.address, shortOrderBaseAssetQuantity, samePrice, getRandomSalt(), false, true)
                 output = await juror.validatePlaceLimitOrder(shortOrder2, marketMaker.address)
                 expect(output.err).to.equal("crossing market")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder2)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 totalRequiredMarginForShortOrder2 = await getRequiredMarginForShortOrder(shortOrder2)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMarginForShortOrder2.toNumber())
@@ -423,18 +392,18 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(shortOrder2, marketMaker)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("crossing market")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(shortOrder2.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("crossing market")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(shortOrder2.trader)
 
 
                 lowerPrice = longOrderPrice.sub(1)
                 shortOrder3 = getOrderV2(market, marketMaker.address, shortOrderBaseAssetQuantity, lowerPrice, getRandomSalt(), false, true)
                 output = await juror.validatePlaceLimitOrder(shortOrder3, marketMaker.address)
                 expect(output.err).to.equal("crossing market")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder3)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder3)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 totalRequiredMarginForShortOrder3 = await getRequiredMarginForShortOrder(shortOrder3)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMarginForShortOrder3.toNumber())
@@ -442,11 +411,11 @@ describe("Juror tests", async function() {
                 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(shortOrder3, marketMaker)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("crossing market")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(shortOrder3.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("crossing market")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(shortOrder3.trader)
             })
         })
         context("when postonly order does not have potential matches in orderbook", async function() {
@@ -456,7 +425,7 @@ describe("Juror tests", async function() {
                 totalRequiredMargin = await getRequiredMarginForLongOrder(longOrder4)
                 output = await juror.validatePlaceLimitOrder(longOrder4, marketMaker.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder4)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder4)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMargin.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -464,7 +433,7 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(longOrder4, marketMaker)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(totalRequiredMargin.toNumber())
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -476,14 +445,14 @@ describe("Juror tests", async function() {
                 totalRequiredMargin = await getRequiredMarginForShortOrder(shortOrder4)
                 output = await juror.validatePlaceLimitOrder(shortOrder4, marketMaker.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder4)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder4)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(totalRequiredMargin.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(shortOrder4, marketMaker)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(totalRequiredMargin.toNumber())
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -496,13 +465,13 @@ describe("Juror tests", async function() {
                 // cancel longOrder
                 output = await juror.validateCancelLimitOrder(longOrder, marketMaker.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(longOrder.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
                 
                 await cancelOrderFromLimitOrderV2(longOrder, marketMaker)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -511,13 +480,13 @@ describe("Juror tests", async function() {
                 // cancel longOrder4
                 output = await juror.validateCancelLimitOrder(longOrder4, marketMaker.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder4)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder4)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(longOrder4.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
                 await cancelOrderFromLimitOrderV2(longOrder4, marketMaker)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -527,13 +496,13 @@ describe("Juror tests", async function() {
                 // cancel shortOrder
                 output = await juror.validateCancelLimitOrder(shortOrder, marketMaker.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(shortOrder.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
                 await cancelOrderFromLimitOrderV2(shortOrder, marketMaker)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -542,13 +511,13 @@ describe("Juror tests", async function() {
                 // cancel shortOrder4
                 output = await juror.validateCancelLimitOrder(shortOrder4, marketMaker.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder4)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder4)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(shortOrder4.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
                 await cancelOrderFromLimitOrderV2(shortOrder4, marketMaker)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -560,7 +529,7 @@ describe("Juror tests", async function() {
                 // cancel longOrder
                 output = await juror.validateCancelLimitOrder(longOrder, marketMaker.address, false)
                 expect(output.err).to.equal("Cancelled")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal("0")
                 expect(output.res.amm).to.equal("0x0000000000000000000000000000000000000000")
@@ -568,7 +537,7 @@ describe("Juror tests", async function() {
                 // cancel longOrder4
                 output = await juror.validateCancelLimitOrder(longOrder4, marketMaker.address, false)
                 expect(output.err).to.equal("Cancelled")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder4)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder4)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal("0")
                 expect(output.res.amm).to.equal("0x0000000000000000000000000000000000000000")
@@ -577,14 +546,14 @@ describe("Juror tests", async function() {
                 // cancel shortOrder
                 output = await juror.validateCancelLimitOrder(shortOrder, marketMaker.address, false)
                 expect(output.err).to.equal("Cancelled")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal("0")
 
                 // cancel shortOrder4
                 output = await juror.validateCancelLimitOrder(shortOrder4, marketMaker.address, false)
                 expect(output.err).to.equal("Cancelled")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder4)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder4)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal("0")
             })
@@ -630,49 +599,47 @@ describe("Juror tests", async function() {
             it("should fail if alice tries to place longOrder again", async function() {
                 output = await juror.validatePlaceLimitOrder(longOrder, alice.address)
                 expect(output.err).to.equal("order already exists")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
                 expect(output.res.amm).to.equal(expectedAmmAddress)
 
                 output = await placeOrderFromLimitOrderV2(longOrder, alice)
-                events = await getOrderBookEvents(output.txReceipt.blockNumber)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("order already exists")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(longOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("order already exists")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(longOrder.trader)
             })
             it('should fail if bob tries to place shortOrder again', async function() {
                 output = await juror.validatePlaceLimitOrder(shortOrder, bob.address)
                 expect(output.err).to.equal("order already exists")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
                 expect(output.res.amm).to.equal(expectedAmmAddress)
 
                 output = await placeOrderFromLimitOrderV2(shortOrder, bob)
-                events = await getOrderBookEvents(output.txReceipt.blockNumber)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("order already exists")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(shortOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("order already exists")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(shortOrder.trader)
             })
         })
         context("try to cancel longOrder and shortOrder which are already filled", async function() {
             it("should fail if alice tries to cancel longOrder", async function() {
                 output = await juror.validateCancelLimitOrder(longOrder, alice.address, false)
                 expect(output.err).to.equal("Filled")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal("0")
                 expect(output.res.amm).to.equal("0x0000000000000000000000000000000000000000")
 
                 await cancelOrderFromLimitOrderV2(longOrder, alice)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(2)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -681,13 +648,13 @@ describe("Juror tests", async function() {
             it("should fail if bob tries to cancel shortOrder", async function() {
                 output = await juror.validateCancelLimitOrder(shortOrder, bob.address, false)
                 expect(output.err).to.equal("Filled")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal("0")
                 expect(output.res.amm).to.equal("0x0000000000000000000000000000000000000000")
 
                 await cancelOrderFromLimitOrderV2(shortOrder, bob)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(2)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -697,7 +664,7 @@ describe("Juror tests", async function() {
         context("alice has long position", async function() {
             it("should fail if alice tries to place a long reduceOnly order", async function() {
                 //ensure position is created for alice
-                orderStatus = await orderBook.orderStatus(await orderBook.getOrderHashV2(longOrder))
+                orderStatus = await limitOrderBook.orderStatus(await limitOrderBook.getOrderHash(longOrder))
                 expect(orderStatus.status).to.equal(2)
                 expect(orderStatus.filledAmount.toString()).to.equal(longOrder.baseAssetQuantity.toString())
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
@@ -707,7 +674,7 @@ describe("Juror tests", async function() {
                 let reduceOnlyLongOrder = getOrderV2(market, alice.address, orderSize, longOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(reduceOnlyLongOrder, alice.address)
                 expect(output.err).to.equal("reduce only order must reduce position")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyLongOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyLongOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -715,11 +682,11 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(reduceOnlyLongOrder, alice)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("reduce only order must reduce position")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(reduceOnlyLongOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("reduce only order must reduce position")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(reduceOnlyLongOrder.trader)
             })
             it("should fail when alice has a open shortOrder and tries to place a short reduceOnly order", async function() {
                 let shortOrderBaseAssetQuantity = longOrderBaseAssetQuantity.div(2).mul(-1)
@@ -731,7 +698,7 @@ describe("Juror tests", async function() {
                 let reduceOnlyShortOrder = getOrderV2(market, alice.address, shortOrderBaseAssetQuantity, shortOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(reduceOnlyShortOrder, alice.address)
                 expect(output.err).to.equal("open orders")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyShortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyShortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -739,11 +706,11 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(reduceOnlyShortOrder, alice)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("open orders")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(reduceOnlyShortOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("open orders")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(reduceOnlyShortOrder.trader)
 
                 await cancelOrderFromLimitOrderV2(shortOrder, alice)
             })
@@ -753,7 +720,7 @@ describe("Juror tests", async function() {
                 reduceOnlyShortOrder = getOrderV2(market, alice.address, orderSize, shortOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(reduceOnlyShortOrder, alice.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyShortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyShortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -761,7 +728,7 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(reduceOnlyShortOrder, alice)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -771,7 +738,7 @@ describe("Juror tests", async function() {
                 let shortOrder2 = getOrderV2(market, alice.address, shortOrderBaseAssetQuantity, longOrderPrice, getRandomSalt(), false, false)
                 output = await juror.validatePlaceLimitOrder(shortOrder2, alice.address)
                 expect(output.err).to.equal("open reduce only orders")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder2)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -779,11 +746,11 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(shortOrder2, alice)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("open reduce only orders")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(shortOrder2.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("open reduce only orders")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(shortOrder2.trader)
             })
             it("should fail if alice tries to place a short reduceOnly order with size >  posSize - reduceOnlyShortOrder.baseAssetQuantity", async function() {
                 minSizeRequirement = await getMinSizeRequirement(market)
@@ -791,7 +758,7 @@ describe("Juror tests", async function() {
                 let shortOrder3 = getOrderV2(market, alice.address, shortOrder3Size, shortOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(shortOrder3, alice.address)
                 expect(output.err).to.equal("net reduce only amount exceeded")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrder3)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrder3)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -799,11 +766,11 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(shortOrder3, alice)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("net reduce only amount exceeded")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(shortOrder3.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("net reduce only amount exceeded")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(shortOrder3.trader)
             })
             let reduceOnlyShortOrder2
             it("should succeed if alice tries to place a short reduceOnly order with size <=  posSize - reduceOnlyShortOrder.baseAssetQuantity", async function() {
@@ -811,7 +778,7 @@ describe("Juror tests", async function() {
                 reduceOnlyShortOrder2 = getOrderV2(market, alice.address, reduceOnlyShortOrder2Size, shortOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(reduceOnlyShortOrder2, alice.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyShortOrder2)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyShortOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -819,7 +786,7 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(reduceOnlyShortOrder2, alice)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -828,13 +795,13 @@ describe("Juror tests", async function() {
             it('should succeed if alice tries to cancel reduceOnlyShortOrder2', async function() {
                 output = await juror.validateCancelLimitOrder(reduceOnlyShortOrder2, alice.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyShortOrder2)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyShortOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(reduceOnlyShortOrder2.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
                 await cancelOrderFromLimitOrderV2(reduceOnlyShortOrder2, alice)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -848,7 +815,7 @@ describe("Juror tests", async function() {
                 expectedReserveAmount = await getRequiredMarginForLongOrder(longOrderNormal)
                 output = await juror.validatePlaceLimitOrder(longOrderNormal, alice.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrderNormal)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrderNormal)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(expectedReserveAmount.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -856,7 +823,7 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(longOrderNormal, alice)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(expectedReserveAmount.toNumber())
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -868,30 +835,30 @@ describe("Juror tests", async function() {
                 shortReduceOnlyPostOnlyOrder = getOrderV2(market, alice.address, size, crossingPrice, getRandomSalt(), true, true)
                 output = await juror.validatePlaceLimitOrder(shortReduceOnlyPostOnlyOrder, alice.address)
                 expect(output.err).to.equal("crossing market")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortReduceOnlyPostOnlyOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortReduceOnlyPostOnlyOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(shortReduceOnlyPostOnlyOrder, alice)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("crossing market")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(shortReduceOnlyPostOnlyOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("crossing market")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(shortReduceOnlyPostOnlyOrder.trader)
             })
             it('should succeed if alice tries to cancel reduceOnlyShortOrder and longOrderNormal', async function() {
                 // cancel reduceOnlyShortOrder
                 output = await juror.validateCancelLimitOrder(reduceOnlyShortOrder, alice.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyShortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyShortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(reduceOnlyShortOrder.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
                 await cancelOrderFromLimitOrderV2(reduceOnlyShortOrder, alice)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -900,13 +867,13 @@ describe("Juror tests", async function() {
                 // cancel longOrderNormal
                 output = await juror.validateCancelLimitOrder(longOrderNormal, alice.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrderNormal)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrderNormal)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(longOrderNormal.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
                 await cancelOrderFromLimitOrderV2(longOrderNormal, alice)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -926,7 +893,7 @@ describe("Juror tests", async function() {
             // bob should be able to cancel all open orders for bob
             it("should fail if bob tries to place a short reduceOnly order", async function() {
                 //ensure position is created for bob
-                orderStatus = await orderBook.orderStatus(await orderBook.getOrderHashV2(shortOrder))
+                orderStatus = await limitOrderBook.orderStatus(await limitOrderBook.getOrderHash(shortOrder))
                 expect(orderStatus.status).to.equal(2)
                 expect(orderStatus.filledAmount.toString()).to.equal(shortOrder.baseAssetQuantity.toString())
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
@@ -936,7 +903,7 @@ describe("Juror tests", async function() {
                 let reduceOnlyShortOrder = getOrderV2(market, bob.address, orderSize, shortOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(reduceOnlyShortOrder, bob.address)
                 expect(output.err).to.equal("reduce only order must reduce position")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyShortOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyShortOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -944,11 +911,11 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(reduceOnlyShortOrder, bob)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("reduce only order must reduce position")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(reduceOnlyShortOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("reduce only order must reduce position")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(reduceOnlyShortOrder.trader)
             })
             it("should fail when bob has a open longOrder and tries to place a long reduceOnly order", async function() {
                 let longOrderSize = shortOrderBaseAssetQuantity.div(2).mul(-1)
@@ -960,7 +927,7 @@ describe("Juror tests", async function() {
                 let reduceOnlyLongOrder = getOrderV2(market, bob.address, longOrderBaseAssetQuantity, longOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(reduceOnlyLongOrder, bob.address)
                 expect(output.err).to.equal("open orders")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyLongOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyLongOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -968,11 +935,11 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(reduceOnlyLongOrder, bob)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("open orders")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(reduceOnlyLongOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("open orders")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(reduceOnlyLongOrder.trader)
 
                 await cancelOrderFromLimitOrderV2(longOrder, bob)
             })
@@ -982,7 +949,7 @@ describe("Juror tests", async function() {
                 reduceOnlyLongOrder = getOrderV2(market, bob.address, orderSize, longOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(reduceOnlyLongOrder, bob.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyLongOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyLongOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -990,7 +957,7 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(reduceOnlyLongOrder, bob)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -1000,7 +967,7 @@ describe("Juror tests", async function() {
                 let longOrder2 = getOrderV2(market, bob.address, longOrderBaseAssetQuantity, shortOrderPrice, getRandomSalt(), false, false)
                 output = await juror.validatePlaceLimitOrder(longOrder2, bob.address)
                 expect(output.err).to.equal("open reduce only orders")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder2)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -1008,11 +975,11 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(longOrder2, bob)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("open reduce only orders")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(longOrder2.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("open reduce only orders")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(longOrder2.trader)
             })
             it('should fail if bob tries to place a long reduceOnly order with size >  posSize - reduceOnlyLongOrder.baseAssetQuantity', async function() {
                 minSizeRequirement = await getMinSizeRequirement(market)
@@ -1020,7 +987,7 @@ describe("Juror tests", async function() {
                 let longOrder3 = getOrderV2(market, bob.address, longOrder3Size, longOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(longOrder3, bob.address)
                 expect(output.err).to.equal("net reduce only amount exceeded")
-                expectedOrderHash = await orderBook.getOrderHashV2(longOrder3)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longOrder3)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -1028,11 +995,11 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(longOrder3, bob)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("net reduce only amount exceeded")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(longOrder3.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("net reduce only amount exceeded")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(longOrder3.trader)
             })
             let reduceOnlyLongOrder2
             it('should succeed if bob tries to place a long reduceOnly order with size <=  posSize - reduceOnlyLongOrder.baseAssetQuantity', async function() {
@@ -1040,7 +1007,7 @@ describe("Juror tests", async function() {
                 reduceOnlyLongOrder2 = getOrderV2(market, bob.address, reduceOnlyLongOrder2Size, longOrderPrice, getRandomSalt(), true, false)
                 output = await juror.validatePlaceLimitOrder(reduceOnlyLongOrder2, bob.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyLongOrder2)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyLongOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -1048,7 +1015,7 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(reduceOnlyLongOrder2, bob)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -1057,13 +1024,13 @@ describe("Juror tests", async function() {
             it('should succeed if bob tries to cancel reduceOnlyShortOrder2', async function() {
                 output = await juror.validateCancelLimitOrder(reduceOnlyLongOrder2, bob.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyLongOrder2)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyLongOrder2)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(reduceOnlyLongOrder2.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
                 await cancelOrderFromLimitOrderV2(reduceOnlyLongOrder2, bob)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -1077,7 +1044,7 @@ describe("Juror tests", async function() {
                 expectedReserveAmount = await getRequiredMarginForShortOrder(shortOrderNormal)
                 output = await juror.validatePlaceLimitOrder(shortOrderNormal, bob.address)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrderNormal)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrderNormal)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(expectedReserveAmount.toNumber())
                 expectedAmmAddress = await clearingHouse.amms(market)
@@ -1085,7 +1052,7 @@ describe("Juror tests", async function() {
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(shortOrderNormal, bob)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(1)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(expectedReserveAmount.toNumber())
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(output.txReceipt.blockNumber)
@@ -1097,31 +1064,31 @@ describe("Juror tests", async function() {
                 longReduceOnlyPostOnlyOrder = getOrderV2(market, bob.address, size, crossingPrice, getRandomSalt(), true, true)
                 output = await juror.validatePlaceLimitOrder(longReduceOnlyPostOnlyOrder, bob.address)
                 expect(output.err).to.equal("crossing market")
-                expectedOrderHash = await orderBook.getOrderHashV2(longReduceOnlyPostOnlyOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(longReduceOnlyPostOnlyOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.reserveAmount.toNumber()).to.equal(0)
                 expectedAmmAddress = await clearingHouse.amms(market)
 
                 // place the order
                 output = await placeOrderFromLimitOrderV2(longReduceOnlyPostOnlyOrder, bob)
-                orderBookLogWithEvent = (await getEventsFromOrderBookTx(output.txReceipt.transactionHash))[0]
-                expect(orderBookLogWithEvent.event).to.equal("OrderRejected")
-                expect(orderBookLogWithEvent.args.err).to.equal("crossing market")
-                expect(orderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
-                expect(orderBookLogWithEvent.args.trader).to.equal(longReduceOnlyPostOnlyOrder.trader)
+                limitOrderBookLogWithEvent = (await getEventsFromLimitOrderBookTx(output.txReceipt.transactionHash))[0]
+                expect(limitOrderBookLogWithEvent.event).to.equal("OrderRejected")
+                expect(limitOrderBookLogWithEvent.args.err).to.equal("crossing market")
+                expect(limitOrderBookLogWithEvent.args.orderHash).to.equal(expectedOrderHash)
+                expect(limitOrderBookLogWithEvent.args.trader).to.equal(longReduceOnlyPostOnlyOrder.trader)
             })
 
             it('should succeed if bob tries to cancel reduceOnlyLongOrder and shortOrderNormal', async function() {
                 // cancel reduceOnlyLongOrder
                 output = await juror.validateCancelLimitOrder(reduceOnlyLongOrder, bob.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(reduceOnlyLongOrder)
+                expectedOrderHash = await limitOrderBook.getOrderHash(reduceOnlyLongOrder)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(reduceOnlyLongOrder.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
                 await cancelOrderFromLimitOrderV2(reduceOnlyLongOrder, bob)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
@@ -1130,13 +1097,13 @@ describe("Juror tests", async function() {
                 // cancel shortOrderNormal
                 output = await juror.validateCancelLimitOrder(shortOrderNormal, bob.address, false)
                 expect(output.err).to.equal("")
-                expectedOrderHash = await orderBook.getOrderHashV2(shortOrderNormal)
+                expectedOrderHash = await limitOrderBook.getOrderHash(shortOrderNormal)
                 expect(output.orderHash).to.equal(expectedOrderHash)
                 expect(output.res.unfilledAmount.toString()).to.equal(shortOrderNormal.baseAssetQuantity.toString())
                 expect(output.res.amm).to.equal(await clearingHouse.amms(market))
 
                 await cancelOrderFromLimitOrderV2(shortOrderNormal, bob)
-                orderStatus = await orderBook.orderStatus(expectedOrderHash)
+                orderStatus = await limitOrderBook.orderStatus(expectedOrderHash)
                 expect(orderStatus.status).to.equal(3)
                 expect(orderStatus.reservedMargin.toNumber()).to.equal(0)
                 expect(orderStatus.blockPlaced.toNumber()).to.equal(0)
