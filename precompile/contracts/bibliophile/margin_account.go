@@ -14,8 +14,8 @@ const (
 	MARGIN_ACCOUNT_GENESIS_ADDRESS       = "0x0300000000000000000000000000000000000001"
 	ORACLE_SLOT                    int64 = 4
 	SUPPORTED_COLLATERAL_SLOT      int64 = 8
-	VAR_MARGIN_MAPPING_SLOT        int64 = 10
-	VAR_RESERVED_MARGIN_SLOT       int64 = 11
+	MARGIN_MAPPING_SLOT            int64 = 10
+	RESERVED_MARGIN_SLOT           int64 = 11
 )
 
 func GetNormalizedMargin(stateDB contract.StateDB, trader common.Address) *big.Int {
@@ -34,13 +34,13 @@ func getMargins(stateDB contract.StateDB, trader common.Address) []*big.Int {
 }
 
 func getMargin(stateDB contract.StateDB, idx *big.Int, trader common.Address) *big.Int {
-	marginStorageSlot := crypto.Keccak256(append(common.LeftPadBytes(idx.Bytes(), 32), common.LeftPadBytes(big.NewInt(VAR_MARGIN_MAPPING_SLOT).Bytes(), 32)...))
+	marginStorageSlot := crypto.Keccak256(append(common.LeftPadBytes(idx.Bytes(), 32), common.LeftPadBytes(big.NewInt(MARGIN_MAPPING_SLOT).Bytes(), 32)...))
 	marginStorageSlot = crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), marginStorageSlot...))
 	return fromTwosComplement(stateDB.GetState(common.HexToAddress(MARGIN_ACCOUNT_GENESIS_ADDRESS), common.BytesToHash(marginStorageSlot)).Bytes())
 }
 
 func getReservedMargin(stateDB contract.StateDB, trader common.Address) *big.Int {
-	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(VAR_RESERVED_MARGIN_SLOT).Bytes(), 32)...))
+	baseMappingHash := crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(RESERVED_MARGIN_SLOT).Bytes(), 32)...))
 	return stateDB.GetState(common.HexToAddress(MARGIN_ACCOUNT_GENESIS_ADDRESS), common.BytesToHash(baseMappingHash)).Big()
 }
 
