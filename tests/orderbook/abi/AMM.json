@@ -112,7 +112,7 @@
     },
     {
       "inputs": [],
-      "name": "fundingBufferPeriod",
+      "name": "fundingPeriod",
       "outputs": [
         {
           "internalType": "uint256",
@@ -125,11 +125,34 @@
     },
     {
       "inputs": [],
-      "name": "fundingPeriod",
+      "name": "getAcceptableBounds",
       "outputs": [
         {
           "internalType": "uint256",
-          "name": "",
+          "name": "upperBound",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lowerBound",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getAcceptableBoundsForLiquidation",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "upperBound",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lowerBound",
           "type": "uint256"
         }
       ],
@@ -315,25 +338,6 @@
       "type": "function"
     },
     {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "intervalInSeconds",
-          "type": "uint256"
-        }
-      ],
-      "name": "getUnderlyingTwapPrice",
-      "outputs": [
-        {
-          "internalType": "int256",
-          "name": "",
-          "type": "int256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [],
       "name": "governance",
       "outputs": [
@@ -385,16 +389,19 @@
           "internalType": "address",
           "name": "_governance",
           "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_pricePrecision",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_ticks",
+          "type": "address"
         }
       ],
       "name": "initialize",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "initializev2",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -407,19 +414,6 @@
           "internalType": "int256",
           "name": "",
           "type": "int256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "juror",
-      "outputs": [
-        {
-          "internalType": "contract IJuror",
-          "name": "",
-          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -510,34 +504,6 @@
     },
     {
       "inputs": [],
-      "name": "markPriceTwapData",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "lastPrice",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "lastTimestamp",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "accumulator",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "lastPeriodAccumulator",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
       "name": "maxFundingRate",
       "outputs": [
         {
@@ -591,6 +557,19 @@
     {
       "inputs": [],
       "name": "minSizeRequirement",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "multiplier",
       "outputs": [
         {
           "internalType": "uint256",
@@ -700,19 +679,6 @@
       "outputs": [
         {
           "internalType": "contract IOracle",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "orderBook",
-      "outputs": [
-        {
-          "internalType": "address",
           "name": "",
           "type": "address"
         }
@@ -834,19 +800,9 @@
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
-          "name": "_fundingBufferPeriod",
-          "type": "uint256"
-        },
-        {
           "internalType": "int256",
           "name": "_maxFundingRate",
           "type": "int256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_spotPriceTwapInterval",
-          "type": "uint256"
         }
       ],
       "name": "setFundingParams",
@@ -889,19 +845,6 @@
         }
       ],
       "name": "setInterestRate",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_juror",
-          "type": "address"
-        }
-      ],
-      "name": "setJuror",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -958,12 +901,12 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "_orderBook",
-          "type": "address"
+          "internalType": "uint256",
+          "name": "_pricePrecision",
+          "type": "uint256"
         }
       ],
-      "name": "setOrderBook",
+      "name": "setPricePrecision",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -995,6 +938,19 @@
         }
       ],
       "name": "setRedStoneAdapterAddress",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_ticks",
+          "type": "address"
+        }
+      ],
+      "name": "setTicks",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1078,19 +1034,6 @@
     },
     {
       "inputs": [],
-      "name": "spotPriceTwapInterval",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
       "name": "startFunding",
       "outputs": [
         {
@@ -1099,6 +1042,32 @@
           "type": "uint256"
         }
       ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ticks",
+      "outputs": [
+        {
+          "internalType": "contract ITicks",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_orderBook",
+          "type": "address"
+        }
+      ],
+      "name": "toggleWhitelistedOrderBook",
+      "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
     },
@@ -1142,6 +1111,25 @@
         }
       ],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "whitelistedOrderBooks",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     }
 ]
