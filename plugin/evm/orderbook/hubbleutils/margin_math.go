@@ -56,7 +56,7 @@ func WeightedAndSpotCollateral(assets []Collateral, margins []*big.Int) (weighte
 	weighted = big.NewInt(0)
 	spot = big.NewInt(0)
 	for i, asset := range assets {
-		if margins[i].Sign() == 0 {
+		if margins[i] == nil || margins[i].Sign() == 0 {
 			continue
 		}
 		numerator := Mul(margins[i], asset.Price) // margin[i] is scaled by asset.Decimal
@@ -73,7 +73,7 @@ func GetAvailableMargin(positions map[Market]*Position, margins []*big.Int, pend
 
 func GetAvailableMargin_(notionalPosition, margin, reservedMargin, minAllowableMargin *big.Int) *big.Int {
 	utilisedMargin := Div1e6(Mul(notionalPosition, minAllowableMargin))
-	return Sub(margin, Add(utilisedMargin, reservedMargin))
+	return Sub(Sub(margin, utilisedMargin), reservedMargin)
 }
 
 type MarginMode = uint8
@@ -133,7 +133,7 @@ func GetOptimalPnl(market Market, oraclePrice *big.Int, lastPrice *big.Int, posi
 
 func GetPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, margin *big.Int) (notionalPosition *big.Int, unrealisedPnl *big.Int, marginFraction *big.Int) {
 	// log.Info("in GetPositionMetadata", "price", price, "openNotional", openNotional, "size", size, "margin", margin)
-	notionalPosition = getNotionalPosition(price, size)
+	notionalPosition = GetNotionalPosition(price, size)
 	uPnL := new(big.Int)
 	if notionalPosition.Cmp(big.NewInt(0)) == 0 {
 		return big.NewInt(0), big.NewInt(0), big.NewInt(0)
@@ -147,6 +147,6 @@ func GetPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, m
 	return notionalPosition, uPnL, mf
 }
 
-func getNotionalPosition(price *big.Int, size *big.Int) *big.Int {
+func GetNotionalPosition(price *big.Int, size *big.Int) *big.Int {
 	return big.NewInt(0).Abs(Div1e18(Mul(size, price)))
 }
