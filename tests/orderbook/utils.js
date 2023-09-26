@@ -28,6 +28,7 @@ clearingHouse = new ethers.Contract(ClearingHouseContractAddress, require('./abi
 marginAccount = new ethers.Contract(MarginAccountContractAddress, require('./abi/MarginAccount.json'), provider);
 ioc = new ethers.Contract(IOCContractAddress, require('./abi/IOC.json'), provider);
 juror = new ethers.Contract(JurorPrecompileAddress, require('./abi/Juror.json'), provider);
+ticks = new ethers.Contract(TicksPrecompileAddress, require('./abi/Ticks.json'), provider);
 
 orderType = {
     Order: [
@@ -397,6 +398,7 @@ module.exports = {
     removeAllAvailableMargin,
     removeMargin,
     sleep,
+    ticks,
     url,
     waitForOrdersToMatch,
 }
