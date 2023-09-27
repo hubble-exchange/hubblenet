@@ -18,10 +18,12 @@ const {
     getAMMContract,
     getIOCOrder,
     getOrderV2,
+    getRandomSalt,
     getRequiredMarginForLongOrder,
     getRequiredMarginForShortOrder,
     governance,
     ioc,
+    limitOrderBook,
     multiplyPrice,
     multiplySize,
     orderBook,
@@ -125,12 +127,12 @@ describe('Testing variables read from slots by precompile', function () {
         })
     })
 
-    context.only("AMM contract variables", function () {
+    context("AMM contract variables", function () {
         // vars read from slot
         // positions, cumulativePremiumFraction, maxOracleSpreadRatio, maxLiquidationRatio, minSizeRequirement, oracle, underlyingAsset, 
         // maxLiquidationPriceSpread, redStoneAdapter, redStoneFeedId, impactMarginNotional, lastTradePrice, bids, asks, bidsHead, asksHead
         let ammIndex = 0
-        it.skip("should read the correct value of variables from contracts which have default value after setup", async function () {
+        it("should read the correct value of variables from contracts which have default value after setup", async function () {
             // maxOracleSpreadRatio, maxLiquidationRatio, minSizeRequirement, oracle, underlyingAsset, maxLiquidationPriceSpread
             amms = await clearingHouse.getAMMs()
             ammAddress = amms[ammIndex]
@@ -154,7 +156,7 @@ describe('Testing variables read from slots by precompile', function () {
             expect(result.underlying_asset_address.toLowerCase()).to.equal(actualUnderlyingAssetAddress.toString().toLowerCase())
             expect(result.max_liquidation_price_spread).to.equal(actualMaxLiquidationPriceSpread.toNumber())
         })
-        context.only("should read the correct value of variables from contracts which dont have default value after setup", async function () {
+        context("should read the correct value of variables from contracts which dont have default value after setup", async function () {
             // positions, cumulativePremiumFraction, redStoneAdapter, redStoneFeedId, impactMarginNotional, lastTradePrice, bids, asks, bidsHead, asksHead
             it("variables which need set config before reading", async function () {
                 // redStoneAdapter, redStoneFeedId, impactMarginNotional
@@ -227,7 +229,7 @@ describe('Testing variables read from slots by precompile', function () {
                 expect(String(result.bids_head_size)).to.equal(longOrderBaseAssetQuantity.toString())
                 expect(String(result.asks_head_size)).to.equal(shortOrderBaseAssetQuantity.abs().toString())
             })
-            it.only("variable which need position before reading", async function () {
+            it("variable which need position before reading", async function () {
                 longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
                 shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
                 orderPrice = multiplyPrice(1800)
@@ -262,93 +264,186 @@ describe('Testing variables read from slots by precompile', function () {
                 expect(String(resultAlice.position.size)).to.equal(longOrderBaseAssetQuantity.toString())
                 expect(String(resultAlice.position.open_notional)).to.equal(longOrderBaseAssetQuantity.mul(orderPrice).div(_1e18).toString())
                 expect(String(resultBob.position.size)).to.equal(shortOrderBaseAssetQuantity.toString())
-                expect(String(resultBob.position.open_notional)).to.equal(shortOrderBaseAssetQuantity.mul(orderPrice).div(_1e18).toString())
+                expect(String(resultBob.position.open_notional)).to.equal(shortOrderBaseAssetQuantity.mul(orderPrice).abs().div(_1e18).toString())
                 expect(result.last_price).to.equal(orderPrice.toNumber())
             })
         })
     })
 
     context("IOC order contract variables", function () {
-        it("should read the correct value from contracts", async function () {
-            let charlieBalance = _1e6.mul(150)
-            await addMargin(charlie, charlieBalance)
+        let method ="testing_getIOCOrdersVars"
+        let longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
+        let shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
+        let orderPrice = multiplyPrice(1800)
+        let market = BigNumber.from(0)
 
-            longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
-            orderPrice = multiplyPrice(1800)
-            salt = BigNumber.from(Date.now())
-            market = BigNumber.from(0)
 
-            latestBlockNumber = await provider.getBlockNumber()
-            lastTimestamp = (await provider.getBlock(latestBlockNumber)).timestamp
-            expireAt = lastTimestamp + 6
-            IOCOrder = getIOCOrder(expireAt, market, charlie.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
-            orderHash = await ioc.getOrderHash(IOCOrder)
-            params = [ orderHash ]
-            method ="testing_getIOCOrdersVars"
+        context("variable which have default value after setup", async function () {
+            //ioc expiration cap
+            it("should read the correct value from contracts", async function () {
+                params = [ "0xe97a0702264091714ea19b481c1fd12d9686cb4602efbfbec41ec5ea5410da84"]
+                
+                result = (await makehttpCall(method, params)).body.result
+                actualExpirationCap = await ioc.expirationCap()
+                expect(result.ioc_expiration_cap).to.eq(actualExpirationCap.toNumber())
+            })
+        })
+        context("variable which need place order before reading", async function () {
+            //blockPlaced, filledAmount, orderStatus
+            context("for a long IOC order", async function () {
+                it("returns correct value when order is not placed", async function () {
+                    latestBlockNumber = await provider.getBlockNumber()
+                    lastTimestamp = (await provider.getBlock(latestBlockNumber)).timestamp
+                    expireAt = lastTimestamp + 6
+                    longIOCOrder = getIOCOrder(expireAt, market, charlie.address, longOrderBaseAssetQuantity, orderPrice, getRandomSalt(), false)
+                    orderHash = await ioc.getOrderHash(longIOCOrder)
+                    params = [ orderHash ]
+                    result = (await makehttpCall(method, params)).body.result
+                    expect(result.order_details.block_placed).to.eq(0)
+                    expect(result.order_details.filled_amount).to.eq(0)
+                    expect(result.order_details.order_status).to.eq(0)
+                })
+                it("returns correct value when order is placed", async function () {
+                    let charlieBalance = _1e6.mul(150)
+                    await addMargin(charlie, charlieBalance)
 
-            // before placing order
-            result = (await makehttpCall(method, params)).body.result
+                    //placing order
+                    latestBlockNumber = await provider.getBlockNumber()
+                    lastTimestamp = (await provider.getBlock(latestBlockNumber)).timestamp
+                    expireAt = lastTimestamp + 6
+                    longIOCOrder = getIOCOrder(expireAt, market, charlie.address, longOrderBaseAssetQuantity, orderPrice, getRandomSalt(), false)
+                    orderHash = await ioc.getOrderHash(longIOCOrder)
+                    params = [ orderHash ]
+                    txDetails = await placeIOCOrder(longIOCOrder, charlie) 
+                    result = (await makehttpCall(method, params)).body.result
 
-            actualExpirationCap = await ioc.expirationCap()
-            expectedExpirationCap = result.ioc_expiration_cap
+                    //cleanup
+                    await removeAllAvailableMargin(charlie)
 
-            expect(expectedExpirationCap).to.equal(actualExpirationCap.toNumber())
-            expect(result.order_details.block_placed).to.eq(0)
-            expect(result.order_details.filled_amount).to.eq(0)
-            expect(result.order_details.order_status).to.eq(0)
+                    actualBlockPlaced = txDetails.txReceipt.blockNumber
+                    expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
+                    expect(result.order_details.filled_amount).to.eq(0)
+                    expect(result.order_details.order_status).to.eq(1)
 
-            //placing order
-            txDetails = await placeIOCOrder(IOCOrder, charlie) 
-            result = (await makehttpCall(method, params)).body.result
+                })
+            })
+            context("for a short IOC order", async function () {
+                it("returns correct value when order is not placed", async function () {
+                    latestBlockNumber = await provider.getBlockNumber()
+                    lastTimestamp = (await provider.getBlock(latestBlockNumber)).timestamp
+                    expireAt = lastTimestamp + 6
+                    shortIOCOrder = getIOCOrder(expireAt, market, charlie.address, shortOrderBaseAssetQuantity, orderPrice, getRandomSalt(), false)
+                    orderHash = await ioc.getOrderHash(shortIOCOrder)
+                    params = [ orderHash ]
+                    result = (await makehttpCall(method, params)).body.result
+                    expect(result.order_details.block_placed).to.eq(0)
+                    expect(result.order_details.filled_amount).to.eq(0)
+                    expect(result.order_details.order_status).to.eq(0)
+                })
+                it("returns correct value when order is placed", async function () {
+                    let charlieBalance = _1e6.mul(150)
+                    await addMargin(charlie, charlieBalance)
 
-            actualBlockPlaced = txDetails.txReceipt.blockNumber
-            expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
-            expect(result.order_details.filled_amount).to.eq(0)
-            expect(result.order_details.order_status).to.eq(1)
+                    //placing order
+                    latestBlockNumber = await provider.getBlockNumber()
+                    lastTimestamp = (await provider.getBlock(latestBlockNumber)).timestamp
+                    expireAt = lastTimestamp + 6
+                    shortIOCOrder = getIOCOrder(expireAt, market, charlie.address, shortOrderBaseAssetQuantity, orderPrice, getRandomSalt(), false)
+                    orderHash = await ioc.getOrderHash(shortIOCOrder)
+                    params = [ orderHash ]
+                    txDetails = await placeIOCOrder(shortIOCOrder, charlie)
+                    result = (await makehttpCall(method, params)).body.result
 
-            //cleanup
-            await removeAllAvailableMargin(charlie)
+                    //cleanup
+                    await removeAllAvailableMargin(charlie)
+
+                    actualBlockPlaced = txDetails.txReceipt.blockNumber
+                    expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
+                    expect(result.order_details.filled_amount).to.eq(0)
+                    expect(result.order_details.order_status).to.eq(1)
+                })
+            })
         })
     })
     context("order book contract variables", function () {
-        it("should read the correct value from contracts", async function () {
-            let charlieBalance = _1e6.mul(150)
-            await addMargin(charlie, charlieBalance)
+        let method ="testing_getOrderBookVars"
+        let traderAddress = alice.address
+        let senderAddress = charlie.address
+        let longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
+        let shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
+        let orderPrice = multiplyPrice(1800)
+        let market = BigNumber.from(0)
 
-            longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
-            orderPrice = multiplyPrice(1800)
-            salt = BigNumber.from(Date.now())
-            market = BigNumber.from(0)
+        context("variables which dont need place order before reading", async function () {
+            let params = [ traderAddress, senderAddress, "0xe97a0702264091714ea19b481c1fd12d9686cb4602efbfbec41ec5ea5410da84" ]
+            //isTradingAuthority
+            it("should return false when sender is not a tradingAuthority for an address", async function () {
+                result = (await makehttpCall(method, params)).body.result
+                expect(result.is_trading_authority).to.eq(false)
+            })
+            // need to implement adding trading authority for an address
+            it.skip("should return true when sender is a tradingAuthority for an address", async function () {
+                await orderBook.connect(alice).setTradingAuthority(traderAddress, senderAddress)
+                result = (await makehttpCall(method, params)).body.result
+                expect(result.is_trading_authority).to.eq(true)
+            })
+        })
+        context("variables which need place order before reading", async function () {
+            context("for a long limit order", async function () {
+                let longOrder = getOrderV2(market, traderAddress, longOrderBaseAssetQuantity, orderPrice, getRandomSalt())
+                it("returns correct value when order is not placed", async function () {
+                    orderHash = await limitOrderBook.getOrderHash(longOrder)
+                    params = [ traderAddress, senderAddress, orderHash ]
+                    result = (await makehttpCall(method, params)).body.result
+                    expect(result.order_details.block_placed).to.eq(0)
+                    expect(result.order_details.filled_amount).to.eq(0)
+                    expect(result.order_details.order_status).to.eq(0)
+                })
+                it("returns correct value when order is placed", async function () {
+                    requiredMargin = await getRequiredMarginForLongOrder(longOrder)
+                    await addMargin(alice, requiredMargin)
+                    orderHash = await limitOrderBook.getOrderHash(longOrder)
+                    const {txReceipt} = await placeOrderFromLimitOrderV2(longOrder, alice)
+                    params = [ traderAddress, traderAddress, orderHash ]
+                    result = (await makehttpCall(method, params)).body.result
+                    // cleanup
+                    await cancelOrderFromLimitOrderV2(longOrder, alice)
+                    await removeAllAvailableMargin(alice)
 
-            latestBlockNumber = await provider.getBlockNumber()
-            lastTimestamp = (await provider.getBlock(latestBlockNumber)).timestamp
-            expireAt = lastTimestamp + 6
-            order = getOrder(market, charlie.address, longOrderBaseAssetQuantity, orderPrice, salt, false)
-            orderHash = await orderBook.getOrderHash(order)
-            params=[charlie.address, alice.address, orderHash]
+                    expectedBlockPlaced = txReceipt.blockNumber
+                    expect(result.order_details.block_placed).to.eq(expectedBlockPlaced)
+                    expect(result.order_details.filled_amount).to.eq(0)
+                    expect(result.order_details.order_status).to.eq(1)
+                })
+            })
+            context("for a short limit order", async function () {
+                let shortOrder = getOrderV2(market, traderAddress, shortOrderBaseAssetQuantity, orderPrice, getRandomSalt())
+                it("returns correct value when order is not placed", async function () {
+                    orderHash = await limitOrderBook.getOrderHash(shortOrder)
+                    params = [ traderAddress, traderAddress, orderHash ]
+                    result = (await makehttpCall(method, params)).body.result
+                    expect(result.order_details.block_placed).to.eq(0)
+                    expect(result.order_details.filled_amount).to.eq(0)
+                    expect(result.order_details.order_status).to.eq(0)
+                })
+                it("returns correct value when order is placed", async function () {
+                    requiredMargin = await getRequiredMarginForShortOrder(shortOrder)
+                    await addMargin(alice, requiredMargin)
 
-            // before placing order
-            result = (await makehttpCall(method, params)).body.result
+                    orderHash = await limitOrderBook.getOrderHash(shortOrder)
+                    const { txReceipt } = await placeOrderFromLimitOrderV2(shortOrder, alice)
+                    params = [ traderAddress, traderAddress, orderHash ]
+                    result = (await makehttpCall(method, params)).body.result
+                    // cleanup
+                    await cancelOrderFromLimitOrderV2(shortOrder, alice)
+                    await removeAllAvailableMargin(alice)
 
-            actualResult = await orderBook.isTradingAuthority(charlie.address, alice.address)
-            expect(result.is_trading_authority).to.equal(actualResult)
-
-            expect(result.order_details.block_placed).to.eq(0)
-            expect(result.order_details.filled_amount).to.eq(0)
-            expect(result.order_details.order_status).to.eq(0)
-
-            //placing order
-            txDetails = await placeOrderFromLimitOrder(order, charlie)
-            result = (await makehttpCall(method, params)).body.result
-            // cleanup
-            await cancelOrderFromLimitOrder(order, charlie)
-            await removeAllAvailableMargin(charlie)
-
-            actualBlockPlaced = txDetails.txReceipt.blockNumber
-            expect(result.order_details.block_placed).to.eq(actualBlockPlaced)
-            expect(result.order_details.filled_amount).to.eq(0)
-            expect(result.order_details.order_status).to.eq(1)
-
+                    expectedBlockPlaced = txReceipt.blockNumber
+                    expect(result.order_details.block_placed).to.eq(expectedBlockPlaced)
+                    expect(result.order_details.filled_amount).to.eq(0)
+                    expect(result.order_details.order_status).to.eq(1)
+                })
+            })
         })
     })
 })

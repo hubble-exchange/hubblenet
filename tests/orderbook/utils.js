@@ -236,7 +236,10 @@ function encodeLimitOrderWithType(order) {
 // }
 
 function getRandomSalt() {
-    return BigNumber.from(Date.now())
+    // return date and add random number to generate unique salts even when called concurrently(hopefully)
+    // Return a random number between 0 and 1000:
+    randomNumber = Date.now() + Math.floor(Math.random()*1000)
+    return BigNumber.from(randomNumber)
 }
 
 async function waitForOrdersToMatch() {
