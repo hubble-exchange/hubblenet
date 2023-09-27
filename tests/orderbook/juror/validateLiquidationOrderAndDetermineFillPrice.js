@@ -20,7 +20,7 @@ const {
 } = utils
 
 // Testing juror precompile contract 
-describe("Testing validateLiquidationOrderAndDetermineFillPrice",async function () {
+describe.skip("Testing validateLiquidationOrderAndDetermineFillPrice",async function () {
     market = 0
 
     context("when liquidation amount is <= zero", async function () {

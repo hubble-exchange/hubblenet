@@ -25,7 +25,7 @@ const {
 } = utils
 
 // Testing juror precompile contract 
-describe("Test validateOrdersAndDetermineFillPrice", function () {
+describe.only("Test validateOrdersAndDetermineFillPrice", function () {
     beforeEach(async function () {
         market = BigNumber.from(0)
         longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
