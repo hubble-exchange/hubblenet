@@ -18,7 +18,7 @@ const {
     removeAllAvailableMargin,
 } = utils
 
-describe.only("Testing Tick methods", async function() {
+describe("Testing Tick methods", async function() {
     market = BigNumber.from(0)
     initialMargin = multiplyPrice(500000)
 
