@@ -3,7 +3,6 @@ package bibliophile
 import (
 	"math/big"
 
-	// hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ava-labs/subnet-evm/precompile/contract"
 	"github.com/ethereum/go-ethereum/common"
 )
