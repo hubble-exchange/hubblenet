@@ -63,12 +63,13 @@ func GetCollaterals(stateDB contract.StateDB) []hu.Collateral {
 }
 
 func getCollateralCount(stateDB contract.StateDB) uint8 {
-	rawVal := stateDB.GetState(common.HexToAddress(MARGIN_ACCOUNT_GENESIS_ADDRESS), common.BytesToHash(common.LeftPadBytes(big.NewInt(SUPPORTED_COLLATERAL_SLOT).Bytes(), 32)))
+	rawVal := stateDB.GetState(common.HexToAddress(MARGIN_ACCOUNT_GENESIS_ADDRESS), common.BigToHash(big.NewInt(SUPPORTED_COLLATERAL_SLOT)))
 	return uint8(new(big.Int).SetBytes(rawVal.Bytes()).Uint64())
 }
 
 func getCollateralAt(stateDB contract.StateDB, idx uint8) hu.Collateral {
-	baseSlot := hu.Add(collateralStorageSlot(), big.NewInt(int64(idx)))
+	// struct Collateral { IERC20 token; uint weight; uint8 decimals; }
+	baseSlot := hu.Add(collateralStorageSlot(), big.NewInt(int64(idx)*3)) // collateral struct size = 3 * 32 bytes
 	tokenAddress := common.BytesToAddress(stateDB.GetState(common.HexToAddress(MARGIN_ACCOUNT_GENESIS_ADDRESS), common.BigToHash(baseSlot)).Bytes())
 	return hu.Collateral{
 		Weight:   stateDB.GetState(common.HexToAddress(MARGIN_ACCOUNT_GENESIS_ADDRESS), common.BigToHash(hu.Add(baseSlot, big.NewInt(1)))).Big(),
@@ -78,5 +79,5 @@ func getCollateralAt(stateDB contract.StateDB, idx uint8) hu.Collateral {
 }
 
 func collateralStorageSlot() *big.Int {
-	return new(big.Int).SetBytes(crypto.Keccak256(common.LeftPadBytes(big.NewInt(SUPPORTED_COLLATERAL_SLOT).Bytes(), 32)))
+	return new(big.Int).SetBytes(crypto.Keccak256(common.BigToHash(big.NewInt(SUPPORTED_COLLATERAL_SLOT)).Bytes()))
 }

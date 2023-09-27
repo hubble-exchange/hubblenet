@@ -32,7 +32,7 @@ func getUnderlyingPrice_(stateDB contract.StateDB, underlying common.Address) *b
 		return redstonePrice
 	}
 	// red stone oracle is not enabled for this market, we use the default TestOracle
-	slot := crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.LeftPadBytes(big.NewInt(TEST_ORACLE_PRICES_MAPPING_SLOT).Bytes(), 32)...))
+	slot := crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.BigToHash(big.NewInt(TEST_ORACLE_PRICES_MAPPING_SLOT)).Bytes()...))
 	return fromTwosComplement(stateDB.GetState(oracle, common.BytesToHash(slot)).Bytes())
 }
 
@@ -51,9 +51,6 @@ func getlatestRoundId(stateDB contract.StateDB, adapterAddress common.Address) *
 }
 
 func getRedStoneFeedId(stateDB contract.StateDB, oracle, underlying common.Address) common.Hash {
-	return stateDB.GetState(oracle, common.BytesToHash(aggregatorMapSlot(underlying)))
-}
-
-func aggregatorMapSlot(underlying common.Address) []byte {
-	return crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.LeftPadBytes(big.NewInt(AGGREGATOR_MAP_SLOT).Bytes(), 32)...))
+	aggregatorMapSlot := crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.BigToHash(big.NewInt(AGGREGATOR_MAP_SLOT)).Bytes()...))
+	return stateDB.GetState(oracle, common.BytesToHash(aggregatorMapSlot))
 }
