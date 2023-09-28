@@ -234,12 +234,10 @@ func ValidateLiquidationOrderAndDetermineFillPrice(bibliophile b.BibliophileClie
 
 	decodeStep0, err := ob.DecodeTypeAndEncodedOrder(inputStruct.Data)
 	if err != nil {
-		log.Info("validateLiquidationOrderAndDetermineFillPrice1", "err", err)
 		return getValidateLiquidationOrderAndDetermineFillPriceErrorOutput(err, Order0)
 	}
 	m0, err := validateOrder(bibliophile, decodeStep0.OrderType, decodeStep0.EncodedOrder, Liquidation, fillAmount)
 	if err != nil {
-		log.Info("validateLiquidationOrderAndDetermineFillPrice2", "err", err)
 		return getValidateLiquidationOrderAndDetermineFillPriceErrorOutput(err, Order0)
 	}
 
@@ -249,13 +247,11 @@ func ValidateLiquidationOrderAndDetermineFillPrice(bibliophile b.BibliophileClie
 
 	minSize := bibliophile.GetMinSizeRequirement(m0.AmmIndex.Int64())
 	if new(big.Int).Mod(fillAmount, minSize).Cmp(big.NewInt(0)) != 0 {
-		log.Info("validateLiquidationOrderAndDetermineFillPrice4")
 		return getValidateLiquidationOrderAndDetermineFillPriceErrorOutput(ErrNotMultiple, Generic)
 	}
 
 	fillPrice, err := determineLiquidationFillPrice(bibliophile, m0)
 	if err != nil {
-		log.Info("validateLiquidationOrderAndDetermineFillPrice4", "err", err)
 		return getValidateLiquidationOrderAndDetermineFillPriceErrorOutput(err, Order0)
 	}
 
