@@ -96,7 +96,6 @@ describe('Testing variables read from slots by precompile', function () {
             await tx.wait()
         })
     })
-
     context("Margin account contract variables", function () {
         // vars read from slot
         // margin, reservedMargin
@@ -126,7 +125,6 @@ describe('Testing variables read from slots by precompile', function () {
             expect(response.body.result.reserved_margin).to.equal(requiredMargin.toNumber())
         })
     })
-
     context("AMM contract variables", function () {
         // vars read from slot
         // positions, cumulativePremiumFraction, maxOracleSpreadRatio, maxLiquidationRatio, minSizeRequirement, oracle, underlyingAsset, 
@@ -253,8 +251,8 @@ describe('Testing variables read from slots by precompile', function () {
 
                 this.afterAll(async function () {
                     oppositeLongOrder = getOrderV2(ammIndex, bob.address, longOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), true)
-                    await placeOrderFromLimitOrderV2(oppositeLongOrder, bob)
                     oppositeShortOrder = getOrderV2(ammIndex, alice.address, shortOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), true)
+                    await placeOrderFromLimitOrderV2(oppositeLongOrder, bob)
                     await placeOrderFromLimitOrderV2(oppositeShortOrder, alice)
                     await utils.waitForOrdersToMatch()
                     await removeAllAvailableMargin(alice)
@@ -277,7 +275,6 @@ describe('Testing variables read from slots by precompile', function () {
             })
         })
     })
-
     context("IOC order contract variables", function () {
         let method ="testing_getIOCOrdersVars"
         let longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
