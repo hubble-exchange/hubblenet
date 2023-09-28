@@ -289,8 +289,7 @@ func TestGetPositionMetadata(t *testing.T) {
 			entryPrice := hu.Mul1e6(big.NewInt(10))
 			newPrice := hu.Mul1e6(big.NewInt(15))
 			position := &Position{
-				Size:         size,
-				OpenNotional: hu.GetNotionalPosition(entryPrice, size),
+				Position: hu.Position{OpenNotional: hu.GetNotionalPosition(entryPrice, size), Size: size},
 			}
 
 			arbitaryMarginValue := hu.Mul1e6(big.NewInt(69))
@@ -305,8 +304,7 @@ func TestGetPositionMetadata(t *testing.T) {
 			entryPrice := hu.Mul1e6(big.NewInt(10))
 			newPrice := hu.Mul1e6(big.NewInt(15))
 			position := &Position{
-				Size:         size,
-				OpenNotional: hu.GetNotionalPosition(entryPrice, size),
+				Position: hu.Position{OpenNotional: hu.GetNotionalPosition(entryPrice, size), Size: size},
 			}
 
 			notionalPosition, uPnL, _ := getPositionMetadata(newPrice, position.OpenNotional, position.Size, big.NewInt(0))
@@ -321,8 +319,7 @@ func TestGetPositionMetadata(t *testing.T) {
 			entryPrice := hu.Mul1e6(big.NewInt(10))
 			newPrice := hu.Mul1e6(big.NewInt(5))
 			position := &Position{
-				Size:         size,
-				OpenNotional: hu.GetNotionalPosition(entryPrice, size),
+				Position: hu.Position{OpenNotional: hu.GetNotionalPosition(entryPrice, size), Size: size},
 			}
 
 			notionalPosition, uPnL, _ := getPositionMetadata(newPrice, position.OpenNotional, position.Size, big.NewInt(0))
@@ -335,8 +332,7 @@ func TestGetPositionMetadata(t *testing.T) {
 			entryPrice := hu.Mul1e6(big.NewInt(10))
 			newPrice := hu.Mul1e6(big.NewInt(5))
 			position := &Position{
-				Size:         size,
-				OpenNotional: hu.GetNotionalPosition(entryPrice, size),
+				Position: hu.Position{OpenNotional: hu.GetNotionalPosition(entryPrice, size), Size: size},
 			}
 			notionalPosition, uPnL, _ := getPositionMetadata(newPrice, position.OpenNotional, position.Size, big.NewInt(0))
 			assert.Equal(t, hu.GetNotionalPosition(newPrice, size), notionalPosition)
@@ -351,8 +347,7 @@ func getPosition(market Market, openNotional *big.Int, size *big.Int, unrealized
 		liquidationThreshold = getLiquidationThreshold(maxLiquidationRatio, minSizeRequirement, size)
 	}
 	return &Position{
-		OpenNotional:         openNotional,
-		Size:                 size,
+		Position:             hu.Position{OpenNotional: openNotional, Size: size},
 		UnrealisedFunding:    unrealizedFunding,
 		LastPremiumFraction:  lastPremiumFraction,
 		LiquidationThreshold: liquidationThreshold,

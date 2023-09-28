@@ -1,7 +1,7 @@
 package hubbleutils
 
 import (
-	"encoding/json"
+	// "encoding/json"
 	"math/big"
 )
 
@@ -21,27 +21,11 @@ type Collateral struct {
 type Market = int
 
 type Position struct {
-	OpenNotional         *big.Int `json:"open_notional"`
-	Size                 *big.Int `json:"size"`
-	UnrealisedFunding    *big.Int `json:"unrealised_funding"`
-	LastPremiumFraction  *big.Int `json:"last_premium_fraction"`
-	LiquidationThreshold *big.Int `json:"liquidation_threshold"`
-}
-
-func (p *Position) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&struct {
-		OpenNotional         string `json:"open_notional"`
-		Size                 string `json:"size"`
-		UnrealisedFunding    string `json:"unrealised_funding"`
-		LastPremiumFraction  string `json:"last_premium_fraction"`
-		LiquidationThreshold string `json:"liquidation_threshold"`
-	}{
-		OpenNotional:         p.OpenNotional.String(),
-		Size:                 p.Size.String(),
-		UnrealisedFunding:    p.UnrealisedFunding.String(),
-		LastPremiumFraction:  p.LastPremiumFraction.String(),
-		LiquidationThreshold: p.LiquidationThreshold.String(),
-	})
+	OpenNotional *big.Int `json:"open_notional"`
+	Size         *big.Int `json:"size"`
+	// UnrealisedFunding    *big.Int `json:"unrealised_funding"`
+	// LastPremiumFraction  *big.Int `json:"last_premium_fraction"`
+	// LiquidationThreshold *big.Int `json:"liquidation_threshold"`
 }
 
 type Trader struct {

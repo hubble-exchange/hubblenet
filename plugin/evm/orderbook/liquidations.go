@@ -71,7 +71,7 @@ func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, m
 			ActiveMarkets: markets,
 		},
 		&hu.UserState{
-			Positions: trader.Positions,
+			Positions: translatePositions(trader.Positions),
 		},
 		margin,
 		marginMode,
@@ -84,4 +84,12 @@ func getPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, m
 
 func prettifyScaledBigInt(number *big.Int, precision int8) string {
 	return new(big.Float).Quo(new(big.Float).SetInt(number), big.NewFloat(math.Pow10(int(precision)))).String()
+}
+
+func translatePositions(positions map[int]*Position) map[int]*hu.Position {
+	huPositions := make(map[int]*hu.Position)
+	for key, value := range positions {
+		huPositions[key] = &value.Position
+	}
+	return huPositions
 }

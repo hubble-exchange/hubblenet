@@ -179,7 +179,28 @@ func (order Order) ToOrderMin() OrderMin {
 	}
 }
 
-type Position = hu.Position
+type Position struct {
+	hu.Position
+	UnrealisedFunding    *big.Int `json:"unrealised_funding"`
+	LastPremiumFraction  *big.Int `json:"last_premium_fraction"`
+	LiquidationThreshold *big.Int `json:"liquidation_threshold"`
+}
+
+func (p *Position) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		OpenNotional         string `json:"open_notional"`
+		Size                 string `json:"size"`
+		UnrealisedFunding    string `json:"unrealised_funding"`
+		LastPremiumFraction  string `json:"last_premium_fraction"`
+		LiquidationThreshold string `json:"liquidation_threshold"`
+	}{
+		OpenNotional:         p.OpenNotional.String(),
+		Size:                 p.Size.String(),
+		UnrealisedFunding:    p.UnrealisedFunding.String(),
+		LastPremiumFraction:  p.LastPremiumFraction.String(),
+		LiquidationThreshold: p.LiquidationThreshold.String(),
+	})
+}
 
 type Margin struct {
 	Reserved  *big.Int                `json:"reserved"`
@@ -1074,7 +1095,7 @@ func getAvailableMargin(trader *Trader, pendingFunding *big.Int, assets []hu.Col
 			MinAllowableMargin: minAllowableMargin,
 		},
 		&hu.UserState{
-			Positions:      trader.Positions,
+			Positions:      translatePositions(trader.Positions),
 			Margins:        getMargins(trader, len(assets)),
 			PendingFunding: pendingFunding,
 			ReservedMargin: trader.Margin.Reserved,
@@ -1105,8 +1126,10 @@ func deepCopyTrader(order *Trader) *Trader {
 	positions := map[Market]*Position{}
 	for market, position := range order.Positions {
 		positions[market] = &Position{
-			OpenNotional:         big.NewInt(0).Set(position.OpenNotional),
-			Size:                 big.NewInt(0).Set(position.Size),
+			Position: hu.Position{
+				OpenNotional: big.NewInt(0).Set(position.OpenNotional),
+				Size:         big.NewInt(0).Set(position.Size),
+			},
 			UnrealisedFunding:    big.NewInt(0).Set(position.UnrealisedFunding),
 			LastPremiumFraction:  big.NewInt(0).Set(position.LastPremiumFraction),
 			LiquidationThreshold: big.NewInt(0).Set(position.LiquidationThreshold),
