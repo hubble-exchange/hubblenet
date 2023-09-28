@@ -109,7 +109,7 @@ describe('Testing variables read from slots by precompile', function () {
             expect(response.body.result.reserved_margin).to.equal(0)
 
             // add balance for order and then place
-            longOrder = getOrderV2(0, charlie.address, multiplySize(0.1), multiplyPrice(1800), BigNumber.from(Date.now()), false)
+            longOrder = getOrderV2(0, charlie.address, multiplySize(0.1), multiplyPrice(2000), BigNumber.from(Date.now()))
             requiredMargin = await getRequiredMarginForLongOrder(longOrder)
             await addMargin(charlie, requiredMargin)
             await placeOrderFromLimitOrderV2(longOrder, charlie)
@@ -132,140 +132,148 @@ describe('Testing variables read from slots by precompile', function () {
         // positions, cumulativePremiumFraction, maxOracleSpreadRatio, maxLiquidationRatio, minSizeRequirement, oracle, underlyingAsset, 
         // maxLiquidationPriceSpread, redStoneAdapter, redStoneFeedId, impactMarginNotional, lastTradePrice, bids, asks, bidsHead, asksHead
         let ammIndex = 0
-        it("should read the correct value of variables from contracts which have default value after setup", async function () {
-            // maxOracleSpreadRatio, maxLiquidationRatio, minSizeRequirement, oracle, underlyingAsset, maxLiquidationPriceSpread
+        let method ="testing_getAMMVars"
+        let ammAddress
+
+        this.beforeAll(async function () {
             amms = await clearingHouse.getAMMs()
             ammAddress = amms[ammIndex]
-            method ="testing_getAMMVars"
-            params =[ ammAddress, ammIndex, charlie.address ]
-            response = await makehttpCall(method, params)
-
-            amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider)
-            actualMaxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
-            actualOracleAddress = await amm.oracle()
-            actualMaxLiquidationRatio = await amm.maxLiquidationRatio()
-            actualMinSizeRequirement = await amm.minSizeRequirement()
-            actualUnderlyingAssetAddress = await amm.underlyingAsset()
-            actualMaxLiquidationPriceSpread = await amm.maxLiquidationPriceSpread()
-
-            result = response.body.result
-            expect(result.max_oracle_spread_ratio).to.equal(actualMaxOracleSpreadRatio.toNumber())
-            expect(result.oracle_address.toLowerCase()).to.equal(actualOracleAddress.toString().toLowerCase())
-            expect(result.max_liquidation_ratio).to.equal(actualMaxLiquidationRatio.toNumber())
-            expect(String(result.min_size_requirement)).to.equal(actualMinSizeRequirement.toString())
-            expect(result.underlying_asset_address.toLowerCase()).to.equal(actualUnderlyingAssetAddress.toString().toLowerCase())
-            expect(result.max_liquidation_price_spread).to.equal(actualMaxLiquidationPriceSpread.toNumber())
         })
-        context("should read the correct value of variables from contracts which dont have default value after setup", async function () {
-            // positions, cumulativePremiumFraction, redStoneAdapter, redStoneFeedId, impactMarginNotional, lastTradePrice, bids, asks, bidsHead, asksHead
-            it("variables which need set config before reading", async function () {
-                // redStoneAdapter, redStoneFeedId, impactMarginNotional
-                // impactMarginNotional
-                amm = await getAMMContract(ammIndex)
-                oracleAddress = await amm.oracle()
-                redStoneAdapterAddress = await amm.redStoneAdapter()
-                redStoneFeedId = await amm.redStoneFeedId()
-                impactMarginNotional = await amm.impactMarginNotional()
-
-                newOracleAddress = alice.address 
-                newRedStoneAdapterAddress = bob.address 
-                newRedStoneFeedId = ethers.utils.formatBytes32String("redStoneFeedId") 
-                tx = await amm.connect(governance).setOracleConfig(newOracleAddress, newRedStoneAdapterAddress, newRedStoneFeedId)
-                await tx.wait()
-
-                newImpactMarginNotional = BigNumber.from(100000)
-                tx = await amm.connect(governance).setImpactMarginNotional(newImpactMarginNotional)
-                await tx.wait()
-
-                amms = await clearingHouse.getAMMs()
-                ammAddress = amms[ammIndex]
-                method ="testing_getAMMVars"
+        context("when variables have default value after setup", async function () {
+            it("should read the correct value of variables from contracts", async function () {
+                // maxOracleSpreadRatio, maxLiquidationRatio, minSizeRequirement, oracle, underlyingAsset, maxLiquidationPriceSpread
                 params =[ ammAddress, ammIndex, charlie.address ]
                 response = await makehttpCall(method, params)
+
+                amm = new ethers.Contract(ammAddress, require('../abi/AMM.json'), provider)
+                actualMaxOracleSpreadRatio = await amm.maxOracleSpreadRatio()
+                actualOracleAddress = await amm.oracle()
+                actualMaxLiquidationRatio = await amm.maxLiquidationRatio()
+                actualMinSizeRequirement = await amm.minSizeRequirement()
+                actualUnderlyingAssetAddress = await amm.underlyingAsset()
+                actualMaxLiquidationPriceSpread = await amm.maxLiquidationPriceSpread()
+
                 result = response.body.result
-
-                expect(result.oracle_address.toLowerCase()).to.equal(newOracleAddress.toLowerCase())
-                expect(result.red_stone_adapter_address.toLowerCase()).to.equal(newRedStoneAdapterAddress.toLowerCase())
-                expect(result.red_stone_feed_id).to.equal(newRedStoneFeedId)
-                expect(result.impact_margin_notional).to.equal(newImpactMarginNotional.toNumber())
-
-                // revert config
-                await amm.connect(governance).setOracleConfig(oracleAddress, redStoneAdapterAddress, redStoneFeedId)
-                await amm.connect(governance).setImpactMarginNotional(impactMarginNotional)
+                expect(result.max_oracle_spread_ratio).to.equal(actualMaxOracleSpreadRatio.toNumber())
+                expect(result.oracle_address.toLowerCase()).to.equal(actualOracleAddress.toString().toLowerCase())
+                expect(result.max_liquidation_ratio).to.equal(actualMaxLiquidationRatio.toNumber())
+                expect(String(result.min_size_requirement)).to.equal(actualMinSizeRequirement.toString())
+                expect(result.underlying_asset_address.toLowerCase()).to.equal(actualUnderlyingAssetAddress.toString().toLowerCase())
+                expect(result.max_liquidation_price_spread).to.equal(actualMaxLiquidationPriceSpread.toNumber())
             })
-            it("variables which need place order before reading", async function () {
+        })
+        context("when variables dont have default value after setup", async function () {
+            // positions, cumulativePremiumFraction, redStoneAdapter, redStoneFeedId, impactMarginNotional, lastTradePrice, bids, asks, bidsHead, asksHead
+            context("variables which need set config before reading", async function () {
+                // redStoneAdapter, redStoneFeedId, impactMarginNotional
+                // impactMarginNotional
+                let amm, oracleAddress, redStoneAdapterAddress, redStoneFeedId, impactMarginNotional
+                this.beforeAll(async function () {
+                    amm = await getAMMContract(ammIndex)
+                    oracleAddress = await amm.oracle()
+                    redStoneAdapterAddress = await amm.redStoneAdapter()
+                    redStoneFeedId = await amm.redStoneFeedId()
+                    impactMarginNotional = await amm.impactMarginNotional()
+                })
+                this.afterAll(async function () {
+                    await amm.connect(governance).setOracleConfig(oracleAddress, redStoneAdapterAddress, redStoneFeedId)
+                    await amm.connect(governance).setImpactMarginNotional(impactMarginNotional)
+                })
+                it("should read the correct value from contracts", async function () {
+                    newOracleAddress = alice.address
+                    newRedStoneAdapterAddress = bob.address
+                    newRedStoneFeedId = ethers.utils.formatBytes32String("redStoneFeedId")
+                    tx = await amm.connect(governance).setOracleConfig(newOracleAddress, newRedStoneAdapterAddress, newRedStoneFeedId)
+                    await tx.wait()
+
+                    newImpactMarginNotional = BigNumber.from(100000)
+                    tx = await amm.connect(governance).setImpactMarginNotional(newImpactMarginNotional)
+                    await tx.wait()
+
+                    params =[ ammAddress, ammIndex, charlie.address ]
+                    response = await makehttpCall(method, params)
+                    result = response.body.result
+
+                    expect(result.oracle_address.toLowerCase()).to.equal(newOracleAddress.toLowerCase())
+                    expect(result.red_stone_adapter_address.toLowerCase()).to.equal(newRedStoneAdapterAddress.toLowerCase())
+                    expect(result.red_stone_feed_id).to.equal(newRedStoneFeedId)
+                    expect(result.impact_margin_notional).to.equal(newImpactMarginNotional.toNumber())
+                })
+            })
+            context("variables which need place order before reading", async function () {
                 //bids, asks, bidsHead, asksHead
-                await removeAllAvailableMargin(alice)
-                await removeAllAvailableMargin(bob)
-                longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
-                shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
-                longOrderPrice = multiplyPrice(1799)
-                shortOrderPrice = multiplyPrice(1801)
-                longOrder = getOrderV2(ammIndex, alice.address, longOrderBaseAssetQuantity, longOrderPrice, BigNumber.from(Date.now()), false)
-                requiredMarginAlice = await getRequiredMarginForLongOrder(longOrder)
-                await addMargin(alice, requiredMarginAlice)
-                await placeOrderFromLimitOrderV2(longOrder, alice)
+                let longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
+                let shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
+                let longOrderPrice = multiplyPrice(1799)
+                let shortOrderPrice = multiplyPrice(1801)
+                let longOrder = getOrderV2(ammIndex, alice.address, longOrderBaseAssetQuantity, longOrderPrice, BigNumber.from(Date.now()), false)
+                let shortOrder = getOrderV2(ammIndex, bob.address, shortOrderBaseAssetQuantity, shortOrderPrice, BigNumber.from(Date.now()), false)
 
-                shortOrder = getOrderV2(ammIndex, bob.address, shortOrderBaseAssetQuantity, shortOrderPrice, BigNumber.from(Date.now()), false)
-                requiredMarginBob = await getRequiredMarginForShortOrder(shortOrder)
-                await addMargin(bob, requiredMarginBob)
-                await placeOrderFromLimitOrderV2(shortOrder, bob)
+                this.beforeAll(async function () {
+                    requiredMarginAlice = await getRequiredMarginForLongOrder(longOrder)
+                    await addMargin(alice, requiredMarginAlice)
+                    await placeOrderFromLimitOrderV2(longOrder, alice)
+                    requiredMarginBob = await getRequiredMarginForShortOrder(shortOrder)
+                    await addMargin(bob, requiredMarginBob)
+                    await placeOrderFromLimitOrderV2(shortOrder, bob)
+                })
 
-                amms = await clearingHouse.getAMMs()
-                ammAddress = amms[ammIndex]
-                method ="testing_getAMMVars"
-                params =[ ammAddress, ammIndex, alice.address ]
-                response = await makehttpCall(method, params)
-                result = response.body.result
+                this.afterAll(async function () {
+                    await cancelOrderFromLimitOrderV2(longOrder, alice)
+                    await cancelOrderFromLimitOrderV2(shortOrder, bob)
+                    await removeAllAvailableMargin(alice)
+                    await removeAllAvailableMargin(bob)
+                })
 
-                //cleanup
-                await cancelOrderFromLimitOrderV2(longOrder, alice)
-                await cancelOrderFromLimitOrderV2(shortOrder, bob)
-                await removeAllAvailableMargin(alice)
-                await removeAllAvailableMargin(bob)
-
-                expect(result.asks_head).to.equal(shortOrderPrice.toNumber())
-                expect(result.bids_head).to.equal(longOrderPrice.toNumber())
-                expect(String(result.bids_head_size)).to.equal(longOrderBaseAssetQuantity.toString())
-                expect(String(result.asks_head_size)).to.equal(shortOrderBaseAssetQuantity.abs().toString())
+                it("should read the correct values from contract", async function () {
+                    params =[ ammAddress, ammIndex, alice.address ]
+                    response = await makehttpCall(method, params)
+                    result = response.body.result
+                    expect(result.asks_head).to.equal(shortOrderPrice.toNumber())
+                    expect(result.bids_head).to.equal(longOrderPrice.toNumber())
+                    expect(String(result.bids_head_size)).to.equal(longOrderBaseAssetQuantity.toString())
+                    expect(String(result.asks_head_size)).to.equal(shortOrderBaseAssetQuantity.abs().toString())
+                })
             })
-            it("variable which need position before reading", async function () {
-                longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
-                shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
-                orderPrice = multiplyPrice(1800)
-                longOrder = getOrderV2(ammIndex, alice.address, longOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), false)
-                requiredMarginAlice = await getRequiredMarginForLongOrder(longOrder)
-                await addMargin(alice, requiredMarginAlice)
-                await placeOrderFromLimitOrderV2(longOrder, alice)
+            context("variables which need position before reading", async function () {
+                let longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
+                let shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
+                let orderPrice = multiplyPrice(2000)
+                let longOrder = getOrderV2(ammIndex, alice.address, longOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), false)
+                let shortOrder = getOrderV2(ammIndex, bob.address, shortOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), false)
 
-                shortOrder = getOrderV2(ammIndex, bob.address, shortOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), false)
-                requiredMarginBob = await getRequiredMarginForShortOrder(shortOrder)
-                await addMargin(bob, requiredMarginBob)
-                await placeOrderFromLimitOrderV2(shortOrder, bob)
+                this.beforeAll(async function () {
+                    requiredMarginAlice = await getRequiredMarginForLongOrder(longOrder)
+                    await addMargin(alice, requiredMarginAlice)
+                    await placeOrderFromLimitOrderV2(longOrder, alice)
+                    requiredMarginBob = await getRequiredMarginForShortOrder(shortOrder)
+                    await addMargin(bob, requiredMarginBob)
+                    await placeOrderFromLimitOrderV2(shortOrder, bob)
+                })
 
-                amms = await clearingHouse.getAMMs()
-                ammAddress = amms[ammIndex]
-                method ="testing_getAMMVars"
+                this.afterAll(async function () {
+                    oppositeLongOrder = getOrderV2(ammIndex, bob.address, longOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), true)
+                    await placeOrderFromLimitOrderV2(oppositeLongOrder, bob)
+                    oppositeShortOrder = getOrderV2(ammIndex, alice.address, shortOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), true)
+                    await placeOrderFromLimitOrderV2(oppositeShortOrder, alice)
+                    await utils.waitForOrdersToMatch()
+                    await removeAllAvailableMargin(alice)
+                    await removeAllAvailableMargin(bob)
+                })
 
-                params =[ ammAddress, ammIndex, alice.address ]
-                resultAlice = (await makehttpCall(method, params)).body.result
-                params =[ ammAddress, ammIndex, bob.address ]
-                resultBob = (await makehttpCall(method, params)).body.result
+                it("should read the correct values from contract", async function () {
+                    params =[ ammAddress, ammIndex, alice.address ]
+                    resultAlice = (await makehttpCall(method, params)).body.result
+                    params =[ ammAddress, ammIndex, bob.address ]
+                    resultBob = (await makehttpCall(method, params)).body.result
 
-                //cleanup
-                oppositeLongOrder = getOrderV2(ammIndex, bob.address, longOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), true)
-                await placeOrderFromLimitOrderV2(oppositeLongOrder, bob)
-                oppositeShortOrder = getOrderV2(ammIndex, alice.address, shortOrderBaseAssetQuantity, orderPrice, BigNumber.from(Date.now()), true)
-                await placeOrderFromLimitOrderV2(oppositeShortOrder, alice)
-                await utils.waitForOrdersToMatch()
-                await removeAllAvailableMargin(alice)
-                await removeAllAvailableMargin(bob)
-
-                expect(String(resultAlice.position.size)).to.equal(longOrderBaseAssetQuantity.toString())
-                expect(String(resultAlice.position.open_notional)).to.equal(longOrderBaseAssetQuantity.mul(orderPrice).div(_1e18).toString())
-                expect(String(resultBob.position.size)).to.equal(shortOrderBaseAssetQuantity.toString())
-                expect(String(resultBob.position.open_notional)).to.equal(shortOrderBaseAssetQuantity.mul(orderPrice).abs().div(_1e18).toString())
-                expect(result.last_price).to.equal(orderPrice.toNumber())
+                    expect(String(resultAlice.position.size)).to.equal(longOrderBaseAssetQuantity.toString())
+                    expect(String(resultAlice.position.open_notional)).to.equal(longOrderBaseAssetQuantity.mul(orderPrice).div(_1e18).toString())
+                    expect(String(resultBob.position.size)).to.equal(shortOrderBaseAssetQuantity.toString())
+                    expect(String(resultBob.position.open_notional)).to.equal(shortOrderBaseAssetQuantity.mul(orderPrice).abs().div(_1e18).toString())
+                    expect(resultAlice.last_price).to.equal(orderPrice.toNumber())
+                    expect(resultBob.last_price).to.equal(orderPrice.toNumber())
+                })
             })
         })
     })
@@ -274,7 +282,7 @@ describe('Testing variables read from slots by precompile', function () {
         let method ="testing_getIOCOrdersVars"
         let longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
         let shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
-        let orderPrice = multiplyPrice(1800)
+        let orderPrice = multiplyPrice(2000)
         let market = BigNumber.from(0)
 
 
@@ -371,7 +379,7 @@ describe('Testing variables read from slots by precompile', function () {
         let senderAddress = charlie.address
         let longOrderBaseAssetQuantity = multiplySize(0.1) // 0.1 ether
         let shortOrderBaseAssetQuantity = multiplySize(-0.1) // 0.1 ether
-        let orderPrice = multiplyPrice(1800)
+        let orderPrice = multiplyPrice(2000)
         let market = BigNumber.from(0)
 
         context("variables which dont need place order before reading", async function () {
