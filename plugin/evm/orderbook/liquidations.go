@@ -64,7 +64,18 @@ func getTotalFunding(trader *Trader, markets []Market) *big.Int {
 type MarginMode = hu.MarginMode
 
 func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, marginMode MarginMode, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, markets []Market) (*big.Int, *big.Int) {
-	return hu.GetTotalNotionalPositionAndUnrealizedPnl(trader.Positions, margin, marginMode, oraclePrices, lastPrices, markets)
+	return hu.GetTotalNotionalPositionAndUnrealizedPnl(
+		&hu.HubbleState{
+			OraclePrices:  oraclePrices,
+			LastPrices:    lastPrices,
+			ActiveMarkets: markets,
+		},
+		&hu.UserState{
+			Positions: trader.Positions,
+		},
+		margin,
+		marginMode,
+	)
 }
 
 func getPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, margin *big.Int) (notionalPosition *big.Int, unrealisedPnl *big.Int, marginFraction *big.Int) {

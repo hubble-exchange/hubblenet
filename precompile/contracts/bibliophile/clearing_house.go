@@ -81,7 +81,20 @@ func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 	if input.IncludeFundingPayments {
 		pendingFunding = GetTotalFunding(stateDB, &input.Trader)
 	}
-	notionalPosition, margin := hu.GetNotionalPositionAndMargin(positions, getMargins(stateDB, input.Trader), input.Mode, pendingFunding, GetCollaterals(stateDB), underlyingPrices, lastPrices, marketIds)
+	notionalPosition, margin := hu.GetNotionalPositionAndMargin(
+		&hu.HubbleState{
+			Assets:        GetCollaterals(stateDB),
+			OraclePrices:  underlyingPrices,
+			LastPrices:    lastPrices,
+			ActiveMarkets: marketIds,
+		},
+		&hu.UserState{
+			Positions:      positions,
+			Margins:        getMargins(stateDB, input.Trader),
+			PendingFunding: pendingFunding,
+		},
+		input.Mode,
+	)
 	return GetNotionalPositionAndMarginOutput{
 		NotionalPosition: notionalPosition,
 		Margin:           margin,

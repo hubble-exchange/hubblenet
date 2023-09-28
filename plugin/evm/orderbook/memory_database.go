@@ -1065,7 +1065,21 @@ func getBlankTrader() *Trader {
 }
 
 func getAvailableMargin(trader *Trader, pendingFunding *big.Int, assets []hu.Collateral, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, minAllowableMargin *big.Int, markets []Market) *big.Int {
-	return hu.GetAvailableMargin(trader.Positions, getMargins(trader, len(assets)), pendingFunding, trader.Margin.Reserved, assets, oraclePrices, lastPrices, minAllowableMargin, markets)
+	return hu.GetAvailableMargin(
+		&hu.HubbleState{
+			Assets:             assets,
+			OraclePrices:       oraclePrices,
+			LastPrices:         lastPrices,
+			ActiveMarkets:      markets,
+			MinAllowableMargin: minAllowableMargin,
+		},
+		&hu.UserState{
+			Positions:      trader.Positions,
+			Margins:        getMargins(trader, len(assets)),
+			PendingFunding: pendingFunding,
+			ReservedMargin: trader.Margin.Reserved,
+		},
+	)
 }
 
 // deepCopyOrder deep copies the LimitOrder struct
