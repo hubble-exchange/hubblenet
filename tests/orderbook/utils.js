@@ -215,6 +215,36 @@ function encodeLimitOrderWithType(order) {
     return typedEncodedOrder
 }
 
+function encodeLimitOrderV2(order) {
+    const encodedOrder = ethers.utils.defaultAbiCoder.encode(
+        [
+          'uint256',
+          'address',
+          'int256',
+          'uint256',
+          'uint256',
+          'bool',
+          'bool',
+        ],
+        [
+            order.ammIndex,
+            order.trader,
+            order.baseAssetQuantity,
+            order.price,
+            order.salt,
+            order.reduceOnly,
+            order.postOnly,
+        ]
+    )
+    return encodedOrder
+}
+
+function encodeLimitOrderV2WithType(order) {
+    encodedOrder = encodeLimitOrderV2(order)
+    const typedEncodedOrder = ethers.utils.defaultAbiCoder.encode(['uint8', 'bytes'], [0, encodedOrder])
+    return typedEncodedOrder
+}
+
 // async function cleanUpPositionsAndRemoveMargin(market, trader1, trader2) {
 //     position1 = await amm.positions(trader1.address)
 //     position2 = await amm.positions(trader2.address)
@@ -368,6 +398,8 @@ module.exports = {
     enableValidatorMatching,
     encodeLimitOrder,
     encodeLimitOrderWithType,
+    encodeLimitOrderV2,
+    encodeLimitOrderV2WithType,
     getAMMContract,
     getDomain,
     getEventsFromOrderBookTx,
