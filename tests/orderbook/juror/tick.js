@@ -21,10 +21,12 @@ const {
 describe("Testing Tick methods", async function() {
     market = BigNumber.from(0)
     initialMargin = multiplyPrice(500000)
+    let amm
 
-    this.beforeEach(async function() {
+    this.beforeAll(async function() {
         amm = await getAMMContract(0)
-
+    })
+    this.afterEach(async function() {
         // get all OrderAccepted events
         let filter = limitOrderBook.filters.OrderAccepted(alice.address)
         let orderAcceptedEvents = await limitOrderBook.queryFilter(filter)
