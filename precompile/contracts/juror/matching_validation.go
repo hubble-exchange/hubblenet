@@ -2,6 +2,7 @@ package juror
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
@@ -49,6 +50,7 @@ var (
 	ErrNotMultiple       = errors.New("not multiple")
 
 	ErrInvalidOrder                       = errors.New("invalid order")
+	ErrNotIOCOrder                        = errors.New("not_ioc_order")
 	ErrInvalidPrice                       = errors.New("invalid price")
 	ErrPricePrecision                     = errors.New("invalid price precision")
 	ErrInvalidMarket                      = errors.New("invalid market")
@@ -334,7 +336,7 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder
 	if ob.OrderType(order.OrderType) != ob.IOC {
 		return nil, errors.New("not ioc order")
 	}
-	if order.ExpireAt.Uint64() < bibliophile.GetAccessibleState().GetBlockContext().Timestamp() {
+	if order.ExpireAt.Uint64() < bibliophile.GetTimeStamp() {
 		return nil, errors.New("ioc expired")
 	}
 	orderHash, err := order.Hash()
@@ -433,8 +435,11 @@ func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrd
 		price = upperBound
 	}
 	quoteAsset := big.NewInt(0).Abs(big.NewInt(0).Div(new(big.Int).Mul(order.BaseAssetQuantity, price), big.NewInt(1e18)))
+	fmt.Println("quoteAsset", quoteAsset)
 	requiredMargin := big.NewInt(0).Div(big.NewInt(0).Mul(bibliophile.GetMinAllowableMargin(), quoteAsset), big.NewInt(1e6))
+	fmt.Println("requiredMargin", requiredMargin)
 	takerFee := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, bibliophile.GetTakerFee()), big.NewInt(1e6))
+	fmt.Println("takerFee", takerFee)
 	requiredMargin.Add(requiredMargin, takerFee)
 	return requiredMargin
 }
