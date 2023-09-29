@@ -22,14 +22,14 @@ func (liq LiquidablePosition) GetUnfilledSize() *big.Int {
 	return big.NewInt(0).Sub(liq.Size, liq.FilledSize)
 }
 
-func calcMarginFraction(trader *Trader, pendingFunding *big.Int, assets []hu.Collateral, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, markets []Market) *big.Int {
-	margin := new(big.Int).Sub(getNormalisedMargin(trader, assets), pendingFunding)
-	notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(trader, margin, hu.Maintenance_Margin, oraclePrices, lastPrices, markets)
-	if notionalPosition.Sign() == 0 {
-		return big.NewInt(math.MaxInt64)
+func calcMarginFraction(trader *Trader, hState *hu.HubbleState) *big.Int {
+	userState := &hu.UserState{
+		Positions:      translatePositions(trader.Positions),
+		Margins:        getMargins(trader, len(hState.Assets)),
+		PendingFunding: getTotalFunding(trader, hState.ActiveMarkets),
+		ReservedMargin: trader.Margin.Reserved,
 	}
-	margin.Add(margin, unrealizePnL)
-	return new(big.Int).Div(hu.Mul1e6(margin), notionalPosition)
+	return hu.GetMarginFraction(hState, userState)
 }
 
 func sortLiquidableSliceByMarginFraction(positions []LiquidablePosition) []LiquidablePosition {

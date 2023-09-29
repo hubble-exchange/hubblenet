@@ -132,6 +132,14 @@ func GetUnderlyingPrices(stateDB contract.StateDB) []*big.Int {
 	return underlyingPrices
 }
 
+func GetMidPrices(stateDB contract.StateDB) []*big.Int {
+	underlyingPrices := make([]*big.Int, 0)
+	for _, market := range GetMarkets(stateDB) {
+		underlyingPrices = append(underlyingPrices, getMidPrice(stateDB, market))
+	}
+	return underlyingPrices
+}
+
 func getPosSizes(stateDB contract.StateDB, trader *common.Address) []*big.Int {
 	positionSizes := make([]*big.Int, 0)
 	for _, market := range GetMarkets(stateDB) {

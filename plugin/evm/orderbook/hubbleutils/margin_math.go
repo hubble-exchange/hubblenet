@@ -1,6 +1,7 @@
 package hubbleutils
 
 import (
+	"math"
 	"math/big"
 )
 
@@ -10,6 +11,7 @@ type HubbleState struct {
 	LastPrices         map[Market]*big.Int
 	ActiveMarkets      []Market
 	MinAllowableMargin *big.Int
+	MaintenanceMargin  *big.Int
 }
 
 type UserState struct {
@@ -27,6 +29,14 @@ func GetAvailableMargin(hState *HubbleState, userState *UserState) *big.Int {
 func GetAvailableMargin_(notionalPosition, margin, reservedMargin, minAllowableMargin *big.Int) *big.Int {
 	utilisedMargin := Div1e6(Mul(notionalPosition, minAllowableMargin))
 	return Sub(Sub(margin, utilisedMargin), reservedMargin)
+}
+
+func GetMarginFraction(hState *HubbleState, userState *UserState) *big.Int {
+	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Maintenance_Margin)
+	if notionalPosition.Sign() == 0 {
+		return big.NewInt(math.MaxInt64)
+	}
+	return Div(Mul1e6(margin), notionalPosition)
 }
 
 func GetNotionalPositionAndMargin(hState *HubbleState, userState *UserState, marginMode MarginMode) (*big.Int, *big.Int) {
@@ -90,7 +100,7 @@ func GetPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, m
 }
 
 func GetNotionalPosition(price *big.Int, size *big.Int) *big.Int {
-	return big.NewInt(0).Abs(Div1e18(Mul(size, price)))
+	return big.NewInt(0).Abs(Div1e18(Mul(price, size)))
 }
 
 func GetNormalizedMargin(assets []Collateral, margins []*big.Int) *big.Int {

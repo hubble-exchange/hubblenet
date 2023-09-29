@@ -112,8 +112,16 @@ func (api *OrderBookAPI) GetDebugData(ctx context.Context, trader string) GetDeb
 		pendingFunding := getTotalFunding(&trader, markets)
 		margin := new(big.Int).Sub(getNormalisedMargin(&trader, assets), pendingFunding)
 		notionalPosition, unrealizePnL := getTotalNotionalPositionAndUnrealizedPnl(&trader, margin, hu.Min_Allowable_Margin, oraclePrices, lastPrices, markets)
-		marginFraction := calcMarginFraction(&trader, pendingFunding, assets, oraclePrices, lastPrices, markets)
-		availableMargin := getAvailableMargin(&trader, pendingFunding, assets, oraclePrices, lastPrices, api.configService.getMinAllowableMargin(), markets)
+		hState := &hu.HubbleState{
+			Assets:             assets,
+			OraclePrices:       oraclePrices,
+			LastPrices:         lastPrices,
+			ActiveMarkets:      markets,
+			MinAllowableMargin: api.configService.getMinAllowableMargin(),
+			MaintenanceMargin:  api.configService.getMaintenanceMargin(),
+		}
+		marginFraction := calcMarginFraction(&trader, hState)
+		availableMargin := getAvailableMargin(&trader, hState)
 		utilisedMargin := hu.Div1e6(new(big.Int).Mul(notionalPosition, minAllowableMargin))
 
 		response.MarginFraction[addr] = marginFraction
