@@ -2,7 +2,6 @@ package juror
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 
 	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
