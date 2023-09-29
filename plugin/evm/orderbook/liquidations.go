@@ -67,7 +67,7 @@ func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, m
 	return hu.GetTotalNotionalPositionAndUnrealizedPnl(
 		&hu.HubbleState{
 			OraclePrices:  oraclePrices,
-			LastPrices:    lastPrices,
+			MidPrices:    lastPrices,
 			ActiveMarkets: markets,
 		},
 		&hu.UserState{

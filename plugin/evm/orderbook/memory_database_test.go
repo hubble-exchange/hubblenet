@@ -422,7 +422,7 @@ func TestGetCancellableOrders(t *testing.T) {
 	hState := &hu.HubbleState{
 		Assets:             assets,
 		OraclePrices:       priceMap,
-		LastPrices:         inMemoryDatabase.GetLastPrices(),
+		MidPrices:          inMemoryDatabase.GetLastPrices(),
 		ActiveMarkets:      []Market{market},
 		MinAllowableMargin: inMemoryDatabase.configService.getMinAllowableMargin(),
 		MaintenanceMargin:  inMemoryDatabase.configService.getMaintenanceMargin(),
@@ -799,7 +799,7 @@ func TestGetLastPrice(t *testing.T) {
 	var market Market = 1
 	lastPrice := big.NewInt(20)
 	inMemoryDatabase.UpdateLastPrice(market, lastPrice)
-	assert.Equal(t, lastPrice, inMemoryDatabase.GetLastPrice(market))
+	assert.Equal(t, lastPrice, inMemoryDatabase.GetLastPrices()[market])
 }
 
 func TestUpdateReservedMargin(t *testing.T) {

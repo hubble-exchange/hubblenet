@@ -74,7 +74,7 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 	hState := &hu.HubbleState{
 		Assets:             pipeline.GetCollaterals(),
 		OraclePrices:       pipeline.GetUnderlyingPrices(),
-		LastPrices:         pipeline.GetMidPrices(),
+		MidPrices:          pipeline.GetMidPrices(),
 		ActiveMarkets:      markets,
 		MinAllowableMargin: pipeline.configService.getMinAllowableMargin(),
 		MaintenanceMargin:  pipeline.configService.getMaintenanceMargin(),

@@ -231,7 +231,6 @@ type LimitOrderDatabase interface {
 	UpdateNextSamplePITime(nextSamplePITime uint64)
 	GetNextSamplePITime() uint64
 	UpdateLastPrice(market Market, lastPrice *big.Int)
-	GetLastPrice(market Market) *big.Int
 	GetLastPrices() map[Market]*big.Int
 	GetAllTraders() map[common.Address]Trader
 	GetOrderBookData() InMemoryDatabase
@@ -815,13 +814,6 @@ func (db *InMemoryDatabase) UpdateLastPremiumFraction(market Market, trader comm
 
 	db.TraderMap[trader].Positions[market].LastPremiumFraction = lastPremiumFraction
 	db.TraderMap[trader].Positions[market].UnrealisedFunding = hu.Div1e18(big.NewInt(0).Mul(big.NewInt(0).Sub(cumulativePremiumFraction, lastPremiumFraction), db.TraderMap[trader].Positions[market].Size))
-}
-
-func (db *InMemoryDatabase) GetLastPrice(market Market) *big.Int {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-
-	return big.NewInt(0).Set(db.LastPrice[market])
 }
 
 func (db *InMemoryDatabase) GetLastPrices() map[Market]*big.Int {
