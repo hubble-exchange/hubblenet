@@ -121,7 +121,7 @@ func GetAMMVariables(stateDB contract.StateDB, ammAddress common.Address, ammInd
 	underlyingAssetAddress := getUnderlyingAssetAddress(stateDB, ammAddress)
 	underlyingPriceForMarket := getUnderlyingPriceForMarket(stateDB, ammIndex)
 	underlyingPrice := getUnderlyingPrice(stateDB, ammAddress)
-	redStoneAdapterAddress := getRedStoneAdapterAddress(stateDB, ammAddress)
+	redStoneAdapterAddress := getRedStoneAdapterAddress(stateDB, oracleAddress)
 	redStoneFeedId := getRedStoneFeedId(stateDB, oracleAddress, underlyingAssetAddress)
 	bidsHead := getBidsHead(stateDB, ammAddress)
 	bidsHeadSize := getBidSize(stateDB, ammAddress, bidsHead)

@@ -15,20 +15,15 @@ const (
 	MAX_ORACLE_SPREAD_RATIO_SLOT    int64 = 3
 	MAX_LIQUIDATION_RATIO_SLOT      int64 = 4
 	MIN_SIZE_REQUIREMENT_SLOT       int64 = 5
-	UNDERLYING_ASSET_SLOT           int64 = 7
-	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 12
-	MULTIPLIER_SLOT                 int64 = 13
-	IMPACT_MARGIN_NOTIONAL_SLOT     int64 = 20
-	LAST_TRADE_PRICE_SLOT           int64 = 21
-	BIDS_SLOT                       int64 = 22
-	ASKS_SLOT                       int64 = 23
-	BIDS_HEAD_SLOT                  int64 = 24
-	ASKS_HEAD_SLOT                  int64 = 25
-)
-
-const (
-	// this slot is from TestOracle.sol
-	TEST_ORACLE_PRICES_MAPPING_SLOT int64 = 4
+	UNDERLYING_ASSET_SLOT           int64 = 6
+	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 11
+	MULTIPLIER_SLOT                 int64 = 12
+	IMPACT_MARGIN_NOTIONAL_SLOT     int64 = 19
+	LAST_TRADE_PRICE_SLOT           int64 = 20
+	BIDS_SLOT                       int64 = 21
+	ASKS_SLOT                       int64 = 22
+	BIDS_HEAD_SLOT                  int64 = 23
+	ASKS_HEAD_SLOT                  int64 = 24
 )
 
 // AMM State

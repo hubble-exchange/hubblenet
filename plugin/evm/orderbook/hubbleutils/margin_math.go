@@ -77,15 +77,15 @@ func GetOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 func GetPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, margin *big.Int) (notionalPosition *big.Int, unrealisedPnl *big.Int, marginFraction *big.Int) {
 	notionalPosition = GetNotionalPosition(price, size)
 	uPnL := new(big.Int)
-	if notionalPosition.Cmp(big.NewInt(0)) == 0 {
+	if notionalPosition.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0), big.NewInt(0)
 	}
 	if size.Cmp(big.NewInt(0)) > 0 {
-		uPnL = new(big.Int).Sub(notionalPosition, openNotional)
+		uPnL = Sub(notionalPosition, openNotional)
 	} else {
-		uPnL = new(big.Int).Sub(openNotional, notionalPosition)
+		uPnL = Sub(openNotional, notionalPosition)
 	}
-	mf := new(big.Int).Div(Mul1e6(new(big.Int).Add(margin, uPnL)), notionalPosition)
+	mf := Div(Mul1e6(Add(margin, uPnL)), notionalPosition)
 	return notionalPosition, uPnL, mf
 }
 
