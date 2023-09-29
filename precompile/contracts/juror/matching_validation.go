@@ -435,11 +435,8 @@ func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrd
 		price = upperBound
 	}
 	quoteAsset := big.NewInt(0).Abs(big.NewInt(0).Div(new(big.Int).Mul(order.BaseAssetQuantity, price), big.NewInt(1e18)))
-	fmt.Println("quoteAsset", quoteAsset)
 	requiredMargin := big.NewInt(0).Div(big.NewInt(0).Mul(bibliophile.GetMinAllowableMargin(), quoteAsset), big.NewInt(1e6))
-	fmt.Println("requiredMargin", requiredMargin)
 	takerFee := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, bibliophile.GetTakerFee()), big.NewInt(1e6))
-	fmt.Println("takerFee", takerFee)
 	requiredMargin.Add(requiredMargin, takerFee)
 	return requiredMargin
 }
