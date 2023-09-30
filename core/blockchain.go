@@ -227,6 +227,7 @@ type BlockChain struct {
 	chainHeadFeed     event.Feed
 	chainAcceptedFeed event.Feed
 	logsFeed          event.Feed
+	hubbleFeed        event.Feed
 	logsAcceptedFeed  event.Feed
 	blockProcFeed     event.Feed
 	txAcceptedFeed    event.Feed
@@ -1027,6 +1028,15 @@ func (bc *BlockChain) setPreference(block *types.Block) error {
 	// the head block. Many internal aysnc processes rely on
 	// receiving these events (i.e. the TxPool).
 	bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
+
+	// when a reorg is triggered, rebirth logs for the new head are not emitted
+	// this can be confirmed in blockchain .reorg, where the loop for collecting rebirth logs is written as:
+	// for i := len(newChain) - 1; i >= 1; i-- {
+	// hence we emit them here
+	logs := bc.collectLogs(block, false)
+	if len(logs) > 0 {
+		bc.hubbleFeed.Send(logs)
+	}
 	return nil
 }
 
@@ -1171,6 +1181,7 @@ func (bc *BlockChain) writeCanonicalBlockWithLogs(block *types.Block, logs []*ty
 	bc.chainFeed.Send(ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
 	if len(logs) > 0 {
 		bc.logsFeed.Send(logs)
+		bc.hubbleFeed.Send(logs)
 	}
 	bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
 }
@@ -1546,7 +1557,7 @@ func (bc *BlockChain) reorg(oldHead *types.Header, newHead *types.Block) error {
 	// Ensure the user sees large reorgs
 	if len(oldChain) > 0 && len(newChain) > 0 {
 		logFn := log.Info
-		msg := "Resetting chain preference"
+		msg := "#### Resetting chain preference"
 		if len(oldChain) > 63 {
 			msg = "Large chain preference change detected"
 			logFn = log.Warn
@@ -1597,11 +1608,13 @@ func (bc *BlockChain) reorg(oldHead *types.Header, newHead *types.Block) error {
 		}
 		if len(deletedLogs) > 512 {
 			bc.rmLogsFeed.Send(RemovedLogsEvent{deletedLogs})
+			bc.hubbleFeed.Send(deletedLogs)
 			deletedLogs = nil
 		}
 	}
 	if len(deletedLogs) > 0 {
 		bc.rmLogsFeed.Send(RemovedLogsEvent{deletedLogs})
+		bc.hubbleFeed.Send(deletedLogs)
 	}
 
 	// New logs:
@@ -1612,11 +1625,13 @@ func (bc *BlockChain) reorg(oldHead *types.Header, newHead *types.Block) error {
 		}
 		if len(rebirthLogs) > 512 {
 			bc.logsFeed.Send(rebirthLogs)
+			bc.hubbleFeed.Send(rebirthLogs)
 			rebirthLogs = nil
 		}
 	}
 	if len(rebirthLogs) > 0 {
 		bc.logsFeed.Send(rebirthLogs)
+		bc.hubbleFeed.Send(rebirthLogs)
 	}
 	return nil
 }

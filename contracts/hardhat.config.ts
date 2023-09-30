@@ -25,6 +25,9 @@ export default {
       {
         version: "0.8.0"
       },
+      {
+        version: "0.8.9"
+      },
     ]
   },
   networks: {
@@ -47,5 +50,8 @@ export default {
       ],
       pollingInterval: "1s"
     },
+  },
+  mocha: {
+    timeout: 0
   }
 }

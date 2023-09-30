@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -15,7 +16,7 @@ import (
 
 const (
 	errorKey   = "LOG15_ERROR"
-	timeFormat = "2006-01-02T15:04:05-0700"
+	timeFormat = "2006-01-02T15:04:05.000000-0700"
 )
 
 type SubnetEVMLogger struct {
@@ -25,13 +26,17 @@ type SubnetEVMLogger struct {
 // InitLogger initializes logger with alias and sets the log level and format with the original [os.StdErr] interface
 // along with the context logger.
 func InitLogger(alias string, level string, jsonFormat bool, writer io.Writer) (SubnetEVMLogger, error) {
-	logFormat := SubnetEVMTermFormat(alias)
+	// logFormat := SubnetEVMTermFormat(alias)
+	logFormat := LogfmtFormat()
 	if jsonFormat {
 		logFormat = SubnetEVMJSONFormat(alias)
 	}
 
 	// Create handler
 	logHandler := log.StreamHandler(writer, logFormat)
+	logHandler = log.CallerFileHandler(logHandler)
+	logHandler = HubbleTypeHandler(logHandler)
+	logHandler = HubbleErrorHandler(logHandler)
 	c := SubnetEVMLogger{Handler: logHandler}
 
 	if err := c.SetLogLevel(level); err != nil {
@@ -94,6 +99,44 @@ func SubnetEVMJSONFormat(alias string) log.Format {
 	})
 }
 
+func HubbleTypeHandler(h log.Handler) log.Handler {
+	return log.FuncHandler(func(r *log.Record) error {
+		var logType string
+		// works for evm/limit_order.go, evm/orderbook/*.go, precompile/contracts/*
+		if containsAnySubstr(r.Call.Frame().File, []string{"orderbook", "limit_order", "contracts"}) {
+			logType = "hubble"
+		} else {
+			logType = "system"
+		}
+		// it's also possible to add type=hubble in logs originating from other files
+		// by setting logtype=hubble and checking for it in this function by iterating through r.Ctx
+		r.Ctx = append(r.Ctx, "type", logType)
+		return h.Log(r)
+	})
+}
+
+func HubbleErrorHandler(h log.Handler) log.Handler {
+	// sets lvl=error when key name is "err" and value is not nil
+	return log.FuncHandler(func(r *log.Record) error {
+		for i := 0; i < len(r.Ctx); i += 2 {
+			if r.Ctx[i] == "err" && r.Ctx[i+1] != nil {
+				r.Lvl = log.LvlError
+			}
+		}
+		return h.Log(r)
+	})
+}
+
+func ErrorOnlyHandler(h log.Handler) log.Handler {
+	// ignores all logs except lvl=error
+	return log.FuncHandler(func(r *log.Record) error {
+		if r.Lvl == log.LvlError {
+			return h.Log(r)
+		}
+		return nil
+	})
+}
+
 func formatJSONValue(value interface{}) (result interface{}) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -118,4 +161,14 @@ func formatJSONValue(value interface{}) (result interface{}) {
 	default:
 		return v
 	}
+}
+
+// containsAnySubstr checks if the string contains any of the specified substrings
+func containsAnySubstr(s string, substrings []string) bool {
+	for _, substr := range substrings {
+		if strings.Contains(s, substr) {
+			return true
+		}
+	}
+	return false
 }

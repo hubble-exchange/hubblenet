@@ -17,6 +17,9 @@ awscpu
 # Test binary, build with `go test -c`
 *.test
 
+# orderbook tests dependencies
+tests/orderbook/node_modules
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
@@ -50,3 +53,14 @@ cmd/simulator/simulator
 
 # goreleaser
 dist/
+
+# generator rpc file for e2e tests
+contract-examples/dynamic_rpc.json
+
+#sqlite
+plugins/evm/hubble.db
+
+*.bin
+local_status.sh
+
+networks/*/*.env

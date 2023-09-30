@@ -58,10 +58,16 @@ const (
 	// - state sync time: ~6 hrs.
 	defaultStateSyncMinBlocks   = 300_000
 	defaultStateSyncRequestSize = 1024 // the number of key/values to ask peers for per request
+
+	defaultIsValidator             = false
+	defaultTradingAPIEnabled       = false
+	defaultLoadFromSnapshotEnabled = true
 )
 
 var (
-	defaultEnabledAPIs = []string{
+	defaultTestingApiEnabled       = false
+	defaultValidatorPrivateKeyFile = "/home/ubuntu/.avalanche-cli/key/validator.pk"
+	defaultEnabledAPIs             = []string{
 		"eth",
 		"eth-filter",
 		"net",
@@ -209,6 +215,20 @@ type Config struct {
 	//  * 0:   means no limit
 	//  * N:   means N block limit [HEAD-N+1, HEAD] and delete extra indexes
 	TxLookupLimit uint64 `json:"tx-lookup-limit"`
+
+	// Path to validator private key file
+	ValidatorPrivateKeyFile string `json:"validator-private-key-file"`
+
+	// Testing apis enabled
+	TestingApiEnabled bool `json:"testing-api-enabled"`
+	// IsValidator is true if this node is a validator
+	IsValidator bool `json:"is-validator"`
+
+	// TradingAPI is for the sdk
+	TradingAPIEnabled bool `json:"trading-api-enabled"`
+
+	// LoadFromSnapshotEnabled = true if the node should load the memory db from a snapshot
+	LoadFromSnapshotEnabled bool `json:"load-from-snapshot-enabled"`
 }
 
 // EthAPIs returns an array of strings representing the Eth APIs that should be enabled
@@ -267,6 +287,11 @@ func (c *Config) SetDefaults() {
 	c.StateSyncRequestSize = defaultStateSyncRequestSize
 	c.AllowUnprotectedTxHashes = defaultAllowUnprotectedTxHashes
 	c.AcceptedCacheSize = defaultAcceptedCacheSize
+	c.ValidatorPrivateKeyFile = defaultValidatorPrivateKeyFile
+	c.TestingApiEnabled = defaultTestingApiEnabled
+	c.IsValidator = defaultIsValidator
+	c.TradingAPIEnabled = defaultTradingAPIEnabled
+	c.LoadFromSnapshotEnabled = defaultLoadFromSnapshotEnabled
 }
 
 func (d *Duration) UnmarshalJSON(data []byte) (err error) {

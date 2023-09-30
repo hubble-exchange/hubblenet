@@ -1,3 +1,17 @@
+# Hubble v2
+
+To run a fresh local network - run `./scripts/run_local.sh`
+To run on the same network with updated evm code(it preserves all evm state) - run `./scripts/upgrade_local.sh`
+To kill network - run `avalanche network stop && avalanche network clean`
+
+To see logs - run `./scripts/show_logs.sh`
+
+# Accounts
+var userAddress1 = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+var privateKey1 = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
+var userAddress2 = "0x4Cf2eD3665F6bFA95cE6A11CFDb7A2EF5FC1C7E4"
+var privateKey2 = "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e97dc"
+
 # Subnet EVM
 
 [![Build + Test + Release](https://github.com/ava-labs/subnet-evm/actions/workflows/lint-tests-release.yml/badge.svg)](https://github.com/ava-labs/subnet-evm/actions/workflows/lint-tests-release.yml)
@@ -47,7 +61,8 @@ The Subnet EVM runs in a separate process from the main AvalancheGo process and 
 [v0.5.0] AvalancheGo@v1.10.0 (Protocol Version: 25)
 [v0.5.1] AvalancheGo@v1.10.1-v1.10.4 (Protocol Version: 26)
 [v0.5.2] AvalancheGo@v1.10.1-v1.10.4 (Protocol Version: 26)
-[v0.5.3] AvalancheGo@v1.10.5 (Protocol Version: 27)
+[v0.5.3] AvalancheGo@v1.10.5-v1.10.6 (Protocol Version: 27)
+[v0.5.4] AvalancheGo@v1.10.5-v1.10.6 (Protocol Version: 27)
 ```
 
 ## API

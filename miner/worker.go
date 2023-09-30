@@ -68,6 +68,9 @@ type environment struct {
 	receipts []*types.Receipt
 	size     uint64
 
+	rules            params.Rules
+	predicateContext *precompileconfig.ProposerPredicateContext
+
 	start time.Time // Time that block building began
 }
 
@@ -181,7 +184,7 @@ func (w *worker) commitNewWork(predicateContext *precompileconfig.ProposerPredic
 		return nil, fmt.Errorf("failed to prepare header for mining: %w", err)
 	}
 
-	env, err := w.createCurrentEnvironment(parent, header, tstart)
+	env, err := w.createCurrentEnvironment(predicateContext, parent, header, tstart)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new current environment: %w", err)
 	}
@@ -194,9 +197,6 @@ func (w *worker) commitNewWork(predicateContext *precompileconfig.ProposerPredic
 
 	// Get the pending txs from TxPool
 	pending := w.eth.TxPool().Pending(true)
-	// Filter out transactions that don't satisfy predicateContext and remove them from TxPool
-	rules := w.chainConfig.AvalancheRules(header.Number, header.Time)
-	pending = w.enforcePredicates(rules, predicateContext, pending)
 
 	// Split the pending transactions into locals and remotes
 	localTxs := make(map[common.Address]types.Transactions)
@@ -206,6 +206,12 @@ func (w *worker) commitNewWork(predicateContext *precompileconfig.ProposerPredic
 			delete(remoteTxs, account)
 			localTxs[account] = txs
 		}
+	}
+
+	orderBookTxs := w.eth.TxPool().GetOrderBookTxs()
+	if len(orderBookTxs) > 0 {
+		txs := types.NewTransactionsByPriceAndNonce(env.signer, orderBookTxs, header.BaseFee)
+		w.commitTransactions(env, txs, header.Coinbase)
 	}
 	if len(localTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, localTxs, header.BaseFee)
@@ -219,19 +225,21 @@ func (w *worker) commitNewWork(predicateContext *precompileconfig.ProposerPredic
 	return w.commit(env)
 }
 
-func (w *worker) createCurrentEnvironment(parent *types.Header, header *types.Header, tstart time.Time) (*environment, error) {
+func (w *worker) createCurrentEnvironment(predicateContext *precompileconfig.ProposerPredicateContext, parent *types.Header, header *types.Header, tstart time.Time) (*environment, error) {
 	state, err := w.chain.StateAt(parent.Root)
 	if err != nil {
 		return nil, err
 	}
 	return &environment{
-		signer:  types.MakeSigner(w.chainConfig, header.Number, header.Time),
-		state:   state,
-		parent:  parent,
-		header:  header,
-		tcount:  0,
-		gasPool: new(core.GasPool).AddGas(header.GasLimit),
-		start:   tstart,
+		signer:           types.MakeSigner(w.chainConfig, header.Number, header.Time),
+		state:            state,
+		parent:           parent,
+		header:           header,
+		tcount:           0,
+		gasPool:          new(core.GasPool).AddGas(header.GasLimit),
+		rules:            w.chainConfig.AvalancheRules(header.Number, header.Time),
+		predicateContext: predicateContext,
+		start:            tstart,
 	}, nil
 }
 
@@ -241,6 +249,10 @@ func (w *worker) commitTransaction(env *environment, tx *types.Transaction, coin
 		gp   = env.gasPool.Gas()
 	)
 
+	if err := core.CheckPredicates(env.rules, env.predicateContext, tx); err != nil {
+		log.Debug("Transaction predicate failed verification in miner", "tx", tx.Hash(), "err", err)
+		return nil, err
+	}
 	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &coinbase, env.gasPool, env.state, env.header, tx, &env.header.GasUsed, *w.chain.GetVMConfig())
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
@@ -258,7 +270,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 	for {
 		// If we don't have enough gas for any further transactions then we're done.
 		if env.gasPool.Gas() < params.TxGas {
-			log.Trace("Not enough gas for further transactions", "have", env.gasPool, "want", params.TxGas)
+			log.Info("commitTransactions - Not enough gas for further transactions", "have", env.gasPool, "want", params.TxGas)
 			break
 		}
 		// Retrieve the next transaction and abort if all done.
@@ -269,7 +281,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		// Abort transaction if it won't fit in the block and continue to search for a smaller
 		// transction that will fit.
 		if totalTxsSize := env.size + tx.Size(); totalTxsSize > targetTxsSize {
-			log.Trace("Skipping transaction that would exceed target size", "hash", tx.Hash(), "totalTxsSize", totalTxsSize, "txSize", tx.Size())
+			log.Info("commitTransactions - Skipping transaction that would exceed target size", "hash", tx.Hash(), "totalTxsSize", totalTxsSize, "txSize", tx.Size())
 
 			txs.Pop()
 			continue
@@ -281,7 +293,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !w.chainConfig.IsEIP155(env.header.Number) {
-			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
+			log.Info("commitTransactions - Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 
 			txs.Pop()
 			continue
@@ -293,32 +305,33 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		switch {
 		case errors.Is(err, core.ErrGasLimitReached):
 			// Pop the current out-of-gas transaction without shifting in the next from the account
-			log.Trace("Gas limit exceeded for current block", "sender", from)
+			log.Info("commitTransactions - Gas limit exceeded for current block", "hash", tx.Hash().String(), "sender", from, "pool gas", env.gasPool.Gas(), "gaslimit", tx.Gas(), "GasFeeCap", tx.GasFeeCap().Int64(), "GasPrice", tx.GasPrice().Int64())
 			txs.Pop()
 
 		case errors.Is(err, core.ErrNonceTooLow):
 			// New head notification data race between the transaction pool and miner, shift
-			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
+			log.Info("commitTransactions - Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Shift()
 
 		case errors.Is(err, core.ErrNonceTooHigh):
 			// Reorg notification data race between the transaction pool and miner, skip account =
-			log.Trace("Skipping account with high nonce", "sender", from, "nonce", tx.Nonce())
+			log.Info("commitTransactions - Skipping account with high nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Pop()
 
 		case errors.Is(err, nil):
 			env.tcount++
 			txs.Shift()
+			log.Info("Transaction committed", "hash", tx.Hash().String(), "nonce", tx.Nonce())
 
 		case errors.Is(err, types.ErrTxTypeNotSupported):
 			// Pop the unsupported transaction without shifting in the next from the account
-			log.Trace("Skipping unsupported transaction type", "sender", from, "type", tx.Type())
+			log.Info("commitTransactions - Skipping unsupported transaction type", "sender", from, "type", tx.Type())
 			txs.Pop()
 
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
+			log.Info("commitTransactions - Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
 		}
 	}
@@ -391,42 +404,6 @@ func copyReceipts(receipts []*types.Receipt) []*types.Receipt {
 	for i, l := range receipts {
 		cpy := *l
 		result[i] = &cpy
-	}
-	return result
-}
-
-// enforcePredicates takes a set of pending transactions (grouped by sender, and ordered by nonce)
-// and returns the subset of those transactions (following the same grouping) that satisfy predicateContext.
-// Any transaction that fails predicate verification will be removed from the tx pool and excluded
-// from the return value.
-// Transactions with a nonce that follows a removed transaction will be added back to the future
-// queue of the tx pool.
-func (w *worker) enforcePredicates(
-	rules params.Rules,
-	predicateContext *precompileconfig.ProposerPredicateContext,
-	pending map[common.Address]types.Transactions,
-) map[common.Address]types.Transactions {
-	// Short circuit early if there are no precompile predicates to verify and return the
-	// unmodified pending transactions.
-	if !rules.PredicatesExist() {
-		return pending
-	}
-	result := make(map[common.Address]types.Transactions, len(pending))
-	for addr, txs := range pending {
-		for i, tx := range txs {
-			if err := core.CheckPredicates(rules, predicateContext, tx); err != nil {
-				log.Debug("Transaction predicate failed verification in miner", "sender", addr, "err", err)
-				// If the transaction fails the predicate check, we remove the transaction from the mempool
-				// and move all transactions from the same address with a subsequent nonce back to the
-				// future queue of the transaction pool.
-				w.eth.TxPool().RemoveTx(tx.Hash())
-				txs = txs[:i] // Cut off any transactions past the failed predicate in the return value
-				break
-			}
-		}
-		if len(txs) > 0 {
-			result[addr] = txs
-		}
 	}
 	return result
 }

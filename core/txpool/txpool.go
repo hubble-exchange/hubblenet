@@ -39,6 +39,7 @@ import (
 
 	"github.com/ava-labs/subnet-evm/commontype"
 	"github.com/ava-labs/subnet-evm/consensus/dummy"
+	"github.com/ava-labs/subnet-evm/constants"
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/state"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -295,11 +296,12 @@ type TxPool struct {
 	locals  *accountSet // Set of local transaction to exempt from eviction rules
 	journal *journal    // Journal of local transaction to back up to disk
 
-	pending map[common.Address]*list     // All currently processable transactions
-	queue   map[common.Address]*list     // Queued but non-processable transactions
-	beats   map[common.Address]time.Time // Last heartbeat from each known account
-	all     *lookup                      // All transactions to allow lookups
-	priced  *pricedList                  // All transactions sorted by price
+	orderBookTxs OrderBookTxs
+	pending      map[common.Address]*list     // All currently processable transactions
+	queue        map[common.Address]*list     // Queued but non-processable transactions
+	beats        map[common.Address]time.Time // Last heartbeat from each known account
+	all          *lookup                      // All transactions to allow lookups
+	priced       *pricedList                  // All transactions sorted by price
 
 	chainHeadCh         chan core.ChainHeadEvent
 	chainHeadSub        event.Subscription
@@ -316,6 +318,11 @@ type TxPool struct {
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 }
 
+type OrderBookTxs struct {
+	txs         map[common.Address]*list
+	blockNumber uint64 // the intended block number for these txs
+}
+
 type txpoolResetRequest struct {
 	oldHead, newHead *types.Header
 }
@@ -326,12 +333,17 @@ func NewTxPool(config Config, chainconfig *params.ChainConfig, chain blockChain)
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
+	orderBookTxs := OrderBookTxs{
+		txs: make(map[common.Address]*list),
+	}
+
 	// Create the transaction pool with its initial settings
 	pool := &TxPool{
 		config:              config,
 		chainconfig:         chainconfig,
 		chain:               chain,
 		signer:              types.LatestSigner(chainconfig),
+		orderBookTxs:        orderBookTxs,
 		pending:             make(map[common.Address]*list),
 		queue:               make(map[common.Address]*list),
 		beats:               make(map[common.Address]time.Time),
@@ -1037,6 +1049,82 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	return true
 }
 
+func (pool *TxPool) GetOrderBookTxs() map[common.Address]types.Transactions {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+
+	txs := map[common.Address]types.Transactions{}
+	for from, txList := range pool.orderBookTxs.txs {
+		txs[from] = txList.Flatten()
+	}
+	return txs
+}
+
+func (pool *TxPool) GetOrderBookTxsCount() uint64 {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+
+	count := 0
+	for _, txList := range pool.orderBookTxs.txs {
+		count += txList.Len()
+	}
+	return uint64(count)
+}
+
+func (pool *TxPool) PurgeOrderBookTxs() {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	for from, _ := range pool.orderBookTxs.txs {
+		delete(pool.orderBookTxs.txs, from)
+	}
+
+	pool.orderBookTxs.blockNumber = 0
+}
+
+func (pool *TxPool) GetOrderBookTxNonce(address common.Address) uint64 {
+	nonce := pool.Nonce(address)
+	val, ok := pool.orderBookTxs.txs[address]
+	if ok {
+		return nonce + uint64(val.Len())
+	}
+	return nonce
+}
+
+func (pool *TxPool) AddOrderBookTx(tx *types.Transaction) error {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	if from, err := types.Sender(pool.signer, tx); err == nil {
+		val, ok := pool.orderBookTxs.txs[from]
+		if !ok {
+			val = newList(false)
+			pool.orderBookTxs.txs[from] = val
+		}
+		ok, _ = val.Add(tx, 0)
+		if !ok {
+			return errors.New("error adding tx to orderbookQueue")
+		}
+	} else {
+		return fmt.Errorf("AddOrderBookTx: error getting sender: %w", err)
+	}
+	return nil
+}
+
+func (pool *TxPool) SetOrderBookTxsBlockNumber(blockNumber uint64) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	pool.orderBookTxs.blockNumber = blockNumber
+}
+
+func (pool *TxPool) GetOrderBookTxsBlockNumber() uint64 {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+
+	return pool.orderBookTxs.blockNumber
+}
+
 // AddLocals enqueues a batch of transactions into the pool if they are valid, marking the
 // senders as a local ones, ensuring they go around the local pricing constraints.
 //
@@ -1497,7 +1585,13 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 						return
 					}
 				}
-				reinject = types.TxDifference(discarded, included)
+				difference := types.TxDifference(discarded, included)
+				for _, tx := range difference {
+					log.Info("txpool", "to", tx.To(), "orderbook", constants.OrderBookContractAddress, "clearing", constants.ClearingHouseContractAddress)
+					if tx.To() == nil || (tx.To().Hex() != constants.OrderBookContractAddress && tx.To().Hex() != constants.ClearingHouseContractAddress) {
+						reinject = append(reinject, tx)
+					}
+				}
 			}
 		}
 	}
