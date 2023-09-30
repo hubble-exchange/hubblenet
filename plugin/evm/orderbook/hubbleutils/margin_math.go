@@ -62,7 +62,7 @@ func GetOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 	}
 
 	// based on last price
-	notionalPosition, unrealizedPnl, lastPriceBasedMF := GetPositionMetadata(
+	notionalPosition, unrealizedPnl, midPriceBasedMF := GetPositionMetadata(
 		hState.MidPrices[market],
 		position.OpenNotional,
 		position.Size,
@@ -77,8 +77,8 @@ func GetOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 		margin,
 	)
 
-	if (marginMode == Maintenance_Margin && oracleBasedMF.Cmp(lastPriceBasedMF) == 1) || // for liquidations
-		(marginMode == Min_Allowable_Margin && oracleBasedMF.Cmp(lastPriceBasedMF) == -1) { // for increasing leverage
+	if (marginMode == Maintenance_Margin && oracleBasedMF.Cmp(midPriceBasedMF) == 1) || // for liquidations
+		(marginMode == Min_Allowable_Margin && oracleBasedMF.Cmp(midPriceBasedMF) == -1) { // for increasing leverage
 		return oracleBasedNotional, oracleBasedUnrealizedPnl
 	}
 	return notionalPosition, unrealizedPnl

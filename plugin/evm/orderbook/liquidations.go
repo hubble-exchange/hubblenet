@@ -19,7 +19,7 @@ type LiquidablePosition struct {
 }
 
 func (liq LiquidablePosition) GetUnfilledSize() *big.Int {
-	return big.NewInt(0).Sub(liq.Size, liq.FilledSize)
+	return new(big.Int).Sub(liq.Size, liq.FilledSize)
 }
 
 func calcMarginFraction(trader *Trader, hState *hu.HubbleState) *big.Int {
@@ -45,6 +45,13 @@ func getNormalisedMargin(trader *Trader, assets []hu.Collateral) *big.Int {
 
 func getMargins(trader *Trader, numAssets int) []*big.Int {
 	margin := make([]*big.Int, numAssets)
+	if trader.Margin.Deposited == nil {
+		return margin
+	}
+	numAssets_ := len(trader.Margin.Deposited)
+	if numAssets_ < numAssets {
+		numAssets = numAssets_
+	}
 	for i := 0; i < numAssets; i++ {
 		margin[i] = trader.Margin.Deposited[Collateral(i)]
 	}
@@ -54,7 +61,7 @@ func getMargins(trader *Trader, numAssets int) []*big.Int {
 func getTotalFunding(trader *Trader, markets []Market) *big.Int {
 	totalPendingFunding := big.NewInt(0)
 	for _, market := range markets {
-		if trader.Positions[market] != nil {
+		if trader.Positions[market] != nil && trader.Positions[market].UnrealisedFunding != nil && trader.Positions[market].UnrealisedFunding.Sign() != 0 {
 			totalPendingFunding.Add(totalPendingFunding, trader.Positions[market].UnrealisedFunding)
 		}
 	}
@@ -63,11 +70,11 @@ func getTotalFunding(trader *Trader, markets []Market) *big.Int {
 
 type MarginMode = hu.MarginMode
 
-func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, marginMode MarginMode, oraclePrices map[Market]*big.Int, lastPrices map[Market]*big.Int, markets []Market) (*big.Int, *big.Int) {
+func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, marginMode MarginMode, oraclePrices map[Market]*big.Int, midPrices map[Market]*big.Int, markets []Market) (*big.Int, *big.Int) {
 	return hu.GetTotalNotionalPositionAndUnrealizedPnl(
 		&hu.HubbleState{
 			OraclePrices:  oraclePrices,
-			MidPrices:    lastPrices,
+			MidPrices:     midPrices,
 			ActiveMarkets: markets,
 		},
 		&hu.UserState{
@@ -89,7 +96,12 @@ func prettifyScaledBigInt(number *big.Int, precision int8) string {
 func translatePositions(positions map[int]*Position) map[int]*hu.Position {
 	huPositions := make(map[int]*hu.Position)
 	for key, value := range positions {
-		huPositions[key] = &value.Position
+		if value != nil {
+			huPositions[key] = &hu.Position{
+				Size:         new(big.Int).Set(value.Size),
+				OpenNotional: new(big.Int).Set(value.OpenNotional),
+			}
+		}
 	}
 	return huPositions
 }
