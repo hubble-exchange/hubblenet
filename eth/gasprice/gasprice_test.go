@@ -39,7 +39,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/core/vm"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/feemanager"
+	"github.com/ava-labs/subnet-evm/precompile"
 	"github.com/ava-labs/subnet-evm/rpc"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -393,15 +393,13 @@ func TestSuggestGasPriceAfterFeeConfigUpdate(t *testing.T) {
 
 	// create a chain config with fee manager enabled at genesis with [addr] as the admin
 	chainConfig := *params.TestChainConfig
-	chainConfig.GenesisPrecompiles = params.Precompiles{
-		feemanager.ConfigKey: feemanager.NewConfig(utils.NewUint64(0), []common.Address{addr}, nil, nil),
-	}
+	chainConfig.FeeManagerConfig = precompile.NewFeeManagerConfig(big.NewInt(0), []common.Address{addr}, nil, nil)
 
 	// create a fee config with higher MinBaseFee and prepare it for inclusion in a tx
 	signer := types.LatestSigner(params.TestChainConfig)
 	highFeeConfig := chainConfig.FeeConfig
 	highFeeConfig.MinBaseFee = big.NewInt(28_000_000_000)
-	data, err := feemanager.PackSetFeeConfig(highFeeConfig)
+	data, err := precompile.PackSetFeeConfig(highFeeConfig)
 	require.NoError(err)
 
 	// before issuing the block changing the fee into the chain, the fee estimation should
@@ -425,7 +423,7 @@ func TestSuggestGasPriceAfterFeeConfigUpdate(t *testing.T) {
 		tx := types.NewTx(&types.DynamicFeeTx{
 			ChainID:   chainConfig.ChainID,
 			Nonce:     b.TxNonce(addr),
-			To:        &feemanager.ContractAddress,
+			To:        &precompile.FeeConfigManagerAddress,
 			Gas:       chainConfig.FeeConfig.GasLimit.Uint64(),
 			Value:     common.Big0,
 			GasFeeCap: chainConfig.FeeConfig.MinBaseFee, // give low fee, it should work since we still haven't applied high fees

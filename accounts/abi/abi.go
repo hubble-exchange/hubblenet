@@ -95,7 +95,6 @@ func (abi ABI) Pack(name string, args ...interface{}) ([]byte, error) {
 // Returns the topics for the event including the event signature (if non-anonymous event) and
 // hashes derived from indexed arguments and the packed data of non-indexed args according to
 // the event ABI specification.
-// The order of arguments must match the order of the event definition.
 // https://docs.soliditylang.org/en/v0.8.17/abi-spec.html#indexed-event-encoding.
 // Note: PackEvent does not support array (fixed or dynamic-size) or struct types.
 func (abi ABI) PackEvent(name string, args ...interface{}) ([]common.Hash, []byte, error) {
@@ -365,10 +364,7 @@ func UnpackRevert(data []byte) (string, error) {
 	if !bytes.Equal(data[:4], revertSelector) {
 		return "", errors.New("invalid data for unpacking")
 	}
-	typ, err := NewType("string", "", nil)
-	if err != nil {
-		return "", err
-	}
+	typ, _ := NewType("string", "", nil)
 	unpacked, err := (Arguments{{Type: typ}}).Unpack(data[4:])
 	if err != nil {
 		return "", err

@@ -520,14 +520,8 @@ func (n *network) Shutdown() {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	// clean up any pending requests
-	for requestID, handler := range n.outstandingRequestHandlers {
-		_ = handler.OnFailure() // make sure all waiting threads are unblocked
-		delete(n.outstandingRequestHandlers, requestID)
-	}
-
-	n.peers = NewPeerTracker() // reset peers
-	n.closed.Set(true)         // mark network as closed
+	// reset peers
+	n.peers = NewPeerTracker()
 }
 
 func (n *network) SetGossipHandler(handler message.GossipHandler) {

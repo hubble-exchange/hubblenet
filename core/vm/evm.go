@@ -34,9 +34,7 @@ import (
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/subnet-evm/constants"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/precompile/contract"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/deployerallowlist"
-	"github.com/ava-labs/subnet-evm/precompile/modules"
+	"github.com/ava-labs/subnet-evm/precompile"
 	"github.com/ava-labs/subnet-evm/vmerrs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -44,8 +42,8 @@ import (
 )
 
 var (
-	_ contract.AccessibleState = &EVM{}
-	_ contract.BlockContext    = &BlockContext{}
+	_ precompile.PrecompileAccessibleState = &EVM{}
+	_ precompile.BlockContext              = &BlockContext{}
 )
 
 // IsProhibited returns true if [addr] is in the prohibited list of addresses which should
@@ -55,7 +53,7 @@ func IsProhibited(addr common.Address) bool {
 		return true
 	}
 
-	return modules.ReservedAddress(addr)
+	return precompile.ReservedAddress(addr)
 }
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -72,8 +70,8 @@ type (
 	GetHashFunc func(uint64) common.Hash
 )
 
-func (evm *EVM) precompile(addr common.Address) (contract.StatefulPrecompiledContract, bool) {
-	var precompiles map[common.Address]contract.StatefulPrecompiledContract
+func (evm *EVM) precompile(addr common.Address) (precompile.StatefulPrecompiledContract, bool) {
+	var precompiles map[common.Address]precompile.StatefulPrecompiledContract
 	switch {
 	case evm.chainRules.IsSubnetEVM:
 		precompiles = PrecompiledContractsBerlin
@@ -92,12 +90,8 @@ func (evm *EVM) precompile(addr common.Address) (contract.StatefulPrecompiledCon
 	}
 
 	// Otherwise, check the chain rules for the additionally configured precompiles.
-	if _, ok = evm.chainRules.ActivePrecompiles[addr]; ok {
-		module, ok := modules.GetPrecompileModuleByAddress(addr)
-		return module.Contract, ok
-	}
-
-	return nil, false
+	p, ok = evm.chainRules.Precompiles[addr]
+	return p, ok
 }
 
 // BlockContext provides the EVM with auxiliary information. Once provided
@@ -212,12 +206,12 @@ func (evm *EVM) GetSnowContext() *snow.Context {
 }
 
 // GetStateDB returns the evm's StateDB
-func (evm *EVM) GetStateDB() contract.StateDB {
+func (evm *EVM) GetStateDB() precompile.StateDB {
 	return evm.StateDB
 }
 
 // GetBlockContext returns the evm's BlockContext
-func (evm *EVM) GetBlockContext() contract.BlockContext {
+func (evm *EVM) GetBlockContext() precompile.BlockContext {
 	return &evm.Context
 }
 
@@ -518,8 +512,8 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 		return nil, common.Address{}, 0, vmerrs.ErrContractAddressCollision
 	}
 	// If the allow list is enabled, check that [evm.TxContext.Origin] has permission to deploy a contract.
-	if evm.chainRules.IsPrecompileEnabled(deployerallowlist.ContractAddress) {
-		allowListRole := deployerallowlist.GetContractDeployerAllowListStatus(evm.StateDB, evm.TxContext.Origin)
+	if evm.chainRules.IsContractDeployerAllowListEnabled {
+		allowListRole := precompile.GetContractDeployerAllowListStatus(evm.StateDB, evm.TxContext.Origin)
 		if !allowListRole.IsEnabled() {
 			return nil, common.Address{}, 0, fmt.Errorf("tx.origin %s is not authorized to deploy a contract", evm.TxContext.Origin)
 		}

@@ -1646,7 +1646,7 @@ type BadBlockReason struct {
 	Receipts    types.Receipts      `json:"receipts"`
 	Number      uint64              `json:"number"`
 	Hash        common.Hash         `json:"hash"`
-	Error       string              `json:"error"`
+	Error       error               `json:"error"`
 }
 
 func (b *BadBlockReason) String() string {
@@ -1702,7 +1702,7 @@ func (bc *BlockChain) reportBlock(block *types.Block, receipts types.Receipts, e
 		Receipts:    receipts,
 		Number:      block.NumberU64(),
 		Hash:        block.Hash(),
-		Error:       err.Error(),
+		Error:       err,
 	}
 
 	badBlockCounter.Inc(1)

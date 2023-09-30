@@ -36,7 +36,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/core/vm"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/txallowlist"
+	"github.com/ava-labs/subnet-evm/precompile"
 	"github.com/ava-labs/subnet-evm/trie"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -392,8 +392,8 @@ func TestBadTxAllowListBlock(t *testing.T) {
 			MandatoryNetworkUpgrades: params.MandatoryNetworkUpgrades{
 				SubnetEVMTimestamp: utils.NewUint64(0),
 			},
-			GenesisPrecompiles: params.Precompiles{
-				txallowlist.ConfigKey: txallowlist.NewConfig(utils.NewUint64(0), nil, nil),
+			PrecompileUpgrade: params.PrecompileUpgrade{
+				TxAllowListConfig: precompile.NewTxAllowListConfig(big.NewInt(0), nil, nil),
 			},
 		}
 		signer     = types.LatestSigner(config)

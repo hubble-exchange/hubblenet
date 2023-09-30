@@ -35,6 +35,8 @@ import (
 type Node struct {
 	config *Config
 	accman *accounts.Manager
+
+	subnetEVMVersion string
 }
 
 // New creates a new P2P node, ready for protocol registration.

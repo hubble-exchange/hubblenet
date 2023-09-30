@@ -5,7 +5,7 @@ package evm
 
 import (
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/vms"
 )
 
@@ -19,6 +19,6 @@ var (
 
 type Factory struct{}
 
-func (*Factory) New(logging.Logger) (interface{}, error) {
+func (f *Factory) New(*snow.Context) (interface{}, error) {
 	return &VM{}, nil
 }

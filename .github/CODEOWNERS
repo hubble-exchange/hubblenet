@@ -6,11 +6,12 @@
 
 # review whenever someone opens a pull request.
 
-* @ceyonur @darioush @aaronbuchwald
+* @ceyonur @darioush @patrick-ogrady @aaronbuchwald
 
-# Specific directories:
+# These owners will be the owner of the contract-examples sub-directory.
 
-peer/ @anusha-ctrl @ceyonur @darioush @aaronbuchwald
-contracts/ @anusha-ctrl @ceyonur @darioush @aaronbuchwald
-scripts/ @anusha-ctrl @ceyonur @darioush @aaronbuchwald
+contract-examples/ @dasconnor @anusha-ctrl
 
+# These owners will be the owner of the scripts sub-directory.
+
+scripts/ @anusha-ctrl

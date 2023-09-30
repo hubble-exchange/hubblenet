@@ -7,27 +7,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ava-labs/avalanchego/snow"
-	commonEng "github.com/ava-labs/avalanchego/snow/engine/common"
+	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/metrics"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/txallowlist"
-	"github.com/ava-labs/subnet-evm/utils"
-	"github.com/ava-labs/subnet-evm/vmerrs"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ava-labs/subnet-evm/precompile"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestVMUpgradeBytesPrecompile(t *testing.T) {
@@ -36,7 +28,7 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 	upgradeConfig := &params.UpgradeConfig{
 		PrecompileUpgrades: []params.PrecompileUpgrade{
 			{
-				Config: txallowlist.NewConfig(utils.TimeToNewUint64(enableAllowListTimestamp), testEthAddrs[0:1], nil),
+				TxAllowListConfig: precompile.NewTxAllowListConfig(big.NewInt(enableAllowListTimestamp.Unix()), testEthAddrs[0:1], nil),
 			},
 		},
 	}
@@ -65,7 +57,7 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 		t.Fatal(err)
 	}
 	errs = vm.txPool.AddRemotesSync([]*types.Transaction{signedTx1})
-	if err := errs[0]; !errors.Is(err, vmerrs.ErrSenderAddressNotAllowListed) {
+	if err := errs[0]; !errors.Is(err, precompile.ErrSenderAddressNotAllowListed) {
 		t.Fatalf("expected ErrSenderAddressNotAllowListed, got: %s", err)
 	}
 
@@ -79,7 +71,7 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 	upgradeConfig.PrecompileUpgrades = append(
 		upgradeConfig.PrecompileUpgrades,
 		params.PrecompileUpgrade{
-			Config: txallowlist.NewDisableConfig(utils.TimeToNewUint64(disableAllowListTimestamp)),
+			TxAllowListConfig: precompile.NewDisableTxAllowListConfig(big.NewInt(disableAllowListTimestamp.Unix())),
 		},
 	)
 	upgradeBytesJSON, err = json.Marshal(upgradeConfig)
@@ -88,15 +80,9 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 	}
 
 	// restart the vm
-	// Hack: registering metrics uses global variables, so we need to disable metrics here so that we
-	// can initialize the VM twice.
-	metrics.Enabled = false
-	defer func() {
-		metrics.Enabled = true
-	}()
-	createValidatorPrivateKeyIfNotExists()
+	ctx := NewContext()
 	if err := vm.Initialize(
-		context.Background(), vm.ctx, dbManager, []byte(genesisJSONSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*commonEng.Fx{}, appSender,
+		context.Background(), ctx, dbManager, []byte(genesisJSONSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*common.Fx{}, appSender,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +108,7 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 
 	// Submit a rejected transaction, should throw an error
 	errs = vm.txPool.AddRemotesSync([]*types.Transaction{signedTx1})
-	if err := errs[0]; !errors.Is(err, vmerrs.ErrSenderAddressNotAllowListed) {
+	if err := errs[0]; !errors.Is(err, precompile.ErrSenderAddressNotAllowListed) {
 		t.Fatalf("expected ErrSenderAddressNotAllowListed, got: %s", err)
 	}
 
@@ -220,15 +206,28 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 // 			err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*commonEng.Fx{}, appSender)
 // 			require.ErrorContains(t, err, fmt.Sprintf("mismatching %s fork block timestamp in database", test.name))
 
-// 			// VM should not start if fork is moved forward
-// 			test.setTimestampFn(upgradeConfig, big.NewInt(30))
-// 			upgradeBytesJSON, err = json.Marshal(upgradeConfig)
-// 			require.NoError(t, err)
-// 			err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*commonEng.Fx{}, appSender)
-// 			require.ErrorContains(t, err, fmt.Sprintf("mismatching %s fork block timestamp in database", test.name))
-// 		})
-// 	}
-// }
+	// VM should not start again without proper upgrade bytes.
+	err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), []byte{}, []byte{}, issuer, []*common.Fx{}, appSender)
+	assert.ErrorContains(t, err, "mismatching SubnetEVM fork block timestamp in database")
+
+	// VM should not start if fork is moved back
+	upgradeConfig.NetworkUpgrades.SubnetEVMTimestamp = big.NewInt(2)
+	upgradeBytesJSON, err = json.Marshal(upgradeConfig)
+	if err != nil {
+		t.Fatalf("could not marshal upgradeConfig to json: %s", err)
+	}
+	err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*common.Fx{}, appSender)
+	assert.ErrorContains(t, err, "mismatching SubnetEVM fork block timestamp in database")
+
+	// VM should not start if fork is moved forward
+	upgradeConfig.NetworkUpgrades.SubnetEVMTimestamp = big.NewInt(30)
+	upgradeBytesJSON, err = json.Marshal(upgradeConfig)
+	if err != nil {
+		t.Fatalf("could not marshal upgradeConfig to json: %s", err)
+	}
+	err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*common.Fx{}, appSender)
+	assert.ErrorContains(t, err, "mismatching SubnetEVM fork block timestamp in database")
+}
 
 func TestVMUpgradeBytesNetworkUpgradesWithGenesis(t *testing.T) {
 	// make genesis w/ fork at block 5
@@ -254,114 +253,4 @@ func TestVMUpgradeBytesNetworkUpgradesWithGenesis(t *testing.T) {
 	if err := vm.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func mustMarshal(t *testing.T, v interface{}) string {
-	b, err := json.Marshal(v)
-	require.NoError(t, err)
-	return string(b)
-}
-
-func TestVMStateUpgrade(t *testing.T) {
-	// modify genesis to add a key to the state
-	genesis := &core.Genesis{}
-	err := json.Unmarshal([]byte(genesisJSONSubnetEVM), genesis)
-	require.NoError(t, err)
-	genesisAccount, ok := genesis.Alloc[testEthAddrs[0]]
-	require.True(t, ok)
-	storageKey := common.HexToHash("0x1234")
-	genesisAccount.Storage = map[common.Hash]common.Hash{storageKey: common.HexToHash("0x5555")}
-	genesisCode, err := hexutil.Decode("0xabcd")
-	require.NoError(t, err)
-	genesisAccount.Code = genesisCode
-	genesisAccount.Nonce = 2                        // set to a non-zero value to test that it is preserved
-	genesis.Alloc[testEthAddrs[0]] = genesisAccount // have to assign this back to the map for changes to take effect.
-	genesisStr := mustMarshal(t, genesis)
-
-	upgradedCodeStr := "0xdeadbeef" // this code will be applied during the upgrade
-	upgradedCode, err := hexutil.Decode(upgradedCodeStr)
-	// This modification will be applied to an existing account
-	genesisAccountUpgrade := &params.StateUpgradeAccount{
-		BalanceChange: (*math.HexOrDecimal256)(big.NewInt(100)),
-		Storage:       map[common.Hash]common.Hash{storageKey: {}},
-		Code:          upgradedCode,
-	}
-
-	// This modification will be applied to a new account
-	newAccount := common.Address{42}
-	require.NoError(t, err)
-	newAccountUpgrade := &params.StateUpgradeAccount{
-		BalanceChange: (*math.HexOrDecimal256)(big.NewInt(100)),
-		Storage:       map[common.Hash]common.Hash{storageKey: common.HexToHash("0x6666")},
-		Code:          upgradedCode,
-	}
-
-	upgradeTimestamp := time.Unix(10, 0) // arbitrary timestamp to perform the network upgrade
-	upgradeBytesJSON := fmt.Sprintf(
-		`{
-			"stateUpgrades": [
-				{
-					"blockTimestamp": %d,
-					"accounts": {
-						"%s": %s,
-						"%s": %s
-					}
-				}
-			]
-		}`,
-		upgradeTimestamp.Unix(),
-		testEthAddrs[0].Hex(),
-		mustMarshal(t, genesisAccountUpgrade),
-		newAccount.Hex(),
-		mustMarshal(t, newAccountUpgrade),
-	)
-	require.Contains(t, upgradeBytesJSON, upgradedCodeStr)
-
-	// initialize the VM with these upgrade bytes
-	issuer, vm, _, _ := GenesisVM(t, true, genesisStr, "", upgradeBytesJSON)
-	defer func() { require.NoError(t, vm.Shutdown(context.Background())) }()
-
-	// Verify the new account doesn't exist yet
-	genesisState, err := vm.blockChain.State()
-	require.NoError(t, err)
-	require.Equal(t, common.Big0, genesisState.GetBalance(newAccount))
-
-	// Advance the chain to the upgrade time
-	vm.clock.Set(upgradeTimestamp)
-
-	// Submit a successful (unrelated) transaction, so we can build a block
-	// in this tx, testEthAddrs[1] sends 1 wei to itself.
-	tx0 := types.NewTransaction(uint64(0), testEthAddrs[1], big.NewInt(1), 21000, big.NewInt(testMinGasPrice), nil)
-	signedTx0, err := types.SignTx(tx0, types.NewEIP155Signer(vm.chainConfig.ChainID), testKeys[1])
-	require.NoError(t, err)
-
-	errs := vm.txPool.AddRemotesSync([]*types.Transaction{signedTx0})
-	require.NoError(t, errs[0], "Failed to add tx")
-
-	blk := issueAndAccept(t, issuer, vm)
-	require.NotNil(t, blk)
-	require.EqualValues(t, 1, blk.Height())
-
-	// Verify the state upgrade was applied
-	state, err := vm.blockChain.State()
-	require.NoError(t, err)
-
-	// Existing account
-	expectedGenesisAccountBalance := new(big.Int).Add(
-		genesisAccount.Balance,
-		(*big.Int)(genesisAccountUpgrade.BalanceChange),
-	)
-	require.Equal(t, state.GetBalance(testEthAddrs[0]), expectedGenesisAccountBalance)
-	require.Equal(t, state.GetState(testEthAddrs[0], storageKey), genesisAccountUpgrade.Storage[storageKey])
-	require.Equal(t, state.GetCode(testEthAddrs[0]), upgradedCode)
-	require.Equal(t, state.GetCodeHash(testEthAddrs[0]), crypto.Keccak256Hash(upgradedCode))
-	require.Equal(t, state.GetNonce(testEthAddrs[0]), genesisAccount.Nonce) // Nonce should be preserved since it was non-zero
-
-	// New account
-	expectedNewAccountBalance := newAccountUpgrade.BalanceChange
-	require.Equal(t, state.GetBalance(newAccount), (*big.Int)(expectedNewAccountBalance))
-	require.Equal(t, state.GetCode(newAccount), upgradedCode)
-	require.Equal(t, state.GetCodeHash(newAccount), crypto.Keccak256Hash(upgradedCode))
-	require.Equal(t, state.GetNonce(newAccount), uint64(1)) // Nonce should be set to 1 when code is set if nonce was 0
-	require.Equal(t, state.GetState(newAccount, storageKey), newAccountUpgrade.Storage[storageKey])
 }

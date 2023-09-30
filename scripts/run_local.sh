@@ -8,6 +8,11 @@ if ! [[ "$0" =~ scripts/run_local.sh ]]; then
   exit 255
 fi
 
+if [[ -z "${VALIDATOR_PRIVATE_KEY}" ]]; then
+  echo "VALIDATOR_PRIVATE_KEY must be set"
+  exit 255
+fi
+
 avalanche network clean
 
 ./scripts/build.sh custom_evm.bin
@@ -28,6 +33,6 @@ avalanche subnet configure hubblenet --subnet-config subnet.json --config .avala
 
 # use the same avalanchego version as the one used in subnet-evm
 # use tee to keep showing outut while storing in a var
-OUTPUT=$(avalanche subnet deploy hubblenet -l --avalanchego-version v1.10.5 --config .avalanche-cli.json | tee /dev/fd/2)
+export OUTPUT=$(avalanche subnet deploy hubblenet -l --avalanchego-version v1.9.7 --config .avalanche-cli.json | tee /dev/fd/2)
 
 setStatus

@@ -780,6 +780,10 @@ func (h HelloGossip) String() string {
 	return fmt.Sprintf("HelloGossip(%s)", h.Msg)
 }
 
+func (h HelloGossip) initialize(_ []byte) {
+	// no op
+}
+
 func (h HelloGossip) Bytes() []byte {
 	// no op
 	return nil
@@ -788,6 +792,7 @@ func (h HelloGossip) Bytes() []byte {
 type testGossipHandler struct {
 	received bool
 	nodeID   ids.NodeID
+	msg      []byte
 }
 
 func (t *testGossipHandler) HandleTxs(nodeID ids.NodeID, msg message.TxsGossip) error {

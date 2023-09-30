@@ -66,7 +66,7 @@ type pushGossiper struct {
 
 	// [recentTxs] prevent us from over-gossiping the
 	// same transaction in a short period of time.
-	recentTxs *cache.LRU[common.Hash, interface{}]
+	recentTxs *cache.LRU
 
 	codec  codec.Manager
 	signer types.Signer
@@ -77,19 +77,20 @@ type pushGossiper struct {
 // based on whether vm.chainConfig.SubnetEVMTimestamp is set
 func (vm *VM) createGossiper(stats GossipStats) Gossiper {
 	net := &pushGossiper{
-		ctx:             vm.ctx,
-		config:          vm.config,
-		client:          vm.client,
-		blockchain:      vm.blockChain,
-		txPool:          vm.txPool,
-		txsToGossipChan: make(chan []*types.Transaction),
-		txsToGossip:     make(map[common.Hash]*types.Transaction),
-		shutdownChan:    vm.shutdownChan,
-		shutdownWg:      &vm.shutdownWg,
-		recentTxs:       &cache.LRU[common.Hash, interface{}]{Size: recentCacheSize},
-		codec:           vm.networkCodec,
-		signer:          types.LatestSigner(vm.blockChain.Config()),
-		stats:           stats,
+		ctx:                  vm.ctx,
+		gossipActivationTime: time.Unix(vm.chainConfig.SubnetEVMTimestamp.Int64(), 0),
+		config:               vm.config,
+		client:               vm.client,
+		blockchain:           vm.blockChain,
+		txPool:               vm.txPool,
+		txsToGossipChan:      make(chan []*types.Transaction),
+		txsToGossip:          make(map[common.Hash]*types.Transaction),
+		shutdownChan:         vm.shutdownChan,
+		shutdownWg:           &vm.shutdownWg,
+		recentTxs:            &cache.LRU{Size: recentCacheSize},
+		codec:                vm.networkCodec,
+		signer:               types.LatestSigner(vm.blockChain.Config()),
+		stats:                stats,
 	}
 	net.awaitEthTxGossip()
 	return net
@@ -235,17 +236,13 @@ func (n *pushGossiper) queuePriorityRegossipTxs() types.Transactions {
 func (n *pushGossiper) awaitEthTxGossip() {
 	n.shutdownWg.Add(1)
 	go n.ctx.Log.RecoverAndPanic(func() {
+		defer n.shutdownWg.Done()
+
 		var (
 			gossipTicker           = time.NewTicker(txsGossipInterval)
 			regossipTicker         = time.NewTicker(n.config.RegossipFrequency.Duration)
 			priorityRegossipTicker = time.NewTicker(n.config.PriorityRegossipFrequency.Duration)
 		)
-		defer func() {
-			gossipTicker.Stop()
-			regossipTicker.Stop()
-			priorityRegossipTicker.Stop()
-			n.shutdownWg.Done()
-		}()
 
 		for {
 			select {
