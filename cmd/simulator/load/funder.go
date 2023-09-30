@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/ava-labs/subnet-evm/cmd/simulator/key"
-	"github.com/ava-labs/subnet-evm/cmd/simulator/metrics"
 	"github.com/ava-labs/subnet-evm/cmd/simulator/txs"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -108,7 +107,7 @@ func DistributeFunds(ctx context.Context, client ethclient.Client, keys []*key.K
 		return nil, fmt.Errorf("failed to generate fund distribution sequence from %s of length %d", maxFundsKey.Address, len(needFundsAddrs))
 	}
 	worker := NewSingleAddressTxWorker(ctx, client, maxFundsKey.Address)
-	txFunderAgent := txs.NewIssueNAgent[*types.Transaction](txSequence, worker, numTxs, m)
+	txFunderAgent := txs.NewIssueNAgent[*types.Transaction](txSequence, worker, numTxs)
 
 	if err := txFunderAgent.Execute(ctx); err != nil {
 		return nil, err

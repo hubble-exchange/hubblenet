@@ -38,7 +38,9 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/core/vm"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/precompile"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/feemanager"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/rewardmanager"
+	"github.com/ava-labs/subnet-evm/trie"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
 )
@@ -355,8 +357,7 @@ func (bc *BlockChain) SubscribeAcceptedTransactionEvent(ch chan<- NewTxsEvent) e
 // Assumes that a valid configuration is stored when the precompile is activated.
 func (bc *BlockChain) GetFeeConfigAt(parent *types.Header) (commontype.FeeConfig, *big.Int, error) {
 	config := bc.Config()
-	bigTime := new(big.Int).SetUint64(parent.Time)
-	if !config.IsFeeConfigManager(bigTime) {
+	if !config.IsPrecompileEnabled(feemanager.ContractAddress, parent.Time) {
 		return config.FeeConfig, common.Big0, nil
 	}
 
@@ -394,7 +395,7 @@ func (bc *BlockChain) GetCoinbaseAt(parent *types.Header) (common.Address, bool,
 		return constants.BlackholeAddr, false, nil
 	}
 
-	if !config.IsRewardManager(bigTime) {
+	if !config.IsPrecompileEnabled(rewardmanager.ContractAddress, parent.Time) {
 		if bc.chainConfig.AllowFeeRecipients {
 			return common.Address{}, true, nil
 		} else {

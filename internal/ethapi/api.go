@@ -627,12 +627,16 @@ func (api *BlockChainAPI) ChainId() *hexutil.Big {
 	return (*hexutil.Big)(api.b.ChainConfig().ChainID)
 }
 
-func (s *BlockChainAPI) GetActivePrecompilesAt(ctx context.Context, blockTimestamp *big.Int) params.PrecompileUpgrade {
+// GetActivePrecompilesAt returns the active precompile configs at the given block timestamp.
+func (s *BlockChainAPI) GetActivePrecompilesAt(ctx context.Context, blockTimestamp *uint64) params.Precompiles {
+	var timestamp uint64
 	if blockTimestamp == nil {
-		blockTimestampInt := s.b.CurrentHeader().Time
-		blockTimestamp = new(big.Int).SetUint64(blockTimestampInt)
+		timestamp = s.b.CurrentHeader().Time
+	} else {
+		timestamp = *blockTimestamp
 	}
-	return s.b.ChainConfig().GetActivePrecompiles(blockTimestamp)
+
+	return s.b.ChainConfig().EnabledStatefulPrecompiles(timestamp)
 }
 
 type FeeConfigResult struct {

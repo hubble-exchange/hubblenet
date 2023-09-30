@@ -41,6 +41,9 @@ import (
 	"github.com/ava-labs/subnet-evm/sync/handlers"
 	handlerstats "github.com/ava-labs/subnet-evm/sync/handlers/stats"
 	"github.com/ava-labs/subnet-evm/trie"
+	"github.com/ava-labs/subnet-evm/warp"
+	"github.com/ava-labs/subnet-evm/warp/aggregator"
+	warpValidators "github.com/ava-labs/subnet-evm/warp/validators"
 
 	// Force-load tracer engine to trigger registration
 	//
@@ -400,13 +403,6 @@ func (vm *VM) Initialize(
 	vm.chainConfig = g.Config
 	vm.networkID = vm.ethConfig.NetworkId
 
-	if !vm.config.SkipSubnetEVMUpgradeCheck {
-		// check that subnetEVM upgrade is enabled from genesis before upgradeBytes
-		if !vm.chainConfig.IsSubnetEVM(common.Big0) {
-			return errSubnetEVMUpgradeNotEnabled
-		}
-	}
-
 	// Apply upgradeBytes (if any) by unmarshalling them into [chainConfig.UpgradeConfig].
 	// Initializing the chain will verify upgradeBytes are compatible with existing values.
 	if len(upgradeBytes) > 0 {
@@ -434,6 +430,16 @@ func (vm *VM) Initialize(
 	vm.networkCodec = message.Codec
 	vm.Network = peer.NewNetwork(appSender, vm.networkCodec, message.CrossChainCodec, chainCtx.NodeID, vm.config.MaxOutboundActiveRequests, vm.config.MaxOutboundActiveCrossChainRequests)
 	vm.client = peer.NewNetworkClient(vm.Network)
+
+	// initialize warp backend
+	vm.warpBackend = warp.NewWarpBackend(vm.ctx, vm.warpDB, warpSignatureCacheSize)
+
+	// clear warpdb on initialization if config enabled
+	if vm.config.PruneWarpDB {
+		if err := vm.warpBackend.Clear(); err != nil {
+			return fmt.Errorf("failed to prune warpDB: %w", err)
+		}
+	}
 
 	if err := vm.initializeChain(lastAcceptedHash, vm.ethConfig); err != nil {
 		return err
@@ -629,13 +635,9 @@ func (vm *VM) setAppRequestHandlers() {
 			Cache: vm.config.StateSyncServerTrieCache,
 		},
 	)
-	syncRequestHandler := handlers.NewSyncHandler(
-		vm.blockChain,
-		evmTrieDB,
-		vm.networkCodec,
-		handlerstats.NewHandlerStats(metrics.Enabled),
-	)
-	vm.Network.SetRequestHandler(syncRequestHandler)
+
+	networkHandler := newNetworkHandler(vm.blockChain, vm.chaindb, evmTrieDB, vm.networkCodec)
+	vm.Network.SetRequestHandler(networkHandler)
 }
 
 // setCrossChainAppRequestHandler sets the request handlers for the VM to serve cross chain
@@ -833,8 +835,13 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]*commonEng.HTTPHandler
 		}
 		enabledAPIs = append(enabledAPIs, "snowman")
 	}
-	if err := handler.RegisterName("orderbook", vm.limitOrderProcesser.GetOrderBookAPI()); err != nil {
-		return nil, err
+
+	if vm.config.WarpAPIEnabled {
+		warpAggregator := aggregator.NewAggregator(vm.ctx.SubnetID, warpValidators.NewState(vm.ctx), &aggregator.NetworkSigner{Client: vm.client})
+		if err := handler.RegisterName("warp", warp.NewWarpAPI(vm.warpBackend, warpAggregator)); err != nil {
+			return nil, err
+		}
+		enabledAPIs = append(enabledAPIs, "warp")
 	}
 
 	log.Info(fmt.Sprintf("Enabled APIs: %s", strings.Join(enabledAPIs, ", ")))

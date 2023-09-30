@@ -34,61 +34,12 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/core/vm"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/precompile"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/txallowlist"
+	predicateutils "github.com/ava-labs/subnet-evm/utils/predicate"
 	"github.com/ava-labs/subnet-evm/vmerrs"
 	"github.com/ethereum/go-ethereum/common"
 	cmath "github.com/ethereum/go-ethereum/common/math"
 )
-
-var emptyCodeHash = crypto.Keccak256Hash(nil)
-
-/*
-The State Transitioning Model
-
-A state transition is a change made when a transaction is applied to the current world state
-The state transitioning model does all the necessary work to work out a valid new state root.
-
-1) Nonce handling
-2) Pre pay gas
-3) Create a new state object if the recipient is \0*32
-4) Value transfer
-== If contract creation ==
-  4a) Attempt to run transaction data
-  4b) If valid, use result as code for the new state object
-== end ==
-5) Run Script section
-6) Derive new state root
-*/
-type StateTransition struct {
-	gp         *GasPool
-	msg        Message
-	gas        uint64
-	gasPrice   *big.Int
-	gasFeeCap  *big.Int
-	gasTipCap  *big.Int
-	initialGas uint64
-	value      *big.Int
-	data       []byte
-	state      vm.StateDB
-	evm        *vm.EVM
-}
-
-// Message represents a message sent to a contract.
-type Message interface {
-	From() common.Address
-	To() *common.Address
-
-	GasPrice() *big.Int
-	GasFeeCap() *big.Int
-	GasTipCap() *big.Int
-	Gas() uint64
-	Value() *big.Int
-
-	Nonce() uint64
-	IsFake() bool
-	Data() []byte
-	AccessList() types.AccessList
-}
 
 // ExecutionResult includes all output after executing given evm
 // message no matter the execution itself is successful or not.
@@ -394,10 +345,10 @@ func (st *StateTransition) preCheck() error {
 		}
 
 		// Check that the sender is on the tx allow list if enabled
-		if st.evm.ChainConfig().IsTxAllowList(st.evm.Context.Time) {
-			txAllowListRole := precompile.GetTxAllowListStatus(st.state, st.msg.From())
+		if st.evm.ChainConfig().IsPrecompileEnabled(txallowlist.ContractAddress, st.evm.Context.Time) {
+			txAllowListRole := txallowlist.GetTxAllowListStatus(st.state, msg.From)
 			if !txAllowListRole.IsEnabled() {
-				return fmt.Errorf("%w: %s", precompile.ErrSenderAddressNotAllowListed, st.msg.From())
+				return fmt.Errorf("%w: %s", vmerrs.ErrSenderAddressNotAllowListed, msg.From)
 			}
 		}
 	}
@@ -432,13 +383,10 @@ func (st *StateTransition) preCheck() error {
 // TransitionDb will transition the state by applying the current message and
 // returning the evm execution result with following fields.
 //
-// - used gas:
-//      total gas used (including gas being refunded)
-// - returndata:
-//      the returned data from evm
-// - concrete execution error:
-//      various **EVM** error which aborts the execution,
-//      e.g. ErrOutOfGas, ErrExecutionReverted
+//   - used gas: total gas used (including gas being refunded)
+//   - returndata: the returned data from evm
+//   - concrete execution error: various EVM errors which abort the execution, e.g.
+//     ErrOutOfGas, ErrExecutionReverted
 //
 // However if any consensus issue encountered, return the error directly with
 // nil evm execution result.
@@ -487,9 +435,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		return nil, fmt.Errorf("%w: address %v", ErrInsufficientFundsForTransfer, msg.From.Hex())
 	}
 
-	// Set up the initial access list.
-	if rules.IsSubnetEVM {
-		st.state.PrepareAccessList(msg.From(), msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
+	// Check whether the init code size has been exceeded.
+	if rules.IsDUpgrade && contractCreation && len(msg.Data) > params.MaxInitCodeSize {
+		return nil, fmt.Errorf("%w: code size %v limit %v", vmerrs.ErrMaxInitCodeSizeExceeded, len(msg.Data), params.MaxInitCodeSize)
 	}
 
 	// Execute the preparatory steps for state transition which includes:

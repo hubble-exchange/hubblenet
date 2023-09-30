@@ -240,12 +240,7 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 		if evmABI.HasReceive() {
 			receive = &tmplMethod{Original: evmABI.Receive}
 		}
-		// There is no easy way to pass arbitrary java objects to the Go side.
-		if len(structs) > 0 && lang == LangJava {
-			return "", errors.New("java binding for tuple arguments is not supported yet")
-		}
-
-		contracts[types[i]] = &tmplContract{
+		contracts[types[i]] = &TmplContract{
 			Type:        capitalise(types[i]),
 			InputABI:    strings.ReplaceAll(strippedABI, "\"", "\\\""),
 			InputBin:    strings.TrimPrefix(strings.TrimSpace(bytecodes[i]), "0x"),
@@ -339,9 +334,8 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 
 // bindType is a set of type binders that convert Solidity types to some supported
 // programming language types.
-var bindType = map[Lang]func(kind abi.Type, structs map[string]*tmplStruct) string{
-	LangGo:   bindTypeGo,
-	LangJava: bindTypeJava,
+var bindType = map[Lang]func(kind abi.Type, structs map[string]*TmplStruct) string{
+	LangGo: bindTypeGo,
 }
 
 // bindBasicTypeGo converts basic solidity types(except array, slice and tuple) to Go ones.
@@ -384,86 +378,10 @@ func bindTypeGo(kind abi.Type, structs map[string]*tmplStruct) string {
 	}
 }
 
-// bindBasicTypeJava converts basic solidity types(except array, slice and tuple) to Java ones.
-func bindBasicTypeJava(kind abi.Type) string {
-	switch kind.T {
-	case abi.AddressTy:
-		return "Address"
-	case abi.IntTy, abi.UintTy:
-		// Note that uint and int (without digits) are also matched,
-		// these are size 256, and will translate to BigInt (the default).
-		parts := regexp.MustCompile(`(u)?int([0-9]*)`).FindStringSubmatch(kind.String())
-		if len(parts) != 3 {
-			return kind.String()
-		}
-		// All unsigned integers should be translated to BigInt since gomobile doesn't
-		// support them.
-		if parts[1] == "u" {
-			return "BigInt"
-		}
-
-		namedSize := map[string]string{
-			"8":  "byte",
-			"16": "short",
-			"32": "int",
-			"64": "long",
-		}[parts[2]]
-
-		// default to BigInt
-		if namedSize == "" {
-			namedSize = "BigInt"
-		}
-		return namedSize
-	case abi.FixedBytesTy, abi.BytesTy:
-		return "byte[]"
-	case abi.BoolTy:
-		return "boolean"
-	case abi.StringTy:
-		return "String"
-	case abi.FunctionTy:
-		return "byte[24]"
-	default:
-		return kind.String()
-	}
-}
-
-// pluralizeJavaType explicitly converts multidimensional types to predefined
-// types in go side.
-func pluralizeJavaType(typ string) string {
-	switch typ {
-	case "boolean":
-		return "Bools"
-	case "String":
-		return "Strings"
-	case "Address":
-		return "Addresses"
-	case "byte[]":
-		return "Binaries"
-	case "BigInt":
-		return "BigInts"
-	}
-	return typ + "[]"
-}
-
-// bindTypeJava converts a Solidity type to a Java one. Since there is no clear mapping
-// from all Solidity types to Java ones (e.g. uint17), those that cannot be exactly
-// mapped will use an upscaled type (e.g. BigDecimal).
-func bindTypeJava(kind abi.Type, structs map[string]*tmplStruct) string {
-	switch kind.T {
-	case abi.TupleTy:
-		return structs[kind.TupleRawName+kind.String()].Name
-	case abi.ArrayTy, abi.SliceTy:
-		return pluralizeJavaType(bindTypeJava(*kind.Elem, structs))
-	default:
-		return bindBasicTypeJava(kind)
-	}
-}
-
 // bindTopicType is a set of type binders that convert Solidity types to some
 // supported programming language topic types.
-var bindTopicType = map[Lang]func(kind abi.Type, structs map[string]*tmplStruct) string{
-	LangGo:   bindTopicTypeGo,
-	LangJava: bindTopicTypeJava,
+var bindTopicType = map[Lang]func(kind abi.Type, structs map[string]*TmplStruct) string{
+	LangGo: bindTopicTypeGo,
 }
 
 // bindTopicTypeGo converts a Solidity topic type to a Go one. It is almost the same
@@ -483,28 +401,10 @@ func bindTopicTypeGo(kind abi.Type, structs map[string]*tmplStruct) string {
 	return bound
 }
 
-// bindTopicTypeJava converts a Solidity topic type to a Java one. It is almost the same
-// functionality as for simple types, but dynamic types get converted to hashes.
-func bindTopicTypeJava(kind abi.Type, structs map[string]*tmplStruct) string {
-	bound := bindTypeJava(kind, structs)
-
-	// todo(rjl493456442) according solidity documentation, indexed event
-	// parameters that are not value types i.e. arrays and structs are not
-	// stored directly but instead a keccak256-hash of an encoding is stored.
-	//
-	// We only convert strings and bytes to hash, still need to deal with
-	// array(both fixed-size and dynamic-size) and struct.
-	if bound == "String" || bound == "byte[]" {
-		bound = "Hash"
-	}
-	return bound
-}
-
 // bindStructType is a set of type binders that convert Solidity tuple types to some supported
 // programming language struct definition.
-var bindStructType = map[Lang]func(kind abi.Type, structs map[string]*tmplStruct) string{
-	LangGo:   bindStructTypeGo,
-	LangJava: bindStructTypeJava,
+var bindStructType = map[Lang]func(kind abi.Type, structs map[string]*TmplStruct) string{
+	LangGo: bindStructTypeGo,
 }
 
 // bindStructTypeGo converts a Solidity tuple type to a Go one and records the mapping
@@ -550,43 +450,6 @@ func bindStructTypeGo(kind abi.Type, structs map[string]*tmplStruct) string {
 		return "[]" + bindStructTypeGo(*kind.Elem, structs)
 	default:
 		return bindBasicTypeGo(kind)
-	}
-}
-
-// bindStructTypeJava converts a Solidity tuple type to a Java one and records the mapping
-// in the given map.
-// Notably, this function will resolve and record nested struct recursively.
-func bindStructTypeJava(kind abi.Type, structs map[string]*tmplStruct) string {
-	switch kind.T {
-	case abi.TupleTy:
-		// We compose a raw struct name and a canonical parameter expression
-		// together here. The reason is before solidity v0.5.11, kind.TupleRawName
-		// is empty, so we use canonical parameter expression to distinguish
-		// different struct definition. From the consideration of backward
-		// compatibility, we concat these two together so that if kind.TupleRawName
-		// is not empty, it can have unique id.
-		id := kind.TupleRawName + kind.String()
-		if s, exist := structs[id]; exist {
-			return s.Name
-		}
-		var fields []*tmplField
-		for i, elem := range kind.TupleElems {
-			field := bindStructTypeJava(*elem, structs)
-			fields = append(fields, &tmplField{Type: field, Name: decapitalise(kind.TupleRawNames[i]), SolKind: *elem})
-		}
-		name := kind.TupleRawName
-		if name == "" {
-			name = fmt.Sprintf("Class%d", len(structs))
-		}
-		structs[id] = &tmplStruct{
-			Name:   name,
-			Fields: fields,
-		}
-		return name
-	case abi.ArrayTy, abi.SliceTy:
-		return pluralizeJavaType(bindStructTypeJava(*kind.Elem, structs))
-	default:
-		return bindBasicTypeJava(kind)
 	}
 }
 

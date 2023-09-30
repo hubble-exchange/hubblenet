@@ -392,8 +392,8 @@ func TestBadTxAllowListBlock(t *testing.T) {
 			MandatoryNetworkUpgrades: params.MandatoryNetworkUpgrades{
 				SubnetEVMTimestamp: utils.NewUint64(0),
 			},
-			PrecompileUpgrade: params.PrecompileUpgrade{
-				TxAllowListConfig: precompile.NewTxAllowListConfig(big.NewInt(0), nil, nil),
+			GenesisPrecompiles: params.Precompiles{
+				txallowlist.ConfigKey: txallowlist.NewConfig(utils.NewUint64(0), nil, nil),
 			},
 		}
 		signer     = types.LatestSigner(config)

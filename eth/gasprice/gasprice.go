@@ -317,7 +317,7 @@ func (oracle *Oracle) suggestDynamicFees(ctx context.Context) (*big.Int, *big.In
 		feeLastChangedAt *big.Int
 		feeConfig        commontype.FeeConfig
 	)
-	if oracle.backend.ChainConfig().IsFeeConfigManager(new(big.Int).SetUint64(head.Time)) {
+	if oracle.backend.ChainConfig().IsPrecompileEnabled(feemanager.ContractAddress, head.Time) {
 		feeConfig, feeLastChangedAt, err = oracle.backend.GetFeeConfigAt(head)
 		if err != nil {
 			return nil, nil, err

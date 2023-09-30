@@ -1608,13 +1608,11 @@ func (bc *BlockChain) reorg(oldHead *types.Header, newHead *types.Block) error {
 		}
 		if len(deletedLogs) > 512 {
 			bc.rmLogsFeed.Send(RemovedLogsEvent{deletedLogs})
-			bc.hubbleFeed.Send(deletedLogs)
 			deletedLogs = nil
 		}
 	}
 	if len(deletedLogs) > 0 {
 		bc.rmLogsFeed.Send(RemovedLogsEvent{deletedLogs})
-		bc.hubbleFeed.Send(deletedLogs)
 	}
 
 	// New logs:
@@ -1625,13 +1623,11 @@ func (bc *BlockChain) reorg(oldHead *types.Header, newHead *types.Block) error {
 		}
 		if len(rebirthLogs) > 512 {
 			bc.logsFeed.Send(rebirthLogs)
-			bc.hubbleFeed.Send(rebirthLogs)
 			rebirthLogs = nil
 		}
 	}
 	if len(rebirthLogs) > 0 {
 		bc.logsFeed.Send(rebirthLogs)
-		bc.hubbleFeed.Send(rebirthLogs)
 	}
 	return nil
 }

@@ -77,20 +77,19 @@ type pushGossiper struct {
 // based on whether vm.chainConfig.SubnetEVMTimestamp is set
 func (vm *VM) createGossiper(stats GossipStats) Gossiper {
 	net := &pushGossiper{
-		ctx:                  vm.ctx,
-		gossipActivationTime: time.Unix(vm.chainConfig.SubnetEVMTimestamp.Int64(), 0),
-		config:               vm.config,
-		client:               vm.client,
-		blockchain:           vm.blockChain,
-		txPool:               vm.txPool,
-		txsToGossipChan:      make(chan []*types.Transaction),
-		txsToGossip:          make(map[common.Hash]*types.Transaction),
-		shutdownChan:         vm.shutdownChan,
-		shutdownWg:           &vm.shutdownWg,
-		recentTxs:            &cache.LRU{Size: recentCacheSize},
-		codec:                vm.networkCodec,
-		signer:               types.LatestSigner(vm.blockChain.Config()),
-		stats:                stats,
+		ctx:             vm.ctx,
+		config:          vm.config,
+		client:          vm.client,
+		blockchain:      vm.blockChain,
+		txPool:          vm.txPool,
+		txsToGossipChan: make(chan []*types.Transaction),
+		txsToGossip:     make(map[common.Hash]*types.Transaction),
+		shutdownChan:    vm.shutdownChan,
+		shutdownWg:      &vm.shutdownWg,
+		recentTxs:       &cache.LRU[common.Hash, interface{}]{Size: recentCacheSize},
+		codec:           vm.networkCodec,
+		signer:          types.LatestSigner(vm.blockChain.Config()),
+		stats:           stats,
 	}
 	net.awaitEthTxGossip()
 	return net

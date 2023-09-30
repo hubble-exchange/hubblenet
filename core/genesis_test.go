@@ -38,7 +38,10 @@ import (
 	"github.com/ava-labs/subnet-evm/core/vm"
 	"github.com/ava-labs/subnet-evm/ethdb"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/precompile"
+	"github.com/ava-labs/subnet-evm/precompile/allowlist"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/deployerallowlist"
+	"github.com/ava-labs/subnet-evm/trie"
+	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -187,7 +190,9 @@ func TestStatefulPrecompilesConfigure(t *testing.T) {
 		"allow list enabled in genesis": {
 			getConfig: func() *params.ChainConfig {
 				config := *params.TestChainConfig
-				config.ContractDeployerAllowListConfig = precompile.NewContractDeployerAllowListConfig(big.NewInt(0), []common.Address{addr}, nil)
+				config.GenesisPrecompiles = params.Precompiles{
+					deployerallowlist.ConfigKey: deployerallowlist.NewConfig(utils.NewUint64(0), []common.Address{addr}, nil),
+				}
 				return &config
 			},
 			assertState: func(t *testing.T, sdb *state.StateDB) {
@@ -259,9 +264,9 @@ func TestPrecompileActivationAfterHeaderBlock(t *testing.T) {
 	// header must be bigger than last accepted
 	require.Greater(block.Time, bc.lastAccepted.Time())
 
-	activatedGenesis := customg
-	contractDeployerConfig := precompile.NewContractDeployerAllowListConfig(big.NewInt(51), nil, nil)
-	activatedGenesis.Config.UpgradeConfig.PrecompileUpgrades = []params.PrecompileUpgrade{
+	activatedGenesisConfig := *customg.Config
+	contractDeployerConfig := deployerallowlist.NewConfig(utils.NewUint64(51), nil, nil)
+	activatedGenesisConfig.UpgradeConfig.PrecompileUpgrades = []params.PrecompileUpgrade{
 		{
 			// Enable ContractDeployerAllowList at timestamp 50
 			ContractDeployerAllowListConfig: contractDeployerConfig,

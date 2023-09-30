@@ -74,20 +74,18 @@ var (
 		FeeConfig:          DefaultFeeConfig,
 		AllowFeeRecipients: false,
 
-		HomesteadBlock:      big.NewInt(0),
-		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
-		EIP155Block:         big.NewInt(0),
-		EIP158Block:         big.NewInt(0),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: big.NewInt(0),
-		PetersburgBlock:     big.NewInt(0),
-		IstanbulBlock:       big.NewInt(0),
-		MuirGlacierBlock:    big.NewInt(0),
-
-		NetworkUpgrades: NetworkUpgrades{
-			SubnetEVMTimestamp: big.NewInt(0),
-		},
+		HomesteadBlock:           big.NewInt(0),
+		EIP150Block:              big.NewInt(0),
+		EIP150Hash:               common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
+		EIP155Block:              big.NewInt(0),
+		EIP158Block:              big.NewInt(0),
+		ByzantiumBlock:           big.NewInt(0),
+		ConstantinopleBlock:      big.NewInt(0),
+		PetersburgBlock:          big.NewInt(0),
+		IstanbulBlock:            big.NewInt(0),
+		MuirGlacierBlock:         big.NewInt(0),
+		MandatoryNetworkUpgrades: MainnetNetworkUpgrades, // This can be changed to correct network (local, test) via VM.
+		GenesisPrecompiles:       Precompiles{},
 	}
 
 	TestChainConfig = &ChainConfig{
@@ -105,9 +103,12 @@ var (
 		PetersburgBlock:     big.NewInt(0),
 		IstanbulBlock:       big.NewInt(0),
 		MuirGlacierBlock:    big.NewInt(0),
-		NetworkUpgrades:     NetworkUpgrades{big.NewInt(0)},
-		PrecompileUpgrade:   PrecompileUpgrade{},
-		UpgradeConfig:       UpgradeConfig{},
+		MandatoryNetworkUpgrades: MandatoryNetworkUpgrades{
+			SubnetEVMTimestamp: utils.NewUint64(0),
+			DUpgradeTimestamp:  utils.NewUint64(0),
+		},
+		GenesisPrecompiles: Precompiles{},
+		UpgradeConfig:      UpgradeConfig{},
 	}
 
 	TestSubnetEVMConfig = &ChainConfig{
@@ -125,9 +126,11 @@ var (
 		PetersburgBlock:     big.NewInt(0),
 		IstanbulBlock:       big.NewInt(0),
 		MuirGlacierBlock:    big.NewInt(0),
-		NetworkUpgrades:     NetworkUpgrades{},
-		PrecompileUpgrade:   PrecompileUpgrade{},
-		UpgradeConfig:       UpgradeConfig{},
+		MandatoryNetworkUpgrades: MandatoryNetworkUpgrades{
+			SubnetEVMTimestamp: utils.NewUint64(0),
+		},
+		GenesisPrecompiles: Precompiles{},
+		UpgradeConfig:      UpgradeConfig{},
 	}
 
 	TestPreSubnetEVMConfig = &ChainConfig{
@@ -152,6 +155,27 @@ var (
 
 	TestRules = TestChainConfig.AvalancheRules(new(big.Int), 0)
 )
+
+// UpgradeConfig includes the following configs that may be specified in upgradeBytes:
+// - Timestamps that enable avalanche network upgrades,
+// - Enabling or disabling precompiles as network upgrades.
+type UpgradeConfig struct {
+	// Config for optional timestamps that enable network upgrades.
+	// Note: if OptionalUpgrades is specified in the JSON all previously activated
+	// forks must be present or upgradeBytes will be rejected.
+	OptionalNetworkUpgrades *OptionalNetworkUpgrades `json:"networkUpgrades,omitempty"`
+
+	// Config for modifying state as a network upgrade.
+	StateUpgrades []StateUpgrade `json:"stateUpgrades,omitempty"`
+
+	// Config for enabling and disabling precompiles as network upgrades.
+	PrecompileUpgrades []PrecompileUpgrade `json:"precompileUpgrades,omitempty"`
+}
+
+// AvalancheContext provides Avalanche specific context directly into the EVM.
+type AvalancheContext struct {
+	SnowCtx *snow.Context
+}
 
 // ChainConfig is the core config which determines the blockchain settings.
 //
@@ -180,9 +204,10 @@ type ChainConfig struct {
 	IstanbulBlock       *big.Int `json:"istanbulBlock,omitempty"`       // Istanbul switch block (nil = no fork, 0 = already on istanbul)
 	MuirGlacierBlock    *big.Int `json:"muirGlacierBlock,omitempty"`    // Eip-2384 (bomb delay) switch block (nil = no fork, 0 = already activated)
 
-	NetworkUpgrades              // Config for timestamps that enable avalanche network upgrades
-	PrecompileUpgrade            // Config for enabling precompiles from genesis
-	UpgradeConfig     `json:"-"` // Config specified in upgradeBytes (avalanche network upgrades or enable/disabling precompiles). Skip encoding/decoding directly into ChainConfig.
+	MandatoryNetworkUpgrades             // Config for timestamps that enable mandatory network upgrades. Skip encoding/decoding directly into ChainConfig.
+	OptionalNetworkUpgrades              // Config for optional timestamps that enable network upgrades
+	GenesisPrecompiles       Precompiles `json:"-"` // Config for enabling precompiles from genesis. JSON encode/decode will be handled by the custom marshaler/unmarshaler.
+	UpgradeConfig            `json:"-"`  // Config specified in upgradeBytes (avalanche network upgrades or enable/disabling precompiles). Skip encoding/decoding directly into ChainConfig.
 }
 
 // UpgradeConfig includes the following configs that may be specified in upgradeBytes:
@@ -229,7 +254,20 @@ func (c *ChainConfig) Description() string {
 	if c.SubnetEVMTimestamp != nil {
 		banner += fmt.Sprintf(" - SubnetEVM Timestamp:             @%-10v (https://github.com/ava-labs/avalanchego/releases/tag/v1.10.0)\n", *c.SubnetEVMTimestamp)
 	}
-	precompileUpgradeBytes, err := json.Marshal(c.PrecompileUpgrade)
+	if c.DUpgradeTimestamp != nil {
+		banner += fmt.Sprintf(" - DUpgrade Timestamp:              @%-10v (https://github.com/ava-labs/avalanchego/releases/tag/v1.11.0)\n", *c.DUpgradeTimestamp)
+	}
+	banner += "\n"
+
+	// Add Subnet-EVM custom fields
+	optionalNetworkUpgradeBytes, err := json.Marshal(c.OptionalNetworkUpgrades)
+	if err != nil {
+		optionalNetworkUpgradeBytes = []byte("cannot marshal OptionalNetworkUpgrades")
+	}
+	banner += fmt.Sprintf("Optional Network Upgrades: %s", string(optionalNetworkUpgradeBytes))
+	banner += "\n"
+
+	precompileUpgradeBytes, err := json.Marshal(c.GenesisPrecompiles)
 	if err != nil {
 		precompileUpgradeBytes = []byte("cannot marshal PrecompileUpgrade")
 	}
@@ -314,6 +352,12 @@ func (c *ChainConfig) IsDUpgrade(time uint64) bool {
 	return utils.IsTimestampForked(c.DUpgradeTimestamp, time)
 }
 
+// IsDUpgrade returns whether [time] represents a block
+// with a timestamp after the DUpgrade upgrade time.
+func (c *ChainConfig) IsDUpgrade(time uint64) bool {
+	return utils.IsTimestampForked(c.DUpgradeTimestamp, time)
+}
+
 // PRECOMPILE UPGRADES START HERE
 
 // IsContractDeployerAllowList returns whether [blockTimestamp] is either equal to the ContractDeployerAllowList fork block timestamp or greater.
@@ -322,10 +366,10 @@ func (c *ChainConfig) IsContractDeployerAllowList(blockTimestamp *big.Int) bool 
 	return config != nil && !config.Disable
 }
 
-// IsContractNativeMinter returns whether [blockTimestamp] is either equal to the NativeMinter fork block timestamp or greater.
-func (c *ChainConfig) IsContractNativeMinter(blockTimestamp *big.Int) bool {
-	config := c.GetContractNativeMinterConfig(blockTimestamp)
-	return config != nil && !config.Disable
+// IsPrecompileEnabled returns whether precompile with [address] is enabled at [timestamp].
+func (c *ChainConfig) IsPrecompileEnabled(address common.Address, timestamp uint64) bool {
+	config := c.getActivePrecompileConfig(address, timestamp)
+	return config != nil && !config.IsDisabled()
 }
 
 // IsTxAllowList returns whether [blockTimestamp] is either equal to the TxAllowList fork block timestamp or greater.
@@ -530,6 +574,11 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, height *big.Int, time
 		return err
 	}
 
+	// Check that the state upgrades on the new config are compatible with the existing state upgrade config.
+	if err := c.CheckStateUpgradesCompatible(newcfg.StateUpgrades, time); err != nil {
+		return err
+	}
+
 	// TODO verify that the fee config is fully compatible between [c] and [newcfg].
 	return nil
 }
@@ -698,20 +747,26 @@ func (c *ChainConfig) rules(num *big.Int) Rules {
 func (c *ChainConfig) AvalancheRules(blockNum *big.Int, timestamp uint64) Rules {
 	rules := c.rules(blockNum)
 
-	rules.IsSubnetEVM = c.IsSubnetEVM(blockTimestamp)
-	rules.IsContractDeployerAllowListEnabled = c.IsContractDeployerAllowList(blockTimestamp)
-	rules.IsContractNativeMinterEnabled = c.IsContractNativeMinter(blockTimestamp)
-	rules.IsTxAllowListEnabled = c.IsTxAllowList(blockTimestamp)
-	rules.IsFeeConfigManagerEnabled = c.IsFeeConfigManager(blockTimestamp)
-	rules.IsRewardManagerEnabled = c.IsRewardManager(blockTimestamp)
-	// ADD YOUR PRECOMPILE HERE
-	// rules.Is{YourPrecompile}Enabled = c.{IsYourPrecompile}(blockTimestamp)
+	rules.IsSubnetEVM = c.IsSubnetEVM(timestamp)
+	rules.IsDUpgrade = c.IsDUpgrade(timestamp)
 
 	// Initialize the stateful precompiles that should be enabled at [blockTimestamp].
-	rules.Precompiles = make(map[common.Address]precompile.StatefulPrecompiledContract)
-	for _, config := range c.EnabledStatefulPrecompiles(blockTimestamp) {
-		if config.IsDisabled() {
-			continue
+	rules.ActivePrecompiles = make(map[common.Address]precompileconfig.Config)
+	rules.PredicatePrecompiles = make(map[common.Address]precompileconfig.PrecompilePredicater)
+	rules.ProposerPredicates = make(map[common.Address]precompileconfig.ProposerPredicater)
+	rules.AccepterPrecompiles = make(map[common.Address]precompileconfig.Accepter)
+	for _, module := range modules.RegisteredModules() {
+		if config := c.getActivePrecompileConfig(module.Address, timestamp); config != nil && !config.IsDisabled() {
+			rules.ActivePrecompiles[module.Address] = config
+			if precompilePredicate, ok := config.(precompileconfig.PrecompilePredicater); ok {
+				rules.PredicatePrecompiles[module.Address] = precompilePredicate
+			}
+			if proposerPredicate, ok := config.(precompileconfig.ProposerPredicater); ok {
+				rules.ProposerPredicates[module.Address] = proposerPredicate
+			}
+			if precompileAccepter, ok := config.(precompileconfig.Accepter); ok {
+				rules.AccepterPrecompiles[module.Address] = precompileAccepter
+			}
 		}
 		rules.Precompiles[config.Address()] = config.Contract()
 	}

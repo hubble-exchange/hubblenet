@@ -18,7 +18,13 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/metrics"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/precompile"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/txallowlist"
+	"github.com/ava-labs/subnet-evm/utils"
+	"github.com/ava-labs/subnet-evm/vmerrs"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,7 +34,7 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 	upgradeConfig := &params.UpgradeConfig{
 		PrecompileUpgrades: []params.PrecompileUpgrade{
 			{
-				TxAllowListConfig: precompile.NewTxAllowListConfig(big.NewInt(enableAllowListTimestamp.Unix()), testEthAddrs[0:1], nil),
+				Config: txallowlist.NewConfig(utils.TimeToNewUint64(enableAllowListTimestamp), testEthAddrs[0:1], nil),
 			},
 		},
 	}
@@ -71,7 +77,7 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 	upgradeConfig.PrecompileUpgrades = append(
 		upgradeConfig.PrecompileUpgrades,
 		params.PrecompileUpgrade{
-			TxAllowListConfig: precompile.NewDisableTxAllowListConfig(big.NewInt(disableAllowListTimestamp.Unix())),
+			Config: txallowlist.NewDisableConfig(utils.TimeToNewUint64(disableAllowListTimestamp)),
 		},
 	)
 	upgradeBytesJSON, err = json.Marshal(upgradeConfig)
@@ -206,28 +212,15 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 // 			err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*commonEng.Fx{}, appSender)
 // 			require.ErrorContains(t, err, fmt.Sprintf("mismatching %s fork block timestamp in database", test.name))
 
-	// VM should not start again without proper upgrade bytes.
-	err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), []byte{}, []byte{}, issuer, []*common.Fx{}, appSender)
-	assert.ErrorContains(t, err, "mismatching SubnetEVM fork block timestamp in database")
-
-	// VM should not start if fork is moved back
-	upgradeConfig.NetworkUpgrades.SubnetEVMTimestamp = big.NewInt(2)
-	upgradeBytesJSON, err = json.Marshal(upgradeConfig)
-	if err != nil {
-		t.Fatalf("could not marshal upgradeConfig to json: %s", err)
-	}
-	err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*common.Fx{}, appSender)
-	assert.ErrorContains(t, err, "mismatching SubnetEVM fork block timestamp in database")
-
-	// VM should not start if fork is moved forward
-	upgradeConfig.NetworkUpgrades.SubnetEVMTimestamp = big.NewInt(30)
-	upgradeBytesJSON, err = json.Marshal(upgradeConfig)
-	if err != nil {
-		t.Fatalf("could not marshal upgradeConfig to json: %s", err)
-	}
-	err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*common.Fx{}, appSender)
-	assert.ErrorContains(t, err, "mismatching SubnetEVM fork block timestamp in database")
-}
+// 			// VM should not start if fork is moved forward
+// 			test.setTimestampFn(upgradeConfig, big.NewInt(30))
+// 			upgradeBytesJSON, err = json.Marshal(upgradeConfig)
+// 			require.NoError(t, err)
+// 			err = vm.Initialize(context.Background(), vm.ctx, dbManager, []byte(genesisJSONPreSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*commonEng.Fx{}, appSender)
+// 			require.ErrorContains(t, err, fmt.Sprintf("mismatching %s fork block timestamp in database", test.name))
+// 		})
+// 	}
+// }
 
 func TestVMUpgradeBytesNetworkUpgradesWithGenesis(t *testing.T) {
 	// make genesis w/ fork at block 5

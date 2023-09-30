@@ -41,11 +41,8 @@ import (
 )
 
 var (
-	// Git SHA1 commit hash of the release (set via linker flags)
-	gitCommit = ""
-	gitDate   = ""
-
-	app *cli.App
+	//go:embed template-readme.md
+	readme string
 )
 
 var (

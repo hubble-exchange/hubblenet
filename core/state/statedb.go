@@ -39,6 +39,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/metrics"
 	"github.com/ava-labs/subnet-evm/trie"
+	predicateutils "github.com/ava-labs/subnet-evm/utils/predicate"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -109,6 +110,9 @@ type StateDB struct {
 	// Transient storage
 	transientStorage transientStorage
 
+	// Transient storage
+	transientStorage transientStorage
+
 	// Journal of state modifications. This is the backbone of
 	// Snapshot and RevertToSnapshot.
 	journal        *journal
@@ -154,17 +158,19 @@ func NewWithSnapshot(root common.Hash, db Database, snap snapshot.Snapshot) (*St
 		return nil, err
 	}
 	sdb := &StateDB{
-		db:                  db,
-		trie:                tr,
-		originalRoot:        root,
-		stateObjects:        make(map[common.Address]*stateObject),
-		stateObjectsPending: make(map[common.Address]struct{}),
-		stateObjectsDirty:   make(map[common.Address]struct{}),
-		logs:                make(map[common.Hash][]*types.Log),
-		preimages:           make(map[common.Hash][]byte),
-		journal:             newJournal(),
-		accessList:          newAccessList(),
-		hasher:              crypto.NewKeccakState(),
+		db:                   db,
+		trie:                 tr,
+		originalRoot:         root,
+		stateObjects:         make(map[common.Address]*stateObject),
+		stateObjectsPending:  make(map[common.Address]struct{}),
+		stateObjectsDirty:    make(map[common.Address]struct{}),
+		stateObjectsDestruct: make(map[common.Address]struct{}),
+		logs:                 make(map[common.Hash][]*types.Log),
+		preimages:            make(map[common.Hash][]byte),
+		journal:              newJournal(),
+		accessList:           newAccessList(),
+		transientStorage:     newTransientStorage(),
+		hasher:               crypto.NewKeccakState(),
 	}
 	if snap != nil {
 		if snap.Root() != root {
@@ -807,6 +813,8 @@ func (s *StateDB) Copy() *StateDB {
 	// empty lists, so we do it anyway to not blow up if we ever decide copy them
 	// in the middle of a transaction.
 	state.accessList = s.accessList.Copy()
+	state.transientStorage = s.transientStorage.Copy()
+	state.predicateStorageSlots = copyPredicateStorageSlots(s.predicateStorageSlots)
 
 	// If there's a prefetcher running, make an inactive copy of it that can
 	// only access data but does not actively preload (since the user will not
@@ -1139,23 +1147,20 @@ func (s *StateDB) commit(deleteEmptyObjects bool, snaps *snapshot.Tree, blockHas
 // - Add precompiles to access list (2929)
 // - Add the contents of the optional tx access list (2930)
 //
-// This method should only be called if Berlin/SubnetEVM/2929+2930 is applicable at the current number.
-func (s *StateDB) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
-	// Clear out any leftover from previous executions
-	s.accessList = newAccessList()
+// Potential EIPs:
+// - Reset access list (Berlin)
+// - Add coinbase to access list (EIP-3651/DUpgrade)
+// - Reset transient storage (EIP-1153)
+func (s *StateDB) Prepare(rules params.Rules, sender, coinbase common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+	if rules.IsSubnetEVM {
+		// Clear out any leftover from previous executions
+		al := newAccessList()
+		s.accessList = al
 
-	s.AddAddressToAccessList(sender)
-	if dst != nil {
-		s.AddAddressToAccessList(*dst)
-		// If it's a create-tx, the destination will be added inside evm.create
-	}
-	for _, addr := range precompiles {
-		s.AddAddressToAccessList(addr)
-	}
-	for _, el := range list {
-		s.AddAddressToAccessList(el.Address)
-		for _, key := range el.StorageKeys {
-			s.AddSlotToAccessList(el.Address, key)
+		al.AddAddress(sender)
+		if dst != nil {
+			al.AddAddress(*dst)
+			// If it's a create-tx, the destination will be added inside evm.create
 		}
 		for _, addr := range precompiles {
 			al.AddAddress(addr)
@@ -1171,6 +1176,23 @@ func (s *StateDB) PrepareAccessList(sender common.Address, dst *common.Address, 
 		}
 
 		s.preparePredicateStorageSlots(rules, list)
+	}
+	// Reset transient storage at the beginning of transaction execution
+	s.transientStorage = newTransientStorage()
+}
+
+// preparePredicateStorageSlots populates the predicateStorageSlots field from the transaction's access list
+// Note: if an address is specified multiple times in the access list, only the last storage slots provided
+// for it are used in predicates.
+// During predicate verification, we require that a precompile address is only specififed in the access list
+// once to avoid a situation where we verify multiple predicate and only expose data from the last one.
+func (s *StateDB) preparePredicateStorageSlots(rules params.Rules, list types.AccessList) {
+	s.predicateStorageSlots = make(map[common.Address][]byte)
+	for _, el := range list {
+		if !rules.PredicateExists(el.Address) {
+			continue
+		}
+		s.predicateStorageSlots[el.Address] = predicateutils.HashSliceToBytes(el.StorageKeys)
 	}
 }
 
@@ -1207,4 +1229,33 @@ func (s *StateDB) AddressInAccessList(addr common.Address) bool {
 // SlotInAccessList returns true if the given (address, slot)-tuple is in the access list.
 func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addressPresent bool, slotPresent bool) {
 	return s.accessList.Contains(addr, slot)
+}
+
+// GetPredicateStorageSlots returns the storage slots associated with a given address, and whether or not
+// that address was included in the optional access list of the transaction.
+// The storage slots are returned in the same order as they appeared in the transaction.
+// These are the same storage slots that are used to verify any transaction
+// predicates for transactions with access list addresses that match a precompile address.
+func (s *StateDB) GetPredicateStorageSlots(address common.Address) ([]byte, bool) {
+	storageSlots, exists := s.predicateStorageSlots[address]
+	return storageSlots, exists
+}
+
+// convertAccountSet converts a provided account set from address keyed to hash keyed.
+func (s *StateDB) convertAccountSet(set map[common.Address]struct{}) map[common.Hash]struct{} {
+	ret := make(map[common.Hash]struct{})
+	for addr := range set {
+		obj, exist := s.stateObjects[addr]
+		if !exist {
+			ret[crypto.Keccak256Hash(addr[:])] = struct{}{}
+		} else {
+			ret[obj.addrHash] = struct{}{}
+		}
+	}
+	return ret
+}
+
+// SetPredicateStorageSlots sets the predicate storage slots for the given address
+func (s *StateDB) SetPredicateStorageSlots(address common.Address, predicate []byte) {
+	s.predicateStorageSlots[address] = predicate
 }

@@ -41,7 +41,9 @@ func newNetworkHandler(
 		stateTrieLeafsRequestHandler: syncHandlers.NewLeafsRequestHandler(evmTrieDB, provider, networkCodec, syncStats),
 		blockRequestHandler:          syncHandlers.NewBlockRequestHandler(provider, networkCodec, syncStats),
 		codeRequestHandler:           syncHandlers.NewCodeRequestHandler(diskDB, networkCodec, syncStats),
-		signatureRequestHandler:      warpHandlers.NewSignatureRequestHandler(warpBackend, networkCodec, warpStats.NewStats()),
+
+		// TODO: initialize actual signature request handler when warp is ready
+		signatureRequestHandler: &warpHandlers.NoopSignatureRequestHandler{},
 	}
 }
 

@@ -55,6 +55,9 @@ import (
 	"github.com/ava-labs/subnet-evm/eth"
 	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/rpc"
+	"github.com/ava-labs/subnet-evm/trie"
+	"github.com/ava-labs/subnet-evm/utils"
+	"github.com/ava-labs/subnet-evm/vmerrs"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	accountKeystore "github.com/ava-labs/subnet-evm/accounts/keystore"
@@ -389,57 +392,6 @@ func issueAndAccept(t *testing.T, issuer <-chan engCommon.Message, vm *VM) snowm
 	}
 
 	return blk
-}
-
-func TestSubnetEVMUpgradeRequiredAtGenesis(t *testing.T) {
-	genesisTests := []struct {
-		genesisJSON string
-		configJSON  string
-		expectedErr error
-	}{
-		{
-			// we expect an error when subnet evm upgrade is nil in chain config
-			genesisJSON: genesisJSONPreSubnetEVM,
-			configJSON:  "",
-			expectedErr: errSubnetEVMUpgradeNotEnabled,
-		},
-		{
-			// we expect an error when subnet evm upgrade is not enabled at genesis and at a later block instead
-			genesisJSON: genesisJSONSubnetEVMLateEnablement,
-			configJSON:  "",
-			expectedErr: errSubnetEVMUpgradeNotEnabled,
-		},
-		{
-			// we do not expect an err when skip-subnet-evm-upgrade-check is set to true
-			genesisJSON: genesisJSONPreSubnetEVM,
-			configJSON:  "{\"skip-subnet-evm-upgrade-check\": true}",
-			expectedErr: nil,
-		},
-		{
-			// we do not expect an err when skip-subnet-evm-upgrade-check is set to true
-			genesisJSON: genesisJSONSubnetEVMLateEnablement,
-			configJSON:  "{\"skip-subnet-evm-upgrade-check\": true}",
-			expectedErr: nil,
-		},
-	}
-
-	for _, test := range genesisTests {
-		ctx, dbManager, genesisBytes, issuer := setupGenesis(t, test.genesisJSON)
-		vm := &VM{}
-		err := vm.Initialize(
-			context.Background(),
-			ctx,
-			dbManager,
-			genesisBytes,
-			[]byte(""),
-			[]byte(test.configJSON),
-			issuer,
-			[]*engCommon.Fx{},
-			nil,
-		)
-
-		require.ErrorIs(t, err, test.expectedErr)
-	}
 }
 
 func TestBuildEthTxBlock(t *testing.T) {
@@ -2200,7 +2152,9 @@ func TestBuildAllowListActivationBlock(t *testing.T) {
 	if err := genesis.UnmarshalJSON([]byte(genesisJSONSubnetEVM)); err != nil {
 		t.Fatal(err)
 	}
-	genesis.Config.ContractDeployerAllowListConfig = precompile.NewContractDeployerAllowListConfig(big.NewInt(time.Now().Unix()), testEthAddrs, nil)
+	genesis.Config.GenesisPrecompiles = params.Precompiles{
+		deployerallowlist.ConfigKey: deployerallowlist.NewConfig(utils.TimeToNewUint64(time.Now()), testEthAddrs, nil),
+	}
 
 	genesisJSON, err := genesis.MarshalJSON()
 	if err != nil {
@@ -2264,7 +2218,9 @@ func TestTxAllowListSuccessfulTx(t *testing.T) {
 	if err := genesis.UnmarshalJSON([]byte(genesisJSONSubnetEVM)); err != nil {
 		t.Fatal(err)
 	}
-	genesis.Config.TxAllowListConfig = precompile.NewTxAllowListConfig(big.NewInt(0), testEthAddrs[0:1], nil)
+	genesis.Config.GenesisPrecompiles = params.Precompiles{
+		txallowlist.ConfigKey: txallowlist.NewConfig(utils.NewUint64(0), testEthAddrs[0:1], nil),
+	}
 	genesisJSON, err := genesis.MarshalJSON()
 	if err != nil {
 		t.Fatal(err)
@@ -2340,7 +2296,9 @@ func TestTxAllowListDisablePrecompile(t *testing.T) {
 		t.Fatal(err)
 	}
 	enableAllowListTimestamp := time.Unix(0, 0) // enable at genesis
-	genesis.Config.TxAllowListConfig = precompile.NewTxAllowListConfig(big.NewInt(enableAllowListTimestamp.Unix()), testEthAddrs[0:1], nil)
+	genesis.Config.GenesisPrecompiles = params.Precompiles{
+		txallowlist.ConfigKey: txallowlist.NewConfig(utils.TimeToNewUint64(enableAllowListTimestamp), testEthAddrs[0:1], nil),
+	}
 	genesisJSON, err := genesis.MarshalJSON()
 	if err != nil {
 		t.Fatal(err)
@@ -2452,7 +2410,9 @@ func TestFeeManagerChangeFee(t *testing.T) {
 	if err := genesis.UnmarshalJSON([]byte(genesisJSONSubnetEVM)); err != nil {
 		t.Fatal(err)
 	}
-	genesis.Config.FeeManagerConfig = precompile.NewFeeManagerConfig(big.NewInt(0), testEthAddrs[0:1], nil, nil)
+	genesis.Config.GenesisPrecompiles = params.Precompiles{
+		feemanager.ConfigKey: feemanager.NewConfig(utils.NewUint64(0), testEthAddrs[0:1], nil, nil),
+	}
 
 	// set a lower fee config now
 	testLowFeeConfig := commontype.FeeConfig{
@@ -2692,7 +2652,9 @@ func TestRewardManagerPrecompileSetRewardAddress(t *testing.T) {
 	genesis := &core.Genesis{}
 	require.NoError(t, genesis.UnmarshalJSON([]byte(genesisJSONSubnetEVM)))
 
-	genesis.Config.RewardManagerConfig = precompile.NewRewardManagerConfig(common.Big0, testEthAddrs[0:1], nil, nil)
+	genesis.Config.GenesisPrecompiles = params.Precompiles{
+		rewardmanager.ConfigKey: rewardmanager.NewConfig(utils.NewUint64(0), testEthAddrs[0:1], nil, nil),
+	}
 	genesis.Config.AllowFeeRecipients = true // enable this in genesis to test if this is recognized by the reward manager
 	genesisJSON, err := genesis.MarshalJSON()
 	require.NoError(t, err)
@@ -2832,7 +2794,9 @@ func TestRewardManagerPrecompileAllowFeeRecipients(t *testing.T) {
 	genesis := &core.Genesis{}
 	require.NoError(t, genesis.UnmarshalJSON([]byte(genesisJSONSubnetEVM)))
 
-	genesis.Config.RewardManagerConfig = precompile.NewRewardManagerConfig(common.Big0, testEthAddrs[0:1], nil, nil)
+	genesis.Config.GenesisPrecompiles = params.Precompiles{
+		rewardmanager.ConfigKey: rewardmanager.NewConfig(utils.NewUint64(0), testEthAddrs[0:1], nil, nil),
+	}
 	genesis.Config.AllowFeeRecipients = false // disable this in genesis
 	genesisJSON, err := genesis.MarshalJSON()
 	require.NoError(t, err)

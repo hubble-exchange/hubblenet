@@ -21,7 +21,7 @@ go install -v github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
 
 TEST_SOURCE_ROOT=$(pwd)
 
-ACK_GINKGO_RC=true ginkgo build ./tests/load ./tests/warp
+ACK_GINKGO_RC=true ginkgo build ./tests/load
 
 # By default, it runs all e2e test cases!
 # Use "--ginkgo.skip" to skip tests.

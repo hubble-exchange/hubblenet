@@ -249,8 +249,8 @@ func (n *NetworkManager) SetupNetwork(ctx context.Context, execPath string, bloc
 	}
 	nodeInfos := status.GetClusterInfo().GetNodeInfos()
 
-	for i, chainSpec := range blockchainSpecs {
-		blockchainIDStr := sresp.ChainIds[i]
+	for _, chainSpec := range blockchainSpecs {
+		blockchainIDStr := sresp.ChainIds[0]
 		blockchainID, err := ids.FromString(blockchainIDStr)
 		if err != nil {
 			panic(err)
