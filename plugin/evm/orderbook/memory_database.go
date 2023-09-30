@@ -820,7 +820,11 @@ func (db *InMemoryDatabase) GetLastPrices() map[Market]*big.Int {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
-	return db.LastPrice
+	copyMap := make(map[Market]*big.Int)
+	for k, v := range db.LastPrice {
+		copyMap[k] = new(big.Int).Set(v)
+	}
+	return copyMap
 }
 
 func (db *InMemoryDatabase) GetAllTraders() map[common.Address]Trader {
@@ -920,7 +924,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(hState *hu.HubbleState) ([]Liquida
 			Positions:      translatePositions(trader.Positions),
 			Margins:        getMargins(trader, len(hState.Assets)),
 			PendingFunding: getTotalFunding(trader, hState.ActiveMarkets),
-			ReservedMargin: trader.Margin.Reserved,
+			ReservedMargin: new(big.Int).Set(trader.Margin.Reserved),
 		}
 		marginFraction := hu.GetMarginFraction(hState, userState)
 		if marginFraction.Cmp(hState.MaintenanceMargin) == -1 {

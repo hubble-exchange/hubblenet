@@ -428,7 +428,6 @@ func TestGetCancellableOrders(t *testing.T) {
 		MaintenanceMargin:  inMemoryDatabase.configService.getMaintenanceMargin(),
 	}
 	marginFraction := calcMarginFraction(_trader, hState)
-	// marginFraction := calcMarginFraction(_trader, big.NewInt(0), assets, priceMap, inMemoryDatabase.GetLastPrices(), []Market{market})
 	assert.Equal(t, new(big.Int).Div(hu.Mul1e6(depositMargin /* uPnL = 0 */), notionalPosition), marginFraction)
 
 	availableMargin := getAvailableMargin(_trader, hState)

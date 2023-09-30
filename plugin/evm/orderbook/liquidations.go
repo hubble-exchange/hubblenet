@@ -27,7 +27,7 @@ func calcMarginFraction(trader *Trader, hState *hu.HubbleState) *big.Int {
 		Positions:      translatePositions(trader.Positions),
 		Margins:        getMargins(trader, len(hState.Assets)),
 		PendingFunding: getTotalFunding(trader, hState.ActiveMarkets),
-		ReservedMargin: trader.Margin.Reserved,
+		ReservedMargin: new(big.Int).Set(trader.Margin.Reserved),
 	}
 	return hu.GetMarginFraction(hState, userState)
 }
