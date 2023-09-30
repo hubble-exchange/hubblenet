@@ -90,7 +90,7 @@ func GetPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, m
 	if notionalPosition.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0), big.NewInt(0)
 	}
-	if size.Cmp(big.NewInt(0)) > 0 {
+	if size.Sign() > 0 {
 		uPnL = Sub(notionalPosition, openNotional)
 	} else {
 		uPnL = Sub(openNotional, notionalPosition)
