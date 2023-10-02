@@ -33,7 +33,7 @@ import (
 // These start at the address: 0x0100000000000000000000000000000000000000 and will increment by 1.
 // Optional precompiles implemented in subnet-evm start at 0x0200000000000000000000000000000000000000 and will increment by 1
 // from here to reduce the risk of conflicts.
-// For forks of subnet-evm, users should start at 0x03000000000000000000000000000000000000f0 to ensure
+// For forks of subnet-evm, users should start at 0x03000000000000000000000000000000000000b0 to ensure
 // that their own modifications do not conflict with stateful precompiles that may be added to subnet-evm
 // in the future.
 // ContractDeployerAllowListAddress = common.HexToAddress("0x0200000000000000000000000000000000000000")
@@ -44,14 +44,14 @@ import (
 // WarpAddress                      = common.HexToAddress("0x0200000000000000000000000000000000000005")
 
 // ADD YOUR PRECOMPILE HERE
-// juror       = common.HexToAddress("0x0300000000000000000000000000000000000000")
-// ticks       = common.HexToAddress("0x0300000000000000000000000000000000000001")
+// juror       = common.HexToAddress("0x03000000000000000000000000000000000000a0")
+// ticks       = common.HexToAddress("0x03000000000000000000000000000000000000a1")
 
 // GenesisAddress
-// OrderBook		       = common.HexToAddress("0x03000000000000000000000000000000000000f0")
-// MarginAccount		   = common.HexToAddress("0x03000000000000000000000000000000000000f1")
-// ClearingHouse		   = common.HexToAddress("0x03000000000000000000000000000000000000f2")
-// limitOrderBook       = common.HexToAddress("0x03000000000000000000000000000000000000f3")
-// iocOrderBook       = common.HexToAddress("0x03000000000000000000000000000000000000f4")
+// OrderBook		       = common.HexToAddress("0x03000000000000000000000000000000000000b0")
+// MarginAccount		   = common.HexToAddress("0x03000000000000000000000000000000000000b1")
+// ClearingHouse		   = common.HexToAddress("0x03000000000000000000000000000000000000b2")
+// limitOrderBook       = common.HexToAddress("0x03000000000000000000000000000000000000b3")
+// iocOrderBook       = common.HexToAddress("0x03000000000000000000000000000000000000b4")
 
 // {YourPrecompile}Address = common.HexToAddress("0x03000000000000000000000000000000000000??")

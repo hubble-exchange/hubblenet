@@ -22,11 +22,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-var OrderBookContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000f0")
-var MarginAccountContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000f1")
-var ClearingHouseContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000f2")
-var LimitOrderBookContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000f3")
-var IOCOrderBookContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000f4")
+var OrderBookContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000b0")
+var MarginAccountContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000b1")
+var ClearingHouseContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000b2")
+var LimitOrderBookContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000b3")
+var IOCOrderBookContractAddress = common.HexToAddress("0x03000000000000000000000000000000000000b4")
 
 type LimitOrderTxProcessor interface {
 	GetOrderBookTxsCount() uint64
