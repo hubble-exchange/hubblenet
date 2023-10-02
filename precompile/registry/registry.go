@@ -33,7 +33,7 @@ import (
 // These start at the address: 0x0100000000000000000000000000000000000000 and will increment by 1.
 // Optional precompiles implemented in subnet-evm start at 0x0200000000000000000000000000000000000000 and will increment by 1
 // from here to reduce the risk of conflicts.
-// For forks of subnet-evm, users should start at 0x0420000000000000000000000000000000000000 to ensure
+// For forks of subnet-evm, users should start at 0x03000000000000000000000000000000000000f0 to ensure
 // that their own modifications do not conflict with stateful precompiles that may be added to subnet-evm
 // in the future.
 // ContractDeployerAllowListAddress = common.HexToAddress("0x0200000000000000000000000000000000000000")
@@ -48,10 +48,10 @@ import (
 // ticks       = common.HexToAddress("0x0300000000000000000000000000000000000001")
 
 // GenesisAddress
-// OrderBook		       = common.HexToAddress("0x0420000000000000000000000000000000000000")
-// MarginAccount		   = common.HexToAddress("0x0420000000000000000000000000000000000001")
-// ClearingHouse		   = common.HexToAddress("0x0420000000000000000000000000000000000002")
-// limitOrderBook       = common.HexToAddress("0x0420000000000000000000000000000000000003")
-// iocOrderBook       = common.HexToAddress("0x0420000000000000000000000000000000000004")
+// OrderBook		       = common.HexToAddress("0x03000000000000000000000000000000000000f0")
+// MarginAccount		   = common.HexToAddress("0x03000000000000000000000000000000000000f1")
+// ClearingHouse		   = common.HexToAddress("0x03000000000000000000000000000000000000f2")
+// limitOrderBook       = common.HexToAddress("0x03000000000000000000000000000000000000f3")
+// iocOrderBook       = common.HexToAddress("0x03000000000000000000000000000000000000f4")
 
 // {YourPrecompile}Address = common.HexToAddress("0x03000000000000000000000000000000000000??")
