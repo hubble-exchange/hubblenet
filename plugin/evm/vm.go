@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -1166,7 +1165,6 @@ func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
 		if validatorPrivateKey == "" {
 			panic("validator private key is empty")
 		}
-
 	}
 	return NewLimitOrderProcesser(
 		vm.ctx,
@@ -1182,7 +1180,7 @@ func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
 }
 
 func loadPrivateKeyFromFile(keyFile string) (string, error) {
-	key, err := ioutil.ReadFile(keyFile)
+	key, err := os.ReadFile(keyFile)
 	if err != nil {
 		return "", err
 	}
