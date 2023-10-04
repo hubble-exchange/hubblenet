@@ -232,7 +232,7 @@ func TestValidateExecuteLimitOrder(t *testing.T) {
 		mockBibliophile.EXPECT().GetBlockPlaced(orderHash).Return(blockPlaced).Times(1)                              // placed
 		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(marketAddress).Times(1) // placed
 
-		m, err := validateExecuteLimitOrder(mockBibliophile, order, Long, fillAmount, orderHash)
+		m, err := validateExecuteLimitOrder(mockBibliophile, order, Long, fillAmount)
 		assert.Nil(t, err)
 		assertMetadataEquality(t, &Metadata{
 			AmmIndex:          new(big.Int).Set(order.AmmIndex),
