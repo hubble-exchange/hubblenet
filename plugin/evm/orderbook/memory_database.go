@@ -27,6 +27,7 @@ type InMemoryDatabase struct {
 	LastPrice                 map[Market]*big.Int        `json:"last_price"`
 	CumulativePremiumFraction map[Market]*big.Int        `json:"cumulative_last_premium_fraction"`
 	NextSamplePITime          uint64                     `json:"next_sample_pi_time"`
+	SamplePIAttemptedTime     uint64                     `json:"sample_pi_attempted_time"`
 	configService             IConfigService
 }
 
@@ -39,7 +40,6 @@ func NewInMemoryDatabase(configService IConfigService) *InMemoryDatabase {
 		LongOrders:                map[Market][]*Order{},
 		ShortOrders:               map[Market][]*Order{},
 		TraderMap:                 traderMap,
-		NextFundingTime:           0,
 		LastPrice:                 lastPrice,
 		CumulativePremiumFraction: map[Market]*big.Int{},
 		mu:                        &sync.RWMutex{},
@@ -230,6 +230,8 @@ type LimitOrderDatabase interface {
 	GetNextFundingTime() uint64
 	UpdateNextSamplePITime(nextSamplePITime uint64)
 	GetNextSamplePITime() uint64
+	GetSamplePIAttemptedTime() uint64
+	SignalSamplePIAttempted(time uint64)
 	UpdateLastPrice(market Market, lastPrice *big.Int)
 	GetLastPrices() map[Market]*big.Int
 	GetAllTraders() map[common.Address]Trader
@@ -578,6 +580,19 @@ func (db *InMemoryDatabase) GetNextSamplePITime() uint64 {
 	defer db.mu.RUnlock()
 
 	return db.NextSamplePITime
+}
+
+func (db *InMemoryDatabase) GetSamplePIAttemptedTime() uint64 {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return db.SamplePIAttemptedTime
+}
+
+func (db *InMemoryDatabase) SignalSamplePIAttempted(time uint64) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.SamplePIAttemptedTime = time
 }
 
 func (db *InMemoryDatabase) UpdateNextSamplePITime(nextSamplePITime uint64) {
