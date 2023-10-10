@@ -261,14 +261,15 @@ func (db *InMemoryDatabase) LoadFromSnapshot(snapshot Snapshot) error {
 	}
 
 	db.Orders = snapshot.Data.Orders
-	db.LongOrders = snapshot.Data.LongOrders
-	db.ShortOrders = snapshot.Data.ShortOrders
 	db.TraderMap = snapshot.Data.TraderMap
 	db.LastPrice = snapshot.Data.LastPrice
 	db.NextFundingTime = snapshot.Data.NextFundingTime
 	db.NextSamplePITime = snapshot.Data.NextSamplePITime
 	db.CumulativePremiumFraction = snapshot.Data.CumulativePremiumFraction
 
+	for _, order := range db.Orders {
+		db.AddInSortedArray(order)
+	}
 	return nil
 }
 
@@ -427,8 +428,14 @@ func (db *InMemoryDatabase) Add(order *Order) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	market := order.Market
 	order.LifecycleList = append(order.LifecycleList, Lifecycle{order.BlockNumber.Uint64(), Placed, ""})
+	db.AddInSortedArray(order)
+	db.Orders[order.Id] = order
+}
+
+// caller is expected to acquire db.mu before calling this function
+func (db *InMemoryDatabase) AddInSortedArray(order *Order) {
+	market := order.Market
 
 	var orders []*Order
 	var position int
@@ -451,7 +458,6 @@ func (db *InMemoryDatabase) Add(order *Order) {
 			}
 			return false
 		})
-
 	} else {
 		orders = db.ShortOrders[market]
 		position = sort.Search(len(orders), func(i int) bool {
@@ -483,8 +489,6 @@ func (db *InMemoryDatabase) Add(order *Order) {
 	} else {
 		db.ShortOrders[market] = orders
 	}
-
-	db.Orders[order.Id] = order
 }
 
 func (db *InMemoryDatabase) Delete(orderId common.Hash) {
