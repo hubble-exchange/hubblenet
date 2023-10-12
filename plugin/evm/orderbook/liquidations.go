@@ -29,7 +29,7 @@ func calcMarginFraction(trader *Trader, hState *hu.HubbleState) *big.Int {
 		PendingFunding: getTotalFunding(trader, hState.ActiveMarkets),
 		ReservedMargin: new(big.Int).Set(trader.Margin.Reserved),
 	}
-	return hu.GetMarginFractionV1(hState, userState)
+	return hu.GetMarginFraction(hState, userState)
 }
 
 func sortLiquidableSliceByMarginFraction(positions []LiquidablePosition) []LiquidablePosition {
@@ -71,7 +71,7 @@ func getTotalFunding(trader *Trader, markets []Market) *big.Int {
 type MarginMode = hu.MarginMode
 
 func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, marginMode MarginMode, oraclePrices map[Market]*big.Int, midPrices map[Market]*big.Int, markets []Market) (*big.Int, *big.Int) {
-	return hu.GetTotalNotionalPositionAndUnrealizedPnlV1(
+	return hu.GetTotalNotionalPositionAndUnrealizedPnl(
 		&hu.HubbleState{
 			OraclePrices:  oraclePrices,
 			MidPrices:     midPrices,

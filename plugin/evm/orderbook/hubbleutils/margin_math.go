@@ -21,18 +21,21 @@ type UserState struct {
 	ReservedMargin *big.Int
 }
 
-func GetAvailableMarginV1(hState *HubbleState, userState *UserState) *big.Int {
-	notionalPosition, margin := GetNotionalPositionAndMarginV1(hState, userState, Min_Allowable_Margin)
+// not used in precompile
+func GetAvailableMargin(hState *HubbleState, userState *UserState) *big.Int {
+	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Min_Allowable_Margin)
 	return GetAvailableMargin_(notionalPosition, margin, userState.ReservedMargin, hState.MinAllowableMargin)
 }
 
+// static function
 func GetAvailableMargin_(notionalPosition, margin, reservedMargin, minAllowableMargin *big.Int) *big.Int {
 	utilisedMargin := Div1e6(Mul(notionalPosition, minAllowableMargin))
 	return Sub(Sub(margin, utilisedMargin), reservedMargin)
 }
 
-func GetMarginFractionV1(hState *HubbleState, userState *UserState) *big.Int {
-	notionalPosition, margin := GetNotionalPositionAndMarginV1(hState, userState, Maintenance_Margin)
+// not used in precompile
+func GetMarginFraction(hState *HubbleState, userState *UserState) *big.Int {
+	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Maintenance_Margin)
 	if notionalPosition.Sign() == 0 {
 		return big.NewInt(math.MaxInt64)
 	}
@@ -49,14 +52,14 @@ func GetTotalNotionalPositionAndUnrealizedPnlV1(hState *HubbleState, userState *
 	notionalPosition := big.NewInt(0)
 	unrealizedPnl := big.NewInt(0)
 	for _, market := range hState.ActiveMarkets {
-		_notionalPosition, _unrealizedPnl := GetOptimalPnlV1(hState, userState.Positions[market], margin, market, marginMode)
+		_notionalPosition, _unrealizedPnl := getOptimalPnlV1(hState, userState.Positions[market], margin, market, marginMode)
 		notionalPosition.Add(notionalPosition, _notionalPosition)
 		unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
 	}
 	return notionalPosition, unrealizedPnl
 }
 
-func GetOptimalPnlV1(hState *HubbleState, position *Position, margin *big.Int, market Market, marginMode MarginMode) (notionalPosition *big.Int, uPnL *big.Int) {
+func getOptimalPnlV1(hState *HubbleState, position *Position, margin *big.Int, market Market, marginMode MarginMode) (notionalPosition *big.Int, uPnL *big.Int) {
 	if position == nil || position.Size.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0)
 	}
