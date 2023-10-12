@@ -945,7 +945,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(hState *hu.HubbleState) ([]Liquida
 			PendingFunding: getTotalFunding(trader, hState.ActiveMarkets),
 			ReservedMargin: new(big.Int).Set(trader.Margin.Reserved),
 		}
-		marginFraction := hu.GetMarginFraction(hState, userState)
+		marginFraction := hu.GetMarginFractionV1(hState, userState)
 		if marginFraction.Cmp(hState.MaintenanceMargin) == -1 {
 			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", prettifyScaledBigInt(marginFraction, 6))
 			if len(minSizes) == 0 {
@@ -960,7 +960,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(hState *hu.HubbleState) ([]Liquida
 			continue
 		}
 		// has orders that might be cancellable
-		availableMargin := hu.GetAvailableMargin(hState, userState)
+		availableMargin := hu.GetAvailableMarginV1(hState, userState)
 		if availableMargin.Sign() == -1 {
 			foundCancellableOrders := db.determineOrdersToCancel(addr, trader, availableMargin, hState.OraclePrices, ordersToCancel)
 			if foundCancellableOrders {
@@ -1105,7 +1105,7 @@ func getBlankTrader() *Trader {
 }
 
 func getAvailableMargin(trader *Trader, hState *hu.HubbleState) *big.Int {
-	return hu.GetAvailableMargin(
+	return hu.GetAvailableMarginV1(
 		hState,
 		&hu.UserState{
 			Positions:      translatePositions(trader.Positions),
