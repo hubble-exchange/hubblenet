@@ -112,7 +112,7 @@ func TestGetOptimalPnl(t *testing.T) {
 	market := 0
 	marginMode := Maintenance_Margin
 
-	notionalPosition, uPnL := GetOptimalPnl(hState, position, margin, market, marginMode)
+	notionalPosition, uPnL := GetOptimalPnl(hState, position, margin, market, marginMode, 1) // old algorithm
 
 	expectedNotionalPosition := big.NewInt(89938788)
 	expectedUPnL := big.NewInt(2438788)
@@ -124,7 +124,7 @@ func TestGetOptimalPnl(t *testing.T) {
 
 	marginMode = Min_Allowable_Margin
 
-	notionalPosition, uPnL = GetOptimalPnl(hState, position, margin, market, marginMode)
+	notionalPosition, uPnL = GetOptimalPnl(hState, position, margin, market, marginMode, 1) // old algorithm
 
 	expectedNotionalPosition = big.NewInt(89931222)
 	expectedUPnL = big.NewInt(2431222)
