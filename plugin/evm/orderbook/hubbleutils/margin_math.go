@@ -50,14 +50,14 @@ func GetTotalNotionalPositionAndUnrealizedPnl(hState *HubbleState, userState *Us
 	unrealizedPnl := big.NewInt(0)
 
 	for _, market := range hState.ActiveMarkets {
-		_notionalPosition, _unrealizedPnl := GetOptimalPnl(hState, userState.Positions[market], margin, market, marginMode, blockTimestamp)
+		_notionalPosition, _unrealizedPnl := getOptimalPnl(hState, userState.Positions[market], margin, market, marginMode, blockTimestamp)
 		notionalPosition.Add(notionalPosition, _notionalPosition)
 		unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
 	}
 	return notionalPosition, unrealizedPnl
 }
 
-func GetOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, market Market, marginMode MarginMode, blockTimestamp uint64) (notionalPosition *big.Int, uPnL *big.Int) {
+func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, market Market, marginMode MarginMode, blockTimestamp uint64) (notionalPosition *big.Int, uPnL *big.Int) {
 	if position == nil || position.Size.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0)
 	}
