@@ -78,8 +78,8 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 		margin,
 	)
 
-	// Thursday, 12 October 2023 17:00:00 GMT
-	if blockTimestamp == 0 || blockTimestamp >= 1697130000 { // use new algorithm
+	// Thursday, 12 October 2023 16:45:00 GMT
+	if blockTimestamp == 0 || blockTimestamp >= 1697129100 { // use new algorithm
 		if (marginMode == Maintenance_Margin && oracleBasedUnrealizedPnl.Cmp(unrealizedPnl) == 1) || // for liquidations
 			(marginMode == Min_Allowable_Margin && oracleBasedUnrealizedPnl.Cmp(unrealizedPnl) == -1) { // for increasing leverage
 			return oracleBasedNotional, oracleBasedUnrealizedPnl
