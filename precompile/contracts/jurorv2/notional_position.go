@@ -1,7 +1,7 @@
 package jurorv2
 
 import (
-	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
+	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophilev2"
 )
 
 func GetNotionalPositionAndMargin(bibliophile b.BibliophileClient, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {

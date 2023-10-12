@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
-	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
+	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophilev2"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 )

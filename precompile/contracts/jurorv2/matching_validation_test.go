@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
-	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
+	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophilev2"
 	gomock "github.com/golang/mock/gomock"
 )
 

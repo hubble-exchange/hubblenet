@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
-	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
+	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophilev2"
 	gomock "github.com/golang/mock/gomock"
 )
 
