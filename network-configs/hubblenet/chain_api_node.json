@@ -6,7 +6,7 @@
     "priority-regossip-max-txs": 32,
     "priority-regossip-txs-per-address": 20,
     "priority-regossip-addresses": ["0x8747adFCE380492ec7e9b78761Ec7C87F5Cd3d4F"],
-    "continuous-profiler-dir": "/home/ubuntu/.avalanchego/profiles/hubblenet/continuous/",
+    "continuous-profiler-dir": "/var/avalanche/profiles/hubblenet/continuous/",
     "continuous-profiler-max-files": 200,
     "continuous-profiler-frequency": "10m",
     "coreth-admin-api-enabled": true,
