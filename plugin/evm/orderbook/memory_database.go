@@ -84,6 +84,7 @@ type OrderType uint8
 const (
 	Limit OrderType = iota
 	IOC
+	Signed
 )
 
 func (o OrderType) String() string {
@@ -246,6 +247,11 @@ type LimitOrderDatabase interface {
 	UpdateLastPremiumFraction(market Market, trader common.Address, lastPremiumFraction *big.Int, cumlastPremiumFraction *big.Int)
 	GetOrderById(orderId common.Hash) *Order
 	GetTraderInfo(trader common.Address) *Trader
+	GetOrderValidationFields(
+		orderId common.Hash,
+		trader common.Address,
+		marketId int,
+	) OrderValidationFields
 }
 
 type Snapshot struct {
@@ -1170,4 +1176,27 @@ func getOrderIdx(orders []*Order, orderId common.Hash) int {
 		}
 	}
 	return -1
+}
+
+type OrderValidationFields struct {
+	Exists   bool
+	PosSize  *big.Int
+	AsksHead *big.Int
+	BidsHead *big.Int
+}
+
+func (db *InMemoryDatabase) GetOrderValidationFields(
+	orderId common.Hash,
+	trader common.Address,
+	marketId int,
+) OrderValidationFields {
+	fields := OrderValidationFields{
+		PosSize:  new(big.Int).Set(db.TraderMap[trader].Positions[marketId].Size),
+		AsksHead: db.ShortOrders[marketId][0].Price,
+		BidsHead: db.LongOrders[marketId][0].Price,
+	}
+	if db.Orders[orderId] != nil {
+		fields.Exists = true
+	}
+	return fields
 }

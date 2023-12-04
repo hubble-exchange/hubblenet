@@ -5,12 +5,14 @@ package orderbook
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 	"time"
 
 	"github.com/ava-labs/subnet-evm/eth"
+	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ava-labs/subnet-evm/rpc"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -309,4 +311,156 @@ func (api *TradingAPI) StreamMarketTrades(ctx context.Context, market Market, bl
 	}()
 
 	return rpcSub, nil
+}
+
+type PlaceOrderResponse struct {
+	err error
+}
+
+func (api *TradingAPI) PostOrder(ctx context.Context, order_ interface{}) PlaceOrderResponse {
+	stateDB, _, _ := api.backend.StateAndHeaderByNumber(ctx, rpc.BlockNumber(getCurrentBlockNumber(api.backend)))
+
+	// func (api *TradingAPI) PostOrder(ctx context.Context, order_ hexutil.Bytes) PlaceOrderResponse {
+	order := order_.(*SignedOrder)
+	var response PlaceOrderResponse
+
+	// @todo validations
+	if order.OrderType != uint8(Signed) {
+		response.err = fmt.Errorf("order type not supported")
+		return response
+	}
+
+	if order.ExpireAt.Int64() <= time.Now().Unix() {
+		response.err = fmt.Errorf("order expired")
+		return response
+	}
+
+	hubbleutils.EcRecover(order.Sig, order.Sig)
+	// @todo gossip order
+
+	// add to db
+	limitOrder := Order{
+		Id:                      orderId,
+		Market:                  Market(order.AmmIndex.Int64()),
+		PositionType:            getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
+		Trader:                  getAddressFromTopicHash(event.Topics[1]),
+		BaseAssetQuantity:       order.BaseAssetQuantity,
+		FilledBaseAssetQuantity: big.NewInt(0),
+		Price:                   order.Price,
+		RawOrder:                &order,
+		Salt:                    order.Salt,
+		ReduceOnly:              order.ReduceOnly,
+		BlockNumber:             big.NewInt(int64(event.BlockNumber)),
+		OrderType:               Limit,
+	}
+	orderHash, err := api.db.Add(&limitOrder)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	return orderHash, nil
+}
+
+var (
+	ErrTwoOrders         = errors.New("need 2 orders")
+	ErrInvalidFillAmount = errors.New("invalid fillAmount")
+	ErrNotLongOrder      = errors.New("not long")
+	ErrNotShortOrder     = errors.New("not short")
+	ErrNotSameAMM        = errors.New("OB_orders_for_different_amms")
+	ErrNoMatch           = errors.New("OB_orders_do_not_match")
+	ErrNotMultiple       = errors.New("not multiple")
+
+	ErrInvalidOrder                       = errors.New("invalid order")
+	ErrNotIOCOrder                        = errors.New("not_ioc_order")
+	ErrInvalidPrice                       = errors.New("invalid price")
+	ErrPricePrecision                     = errors.New("invalid price precision")
+	ErrInvalidMarket                      = errors.New("invalid market")
+	ErrCancelledOrder                     = errors.New("cancelled order")
+	ErrFilledOrder                        = errors.New("filled order")
+	ErrOrderAlreadyExists                 = errors.New("order already exists")
+	ErrTooLow                             = errors.New("long price below lower bound")
+	ErrTooHigh                            = errors.New("short price above upper bound")
+	ErrOverFill                           = errors.New("overfill")
+	ErrReduceOnlyAmountExceeded           = errors.New("not reducing pos")
+	ErrBaseAssetQuantityZero              = errors.New("baseAssetQuantity is zero")
+	ErrReduceOnlyBaseAssetQuantityInvalid = errors.New("reduce only order must reduce position")
+	ErrNetReduceOnlyAmountExceeded        = errors.New("net reduce only amount exceeded")
+	ErrStaleReduceOnlyOrders              = errors.New("cancel stale reduce only orders")
+	ErrInsufficientMargin                 = errors.New("insufficient margin")
+	ErrCrossingMarket                     = errors.New("crossing market")
+	ErrIOCOrderExpired                    = errors.New("IOC order expired")
+	ErrOpenOrders                         = errors.New("open orders")
+	ErrOpenReduceOnlyOrders               = errors.New("open reduce only orders")
+	ErrNoTradingAuthority                 = errors.New("no trading authority")
+	ErrNoReferrer                         = errors.New("no referrer")
+)
+
+func (api *TradingAPI) ValidatePlaceLimitOrder(order *SignedOrder) error {
+	if order.Price.Sign() != 1 {
+		return ErrInvalidPrice
+	}
+
+	if order.BaseAssetQuantity.Sign() == 0 {
+		return ErrBaseAssetQuantityZero
+	}
+
+	orderHash, err := order.Hash()
+	if err != nil {
+		return err
+	}
+
+	signer, err := hu.ECRecover(order.Sig, order.Sig)
+	trader := order.Trader
+	if trader != signer && !api.configService.IsTradingAuthority(stateDB, trader, signer) {
+		return ErrNoTradingAuthority
+	}
+
+	markets := api.configService.GetActiveMarketsCount()
+	// assumes all markets are active and in sequential order
+	if order.AmmIndex.Int64() >= markets {
+		return ErrInvalidMarket
+	}
+	// ammAddress := getMarketAddressFromMarketID(order.AmmIndex.Int64(), stateDB)
+
+	market := Market(order.AmmIndex.Int64())
+	minSize := api.configService.getMinSizeRequirement(market)
+	if new(big.Int).Mod(order.BaseAssetQuantity, minSize).Sign() != 0 {
+		return ErrNotMultiple
+	}
+
+	// order status
+	// should not already be submitted
+	fields := api.db.GetOrderValidationFields()
+	if fields.Exists {
+		return ErrOrderAlreadyExists
+	}
+	// should not be filled or cancelled
+	status := hu.OrderStatus(api.configService.GetSignedOrderStatus(orderHash))
+	if status != hu.Invalid {
+		return ErrOrderAlreadyExists
+	}
+
+	if order.PostOnly {
+		orderSide := hu.Side(hu.Long)
+		if order.BaseAssetQuantity.Sign() == -1 {
+			orderSide = hu.Side(hu.Short)
+		}
+		asksHead := fields.AsksHead
+		bidsHead := fields.BidsHead
+		if (orderSide == hu.Side(hu.Short) && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == hu.Side(hu.Long) && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
+			return ErrCrossingMarket
+		}
+	}
+
+	// @todo
+	// if !bibliophile.HasReferrer(order.Trader) {
+	// 	response.Err = ErrNoReferrer.Error()
+	// }
+
+	// if hu.Mod(order.Price, bibliophile.GetPriceMultiplier(ammAddress)).Sign() != 0 {
+	// 	response.Err = ErrPricePrecision.Error()
+	// 	return
+	// }
+
+	return response
 }

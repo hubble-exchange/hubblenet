@@ -21,15 +21,20 @@ type BibliophileClient interface {
 	GetReduceOnlyAmount(trader common.Address, ammIndex *big.Int) *big.Int
 	IsTradingAuthority(trader, senderOrSigner common.Address) bool
 	IsValidator(senderOrSigner common.Address) bool
+
 	// Limit Order
 	GetBlockPlaced(orderHash [32]byte) *big.Int
 	GetOrderFilledAmount(orderHash [32]byte) *big.Int
 	GetOrderStatus(orderHash [32]byte) int64
+
 	// IOC Order
 	IOC_GetBlockPlaced(orderHash [32]byte) *big.Int
 	IOC_GetOrderFilledAmount(orderHash [32]byte) *big.Int
 	IOC_GetOrderStatus(orderHash [32]byte) int64
 	IOC_GetExpirationCap() *big.Int
+
+	// Signed Order
+	GetSignedOrderStatus(orderHash [32]byte) int64
 
 	// AMM
 	GetMinSizeRequirement(marketId int64) *big.Int

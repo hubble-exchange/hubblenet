@@ -16,6 +16,7 @@ type IConfigService interface {
 	getMinAllowableMargin() *big.Int
 	getMaintenanceMargin() *big.Int
 	getMinSizeRequirement(market Market) *big.Int
+	GetActiveMarkets() []Market
 	GetActiveMarketsCount() int64
 	GetUnderlyingPrices() []*big.Int
 	GetMidPrices() []*big.Int
@@ -24,6 +25,8 @@ type IConfigService interface {
 	GetCumulativePremiumFraction(market Market) *big.Int
 	GetAcceptableBounds(market Market) (*big.Int, *big.Int)
 	GetAcceptableBoundsForLiquidation(market Market) (*big.Int, *big.Int)
+
+	GetSignedOrderStatus(orderHash [32]byte) int64
 }
 
 type ConfigService struct {
@@ -101,4 +104,9 @@ func (cs *ConfigService) GetLastPremiumFraction(market Market, trader *common.Ad
 func (cs *ConfigService) GetCumulativePremiumFraction(market Market) *big.Int {
 	markets := bibliophile.GetMarkets(cs.getStateAtCurrentBlock())
 	return bibliophile.GetCumulativePremiumFraction(cs.getStateAtCurrentBlock(), markets[market])
+}
+
+func (cs *ConfigService) GetSignedOrderStatus(orderHash common.Hash) int64 {
+	return 0 // @todo
+	// return bibliophile.GetSignedOrderStatus(cs.getStateAtCurrentBlock(), orderHash)
 }

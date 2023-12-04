@@ -2,6 +2,8 @@ package hubbleutils
 
 import (
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 var (
@@ -64,4 +66,20 @@ func Scale(a *big.Int, decimals uint8) *big.Int {
 
 func Unscale(a *big.Int, decimals uint8) *big.Int {
 	return Div(a, new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
+}
+
+func ECRecover(data, sig hexutil.Bytes) (common.Address, error) {
+	if len(sig) != crypto.SignatureLength {
+		return common.Address{}, fmt.Errorf("signature must be %d bytes long", crypto.SignatureLength)
+	}
+	if sig[crypto.RecoveryIDOffset] != 27 && sig[crypto.RecoveryIDOffset] != 28 {
+		return common.Address{}, fmt.Errorf("invalid Ethereum signature (V is not 27 or 28)")
+	}
+	sig[crypto.RecoveryIDOffset] -= 27 // Transform yellow paper V from 27/28 to 0/1
+
+	rpk, err := crypto.SigToPub(accounts.TextHash(data), sig)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return crypto.PubkeyToAddress(*rpk), nil
 }

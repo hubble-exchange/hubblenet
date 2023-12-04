@@ -41,6 +41,14 @@ type IOCOrder struct {
 	ExpireAt  *big.Int `json:"expireAt"`
 }
 
+// IOCOrder type is copy of IOCOrder struct defined in Orderbook contract
+type SignedOrder struct {
+	LimitOrder
+	OrderType uint8    `json:"orderType"`
+	ExpireAt  *big.Int `json:"expireAt"`
+	Sig       []byte   `json:"sig"`
+}
+
 // LimitOrder
 func (order *LimitOrder) EncodeToABIWithoutType() ([]byte, error) {
 	limitOrderType, err := getOrderType("limit")
@@ -116,11 +124,11 @@ func (order *IOCOrder) EncodeToABIWithoutType() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	encodedIOCOrder, err := abi.Arguments{{Type: iocOrderType}}.Pack(order)
+	encodedOrder, err := abi.Arguments{{Type: iocOrderType}}.Pack(order)
 	if err != nil {
 		return nil, err
 	}
-	return encodedIOCOrder, nil
+	return encodedOrder, nil
 }
 
 func (order *IOCOrder) EncodeToABI() ([]byte, error) {
@@ -128,7 +136,7 @@ func (order *IOCOrder) EncodeToABI() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed getting abi type: %w", err)
 	}
-	encodedIOCOrder, err := abi.Arguments{{Type: iocOrderType}}.Pack(order)
+	encodedOrder, err := abi.Arguments{{Type: iocOrderType}}.Pack(order)
 	if err != nil {
 		return nil, fmt.Errorf("limit order packing failed: %w", err)
 	}
@@ -136,7 +144,7 @@ func (order *IOCOrder) EncodeToABI() ([]byte, error) {
 	orderType, _ := abi.NewType("uint8", "uint8", nil)
 	orderBytesType, _ := abi.NewType("bytes", "bytes", nil)
 	// 1 means ordertype = IOC/market order
-	encodedOrder, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Pack(uint8(1), encodedIOCOrder)
+	encodedOrder, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Pack(uint8(IOC), encodedOrder)
 	if err != nil {
 		return nil, fmt.Errorf("order encoding failed: %w", err)
 	}
@@ -177,6 +185,64 @@ func DecodeIOCOrder(encodedOrder []byte) (*IOCOrder, error) {
 }
 
 func (order *IOCOrder) Hash() (hash common.Hash, err error) {
+	data, err := order.EncodeToABIWithoutType()
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return common.BytesToHash(crypto.Keccak256(data)), nil
+}
+
+// ----------------------------------------------------------------------------
+// SignedOrder
+
+func (order *SignedOrder) EncodeToABIWithoutType() ([]byte, error) {
+	signedOrderType, err := getOrderType("signed")
+	if err != nil {
+		return nil, err
+	}
+	encodedOrder, err := abi.Arguments{{Type: signedOrderType}}.Pack(order)
+	if err != nil {
+		return nil, err
+	}
+	return encodedOrder, nil
+}
+
+func (order *SignedOrder) EncodeToABI() ([]byte, error) {
+	encodedSignedOrder, err := order.EncodeToABIWithoutType()
+	if err != nil {
+		return nil, fmt.Errorf("failed getting abi type: %w", err)
+	}
+
+	orderType, _ := abi.NewType("uint8", "uint8", nil)
+	orderBytesType, _ := abi.NewType("bytes", "bytes", nil)
+	// 1 means ordertype = IOC/market order
+	encodedOrder, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Pack(uint8(Signed), encodedSignedOrder)
+	if err != nil {
+		return nil, fmt.Errorf("order encoding failed: %w", err)
+	}
+
+	return encodedOrder, nil
+}
+
+func (order *SignedOrder) DecodeFromRawOrder(rawOrder interface{}) {
+	marshalledOrder, _ := json.Marshal(rawOrder)
+	json.Unmarshal(marshalledOrder, &order)
+}
+
+// func (order *SignedOrder) Map() map[string]interface{} {
+// 	return map[string]interface{}{
+// 		"ammIndex":          order.AmmIndex,
+// 		"trader":            order.Trader,
+// 		"baseAssetQuantity": utils.BigIntToFloat(order.BaseAssetQuantity, 18),
+// 		"price":             utils.BigIntToFloat(order.Price, 6),
+// 		"reduceOnly":        order.ReduceOnly,
+// 		"salt":              order.Salt,
+// 		"orderType":         order.OrderType,
+// 		"expireAt":          order.ExpireAt,
+// 	}
+// }
+
+func (order *SignedOrder) Hash() (hash common.Hash, err error) {
 	data, err := order.EncodeToABIWithoutType()
 	if err != nil {
 		return common.Hash{}, err
@@ -226,6 +292,19 @@ func getOrderType(orderType string) (abi.Type, error) {
 			{Name: "price", Type: "uint256"},
 			{Name: "salt", Type: "uint256"},
 			{Name: "reduceOnly", Type: "bool"},
+		})
+	}
+	if orderType == "signed" {
+		return abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+			{Name: "orderType", Type: "uint8"},
+			{Name: "expireAt", Type: "uint256"},
+			{Name: "ammIndex", Type: "uint256"},
+			{Name: "trader", Type: "address"},
+			{Name: "baseAssetQuantity", Type: "int256"},
+			{Name: "price", Type: "uint256"},
+			{Name: "salt", Type: "uint256"},
+			{Name: "reduceOnly", Type: "bool"},
+			{Name: "postOnly", Type: "bool"},
 		})
 	}
 	return abi.Type{}, fmt.Errorf("invalid order type")

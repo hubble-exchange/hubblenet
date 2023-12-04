@@ -3,6 +3,8 @@ package hubbleutils
 import (
 	// "encoding/json"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type MarginMode = uint8
@@ -34,3 +36,21 @@ type Margin struct {
 	Reserved  *big.Int                `json:"reserved"`
 	Deposited map[Collateral]*big.Int `json:"deposited"`
 }
+
+type Side uint8
+
+const (
+	Long Side = iota
+	Short
+	Liquidation
+)
+
+type OrderStatus uint8
+
+// has to be exact same as IOrderHandler
+const (
+	Invalid OrderStatus = iota
+	Placed
+	Filled
+	Cancelled
+)
