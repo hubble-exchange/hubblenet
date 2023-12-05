@@ -46,6 +46,7 @@ var (
 	ErrNotShortOrder     = errors.New("not short")
 	ErrNotSameAMM        = errors.New("OB_orders_for_different_amms")
 	ErrNoMatch           = errors.New("OB_orders_do_not_match")
+	ErrBothPostOnly      = errors.New("both orders are post only")
 	ErrNotMultiple       = errors.New("not multiple")
 
 	ErrInvalidOrder                       = errors.New("invalid order")
@@ -117,6 +118,10 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 
 	if m0.Price.Cmp(m1.Price) < 0 {
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(ErrNoMatch, Generic, common.Hash{})
+	}
+
+	if m0.PostOnly && m1.PostOnly {
+		return getValidateOrdersAndDetermineFillPriceErrorOutput(ErrBothPostOnly, Generic, common.Hash{})
 	}
 
 	minSize := bibliophile.GetMinSizeRequirement(m0.AmmIndex.Int64())
@@ -314,6 +319,13 @@ func validateOrder(bibliophile b.BibliophileClient, orderType ob.OrderType, enco
 		}
 		return validateExecuteIOCOrder(bibliophile, order, side, fillAmount)
 	}
+	if orderType == ob.Signed {
+		order, err := ob.DecodeSignedOrder(encodedOrder)
+		if err != nil {
+			return nil, err
+		}
+		return validateExecuteSignedOrder(bibliophile, order, side, fillAmount)
+	}
 	return nil, errors.New("invalid order type")
 }
 
@@ -360,6 +372,40 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder
 		OrderHash:         orderHash,
 		OrderType:         ob.IOC,
 		PostOnly:          false,
+	}, nil
+}
+
+func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *ob.SignedOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	orderHash, err := order.Hash()
+	if err != nil {
+		return nil, err
+	}
+	if ob.OrderType(order.OrderType) != ob.Signed {
+		return &Metadata{OrderHash: orderHash}, errors.New("not signed order")
+	}
+	if order.ExpireAt.Uint64() < bibliophile.GetTimeStamp() {
+		return &Metadata{OrderHash: orderHash}, errors.New("order expired")
+	}
+	if !order.PostOnly {
+		return &Metadata{OrderHash: orderHash}, errors.New("not post only")
+	}
+	orderStatus := OrderStatus(bibliophile.GetSignedOrderStatus(orderHash))
+	if orderStatus == Invalid {
+		// signed orders don't get placed in the contract, so we consider them placed by default
+		orderStatus = Placed
+	}
+	if err := validateLimitOrderLike(bibliophile, &order.BaseOrder, bibliophile.GetSignedOrderFilledAmount(orderHash), OrderStatus(bibliophile.GetSignedOrderStatus(orderHash)), side, fillAmount); err != nil {
+		return &Metadata{OrderHash: orderHash}, err
+	}
+	return &Metadata{
+		AmmIndex:          order.AmmIndex,
+		Trader:            order.Trader,
+		BaseAssetQuantity: order.BaseAssetQuantity,
+		BlockPlaced:       big.NewInt(0), // will always be treated as a maker order
+		Price:             order.Price,
+		OrderHash:         orderHash,
+		OrderType:         ob.Signed,
+		PostOnly:          true,
 	}, nil
 }
 

@@ -34,6 +34,7 @@ type BibliophileClient interface {
 	IOC_GetExpirationCap() *big.Int
 
 	// Signed Order
+	GetSignedOrderFilledAmount(orderHash [32]byte) *big.Int
 	GetSignedOrderStatus(orderHash [32]byte) int64
 
 	// AMM

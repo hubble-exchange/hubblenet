@@ -242,6 +242,20 @@ func (order *SignedOrder) DecodeFromRawOrder(rawOrder interface{}) {
 // 	}
 // }
 
+func DecodeSignedOrder(encodedOrder []byte) (*SignedOrder, error) {
+	orderType, err := getOrderType("signed")
+	if err != nil {
+		return nil, fmt.Errorf("failed getting abi type: %w", err)
+	}
+	order, err := abi.Arguments{{Type: orderType}}.Unpack(encodedOrder)
+	if err != nil {
+		return nil, err
+	}
+	signedOrder := &SignedOrder{}
+	signedOrder.DecodeFromRawOrder(order[0])
+	return signedOrder, nil
+}
+
 func (order *SignedOrder) Hash() (hash common.Hash, err error) {
 	data, err := order.EncodeToABIWithoutType()
 	if err != nil {

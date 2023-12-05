@@ -395,7 +395,23 @@ var (
 	ErrNoReferrer                         = errors.New("no referrer")
 )
 
-func (api *TradingAPI) ValidatePlaceLimitOrder(order *SignedOrder) error {
+// Place Order Checks
+// 1. price >= 0
+// 2. signer is valid trading authority
+// 3. market is valid
+// 4. baseAssetQuantity is not 0 and multiple of minSize
+// 5. order is not already placed, filled or cancelled
+// 6. reduce only amount check OR margin availablity check (not in state, simply compared to other active orders)
+// 7. post only order shouldn't cross the market
+// 8. HasReferrer
+// 9. price precision check
+//
+// Matching Order Checks
+// Since all the above checks are in memory and not guaranteed by consensus, we need to perform them at the time of matching too. In addition:
+// (note) 6. Not required in the precompile
+// 10. Order is not being overfilled
+// 11. Not both post only orders are being matched
+func (api *TradingAPI) ValidatePlaceSignedOrder(order *SignedOrder) error {
 	if order.Price.Sign() != 1 {
 		return ErrInvalidPrice
 	}
