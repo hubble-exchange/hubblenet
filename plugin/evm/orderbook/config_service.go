@@ -16,7 +16,7 @@ type IConfigService interface {
 	getMinAllowableMargin() *big.Int
 	getMaintenanceMargin() *big.Int
 	getMinSizeRequirement(market Market) *big.Int
-	GetActiveMarkets() []Market
+	GetPriceMultiplier(market Market) *big.Int
 	GetActiveMarketsCount() int64
 	GetUnderlyingPrices() []*big.Int
 	GetMidPrices() []*big.Int
@@ -26,7 +26,8 @@ type IConfigService interface {
 	GetAcceptableBounds(market Market) (*big.Int, *big.Int)
 	GetAcceptableBoundsForLiquidation(market Market) (*big.Int, *big.Int)
 
-	GetSignedOrderStatus(orderHash [32]byte) int64
+	GetSignedOrderStatus(orderHash common.Hash) int64
+	IsTradingAuthority(trader, signer common.Address) bool
 }
 
 type ConfigService struct {
@@ -65,6 +66,10 @@ func (cs *ConfigService) getMaintenanceMargin() *big.Int {
 
 func (cs *ConfigService) getMinSizeRequirement(market Market) *big.Int {
 	return bibliophile.GetMinSizeRequirement(cs.getStateAtCurrentBlock(), int64(market))
+}
+
+func (cs *ConfigService) GetPriceMultiplier(market Market) *big.Int {
+	return bibliophile.GetMultiplier(cs.getStateAtCurrentBlock(), int64(market))
 }
 
 func (cs *ConfigService) getStateAtCurrentBlock() *state.StateDB {
@@ -107,6 +112,9 @@ func (cs *ConfigService) GetCumulativePremiumFraction(market Market) *big.Int {
 }
 
 func (cs *ConfigService) GetSignedOrderStatus(orderHash common.Hash) int64 {
-	return 0 // @todo
-	// return bibliophile.GetSignedOrderStatus(cs.getStateAtCurrentBlock(), orderHash)
+	return bibliophile.GetSignedOrderStatus(cs.getStateAtCurrentBlock(), orderHash)
+}
+
+func (cs *ConfigService) IsTradingAuthority(trader, signer common.Address) bool {
+	return bibliophile.IsTradingAuthority(cs.getStateAtCurrentBlock(), trader, signer)
 }

@@ -79,17 +79,17 @@ const (
 	Execution_Failed
 )
 
-type OrderType uint8
+type OrderType = hu.OrderType
 
 const (
-	Limit OrderType = iota
-	IOC
-	Signed
+	Limit  = hu.Limit
+	IOC    = hu.IOC
+	Signed = hu.Signed
 )
 
-func (o OrderType) String() string {
-	return [...]string{"limit", "ioc"}[o]
-}
+// func (o OrderType) String() string {
+// 	return [...]string{"limit", "ioc"}[o]
+// }
 
 type Lifecycle struct {
 	BlockNumber uint64

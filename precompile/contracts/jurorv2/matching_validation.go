@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -94,7 +95,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(ErrInvalidFillAmount, Generic, common.Hash{})
 	}
 
-	decodeStep0, err := ob.DecodeTypeAndEncodedOrder(inputStruct.Data[0])
+	decodeStep0, err := hu.DecodeTypeAndEncodedOrder(inputStruct.Data[0])
 	if err != nil {
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(err, Order0, common.Hash{})
 	}
@@ -103,7 +104,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(err, Order0, m0.OrderHash)
 	}
 
-	decodeStep1, err := ob.DecodeTypeAndEncodedOrder(inputStruct.Data[1])
+	decodeStep1, err := hu.DecodeTypeAndEncodedOrder(inputStruct.Data[1])
 	if err != nil {
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(err, Order1, common.Hash{})
 	}
@@ -120,6 +121,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(ErrNoMatch, Generic, common.Hash{})
 	}
 
+	// check 11
 	if m0.PostOnly && m1.PostOnly {
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(ErrBothPostOnly, Generic, common.Hash{})
 	}
@@ -244,7 +246,7 @@ func ValidateLiquidationOrderAndDetermineFillPrice(bibliophile b.BibliophileClie
 		return getValidateLiquidationOrderAndDetermineFillPriceErrorOutput(ErrInvalidFillAmount, Generic, common.Hash{})
 	}
 
-	decodeStep0, err := ob.DecodeTypeAndEncodedOrder(inputStruct.Data)
+	decodeStep0, err := hu.DecodeTypeAndEncodedOrder(inputStruct.Data)
 	if err != nil {
 		return getValidateLiquidationOrderAndDetermineFillPriceErrorOutput(err, Order0, common.Hash{})
 	}
@@ -306,21 +308,21 @@ func determineLiquidationFillPrice(bibliophile b.BibliophileClient, m0 *Metadata
 
 func validateOrder(bibliophile b.BibliophileClient, orderType ob.OrderType, encodedOrder []byte, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
 	if orderType == ob.Limit {
-		order, err := ob.DecodeLimitOrder(encodedOrder)
+		order, err := hu.DecodeLimitOrder(encodedOrder)
 		if err != nil {
 			return nil, err
 		}
 		return validateExecuteLimitOrder(bibliophile, order, side, fillAmount)
 	}
 	if orderType == ob.IOC {
-		order, err := ob.DecodeIOCOrder(encodedOrder)
+		order, err := hu.DecodeIOCOrder(encodedOrder)
 		if err != nil {
 			return nil, err
 		}
 		return validateExecuteIOCOrder(bibliophile, order, side, fillAmount)
 	}
 	if orderType == ob.Signed {
-		order, err := ob.DecodeSignedOrder(encodedOrder)
+		order, err := hu.DecodeSignedOrder(encodedOrder)
 		if err != nil {
 			return nil, err
 		}
@@ -375,20 +377,31 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder
 	}, nil
 }
 
-func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *ob.SignedOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *hu.SignedOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
 	orderHash, err := order.Hash()
 	if err != nil {
 		return nil, err
 	}
-	if ob.OrderType(order.OrderType) != ob.Signed {
-		return &Metadata{OrderHash: orderHash}, errors.New("not signed order")
+
+	trader, signer, err := hu.ValidateSignedOrder(
+		order,
+		hu.SignedOrderValidationFields{
+			Now:                bibliophile.GetTimeStamp(),
+			ActiveMarketsCount: bibliophile.GetActiveMarketsCount(),
+			MinSize:            bibliophile.GetMinSizeRequirement(order.AmmIndex.Int64()),
+			PriceMultiplier:    bibliophile.GetPriceMultiplier(bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())),
+			Status:             bibliophile.GetSignedOrderStatus(orderHash),
+		},
+	)
+	if err != nil {
+		return &Metadata{OrderHash: orderHash}, err
 	}
-	if order.ExpireAt.Uint64() < bibliophile.GetTimeStamp() {
-		return &Metadata{OrderHash: orderHash}, errors.New("order expired")
+
+	if trader != signer && !bibliophile.IsTradingAuthority(trader, signer) {
+		return &Metadata{OrderHash: orderHash}, hu.ErrNoTradingAuthority
 	}
-	if !order.PostOnly {
-		return &Metadata{OrderHash: orderHash}, errors.New("not post only")
-	}
+
+	// M1, M2
 	orderStatus := OrderStatus(bibliophile.GetSignedOrderStatus(orderHash))
 	if orderStatus == Invalid {
 		// signed orders don't get placed in the contract, so we consider them placed by default
@@ -397,6 +410,12 @@ func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *ob.Signe
 	if err := validateLimitOrderLike(bibliophile, &order.BaseOrder, bibliophile.GetSignedOrderFilledAmount(orderHash), OrderStatus(bibliophile.GetSignedOrderStatus(orderHash)), side, fillAmount); err != nil {
 		return &Metadata{OrderHash: orderHash}, err
 	}
+
+	// M3
+	if !bibliophile.HasReferrer(order.Trader) {
+		return &Metadata{OrderHash: orderHash}, ErrNoReferrer
+	}
+
 	return &Metadata{
 		AmmIndex:          order.AmmIndex,
 		Trader:            order.Trader,
@@ -409,7 +428,7 @@ func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *ob.Signe
 	}, nil
 }
 
-func validateLimitOrderLike(bibliophile b.BibliophileClient, order *ob.BaseOrder, filledAmount *big.Int, status OrderStatus, side Side, fillAmount *big.Int) error {
+func validateLimitOrderLike(bibliophile b.BibliophileClient, order *hu.BaseOrder, filledAmount *big.Int, status OrderStatus, side Side, fillAmount *big.Int) error {
 	if status != Placed {
 		return ErrInvalidOrder
 	}
@@ -468,7 +487,6 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *ob.BaseOrder
 }
 
 // Common
-
 func reducesPosition(positionSize *big.Int, baseAssetQuantity *big.Int) bool {
 	if positionSize.Sign() == 1 && baseAssetQuantity.Sign() == -1 && big.NewInt(0).Add(positionSize, baseAssetQuantity).Sign() != -1 {
 		return true
@@ -493,13 +511,13 @@ func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrd
 }
 
 func formatOrder(orderBytes []byte) interface{} {
-	decodeStep0, err := ob.DecodeTypeAndEncodedOrder(orderBytes)
+	decodeStep0, err := hu.DecodeTypeAndEncodedOrder(orderBytes)
 	if err != nil {
 		return orderBytes
 	}
 
 	if decodeStep0.OrderType == ob.Limit {
-		order, err := ob.DecodeLimitOrder(decodeStep0.EncodedOrder)
+		order, err := hu.DecodeLimitOrder(decodeStep0.EncodedOrder)
 		if err != nil {
 			return decodeStep0
 		}
@@ -512,7 +530,7 @@ func formatOrder(orderBytes []byte) interface{} {
 		return orderJson
 	}
 	if decodeStep0.OrderType == ob.IOC {
-		order, err := ob.DecodeIOCOrder(decodeStep0.EncodedOrder)
+		order, err := hu.DecodeIOCOrder(decodeStep0.EncodedOrder)
 		if err != nil {
 			return decodeStep0
 		}

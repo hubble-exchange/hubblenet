@@ -54,6 +54,7 @@ type BibliophileClient interface {
 	GetTimeStamp() uint64
 	GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int)
 	HasReferrer(trader common.Address) bool
+	GetActiveMarketsCount() int64
 }
 
 // Define a structure that will implement the Bibliophile interface
@@ -65,6 +66,18 @@ func NewBibliophileClient(accessibleState contract.AccessibleState) BibliophileC
 	return &bibliophileClient{
 		accessibleState: accessibleState,
 	}
+}
+
+func (b *bibliophileClient) GetSignedOrderFilledAmount(orderHash [32]byte) *big.Int {
+	return GetSignedOrderFilledAmount(b.accessibleState.GetStateDB(), orderHash)
+}
+
+func (b *bibliophileClient) GetSignedOrderStatus(orderHash [32]byte) int64 {
+	return GetSignedOrderStatus(b.accessibleState.GetStateDB(), orderHash)
+}
+
+func (b *bibliophileClient) GetActiveMarketsCount() int64 {
+	return GetActiveMarketsCount(b.accessibleState.GetStateDB())
 }
 
 func (b *bibliophileClient) GetTimeStamp() uint64 {

@@ -5,7 +5,6 @@ package orderbook
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -318,144 +317,31 @@ type PlaceOrderResponse struct {
 }
 
 func (api *TradingAPI) PostOrder(ctx context.Context, order_ interface{}) PlaceOrderResponse {
-	stateDB, _, _ := api.backend.StateAndHeaderByNumber(ctx, rpc.BlockNumber(getCurrentBlockNumber(api.backend)))
-
-	// func (api *TradingAPI) PostOrder(ctx context.Context, order_ hexutil.Bytes) PlaceOrderResponse {
-	order := order_.(*SignedOrder)
-	var response PlaceOrderResponse
-
-	// @todo validations
-	if order.OrderType != uint8(Signed) {
-		response.err = fmt.Errorf("order type not supported")
-		return response
-	}
-
-	if order.ExpireAt.Int64() <= time.Now().Unix() {
-		response.err = fmt.Errorf("order expired")
-		return response
-	}
-
-	hubbleutils.EcRecover(order.Sig, order.Sig)
-	// @todo gossip order
-
-	// add to db
-	limitOrder := Order{
-		Id:                      orderId,
-		Market:                  Market(order.AmmIndex.Int64()),
-		PositionType:            getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
-		Trader:                  getAddressFromTopicHash(event.Topics[1]),
-		BaseAssetQuantity:       order.BaseAssetQuantity,
-		FilledBaseAssetQuantity: big.NewInt(0),
-		Price:                   order.Price,
-		RawOrder:                &order,
-		Salt:                    order.Salt,
-		ReduceOnly:              order.ReduceOnly,
-		BlockNumber:             big.NewInt(int64(event.BlockNumber)),
-		OrderType:               Limit,
-	}
-	orderHash, err := api.db.Add(&limitOrder)
+	order := order_.(*hu.SignedOrder)
+	marketId := int(order.AmmIndex.Int64())
+	orderId, err := order.Hash()
 	if err != nil {
-		return common.Hash{}, err
+		return PlaceOrderResponse{err: err}
+	}
+	trader, signer, err := hu.ValidateSignedOrder(
+		order,
+		hu.SignedOrderValidationFields{
+			Now:                uint64(time.Now().Unix()),
+			ActiveMarketsCount: api.configService.GetActiveMarketsCount(),
+			MinSize:            api.configService.getMinSizeRequirement(marketId),
+			PriceMultiplier:    api.configService.GetPriceMultiplier(marketId),
+			Status:             api.configService.GetSignedOrderStatus(orderId),
+		},
+	)
+
+	response := PlaceOrderResponse{}
+	if trader != signer && !api.configService.IsTradingAuthority(trader, signer) {
+		return PlaceOrderResponse{err: hu.ErrNoTradingAuthority}
 	}
 
-	return orderHash, nil
-}
-
-var (
-	ErrTwoOrders         = errors.New("need 2 orders")
-	ErrInvalidFillAmount = errors.New("invalid fillAmount")
-	ErrNotLongOrder      = errors.New("not long")
-	ErrNotShortOrder     = errors.New("not short")
-	ErrNotSameAMM        = errors.New("OB_orders_for_different_amms")
-	ErrNoMatch           = errors.New("OB_orders_do_not_match")
-	ErrNotMultiple       = errors.New("not multiple")
-
-	ErrInvalidOrder                       = errors.New("invalid order")
-	ErrNotIOCOrder                        = errors.New("not_ioc_order")
-	ErrInvalidPrice                       = errors.New("invalid price")
-	ErrPricePrecision                     = errors.New("invalid price precision")
-	ErrInvalidMarket                      = errors.New("invalid market")
-	ErrCancelledOrder                     = errors.New("cancelled order")
-	ErrFilledOrder                        = errors.New("filled order")
-	ErrOrderAlreadyExists                 = errors.New("order already exists")
-	ErrTooLow                             = errors.New("long price below lower bound")
-	ErrTooHigh                            = errors.New("short price above upper bound")
-	ErrOverFill                           = errors.New("overfill")
-	ErrReduceOnlyAmountExceeded           = errors.New("not reducing pos")
-	ErrBaseAssetQuantityZero              = errors.New("baseAssetQuantity is zero")
-	ErrReduceOnlyBaseAssetQuantityInvalid = errors.New("reduce only order must reduce position")
-	ErrNetReduceOnlyAmountExceeded        = errors.New("net reduce only amount exceeded")
-	ErrStaleReduceOnlyOrders              = errors.New("cancel stale reduce only orders")
-	ErrInsufficientMargin                 = errors.New("insufficient margin")
-	ErrCrossingMarket                     = errors.New("crossing market")
-	ErrIOCOrderExpired                    = errors.New("IOC order expired")
-	ErrOpenOrders                         = errors.New("open orders")
-	ErrOpenReduceOnlyOrders               = errors.New("open reduce only orders")
-	ErrNoTradingAuthority                 = errors.New("no trading authority")
-	ErrNoReferrer                         = errors.New("no referrer")
-)
-
-// Place Order Checks
-// 1. price >= 0
-// 2. signer is valid trading authority
-// 3. market is valid
-// 4. baseAssetQuantity is not 0 and multiple of minSize
-// 5. order is not already placed, filled or cancelled
-// 6. reduce only amount check OR margin availablity check (not in state, simply compared to other active orders)
-// 7. post only order shouldn't cross the market
-// 8. HasReferrer
-// 9. price precision check
-//
-// Matching Order Checks
-// Since all the above checks are in memory and not guaranteed by consensus, we need to perform them at the time of matching too. In addition:
-// (note) 6. Not required in the precompile
-// 10. Order is not being overfilled
-// 11. Not both post only orders are being matched
-func (api *TradingAPI) ValidatePlaceSignedOrder(order *SignedOrder) error {
-	if order.Price.Sign() != 1 {
-		return ErrInvalidPrice
-	}
-
-	if order.BaseAssetQuantity.Sign() == 0 {
-		return ErrBaseAssetQuantityZero
-	}
-
-	orderHash, err := order.Hash()
-	if err != nil {
-		return err
-	}
-
-	signer, err := hu.ECRecover(order.Sig, order.Sig)
-	trader := order.Trader
-	if trader != signer && !api.configService.IsTradingAuthority(stateDB, trader, signer) {
-		return ErrNoTradingAuthority
-	}
-
-	markets := api.configService.GetActiveMarketsCount()
-	// assumes all markets are active and in sequential order
-	if order.AmmIndex.Int64() >= markets {
-		return ErrInvalidMarket
-	}
-	// ammAddress := getMarketAddressFromMarketID(order.AmmIndex.Int64(), stateDB)
-
-	market := Market(order.AmmIndex.Int64())
-	minSize := api.configService.getMinSizeRequirement(market)
-	if new(big.Int).Mod(order.BaseAssetQuantity, minSize).Sign() != 0 {
-		return ErrNotMultiple
-	}
-
-	// order status
-	// should not already be submitted
-	fields := api.db.GetOrderValidationFields()
-	if fields.Exists {
-		return ErrOrderAlreadyExists
-	}
-	// should not be filled or cancelled
-	status := hu.OrderStatus(api.configService.GetSignedOrderStatus(orderHash))
-	if status != hu.Invalid {
-		return ErrOrderAlreadyExists
-	}
-
+	fields := api.db.GetOrderValidationFields(orderId, trader, marketId)
+	// @todo P1 - P3
+	// P4. Post only order shouldn't cross the market
 	if order.PostOnly {
 		orderSide := hu.Side(hu.Long)
 		if order.BaseAssetQuantity.Sign() == -1 {
@@ -464,19 +350,28 @@ func (api *TradingAPI) ValidatePlaceSignedOrder(order *SignedOrder) error {
 		asksHead := fields.AsksHead
 		bidsHead := fields.BidsHead
 		if (orderSide == hu.Side(hu.Short) && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == hu.Side(hu.Long) && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
-			return ErrCrossingMarket
+			return PlaceOrderResponse{err: hu.ErrCrossingMarket}
 		}
 	}
+	// @todo P5
 
-	// @todo
-	// if !bibliophile.HasReferrer(order.Trader) {
-	// 	response.Err = ErrNoReferrer.Error()
-	// }
+	// @todo gossip order
 
-	// if hu.Mod(order.Price, bibliophile.GetPriceMultiplier(ammAddress)).Sign() != 0 {
-	// 	response.Err = ErrPricePrecision.Error()
-	// 	return
-	// }
-
+	// add to db
+	limitOrder := &Order{
+		Id:                      orderId,
+		Market:                  Market(order.AmmIndex.Int64()),
+		PositionType:            getPositionTypeBasedOnBaseAssetQuantity(order.BaseAssetQuantity),
+		Trader:                  trader,
+		BaseAssetQuantity:       order.BaseAssetQuantity,
+		FilledBaseAssetQuantity: big.NewInt(0),
+		Price:                   order.Price,
+		RawOrder:                order,
+		Salt:                    order.Salt,
+		ReduceOnly:              order.ReduceOnly,
+		BlockNumber:             big.NewInt(0),
+		OrderType:               Limit,
+	}
+	api.db.Add(limitOrder)
 	return response
 }
