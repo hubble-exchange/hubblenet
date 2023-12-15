@@ -18,6 +18,7 @@ import (
 	_ "github.com/ava-labs/subnet-evm/precompile/contracts/rewardmanager"
 
 	_ "github.com/ava-labs/subnet-evm/precompile/contracts/juror"
+	_ "github.com/ava-labs/subnet-evm/precompile/contracts/jurorv2"
 	_ "github.com/ava-labs/subnet-evm/precompile/contracts/ticks"
 	_ "github.com/ava-labs/subnet-evm/x/warp"
 	// ADD YOUR PRECOMPILE HERE
