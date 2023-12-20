@@ -47,6 +47,7 @@ import (
 // ADD YOUR PRECOMPILE HERE
 // juror       = common.HexToAddress("0x03000000000000000000000000000000000000a0")
 // ticks       = common.HexToAddress("0x03000000000000000000000000000000000000a1")
+// jurorV2     = common.HexToAddress("0x03000000000000000000000000000000000000a2")
 
 // GenesisAddress
 // OrderBook		       = common.HexToAddress("0x03000000000000000000000000000000000000b0")

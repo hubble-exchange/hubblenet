@@ -87,10 +87,6 @@ const (
 	Signed = hu.Signed
 )
 
-// func (o OrderType) String() string {
-// 	return [...]string{"limit", "ioc"}[o]
-// }
-
 type Lifecycle struct {
 	BlockNumber uint64
 	Status      Status
