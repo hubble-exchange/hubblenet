@@ -285,6 +285,10 @@ func (pipeline *MatchingPipeline) filterEligibleOrders(orders *Orders, hState *h
 	// inner function for filtering
 	hasSufficientMargin := func(order Order) bool {
 		trader := pipeline.db.GetTraderInfo(order.Trader)
+		if trader == nil {
+			// no trader related activity, not even margin deposit. Should never happen ideally
+			return false
+		}
 		userState := hu.UserState{
 			Positions:      translatePositions(trader.Positions),
 			Margins:        getMargins(trader, len(hState.Assets)),
