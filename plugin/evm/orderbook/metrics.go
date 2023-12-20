@@ -31,4 +31,7 @@ var (
 
 	// order id not found while deleting
 	deleteOrderIdNotFoundCounter = metrics.NewRegisteredCounter("delete_order_id_not_found", nil)
+
+	// unquenched liquidations
+	unquenchedLiquidationsCounter = metrics.NewRegisteredCounter("unquenched_liquidations", nil)
 )

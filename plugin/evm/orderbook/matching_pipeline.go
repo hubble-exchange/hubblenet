@@ -86,7 +86,8 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 	cancellableOrderIds := pipeline.cancelLimitOrders(ordersToCancel)
 	orderMap := make(map[Market]*Orders)
 	for _, market := range markets {
-		orderMap[market] = pipeline.fetchOrders(market, hState.OraclePrices[market], cancellableOrderIds, blockNumber)
+		orders := pipeline.fetchOrders(market, hState.OraclePrices[market], cancellableOrderIds, blockNumber)
+		orderMap[market] = pipeline.filterEligibleOrders(orders, hState)
 	}
 	pipeline.runLiquidations(liquidablePositions, orderMap, hState.OraclePrices)
 	for _, market := range markets {
@@ -246,6 +247,7 @@ func (pipeline *MatchingPipeline) runLiquidations(liquidablePositions []Liquidab
 			orderMap[market].shortOrders = orderMap[market].shortOrders[numOrdersExhausted:]
 		}
 		if liquidable.GetUnfilledSize().Sign() != 0 {
+			unquenchedLiquidationsCounter.Inc(1)
 			log.Info("unquenched liquidation", "liquidable", liquidable)
 		}
 	}
@@ -273,6 +275,59 @@ func (pipeline *MatchingPipeline) runMatchingEngine(lotp LimitOrderTxProcessor, 
 		}
 		shortOrders = shortOrders[numOrdersExhausted:]
 	}
+}
+
+func (pipeline *MatchingPipeline) filterEligibleOrders(orders *Orders, hState *hu.HubbleState) *Orders {
+
+	minAllowableMargin := pipeline.configService.getMinAllowableMargin()
+	takerFee := pipeline.configService.GetTakerFee()
+
+	// inner function for filtering
+	hasSufficientMargin := func(order Order) bool {
+		trader := pipeline.db.GetTraderInfo(order.Trader)
+		userState := hu.UserState{
+			Positions:      translatePositions(trader.Positions),
+			Margins:        getMargins(trader, len(hState.Assets)),
+			PendingFunding: getTotalFunding(trader, hState.ActiveMarkets),
+			ReservedMargin: new(big.Int).Set(trader.Margin.Reserved),
+		}
+		availableMargin := hu.GetAvailableMargin(hState, &userState)
+
+		price := order.Price
+		upperBound, _ := pipeline.configService.GetAcceptableBounds(order.Market)
+		if order.BaseAssetQuantity.Sign() == -1 && order.Price.Cmp(upperBound) == -1 {
+			price = upperBound
+		}
+		quoteAsset := big.NewInt(0).Abs(big.NewInt(0).Div(new(big.Int).Mul(order.BaseAssetQuantity, price), big.NewInt(1e18)))
+		requiredMargin := big.NewInt(0).Div(big.NewInt(0).Mul(minAllowableMargin, quoteAsset), big.NewInt(1e6))
+		takerFee := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, takerFee), big.NewInt(1e6))
+		requiredMargin.Add(requiredMargin, takerFee)
+
+		return availableMargin.Cmp(requiredMargin) != -1
+	}
+
+	filteredOrders := &Orders{
+		longOrders:  []Order{},
+		shortOrders: []Order{},
+	}
+	for _, order := range orders.longOrders {
+		if order.OrderType == IOC {
+			if !hasSufficientMargin(order) {
+				continue
+			}
+		}
+		filteredOrders.longOrders = append(filteredOrders.longOrders, order)
+	}
+	for _, order := range orders.shortOrders {
+		if order.OrderType == IOC {
+			if !hasSufficientMargin(order) {
+				continue
+			}
+		}
+		filteredOrders.shortOrders = append(filteredOrders.shortOrders, order)
+	}
+
+	return filteredOrders
 }
 
 func areMatchingOrders(longOrder, shortOrder Order) *big.Int {
