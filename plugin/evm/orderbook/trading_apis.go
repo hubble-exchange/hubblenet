@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"reflect"
 	"strings"
 	"time"
 
@@ -313,18 +314,29 @@ func (api *TradingAPI) StreamMarketTrades(ctx context.Context, market Market, bl
 }
 
 type PlaceOrderResponse struct {
-	err error
+	Success bool `json:"success"`
 }
 
-func (api *TradingAPI) PostOrder(ctx context.Context, order_ interface{}) PlaceOrderResponse {
-	order := order_.(*hu.SignedOrder)
+func (api *TradingAPI) PostOrder(ctx context.Context, rawOrder interface{}) (PlaceOrderResponse, error) {
+	// print type of rawOrder
+	// order := rawOrder.(hu.SignedOrder)
+
+	fmt.Println("type", reflect.TypeOf(rawOrder))
+
+	// order := rawOrder.(hu.SignedOrder)
+
+	fmt.Println("rawOrder", rawOrder)
+	order := hu.SignedOrder{}
+	order.DecodeFromRawOrder(rawOrder)
+	fmt.Println("PostOrder", order)
+
 	marketId := int(order.AmmIndex.Int64())
 	orderId, err := order.Hash()
 	if err != nil {
-		return PlaceOrderResponse{err: err}
+		return PlaceOrderResponse{Success: false}, err
 	}
 	trader, signer, err := hu.ValidateSignedOrder(
-		order,
+		&order,
 		hu.SignedOrderValidationFields{
 			Now:                uint64(time.Now().Unix()),
 			ActiveMarketsCount: api.configService.GetActiveMarketsCount(),
@@ -333,10 +345,12 @@ func (api *TradingAPI) PostOrder(ctx context.Context, order_ interface{}) PlaceO
 			Status:             api.configService.GetSignedOrderStatus(orderId),
 		},
 	)
+	if err != nil {
+		return PlaceOrderResponse{Success: false}, err
+	}
 
-	response := PlaceOrderResponse{}
 	if trader != signer && !api.configService.IsTradingAuthority(trader, signer) {
-		return PlaceOrderResponse{err: hu.ErrNoTradingAuthority}
+		return PlaceOrderResponse{Success: false}, hu.ErrNoTradingAuthority
 	}
 
 	fields := api.db.GetOrderValidationFields(orderId, trader, marketId)
@@ -350,7 +364,7 @@ func (api *TradingAPI) PostOrder(ctx context.Context, order_ interface{}) PlaceO
 		asksHead := fields.AsksHead
 		bidsHead := fields.BidsHead
 		if (orderSide == hu.Side(hu.Short) && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == hu.Side(hu.Long) && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
-			return PlaceOrderResponse{err: hu.ErrCrossingMarket}
+			return PlaceOrderResponse{Success: false}, hu.ErrCrossingMarket
 		}
 	}
 	// @todo P5
@@ -366,12 +380,13 @@ func (api *TradingAPI) PostOrder(ctx context.Context, order_ interface{}) PlaceO
 		BaseAssetQuantity:       order.BaseAssetQuantity,
 		FilledBaseAssetQuantity: big.NewInt(0),
 		Price:                   order.Price,
-		RawOrder:                order,
+		RawOrder:                &order,
 		Salt:                    order.Salt,
 		ReduceOnly:              order.ReduceOnly,
 		BlockNumber:             big.NewInt(0),
 		OrderType:               Limit,
 	}
 	api.db.Add(limitOrder)
-	return response
+	fmt.Println("success", "limitOrder", limitOrder)
+	return PlaceOrderResponse{Success: true}, nil
 }

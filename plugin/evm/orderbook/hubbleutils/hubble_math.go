@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ava-labs/subnet-evm/accounts"
+	// "github.com/ava-labs/subnet-evm/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -81,9 +81,11 @@ func ECRecover(data, sig hexutil.Bytes) (common.Address, error) {
 	}
 	sig[crypto.RecoveryIDOffset] -= 27 // Transform yellow paper V from 27/28 to 0/1
 
-	rpk, err := crypto.SigToPub(accounts.TextHash(data), sig)
+	// rpk, err := crypto.SigToPub(accounts.TextHash(data), sig)
+	rpk, err := crypto.Ecrecover(data, sig)
 	if err != nil {
 		return common.Address{}, err
 	}
-	return crypto.PubkeyToAddress(*rpk), nil
+	return common.BytesToAddress(common.LeftPadBytes(crypto.Keccak256(rpk[1:])[12:], 32)), nil
+	// return crypto.PubkeyToAddress(*rpk), nil
 }

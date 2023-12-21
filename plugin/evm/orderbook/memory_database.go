@@ -1186,10 +1186,22 @@ func (db *InMemoryDatabase) GetOrderValidationFields(
 	trader common.Address,
 	marketId int,
 ) OrderValidationFields {
+	posSize := big.NewInt(0)
+	if db.TraderMap[trader] != nil && db.TraderMap[trader].Positions[marketId] != nil && db.TraderMap[trader].Positions[marketId].Size != nil {
+		posSize = db.TraderMap[trader].Positions[marketId].Size
+	}
+	asksHead := big.NewInt(0)
+	if len(db.ShortOrders[marketId]) > 0 {
+		asksHead = db.ShortOrders[marketId][0].Price
+	}
+	bidsHead := big.NewInt(0)
+	if len(db.LongOrders[marketId]) > 0 {
+		bidsHead = db.LongOrders[marketId][0].Price
+	}
 	fields := OrderValidationFields{
-		PosSize:  new(big.Int).Set(db.TraderMap[trader].Positions[marketId].Size),
-		AsksHead: db.ShortOrders[marketId][0].Price,
-		BidsHead: db.LongOrders[marketId][0].Price,
+		PosSize:  posSize,
+		AsksHead: asksHead,
+		BidsHead: bidsHead,
 	}
 	if db.Orders[orderId] != nil {
 		fields.Exists = true

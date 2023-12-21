@@ -2,6 +2,7 @@ package hubbleutils
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -88,7 +89,16 @@ func ValidateSignedOrder(order *SignedOrder, fields SignedOrderValidationFields)
 	}
 
 	// 6. caller will perform the check
-	signer, err = ECRecover(order.Sig, order.Sig) // @todo construct data
+	orderHash, err := order.Hash()
+	fmt.Println("orderHash", orderHash)
+	if err != nil {
+		return trader, signer, err
+	}
+	signer, err = ECRecover(orderHash.Bytes(), order.Sig)
+	fmt.Println("signer", signer)
+	if err != nil {
+		return trader, signer, err
+	}
 	trader = order.Trader
 
 	// assumes all markets are active and in sequential order
