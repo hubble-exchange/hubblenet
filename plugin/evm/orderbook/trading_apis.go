@@ -327,11 +327,11 @@ func (api *TradingAPI) PostOrder(ctx context.Context, rawOrder interface{}) (Pla
 
 	fmt.Println("rawOrder", rawOrder)
 	order := hu.SignedOrder{}
-	order.DecodeFromRawOrder(rawOrder)
+	order.DecodeAPIOrder(rawOrder)
 	fmt.Println("PostOrder", order)
 
 	marketId := int(order.AmmIndex.Int64())
-	orderId, err := order.Hash()
+	orderId, err := order.Hash(api.backend.ChainConfig().ChainID, api.configService.GetVerifyingContract())
 	if err != nil {
 		return PlaceOrderResponse{Success: false}, err
 	}

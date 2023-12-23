@@ -200,6 +200,10 @@ func TestValidateLimitOrderLike(t *testing.T) {
 	})
 }
 
+func TestValidateExecuteSignedOrder(t *testing.T) {
+
+}
+
 func TestValidateExecuteLimitOrder(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

@@ -214,6 +214,7 @@ func getNotionalPositionAndMargin(accessibleState contract.AccessibleState, call
 
 	// CUSTOM CODE STARTS HERE
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	accessibleState.GetSnowContext().ChainID
 	output := GetNotionalPositionAndMargin(bibliophile, &inputStruct)
 	packedOutput, err := PackGetNotionalPositionAndMarginOutput(output)
 	if err != nil {
