@@ -110,3 +110,7 @@ func (cs *ConfigService) GetSignedOrderStatus(orderHash common.Hash) int64 {
 func (cs *ConfigService) IsTradingAuthority(trader, signer common.Address) bool {
 	return bibliophile.IsTradingAuthority(cs.getStateAtCurrentBlock(), trader, signer)
 }
+
+func (cs *ConfigService) GetChainIdAndSignedOrderbookContract() (*big.Int, common.Address) {
+	return cs.blockChain.Config().ChainID, bibliophile.GetSignedOrderBookAddress(cs.getStateAtCurrentBlock())
+}

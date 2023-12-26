@@ -16,6 +16,7 @@ import (
 	_ "embed"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -214,7 +215,7 @@ func getNotionalPositionAndMargin(accessibleState contract.AccessibleState, call
 
 	// CUSTOM CODE STARTS HERE
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
-	accessibleState.GetSnowContext().ChainID
+	log.Info("accessibleState.GetSnowContext().ChainID", accessibleState.GetSnowContext().ChainID.String())
 	output := GetNotionalPositionAndMargin(bibliophile, &inputStruct)
 	packedOutput, err := PackGetNotionalPositionAndMarginOutput(output)
 	if err != nil {

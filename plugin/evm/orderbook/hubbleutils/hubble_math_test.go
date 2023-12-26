@@ -9,8 +9,8 @@ import (
 
 func TestECRecovers(t *testing.T) {
 	// 1. Test case from
-	orderHash := "0xc03560e0135777a3e7f155dbe7edbda36b217d6d9817f61ac914ed7f1029b387"
-	address, err := ECRecover(common.FromHex(orderHash), common.FromHex("0x4f47baaf7e2c447a3eaddb49e50908cea40811841077b2d0c53b7b496384c2ea783d1e53321e23b6f033750c46401b9e0705bde1b319bb461b55c752b9e980cc1c"))
+	orderHash := "0xee4b26ae386d1c88f89eb2f8b4b4205271576742f5ff4e0488633612f7a9a5e7"
+	address, err := ECRecover(common.FromHex(orderHash), common.FromHex("0xb2704b73b99f2700ecc90a218f514c254d1f5d46af47117f5317f6cc0348ce962dcfb024c7264fdeb1f1513e4564c2a7cd9c1d0be33d7b934cd5a73b96440eaf1c"))
 	assert.Nil(t, err)
 	assert.Equal(t, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", address.String())
 }

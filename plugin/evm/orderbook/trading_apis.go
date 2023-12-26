@@ -5,9 +5,9 @@ package orderbook
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
-	"reflect"
 	"strings"
 	"time"
 
@@ -317,26 +317,27 @@ type PlaceOrderResponse struct {
 	Success bool `json:"success"`
 }
 
-func (api *TradingAPI) PostOrder(ctx context.Context, rawOrder interface{}) (PlaceOrderResponse, error) {
-	// print type of rawOrder
-	// order := rawOrder.(hu.SignedOrder)
-
-	fmt.Println("type", reflect.TypeOf(rawOrder))
-
-	// order := rawOrder.(hu.SignedOrder)
-
-	fmt.Println("rawOrder", rawOrder)
-	order := hu.SignedOrder{}
-	order.DecodeAPIOrder(rawOrder)
-	fmt.Println("PostOrder", order)
+func (api *TradingAPI) PostOrder(ctx context.Context, rawOrder string) (PlaceOrderResponse, error) {
+	// fmt.Println("rawOrder", rawOrder)
+	testData, err := hex.DecodeString(strings.TrimPrefix(rawOrder, "0x"))
+	if err != nil {
+		return PlaceOrderResponse{Success: false}, err
+	}
+	// order := &hu.SignedOrder{}
+	order, err := hu.DecodeSignedOrder(testData)
+	if err != nil {
+		return PlaceOrderResponse{Success: false}, err
+	}
+	// order.DecodeAPIOrder(rawOrder)
+	// fmt.Println("PostOrder", order)
 
 	marketId := int(order.AmmIndex.Int64())
-	orderId, err := order.Hash(api.backend.ChainConfig().ChainID, api.configService.GetVerifyingContract())
+	orderId, err := order.Hash()
 	if err != nil {
 		return PlaceOrderResponse{Success: false}, err
 	}
 	trader, signer, err := hu.ValidateSignedOrder(
-		&order,
+		order,
 		hu.SignedOrderValidationFields{
 			Now:                uint64(time.Now().Unix()),
 			ActiveMarketsCount: api.configService.GetActiveMarketsCount(),
@@ -380,13 +381,12 @@ func (api *TradingAPI) PostOrder(ctx context.Context, rawOrder interface{}) (Pla
 		BaseAssetQuantity:       order.BaseAssetQuantity,
 		FilledBaseAssetQuantity: big.NewInt(0),
 		Price:                   order.Price,
-		RawOrder:                &order,
 		Salt:                    order.Salt,
 		ReduceOnly:              order.ReduceOnly,
 		BlockNumber:             big.NewInt(0),
-		OrderType:               Limit,
+		RawOrder:                order,
+		OrderType:               Signed,
 	}
 	api.db.Add(limitOrder)
-	fmt.Println("success", "limitOrder", limitOrder)
 	return PlaceOrderResponse{Success: true}, nil
 }

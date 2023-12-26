@@ -68,7 +68,7 @@ const (
 )
 
 func (o OrderType) String() string {
-	return [...]string{"limit", "ioc"}[o]
+	return [...]string{"limit", "ioc", "signed"}[o]
 }
 
 type BaseOrder struct {
@@ -158,6 +158,11 @@ func (order *LimitOrder) Hash() (common.Hash, error) {
 		return common.Hash{}, err
 	}
 	return common.BytesToHash(crypto.Keccak256(data)), nil
+}
+
+func (o *LimitOrder) String() string {
+	return fmt.Sprintf("LimitOrder{AmmIndex: %v, Trader: %v, BaseAssetQuantity: %v, Price: %v, Salt: %v, ReduceOnly: %v, PostOnly: %v}",
+		o.AmmIndex, o.Trader, o.BaseAssetQuantity, o.Price, o.Salt, o.ReduceOnly, o.PostOnly)
 }
 
 // ----------------------------------------------------------------------------
@@ -286,7 +291,6 @@ func getOrderType(orderType string) (abi.Type, error) {
 			{Name: "salt", Type: "uint256"},
 			{Name: "reduceOnly", Type: "bool"},
 			{Name: "postOnly", Type: "bool"},
-			{Name: "sig", Type: "string"},
 		})
 	}
 	return abi.Type{}, fmt.Errorf("invalid order type")

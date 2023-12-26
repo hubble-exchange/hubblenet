@@ -9,6 +9,7 @@ import (
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type Metadata struct {
@@ -378,6 +379,7 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder
 }
 
 func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *hu.SignedOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	log.Info("validateExecuteSignedOrder", "order", order)
 	orderHash, err := order.Hash()
 	if err != nil {
 		return nil, err
@@ -403,11 +405,12 @@ func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *hu.Signe
 
 	// M1, M2
 	orderStatus := OrderStatus(bibliophile.GetSignedOrderStatus(orderHash))
+	log.Info("validateExecuteSignedOrder", "orderStatus", orderStatus)
 	if orderStatus == Invalid {
 		// signed orders don't get placed in the contract, so we consider them placed by default
 		orderStatus = Placed
 	}
-	if err := validateLimitOrderLike(bibliophile, &order.BaseOrder, bibliophile.GetSignedOrderFilledAmount(orderHash), OrderStatus(bibliophile.GetSignedOrderStatus(orderHash)), side, fillAmount); err != nil {
+	if err := validateLimitOrderLike(bibliophile, &order.BaseOrder, bibliophile.GetSignedOrderFilledAmount(orderHash), orderStatus, side, fillAmount); err != nil {
 		return &Metadata{OrderHash: orderHash}, err
 	}
 

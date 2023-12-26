@@ -15,12 +15,12 @@
       "feeConfig": {
         "gasLimit": 500000000,
         "targetBlockRate": 1,
-        "minBaseFee": 60000000000,
+        "minBaseFee": 30000000000,
         "targetGas": 10000000,
         "baseFeeChangeDenominator": 50,
         "minBlockGasCost": 0,
         "maxBlockGasCost": 5000000,
-        "blockGasCostStep": 10000
+        "blockGasCostStep": 0
       },
       "contractNativeMinterConfig": {
         "blockTimestamp": 0,
