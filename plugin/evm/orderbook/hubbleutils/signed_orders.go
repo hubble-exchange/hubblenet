@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/ava-labs/subnet-evm/accounts/abi"
-	// "github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
@@ -19,6 +18,16 @@ type SignedOrder struct {
 	OrderType uint8    `json:"orderType"`
 	ExpireAt  *big.Int `json:"expireAt"`
 	Sig       []byte   `json:"sig"`
+}
+
+var (
+	ChainId           int64
+	VerifyingContract string
+)
+
+func SetChainIdAndVerifyingSignedOrdersContract(chainId int64, verifyingContract string) {
+	ChainId = chainId
+	VerifyingContract = verifyingContract
 }
 
 func (order *SignedOrder) EncodeToABIWithoutType() ([]byte, error) {
@@ -40,9 +49,10 @@ func (order *SignedOrder) EncodeToABI() ([]byte, error) {
 		return nil, fmt.Errorf("failed getting abi type: %w", err)
 	}
 
-	orderType, _ := abi.NewType("uint8", "uint8", nil)
-	orderBytesType, _ := abi.NewType("bytes", "bytes", nil)
-	encodedOrder, err := abi.Arguments{{Type: orderType}, {Type: orderBytesType}}.Pack(uint8(Signed), encodedSignedOrder)
+	uint8Ty, _ := abi.NewType("uint8", "uint8", nil)
+	bytesTy, _ := abi.NewType("bytes", "bytes", nil)
+
+	encodedOrder, err := abi.Arguments{{Type: uint8Ty}, {Type: bytesTy}}.Pack(uint8(Signed), encodedSignedOrder)
 	if err != nil {
 		return nil, fmt.Errorf("order encoding failed: %w", err)
 	}
@@ -77,21 +87,6 @@ func (order *SignedOrder) DecodeFromRawOrder(rawOrder interface{}) {
 	}
 }
 
-// func (order *SignedOrder) Map() map[string]interface{} {
-// 	return map[string]interface{}{
-// 		"ammIndex":          order.AmmIndex,
-// 		"trader":            order.Trader,
-// 		"baseAssetQuantity": utils.BigIntToFloat(order.BaseAssetQuantity, 18),
-// 		"price":             utils.BigIntToFloat(order.Price, 6),
-// 		"reduceOnly":        order.ReduceOnly,
-// 		"postOnly":          order.PostOnly,
-// 		"salt":              order.Salt,
-// 		"orderType":         order.OrderType,
-// 		"expireAt":          order.ExpireAt,
-// 		"sig":               order.Sig,
-// 	}
-// }
-
 func (o *SignedOrder) String() string {
 	return fmt.Sprintf(
 		"Order %s, OrderType: %d, ExpireAt: %d, Sig: %s",
@@ -115,12 +110,10 @@ func (o *SignedOrder) Hash() (hash common.Hash, err error) {
 		"postOnly":          o.PostOnly,
 	}
 	domain := apitypes.TypedDataDomain{
-		Name:    "Hubble",
-		Version: "2.0",
-		ChainId: math.NewHexOrDecimal256(321123), // @todo chain id from config
-		// @todo use the correct address
-		// VerifyingContract: common.HexToAddress("0x809d550fca64d94Bd9F66E60752A544199cfAC3D").String(), // used for unit tests
-		VerifyingContract: common.HexToAddress("0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00").String(), // from benchmarks scripts
+		Name:              "Hubble",
+		Version:           "2.0",
+		ChainId:           math.NewHexOrDecimal256(ChainId),
+		VerifyingContract: VerifyingContract,
 	}
 	typedData := apitypes.TypedData{
 		Types:       Eip712OrderTypes,

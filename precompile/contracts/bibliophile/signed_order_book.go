@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -23,7 +22,6 @@ func GetSignedOrderFilledAmount(stateDB contract.StateDB, orderHash [32]byte) *b
 
 func GetSignedOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
 	a := GetSignedOrderBookAddress(stateDB)
-	log.Info("GetSignedOrderStatus: ", a.Hex())
 	orderInfo := signedOrderInfoMappingStorageSlot(orderHash)
 	return new(big.Int).SetBytes(stateDB.GetState(a, common.BigToHash(new(big.Int).Add(orderInfo, big.NewInt(1)))).Bytes()).Int64()
 }

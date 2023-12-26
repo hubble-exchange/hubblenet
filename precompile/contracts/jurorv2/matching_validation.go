@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/ava-labs/subnet-evm/accounts/abi"
 	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
@@ -379,7 +380,6 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder
 }
 
 func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *hu.SignedOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
-	log.Info("validateExecuteSignedOrder", "order", order)
 	orderHash, err := order.Hash()
 	if err != nil {
 		return nil, err

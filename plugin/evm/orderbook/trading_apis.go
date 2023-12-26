@@ -17,6 +17,7 @@ import (
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var traderFeed event.Feed
@@ -323,15 +324,16 @@ func (api *TradingAPI) PostOrder(ctx context.Context, rawOrder string) (PlaceOrd
 	if err != nil {
 		return PlaceOrderResponse{Success: false}, err
 	}
-	// order := &hu.SignedOrder{}
 	order, err := hu.DecodeSignedOrder(testData)
 	if err != nil {
 		return PlaceOrderResponse{Success: false}, err
 	}
-	// order.DecodeAPIOrder(rawOrder)
 	// fmt.Println("PostOrder", order)
 
 	marketId := int(order.AmmIndex.Int64())
+	if hu.ChainId == 0 { // set once, will need to restart node if we change
+		hu.SetChainIdAndVerifyingSignedOrdersContract(api.backend.ChainConfig().ChainID.Int64(), api.configService.GetChainIdAndSignedOrderbookContract().String())
+	}
 	orderId, err := order.Hash()
 	if err != nil {
 		return PlaceOrderResponse{Success: false}, err
@@ -369,7 +371,6 @@ func (api *TradingAPI) PostOrder(ctx context.Context, rawOrder string) (PlaceOrd
 		}
 	}
 	// @todo P5
-
 	// @todo gossip order
 
 	// add to db

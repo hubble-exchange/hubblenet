@@ -15,6 +15,7 @@ import (
 )
 
 func TestDecodeSignedOrder(t *testing.T) {
+	SetChainIdAndVerifyingSignedOrdersContract(321123, "0x809d550fca64d94Bd9F66E60752A544199cfAC3D")
 	// t.Run("long order", func(t *testing.T) {
 	// 	order := &SignedOrder{
 	// 		LimitOrder: LimitOrder{

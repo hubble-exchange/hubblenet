@@ -359,6 +359,7 @@ func validateOrdersAndDetermineFillPrice(accessibleState contract.AccessibleStat
 	}
 
 	// CUSTOM CODE STARTS HERE
+	log.Info("validateOrdersAndDetermineFillPrice", "inputStruct", inputStruct)
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
 	output := ValidateOrdersAndDetermineFillPrice(bibliophile, &inputStruct)
 	packedOutput, err := PackValidateOrdersAndDetermineFillPriceOutput(output)

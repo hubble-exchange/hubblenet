@@ -290,6 +290,7 @@ func (db *InMemoryDatabase) Accept(acceptedBlockNumber, blockTimestamp uint64) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
+	log.Info("Accept", "acceptedBlockNumber", acceptedBlockNumber, "blockTimestamp", blockTimestamp)
 	count := db.configService.GetActiveMarketsCount()
 	for m := int64(0); m < count; m++ {
 		longOrders := db.getLongOrdersWithoutLock(Market(m), nil, nil, false)
@@ -297,7 +298,7 @@ func (db *InMemoryDatabase) Accept(acceptedBlockNumber, blockTimestamp uint64) {
 
 		for _, longOrder := range longOrders {
 			status := shouldRemove(acceptedBlockNumber, blockTimestamp, longOrder)
-			log.Info("Accept", "longOrder", longOrder, "status", status)
+			log.Info("evaluating order...", "longOrder", longOrder, "status", status)
 			if status == KEEP_IF_MATCHEABLE {
 				matchFound := false
 				for _, shortOrder := range shortOrders {
