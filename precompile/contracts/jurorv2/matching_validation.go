@@ -4,7 +4,6 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/ava-labs/subnet-evm/accounts/abi"
 	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"

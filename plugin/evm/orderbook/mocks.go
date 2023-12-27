@@ -310,3 +310,7 @@ func (cs *MockConfigService) IsTradingAuthority(trader, signer common.Address) b
 func NewMockConfigService() *MockConfigService {
 	return &MockConfigService{}
 }
+
+func (cs *MockConfigService) GetChainIdAndSignedOrderbookContract() common.Address {
+	return common.Address{}
+}
