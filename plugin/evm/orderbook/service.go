@@ -17,6 +17,7 @@ import (
 	"github.com/ava-labs/subnet-evm/rpc"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type OrderBookAPI struct {
@@ -226,6 +227,7 @@ func (api *OrderBookAPI) NewOrderBookState(ctx context.Context) (*rpc.Subscripti
 			select {
 			case <-headers:
 				orderBookData := api.GetDetailedOrderBookData(ctx)
+				log.Info("New order book state", "orderBookData", orderBookData)
 				notifier.Notify(rpcSub.ID, &orderBookData)
 			case <-rpcSub.Err():
 				headersSub.Unsubscribe()
@@ -295,6 +297,7 @@ func (api *OrderBookAPI) StreamDepthUpdateForMarketAndFreq(ctx context.Context, 
 			case <-ticker.C:
 				newMarketDepth := getDepthForMarket(api.db, Market(market))
 				depthUpdate := getUpdateInDepth(newMarketDepth, oldMarketDepth)
+				log.Info("Depth update", "depthUpdate", depthUpdate)
 				notifier.Notify(rpcSub.ID, depthUpdate)
 				oldMarketDepth = newMarketDepth
 			case <-notifier.Closed():
