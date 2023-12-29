@@ -79,20 +79,21 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 		ActiveMarkets:      markets,
 		MinAllowableMargin: pipeline.configService.getMinAllowableMargin(),
 		MaintenanceMargin:  pipeline.configService.getMaintenanceMargin(),
+		TakerFee:           pipeline.configService.GetTakerFee(),
 	}
 
 	// build trader map
-	liquidablePositions, ordersToCancel := pipeline.db.GetNaughtyTraders(hState)
+	liquidablePositions, ordersToCancel, marginMap := pipeline.db.GetNaughtyTraders(hState)
 	cancellableOrderIds := pipeline.cancelLimitOrders(ordersToCancel)
 	orderMap := make(map[Market]*Orders)
 	for _, market := range markets {
-		orders := pipeline.fetchOrders(market, hState.OraclePrices[market], cancellableOrderIds, blockNumber)
-		orderMap[market] = pipeline.filterEligibleOrders(orders, hState)
+		orderMap[market] = pipeline.fetchOrders(market, hState.OraclePrices[market], cancellableOrderIds, blockNumber)
 	}
 	pipeline.runLiquidations(liquidablePositions, orderMap, hState.OraclePrices)
 	for _, market := range markets {
 		// @todo should we prioritize matching in any particular market?
-		pipeline.runMatchingEngine(pipeline.lotp, orderMap[market].longOrders, orderMap[market].shortOrders)
+		upperBound, _ := pipeline.configService.GetAcceptableBounds(market)
+		pipeline.runMatchingEngine(pipeline.lotp, orderMap[market].longOrders, orderMap[market].shortOrders, marginMap, hState.MinAllowableMargin, hState.TakerFee, upperBound)
 	}
 
 	orderBookTxsCount := pipeline.lotp.GetOrderBookTxsCount()
@@ -253,7 +254,7 @@ func (pipeline *MatchingPipeline) runLiquidations(liquidablePositions []Liquidab
 	}
 }
 
-func (pipeline *MatchingPipeline) runMatchingEngine(lotp LimitOrderTxProcessor, longOrders []Order, shortOrders []Order) {
+func (pipeline *MatchingPipeline) runMatchingEngine(lotp LimitOrderTxProcessor, longOrders []Order, shortOrders []Order, marginMap map[common.Address]*big.Int, minAllowableMargin, takerFee, upperBound *big.Int) {
 	for i := 0; i < len(longOrders); i++ {
 		// if there are no short orders or if the price of the first long order is < the price of the first short order, then we can stop matching
 		if len(shortOrders) == 0 || longOrders[i].Price.Cmp(shortOrders[0].Price) == -1 {
@@ -261,7 +262,7 @@ func (pipeline *MatchingPipeline) runMatchingEngine(lotp LimitOrderTxProcessor, 
 		}
 		numOrdersExhausted := 0
 		for j := 0; j < len(shortOrders); j++ {
-			fillAmount := areMatchingOrders(longOrders[i], shortOrders[j])
+			fillAmount := areMatchingOrders(longOrders[i], shortOrders[j], marginMap, minAllowableMargin, takerFee, upperBound)
 			if fillAmount == nil {
 				continue
 			}
@@ -334,7 +335,7 @@ func (pipeline *MatchingPipeline) filterEligibleOrders(orders *Orders, hState *h
 	return filteredOrders
 }
 
-func areMatchingOrders(longOrder, shortOrder Order) *big.Int {
+func areMatchingOrders(longOrder, shortOrder Order, marginMap map[common.Address]*big.Int, minAllowableMargin, takerFee, upperBound *big.Int) *big.Int {
 	if longOrder.Price.Cmp(shortOrder.Price) == -1 {
 		return nil
 	}
@@ -347,7 +348,31 @@ func areMatchingOrders(longOrder, shortOrder Order) *big.Int {
 	if fillAmount.Sign() == 0 {
 		return nil
 	}
+	// for ioc orders, check that they have enough margin to execute the trade
+	if longOrder.OrderType == IOC {
+		requiredMargin := hasSufficientMargin(longOrder, fillAmount, marginMap[longOrder.Trader], minAllowableMargin, takerFee, upperBound)
+		if requiredMargin.Cmp(marginMap[longOrder.Trader]) == -1 {
+			return nil
+		}
+	}
+	if shortOrder.OrderType == IOC {
+		requiredMargin := hasSufficientMargin(shortOrder, fillAmount, marginMap[shortOrder.Trader], minAllowableMargin, takerFee, upperBound)
+		if requiredMargin.Cmp(marginMap[shortOrder.Trader]) == -1 {
+			return nil
+		}
+	}
 	return fillAmount
+}
+
+func hasSufficientMargin(order Order, fillAmount, availableMargin, minAllowableMargin, takerFee, upperBound *big.Int) *big.Int {
+	price := order.Price
+	if order.BaseAssetQuantity.Sign() == -1 && order.Price.Cmp(upperBound) == -1 {
+		price = upperBound
+	}
+	quoteAsset := big.NewInt(0).Abs(big.NewInt(0).Div(new(big.Int).Mul(order.BaseAssetQuantity, price), big.NewInt(1e18)))
+	requiredMargin := big.NewInt(0).Div(big.NewInt(0).Mul(minAllowableMargin, quoteAsset), big.NewInt(1e6))
+	_takerFee := big.NewInt(0).Div(big.NewInt(0).Mul(quoteAsset, takerFee), big.NewInt(1e6))
+	return new(big.Int).Add(requiredMargin, _takerFee)
 }
 
 func ExecuteMatchedOrders(lotp LimitOrderTxProcessor, longOrder, shortOrder Order, fillAmount *big.Int) (Order, Order) {
