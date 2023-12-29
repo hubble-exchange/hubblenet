@@ -311,6 +311,6 @@ func NewMockConfigService() *MockConfigService {
 	return &MockConfigService{}
 }
 
-func (cs *MockConfigService) GetChainIdAndSignedOrderbookContract() common.Address {
+func (cs *MockConfigService) GetSignedOrderbookContract() common.Address {
 	return common.Address{}
 }

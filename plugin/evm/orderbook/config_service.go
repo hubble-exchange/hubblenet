@@ -28,7 +28,7 @@ type IConfigService interface {
 
 	GetSignedOrderStatus(orderHash common.Hash) int64
 	IsTradingAuthority(trader, signer common.Address) bool
-	GetChainIdAndSignedOrderbookContract() common.Address
+	GetSignedOrderbookContract() common.Address
 }
 
 type ConfigService struct {
@@ -112,6 +112,6 @@ func (cs *ConfigService) IsTradingAuthority(trader, signer common.Address) bool 
 	return bibliophile.IsTradingAuthority(cs.getStateAtCurrentBlock(), trader, signer)
 }
 
-func (cs *ConfigService) GetChainIdAndSignedOrderbookContract() common.Address {
+func (cs *ConfigService) GetSignedOrderbookContract() common.Address {
 	return bibliophile.GetSignedOrderBookAddress(cs.getStateAtCurrentBlock())
 }

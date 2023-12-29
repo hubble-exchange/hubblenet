@@ -317,7 +317,7 @@ type PlaceOrderResponse struct {
 	Success bool `json:"success"`
 }
 
-func (api *TradingAPI) PostOrder(ctx context.Context, rawOrder string) (PlaceOrderResponse, error) {
+func (api *TradingAPI) PlaceSignedOrder(ctx context.Context, rawOrder string) (PlaceOrderResponse, error) {
 	// fmt.Println("rawOrder", rawOrder)
 	testData, err := hex.DecodeString(strings.TrimPrefix(rawOrder, "0x"))
 	if err != nil {
@@ -331,7 +331,7 @@ func (api *TradingAPI) PostOrder(ctx context.Context, rawOrder string) (PlaceOrd
 
 	marketId := int(order.AmmIndex.Int64())
 	if hu.ChainId == 0 { // set once, will need to restart node if we change
-		hu.SetChainIdAndVerifyingSignedOrdersContract(api.backend.ChainConfig().ChainID.Int64(), api.configService.GetChainIdAndSignedOrderbookContract().String())
+		hu.SetChainIdAndVerifyingSignedOrdersContract(api.backend.ChainConfig().ChainID.Int64(), api.configService.GetSignedOrderbookContract().String())
 	}
 	orderId, err := order.Hash()
 	if err != nil {
