@@ -244,9 +244,12 @@ func TestRunMatchingEngine(t *testing.T) {
 
 					fillAmount1 := longOrder1.BaseAssetQuantity
 					fillAmount2 := longOrder2.BaseAssetQuantity
+					marginMap := map[common.Address]*big.Int{
+						common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+					}
 					lotp.On("ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount1).Return(nil)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder2, shortOrder2, fillAmount2).Return(nil)
-					pipeline.runMatchingEngine(lotp, longOrders, shortOrders, map[common.Address]*big.Int{}, minAllowableMargin, takerFee, upperBound)
+					pipeline.runMatchingEngine(lotp, longOrders, shortOrders, marginMap, minAllowableMargin, takerFee, upperBound)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount1)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder2, shortOrder2, fillAmount2)
 				})
@@ -271,7 +274,10 @@ func TestRunMatchingEngine(t *testing.T) {
 					db.On("GetShortOrders").Return(shortOrders)
 					lotp.On("PurgeLocalTx").Return(nil)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder, shortOrder, fillAmount).Return(nil)
-					pipeline.runMatchingEngine(lotp, longOrders, shortOrders, map[common.Address]*big.Int{}, minAllowableMargin, takerFee, upperBound)
+					marginMap := map[common.Address]*big.Int{
+						common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+					}
+					pipeline.runMatchingEngine(lotp, longOrders, shortOrders, marginMap, minAllowableMargin, takerFee, upperBound)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder, shortOrder, fillAmount)
 				})
 			})
@@ -308,7 +314,10 @@ func TestRunMatchingEngine(t *testing.T) {
 				db.On("GetShortOrders").Return(shortOrders)
 				lotp.On("PurgeLocalTx").Return(nil)
 				log.Info("longOrder1", "longOrder1", longOrder1)
-				pipeline.runMatchingEngine(lotp, longOrders, shortOrders, map[common.Address]*big.Int{}, minAllowableMargin, takerFee, upperBound)
+				marginMap := map[common.Address]*big.Int{
+					common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+				}
+				pipeline.runMatchingEngine(lotp, longOrders, shortOrders, marginMap, minAllowableMargin, takerFee, upperBound)
 				log.Info("longOrder1", "longOrder1", longOrder1)
 
 				//During 1st  matching iteration
@@ -507,7 +516,6 @@ func TestMatchLongAndShortOrder(t *testing.T) {
 }
 
 func TestAreMatchingOrders(t *testing.T) {
-	marginMap := map[common.Address]*big.Int{}
 	minAllowableMargin := big.NewInt(1e6)
 	takerFee := big.NewInt(1e6)
 	upperBound := big.NewInt(22)
@@ -567,6 +575,9 @@ func TestAreMatchingOrders(t *testing.T) {
 		shortOrder := deepCopyOrder(&shortOrder_)
 
 		longOrder.Price = big.NewInt(80)
+		marginMap := map[common.Address]*big.Int{
+			common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+		}
 		actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
 
 		assert.Nil(t, actualFillAmount)
@@ -585,7 +596,9 @@ func TestAreMatchingOrders(t *testing.T) {
 				OrderType: 1,
 				ExpireAt:  big.NewInt(0),
 			}
-
+			marginMap := map[common.Address]*big.Int{
+				common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+			}
 			actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
 			assert.Nil(t, actualFillAmount)
 		})
@@ -594,7 +607,9 @@ func TestAreMatchingOrders(t *testing.T) {
 			longOrder.BlockNumber = big.NewInt(20)
 
 			shortOrder.RawOrder.(*LimitOrder).PostOnly = true
-
+			marginMap := map[common.Address]*big.Int{
+				common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+			}
 			actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
 			assert.Nil(t, actualFillAmount)
 		})
@@ -613,7 +628,9 @@ func TestAreMatchingOrders(t *testing.T) {
 				OrderType: 1,
 				ExpireAt:  big.NewInt(0),
 			}
-
+			marginMap := map[common.Address]*big.Int{
+				common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+			}
 			actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
 			assert.Nil(t, actualFillAmount)
 		})
@@ -622,7 +639,9 @@ func TestAreMatchingOrders(t *testing.T) {
 			longOrder.BlockNumber = big.NewInt(21)
 
 			longOrder.RawOrder.(*LimitOrder).PostOnly = true
-
+			marginMap := map[common.Address]*big.Int{
+				common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+			}
 			actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
 			assert.Nil(t, actualFillAmount)
 		})
@@ -633,6 +652,9 @@ func TestAreMatchingOrders(t *testing.T) {
 		shortOrder := deepCopyOrder(&shortOrder_)
 
 		longOrder.FilledBaseAssetQuantity = longOrder.BaseAssetQuantity
+		marginMap := map[common.Address]*big.Int{
+			common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+		}
 		actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
 		assert.Nil(t, actualFillAmount)
 	})
@@ -642,6 +664,9 @@ func TestAreMatchingOrders(t *testing.T) {
 		shortOrder := deepCopyOrder(&shortOrder_)
 
 		longOrder.FilledBaseAssetQuantity = big.NewInt(5)
+		marginMap := map[common.Address]*big.Int{
+			common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+		}
 		actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
 		assert.Equal(t, big.NewInt(5), actualFillAmount)
 	})
