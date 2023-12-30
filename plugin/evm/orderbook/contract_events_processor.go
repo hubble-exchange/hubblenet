@@ -728,6 +728,8 @@ func (cep *ContractEventsProcessor) updateMetrics(logs []*types.Log) {
 				ordertype := order.OrderType
 				metricName := fmt.Sprintf("%s/%s/%s/%s", "events", "OrderMatchingError", ordertype, utils.RemoveSpacesAndSpecialChars(errorString))
 				metrics.GetOrRegisterCounter(metricName, nil).Inc(1)
+			} else {
+				log.Error("updateMetrics - error in getting order", "event", "OrderMatchingError")
 			}
 		}
 	}
