@@ -105,5 +105,6 @@ func (cs *ConfigService) GetCumulativePremiumFraction(market Market) *big.Int {
 }
 
 func (cs *ConfigService) GetTakerFee() *big.Int {
-	return bibliophile.GetTakerFee(cs.getStateAtCurrentBlock())
+	takerFee := bibliophile.GetTakerFee(cs.getStateAtCurrentBlock())
+	return hu.Div(hu.Mul(takerFee, big.NewInt(8)), big.NewInt(10)) // 20% discount, which is applied to everyone currently
 }
