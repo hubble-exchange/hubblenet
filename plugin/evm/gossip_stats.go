@@ -21,7 +21,8 @@ type GossipReceivedStats interface {
 	IncEthTxsGossipReceivedKnown()
 	IncEthTxsGossipReceivedNew()
 
-	IncSignedOrdersGossipReceived()
+	IncSignedOrdersGossipReceived(count int64)
+	IncSignedOrdersGossipBatchReceived()
 
 	// new vs. known txs received
 	IncSignedOrdersGossipReceivedKnown()
@@ -38,7 +39,8 @@ type GossipSentStats interface {
 	IncEthTxsRegossipQueuedLocal(count int)
 	IncEthTxsRegossipQueuedRemote(count int)
 
-	IncSignedOrdersGossipSent()
+	IncSignedOrdersGossipSent(count int64)
+	IncSignedOrdersGossipBatchSent()
 	IncSignedOrdersGossipSendError()
 }
 
@@ -58,9 +60,11 @@ type gossipStats struct {
 	ethTxsGossipReceivedNew   metrics.Counter
 
 	// messages
-	signedOrdersGossipSent      metrics.Counter
-	signedOrdersGossipSendError metrics.Counter
-	signedOrdersGossipReceived  metrics.Counter
+	signedOrdersGossipSent          metrics.Counter
+	signedOrdersGossipBatchSent     metrics.Counter
+	signedOrdersGossipSendError     metrics.Counter
+	signedOrdersGossipReceived      metrics.Counter
+	signedOrdersGossipBatchReceived metrics.Counter
 
 	// regossip
 	// new vs. known txs received
@@ -81,10 +85,12 @@ func NewGossipStats() GossipStats {
 		ethTxsGossipReceivedKnown: metrics.GetOrRegisterCounter("gossip_eth_txs_received_known", nil),
 		ethTxsGossipReceivedNew:   metrics.GetOrRegisterCounter("gossip_eth_txs_received_new", nil),
 
-		signedOrdersGossipSent:         metrics.GetOrRegisterCounter("gossip_signed_orders_sent", nil),
-		signedOrdersGossipSendError:    metrics.GetOrRegisterCounter("gossip_signed_orders_send_error", nil),
-		signedOrdersGossipReceived:     metrics.GetOrRegisterCounter("gossip_signed_orders_received", nil),
-		signedOrdersGossipReceiveError: metrics.GetOrRegisterCounter("gossip_signed_orders_received", nil),
+		signedOrdersGossipSent:          metrics.GetOrRegisterCounter("gossip_signed_orders_sent", nil),
+		signedOrdersGossipBatchSent:     metrics.GetOrRegisterCounter("gossip_signed_orders_batch_sent", nil),
+		signedOrdersGossipSendError:     metrics.GetOrRegisterCounter("gossip_signed_orders_send_error", nil),
+		signedOrdersGossipReceived:      metrics.GetOrRegisterCounter("gossip_signed_orders_received", nil),
+		signedOrdersGossipBatchReceived: metrics.GetOrRegisterCounter("gossip_signed_orders_batch_received", nil),
+		signedOrdersGossipReceiveError:  metrics.GetOrRegisterCounter("gossip_signed_orders_received", nil),
 
 		signedOrdersGossipReceivedKnown: metrics.GetOrRegisterCounter("gossip_signed_orders_received_known", nil),
 		signedOrdersGossipReceivedNew:   metrics.GetOrRegisterCounter("gossip_signed_orders_received_new", nil),
@@ -111,7 +117,10 @@ func (g *gossipStats) IncEthTxsRegossipQueuedRemote(count int) {
 }
 
 // incoming messages
-func (g *gossipStats) IncSignedOrdersGossipReceived() { g.signedOrdersGossipReceived.Inc(1) }
+func (g *gossipStats) IncSignedOrdersGossipReceived(count int64) {
+	g.signedOrdersGossipReceived.Inc(count)
+}
+func (g *gossipStats) IncSignedOrdersGossipBatchReceived() { g.signedOrdersGossipBatchReceived.Inc(1) }
 
 // new vs. known txs received
 func (g *gossipStats) IncSignedOrdersGossipReceivedKnown() { g.signedOrdersGossipReceivedKnown.Inc(1) }
@@ -119,5 +128,6 @@ func (g *gossipStats) IncSignedOrdersGossipReceivedNew()   { g.signedOrdersGossi
 func (g *gossipStats) IncSignedOrdersGossipReceiveError()  { g.signedOrdersGossipReceiveError.Inc(1) }
 
 // outgoing messages
-func (g *gossipStats) IncSignedOrdersGossipSent()      { g.signedOrdersGossipSent.Inc(1) }
-func (g *gossipStats) IncSignedOrdersGossipSendError() { g.signedOrdersGossipSendError.Inc(1) }
+func (g *gossipStats) IncSignedOrdersGossipSent(count int64) { g.signedOrdersGossipSent.Inc(count) }
+func (g *gossipStats) IncSignedOrdersGossipBatchSent()       { g.signedOrdersGossipBatchSent.Inc(1) }
+func (g *gossipStats) IncSignedOrdersGossipSendError()       { g.signedOrdersGossipSendError.Inc(1) }

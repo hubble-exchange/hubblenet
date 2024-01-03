@@ -115,7 +115,8 @@ func (n *pushGossiper) sendSignedOrders(orders []*hubbleutils.SignedOrder) error
 		"len(orders)", len(orders),
 		"size(orders)", len(msg.Orders),
 	)
-	n.stats.IncSignedOrdersGossipSent()
+	n.stats.IncSignedOrdersGossipSent(int64(len(orders)))
+	n.stats.IncSignedOrdersGossipBatchSent()
 	return n.client.Gossip(msgBytes)
 }
 
@@ -145,7 +146,9 @@ func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.Signed
 		)
 		return nil
 	}
-	h.stats.IncSignedOrdersGossipReceived()
+
+	h.stats.IncSignedOrdersGossipReceived(int64(len(orders)))
+	h.stats.IncSignedOrdersGossipBatchReceived()
 
 	tradingAPI := h.vm.limitOrderProcesser.GetTradingAPI()
 	for _, order := range orders {
