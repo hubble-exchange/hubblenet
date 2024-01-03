@@ -57,6 +57,7 @@ type limitOrderProcesser struct {
 	tradingAPIEnabled        bool
 	loadFromSnapshotEnabled  bool
 	snapshotSavedBlockNumber uint64
+	tradingAPI               *orderbook.TradingAPI
 }
 
 func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string, config Config) LimitOrderProcesser {
@@ -151,6 +152,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 }
 
 func (lop *limitOrderProcesser) RunMatchingPipeline() {
+	return
 	if !lop.isValidator {
 		return
 	}
@@ -167,7 +169,10 @@ func (lop *limitOrderProcesser) GetOrderBookAPI() *orderbook.OrderBookAPI {
 }
 
 func (lop *limitOrderProcesser) GetTradingAPI() *orderbook.TradingAPI {
-	return orderbook.NewTradingAPI(lop.memoryDb, lop.backend, lop.configService)
+	if lop.tradingAPI == nil {
+		lop.tradingAPI = orderbook.NewTradingAPI(lop.memoryDb, lop.backend, lop.configService)
+	}
+	return lop.tradingAPI
 }
 
 func (lop *limitOrderProcesser) GetTestingAPI() *orderbook.TestingAPI {
