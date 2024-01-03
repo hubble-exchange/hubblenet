@@ -12,13 +12,11 @@ import (
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 )
 
-// OrderAPI introduces snowman specific functionality to the evm
 type OrderAPI struct {
 	tradingAPI orderbook.TradingAPI
 	vm         *VM
 }
 
-// NewOrderAPI returns a new OrderAPI
 func NewOrderAPI(tradingAPI orderbook.TradingAPI, vm *VM) *OrderAPI {
 	return &OrderAPI{
 		tradingAPI: tradingAPI,
@@ -31,7 +29,6 @@ type PlaceOrderResponse struct {
 }
 
 func (api *OrderAPI) PlaceSignedOrder(ctx context.Context, rawOrder string) (PlaceOrderResponse, error) {
-	// fmt.Println("rawOrder", rawOrder)
 	testData, err := hex.DecodeString(strings.TrimPrefix(rawOrder, "0x"))
 	if err != nil {
 		return PlaceOrderResponse{Success: false}, err
@@ -40,7 +37,6 @@ func (api *OrderAPI) PlaceSignedOrder(ctx context.Context, rawOrder string) (Pla
 	if err != nil {
 		return PlaceOrderResponse{Success: false}, err
 	}
-	// fmt.Println("PostOrder", order)
 
 	err = api.tradingAPI.PlaceOrder(order)
 	if err != nil {

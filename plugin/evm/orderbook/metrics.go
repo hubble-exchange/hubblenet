@@ -32,4 +32,6 @@ var (
 
 	// order id not found while deleting
 	deleteOrderIdNotFoundCounter = metrics.NewRegisteredCounter("delete_order_id_not_found", nil)
+
+	placeSignedOrderCounter = metrics.NewRegisteredCounter("place_signed_order", nil)
 )

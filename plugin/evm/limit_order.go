@@ -152,7 +152,6 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 }
 
 func (lop *limitOrderProcesser) RunMatchingPipeline() {
-	return
 	if !lop.isValidator {
 		return
 	}

@@ -40,11 +40,6 @@ type GossipSentStats interface {
 
 	IncSignedOrdersGossipSent()
 	IncSignedOrdersGossipSendError()
-
-	// regossip
-	IncSignedOrdersRegossipQueued()
-	IncSignedOrdersRegossipQueuedLocal(count int)
-	IncSignedOrdersRegossipQueuedRemote(count int)
 }
 
 // gossipStats implements stats for incoming and outgoing gossip stats.
@@ -68,10 +63,6 @@ type gossipStats struct {
 	signedOrdersGossipReceived  metrics.Counter
 
 	// regossip
-	signedOrdersRegossipQueued       metrics.Counter
-	signedOrdersRegossipQueuedLocal  metrics.Counter
-	signedOrdersRegossipQueuedRemote metrics.Counter
-
 	// new vs. known txs received
 	signedOrdersGossipReceivedKnown metrics.Counter
 	signedOrdersGossipReceivedNew   metrics.Counter
@@ -94,10 +85,6 @@ func NewGossipStats() GossipStats {
 		signedOrdersGossipSendError:    metrics.GetOrRegisterCounter("gossip_signed_orders_send_error", nil),
 		signedOrdersGossipReceived:     metrics.GetOrRegisterCounter("gossip_signed_orders_received", nil),
 		signedOrdersGossipReceiveError: metrics.GetOrRegisterCounter("gossip_signed_orders_received", nil),
-
-		signedOrdersRegossipQueued:       metrics.GetOrRegisterCounter("regossip_signed_orders_queued_attempts", nil),
-		signedOrdersRegossipQueuedLocal:  metrics.GetOrRegisterCounter("regossip_signed_orders_queued_local_tx_count", nil),
-		signedOrdersRegossipQueuedRemote: metrics.GetOrRegisterCounter("regossip_signed_orders_queued_remote_tx_count", nil),
 
 		signedOrdersGossipReceivedKnown: metrics.GetOrRegisterCounter("gossip_signed_orders_received_known", nil),
 		signedOrdersGossipReceivedNew:   metrics.GetOrRegisterCounter("gossip_signed_orders_received_new", nil),
@@ -134,12 +121,3 @@ func (g *gossipStats) IncSignedOrdersGossipReceiveError()  { g.signedOrdersGossi
 // outgoing messages
 func (g *gossipStats) IncSignedOrdersGossipSent()      { g.signedOrdersGossipSent.Inc(1) }
 func (g *gossipStats) IncSignedOrdersGossipSendError() { g.signedOrdersGossipSendError.Inc(1) }
-
-// regossip
-func (g *gossipStats) IncSignedOrdersRegossipQueued() { g.signedOrdersRegossipQueued.Inc(1) }
-func (g *gossipStats) IncSignedOrdersRegossipQueuedLocal(count int) {
-	g.signedOrdersRegossipQueuedLocal.Inc(int64(count))
-}
-func (g *gossipStats) IncSignedOrdersRegossipQueuedRemote(count int) {
-	g.signedOrdersRegossipQueuedRemote.Inc(int64(count))
-}

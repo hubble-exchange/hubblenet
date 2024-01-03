@@ -373,6 +373,7 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) error {
 		OrderType:               Signed,
 	}
 	log.Info("SignedOrder/OrderAccepted", "order", signedOrder)
+	placeSignedOrderCounter.Inc(1)
 	api.db.Add(signedOrder)
 	return nil
 }

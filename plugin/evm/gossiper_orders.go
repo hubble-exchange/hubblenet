@@ -83,15 +83,6 @@ func (n *pushGossiper) gossipSignedOrders() (int, error) {
 			continue
 		}
 
-		// // We check [force] outside of the if statement to avoid an unnecessary
-		// // cache lookup.
-		// if !force {
-		// 	if _, has := n.recentOrders.Get(orderHash); has {
-		// 		continue
-		// 	}
-		// }
-		// n.recentOrders.Put(orderHash, nil)
-
 		selectedOrders = append(selectedOrders, order)
 	}
 
@@ -125,7 +116,6 @@ func (n *pushGossiper) sendSignedOrders(orders []*hubbleutils.SignedOrder) error
 		"size(orders)", len(msg.Orders),
 	)
 	n.stats.IncSignedOrdersGossipSent()
-	log.Info("#### Gossiping signed orders", "len(orders)", len(orders))
 	return n.client.Gossip(msgBytes)
 }
 
@@ -146,7 +136,6 @@ func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.Signed
 		return nil
 	}
 
-	// The maximum size of this encoded object is enforced by the codec.
 	orders := make([]*hubbleutils.SignedOrder, 0)
 	if err := rlp.DecodeBytes(msg.Orders, &orders); err != nil {
 		log.Trace(
