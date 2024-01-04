@@ -42,6 +42,7 @@ type GossipSentStats interface {
 	IncSignedOrdersGossipSent(count int64)
 	IncSignedOrdersGossipBatchSent()
 	IncSignedOrdersGossipSendError()
+	IncSignedOrdersGossipOrderExpired()
 }
 
 // gossipStats implements stats for incoming and outgoing gossip stats.
@@ -63,6 +64,7 @@ type gossipStats struct {
 	signedOrdersGossipSent          metrics.Counter
 	signedOrdersGossipBatchSent     metrics.Counter
 	signedOrdersGossipSendError     metrics.Counter
+	signedOrdersGossipOrderExpired  metrics.Counter
 	signedOrdersGossipReceived      metrics.Counter
 	signedOrdersGossipBatchReceived metrics.Counter
 
@@ -88,6 +90,7 @@ func NewGossipStats() GossipStats {
 		signedOrdersGossipSent:          metrics.GetOrRegisterCounter("gossip_signed_orders_sent", nil),
 		signedOrdersGossipBatchSent:     metrics.GetOrRegisterCounter("gossip_signed_orders_batch_sent", nil),
 		signedOrdersGossipSendError:     metrics.GetOrRegisterCounter("gossip_signed_orders_send_error", nil),
+		signedOrdersGossipOrderExpired:  metrics.GetOrRegisterCounter("gossip_signed_orders_expired", nil),
 		signedOrdersGossipReceived:      metrics.GetOrRegisterCounter("gossip_signed_orders_received", nil),
 		signedOrdersGossipBatchReceived: metrics.GetOrRegisterCounter("gossip_signed_orders_batch_received", nil),
 		signedOrdersGossipReceiveError:  metrics.GetOrRegisterCounter("gossip_signed_orders_received", nil),
@@ -131,3 +134,4 @@ func (g *gossipStats) IncSignedOrdersGossipReceiveError()  { g.signedOrdersGossi
 func (g *gossipStats) IncSignedOrdersGossipSent(count int64) { g.signedOrdersGossipSent.Inc(count) }
 func (g *gossipStats) IncSignedOrdersGossipBatchSent()       { g.signedOrdersGossipBatchSent.Inc(1) }
 func (g *gossipStats) IncSignedOrdersGossipSendError()       { g.signedOrdersGossipSendError.Inc(1) }
+func (g *gossipStats) IncSignedOrdersGossipOrderExpired()    { g.signedOrdersGossipOrderExpired.Inc(1) }

@@ -48,6 +48,10 @@ const (
 	// [minGossipOrdersBatchInterval] is the minimum amount of time that must pass
 	// before our last gossip to peers.
 	minGossipOrdersBatchInterval = 50 * time.Millisecond
+
+	// [maxSignedOrdersGossipBatchSize] is the maximum number of orders we will
+	// attempt to gossip at once.
+	maxSignedOrdersGossipBatchSize = 100
 )
 
 // Gossiper handles outgoing gossip of transactions
@@ -72,7 +76,7 @@ type pushGossiper struct {
 	// amplification of mempol chatter.
 	txsToGossipChan chan []*types.Transaction
 	txsToGossip     map[common.Hash]*types.Transaction
-	lastTxGossiped  time.Time
+	lastGossiped    time.Time
 	shutdownChan    chan struct{}
 	shutdownWg      *sync.WaitGroup
 
@@ -343,10 +347,10 @@ func (n *pushGossiper) sendTxs(txs []*types.Transaction) error {
 }
 
 func (n *pushGossiper) gossipTxs(force bool) (int, error) {
-	if (!force && time.Since(n.lastTxGossiped) < minGossipBatchInterval) || len(n.txsToGossip) == 0 {
+	if (!force && time.Since(n.lastGossiped) < minGossipBatchInterval) || len(n.txsToGossip) == 0 {
 		return 0, nil
 	}
-	n.lastTxGossiped = time.Now()
+	n.lastGossiped = time.Now()
 	txs := make([]*types.Transaction, 0, len(n.txsToGossip))
 	for txHash, tx := range n.txsToGossip {
 		txs = append(txs, tx)

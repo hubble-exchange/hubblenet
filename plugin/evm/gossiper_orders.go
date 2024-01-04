@@ -72,17 +72,21 @@ func (n *pushGossiper) gossipSignedOrders() (int, error) {
 	n.lastOrdersGossiped = time.Now()
 	orders := []*hubbleutils.SignedOrder{}
 	for orderHash, order := range n.ordersToGossip {
+		if len(orders) >= maxSignedOrdersGossipBatchSize {
+			break
+		}
 		orders = append(orders, order)
 		delete(n.ordersToGossip, orderHash)
 	}
 
+	now := time.Now().Unix()
 	selectedOrders := make([]*hubbleutils.SignedOrder, 0)
 	for _, order := range orders {
 		// skip gossip if the order is already expired
-		if order.ExpireAt.Int64() < time.Now().Unix() {
+		if order.ExpireAt.Int64() < now {
+			n.stats.IncSignedOrdersGossipOrderExpired()
 			continue
 		}
-
 		selectedOrders = append(selectedOrders, order)
 	}
 
