@@ -29,6 +29,7 @@ var (
 	ErrOrderAlreadyExists    = errors.New("order already exists")
 	ErrCrossingMarket        = errors.New("crossing market")
 	ErrNoTradingAuthority    = errors.New("no trading authority")
+	ErrInsufficientMargin    = errors.New("insufficient margin")
 )
 
 // Common Checks
