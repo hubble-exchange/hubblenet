@@ -334,7 +334,7 @@ func isExecutable(order *Order, fillAmount, minAllowableMargin, takerFee, upperB
 	}
 	if order.OrderType == IOC {
 		requiredMargin := getRequiredMargin(order, fillAmount, minAllowableMargin, takerFee, upperBound)
-		return requiredMargin.Cmp(availableMargin) == -1, requiredMargin
+		return requiredMargin.Cmp(availableMargin) <= 0, requiredMargin
 	}
 	// @todo add condition for signed orders
 	return false, big.NewInt(0)
