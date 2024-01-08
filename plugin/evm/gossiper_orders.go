@@ -127,6 +127,9 @@ func (n *pushGossiper) sendSignedOrders(orders []*hubbleutils.SignedOrder) error
 //   #### HANDLER ####
 
 func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.SignedOrdersGossip) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	log.Trace(
 		"AppGossip called with SignedOrdersGossip",
 		"peerID", nodeID,
@@ -155,16 +158,25 @@ func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.Signed
 	h.stats.IncSignedOrdersGossipBatchReceived()
 
 	tradingAPI := h.vm.limitOrderProcesser.GetTradingAPI()
+	needToGossip := false
 	for _, order := range orders {
 		err := tradingAPI.PlaceOrder(order)
 		if err == nil {
 			h.stats.IncSignedOrdersGossipReceivedNew()
+			needToGossip = true
 		} else if err == hubbleutils.ErrOrderAlreadyExists {
 			h.stats.IncSignedOrdersGossipReceivedKnown()
 		} else {
+			needToGossip = true
 			h.stats.IncSignedOrdersGossipReceiveError()
 			log.Error("failed to place order", "err", err)
 		}
 	}
+
+	// re-gossip orders, but not when we already knew the orders
+	if needToGossip {
+		h.vm.gossiper.GossipSignedOrders(orders)
+	}
+
 	return nil
 }

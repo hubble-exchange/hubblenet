@@ -322,6 +322,9 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) error {
 	if err != nil {
 		return fmt.Errorf("failed to hash order: %s", err)
 	}
+	if api.db.GetOrderById(orderId) != nil {
+		return hu.ErrOrderAlreadyExists
+	}
 	trader, signer, err := hu.ValidateSignedOrder(
 		order,
 		hu.SignedOrderValidationFields{

@@ -421,6 +421,7 @@ func (n *pushGossiper) GossipTxs(txs []*types.Transaction) error {
 
 // GossipHandler handles incoming gossip messages
 type GossipHandler struct {
+	mu     sync.RWMutex
 	vm     *VM
 	txPool *txpool.TxPool
 	stats  GossipReceivedStats

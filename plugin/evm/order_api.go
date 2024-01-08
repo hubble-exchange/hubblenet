@@ -13,11 +13,11 @@ import (
 )
 
 type OrderAPI struct {
-	tradingAPI orderbook.TradingAPI
+	tradingAPI *orderbook.TradingAPI
 	vm         *VM
 }
 
-func NewOrderAPI(tradingAPI orderbook.TradingAPI, vm *VM) *OrderAPI {
+func NewOrderAPI(tradingAPI *orderbook.TradingAPI, vm *VM) *OrderAPI {
 	return &OrderAPI{
 		tradingAPI: tradingAPI,
 		vm:         vm,

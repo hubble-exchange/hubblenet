@@ -982,7 +982,7 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]http.Handler, error) {
 		}
 		enabledAPIs = append(enabledAPIs, "snowman")
 	}
-	if err := handler.RegisterName("order", NewOrderAPI(*vm.limitOrderProcesser.GetTradingAPI(), vm)); err != nil {
+	if err := handler.RegisterName("order", NewOrderAPI(vm.limitOrderProcesser.GetTradingAPI(), vm)); err != nil {
 		return nil, err
 	}
 
