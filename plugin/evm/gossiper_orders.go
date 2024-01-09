@@ -42,7 +42,7 @@ func (n *pushGossiper) awaitSignedOrderGossip() {
 				}
 			case orders := <-n.ordersToGossipChan:
 				for _, order := range orders {
-					n.ordersToGossip[order.OrderHash] = order
+					n.ordersToGossip = append(n.ordersToGossip, order)
 				}
 				if attempted, err := n.gossipSignedOrders(); err != nil {
 					log.Warn(
@@ -56,7 +56,6 @@ func (n *pushGossiper) awaitSignedOrderGossip() {
 			}
 		}
 	}, "panic in awaitSignedOrderGossip", orderbook.AwaitSignedOrdersGossipPanicsCounter)
-
 }
 
 func (n *pushGossiper) gossipSignedOrders() (int, error) {
@@ -66,19 +65,19 @@ func (n *pushGossiper) gossipSignedOrders() (int, error) {
 	n.lastOrdersGossiped = time.Now()
 	now := time.Now().Unix()
 	selectedOrders := []*hu.SignedOrder{}
-	for orderHash, order := range n.ordersToGossip {
+	for _, order := range n.ordersToGossip {
 		if len(selectedOrders) >= maxSignedOrdersGossipBatchSize {
 			break
 		}
 		if order.ExpireAt.Int64() < now {
 			n.stats.IncSignedOrdersGossipOrderExpired()
 			log.Warn("signed order expired before gossip", "order", order, "now", now)
-			delete(n.ordersToGossip, orderHash)
 			continue
 		}
 		selectedOrders = append(selectedOrders, order)
-		delete(n.ordersToGossip, orderHash)
 	}
+	// delete all selected orders from n.ordersToGossip
+	n.ordersToGossip = n.ordersToGossip[len(selectedOrders):]
 
 	if len(selectedOrders) == 0 {
 		return 0, nil
@@ -148,27 +147,19 @@ func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.Signed
 	h.stats.IncSignedOrdersGossipBatchReceived()
 
 	tradingAPI := h.vm.limitOrderProcesser.GetTradingAPI()
-	if hu.ChainId == 0 { // set once, will need to restart node if we change
-		tradingAPI.SetChainIdAndVerifyingSignedOrdersContract()
-	}
 
 	// re-gossip orders, but not when we already knew the orders
 	ordersToGossip := make([]*hu.SignedOrder, 0)
 	for _, order := range orders {
-		needToGossip := false
 		err := tradingAPI.PlaceOrder(order)
 		if err == nil {
 			h.stats.IncSignedOrdersGossipReceivedNew()
-			needToGossip = true
+			ordersToGossip = append(ordersToGossip, order)
 		} else if err == hu.ErrOrderAlreadyExists {
 			h.stats.IncSignedOrdersGossipReceivedKnown()
 		} else {
 			h.stats.IncSignedOrdersGossipReceiveError()
 			log.Error("failed to place order", "err", err)
-		}
-
-		if needToGossip {
-			ordersToGossip = append(ordersToGossip, order)
 		}
 	}
 

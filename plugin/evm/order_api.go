@@ -6,7 +6,6 @@ package evm
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"strings"
 
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
@@ -39,14 +38,6 @@ func (api *OrderAPI) PlaceSignedOrder(ctx context.Context, rawOrder string) (Pla
 		return PlaceOrderResponse{Success: false}, err
 	}
 
-	if hu.ChainId == 0 { // set once, will need to restart node if we change
-		api.tradingAPI.SetChainIdAndVerifyingSignedOrdersContract()
-	}
-	orderId, err := order.Hash()
-	if err != nil {
-		return PlaceOrderResponse{Success: false}, fmt.Errorf("failed to hash order: %s", err)
-	}
-	order.OrderHash = orderId
 	err = api.tradingAPI.PlaceOrder(order)
 	if err != nil {
 		return PlaceOrderResponse{Success: false}, err

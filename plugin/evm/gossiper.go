@@ -81,7 +81,7 @@ type pushGossiper struct {
 	shutdownWg      *sync.WaitGroup
 
 	ordersToGossipChan chan []*hubbleutils.SignedOrder
-	ordersToGossip     map[common.Hash]*hubbleutils.SignedOrder
+	ordersToGossip     []*hubbleutils.SignedOrder
 	lastOrdersGossiped time.Time
 
 	// [recentTxs] prevent us from over-gossiping the
@@ -107,7 +107,7 @@ func (vm *VM) createGossiper(stats GossipStats) Gossiper {
 		shutdownChan:       vm.shutdownChan,
 		shutdownWg:         &vm.shutdownWg,
 		ordersToGossipChan: make(chan []*hubbleutils.SignedOrder),
-		ordersToGossip:     make(map[common.Hash]*hubbleutils.SignedOrder),
+		ordersToGossip:     []*hubbleutils.SignedOrder{},
 		recentTxs:          &cache.LRU[common.Hash, interface{}]{Size: recentCacheSize},
 		codec:              vm.networkCodec,
 		signer:             types.LatestSigner(vm.blockChain.Config()),
