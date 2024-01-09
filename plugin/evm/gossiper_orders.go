@@ -65,10 +65,12 @@ func (n *pushGossiper) gossipSignedOrders() (int, error) {
 	n.lastOrdersGossiped = time.Now()
 	now := time.Now().Unix()
 	selectedOrders := []*hu.SignedOrder{}
+	numConsumed := 0
 	for _, order := range n.ordersToGossip {
 		if len(selectedOrders) >= maxSignedOrdersGossipBatchSize {
 			break
 		}
+		numConsumed++
 		if order.ExpireAt.Int64() < now {
 			n.stats.IncSignedOrdersGossipOrderExpired()
 			log.Warn("signed order expired before gossip", "order", order, "now", now)
@@ -77,7 +79,7 @@ func (n *pushGossiper) gossipSignedOrders() (int, error) {
 		selectedOrders = append(selectedOrders, order)
 	}
 	// delete all selected orders from n.ordersToGossip
-	n.ordersToGossip = n.ordersToGossip[len(selectedOrders):]
+	n.ordersToGossip = n.ordersToGossip[numConsumed:]
 
 	if len(selectedOrders) == 0 {
 		return 0, nil

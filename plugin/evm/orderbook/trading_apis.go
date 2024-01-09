@@ -314,7 +314,6 @@ func (api *TradingAPI) StreamMarketTrades(ctx context.Context, market Market, bl
 }
 
 func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) error {
-	marketId := int(order.AmmIndex.Int64())
 	if hu.ChainId == 0 { // set once, will need to restart node if we change
 		hu.SetChainIdAndVerifyingSignedOrdersContract(api.backend.ChainConfig().ChainID.Int64(), api.configService.GetSignedOrderbookContract().String())
 	}
@@ -325,6 +324,7 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) error {
 	if api.db.GetOrderById(orderId) != nil {
 		return hu.ErrOrderAlreadyExists
 	}
+	marketId := int(order.AmmIndex.Int64())
 	trader, signer, err := hu.ValidateSignedOrder(
 		order,
 		hu.SignedOrderValidationFields{
