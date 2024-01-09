@@ -6,12 +6,12 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
-	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-func (n *pushGossiper) GossipSignedOrders(orders []*hubbleutils.SignedOrder) error {
+func (n *pushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error {
 	select {
 	case n.ordersToGossipChan <- orders:
 	case <-n.shutdownChan:
@@ -42,12 +42,7 @@ func (n *pushGossiper) awaitSignedOrderGossip() {
 				}
 			case orders := <-n.ordersToGossipChan:
 				for _, order := range orders {
-					orderHash, err := order.Hash()
-					if err != nil {
-						log.Error("failed to hash order", "err", err)
-						continue
-					}
-					n.ordersToGossip[orderHash] = order
+					n.ordersToGossip[order.OrderHash] = order
 				}
 				if attempted, err := n.gossipSignedOrders(); err != nil {
 					log.Warn(
@@ -65,29 +60,24 @@ func (n *pushGossiper) awaitSignedOrderGossip() {
 }
 
 func (n *pushGossiper) gossipSignedOrders() (int, error) {
-	//
 	if (time.Since(n.lastOrdersGossiped) < minGossipOrdersBatchInterval) || len(n.ordersToGossip) == 0 {
 		return 0, nil
 	}
 	n.lastOrdersGossiped = time.Now()
-	orders := []*hubbleutils.SignedOrder{}
+	now := time.Now().Unix()
+	selectedOrders := []*hu.SignedOrder{}
 	for orderHash, order := range n.ordersToGossip {
-		if len(orders) >= maxSignedOrdersGossipBatchSize {
+		if len(selectedOrders) >= maxSignedOrdersGossipBatchSize {
 			break
 		}
-		orders = append(orders, order)
-		delete(n.ordersToGossip, orderHash)
-	}
-
-	now := time.Now().Unix()
-	selectedOrders := make([]*hubbleutils.SignedOrder, 0)
-	for _, order := range orders {
-		// skip gossip if the order is already expired
 		if order.ExpireAt.Int64() < now {
 			n.stats.IncSignedOrdersGossipOrderExpired()
+			log.Warn("signed order expired before gossip", "order", order, "now", now)
+			delete(n.ordersToGossip, orderHash)
 			continue
 		}
 		selectedOrders = append(selectedOrders, order)
+		delete(n.ordersToGossip, orderHash)
 	}
 
 	if len(selectedOrders) == 0 {
@@ -97,7 +87,7 @@ func (n *pushGossiper) gossipSignedOrders() (int, error) {
 	return len(selectedOrders), n.sendSignedOrders(selectedOrders)
 }
 
-func (n *pushGossiper) sendSignedOrders(orders []*hubbleutils.SignedOrder) error {
+func (n *pushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 	if len(orders) == 0 {
 		return nil
 	}
@@ -144,7 +134,7 @@ func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.Signed
 		return nil
 	}
 
-	orders := make([]*hubbleutils.SignedOrder, 0)
+	orders := make([]*hu.SignedOrder, 0)
 	if err := rlp.DecodeBytes(msg.Orders, &orders); err != nil {
 		log.Trace(
 			"AppGossip provided invalid orders",
@@ -158,24 +148,32 @@ func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.Signed
 	h.stats.IncSignedOrdersGossipBatchReceived()
 
 	tradingAPI := h.vm.limitOrderProcesser.GetTradingAPI()
-	needToGossip := false
+	if hu.ChainId == 0 { // set once, will need to restart node if we change
+		tradingAPI.SetChainIdAndVerifyingSignedOrdersContract()
+	}
+
+	// re-gossip orders, but not when we already knew the orders
+	ordersToGossip := make([]*hu.SignedOrder, 0)
 	for _, order := range orders {
+		needToGossip := false
 		err := tradingAPI.PlaceOrder(order)
 		if err == nil {
 			h.stats.IncSignedOrdersGossipReceivedNew()
 			needToGossip = true
-		} else if err == hubbleutils.ErrOrderAlreadyExists {
+		} else if err == hu.ErrOrderAlreadyExists {
 			h.stats.IncSignedOrdersGossipReceivedKnown()
 		} else {
-			needToGossip = true
 			h.stats.IncSignedOrdersGossipReceiveError()
 			log.Error("failed to place order", "err", err)
 		}
+
+		if needToGossip {
+			ordersToGossip = append(ordersToGossip, order)
+		}
 	}
 
-	// re-gossip orders, but not when we already knew the orders
-	if needToGossip {
-		h.vm.gossiper.GossipSignedOrders(orders)
+	if len(ordersToGossip) > 0 {
+		h.vm.gossiper.GossipSignedOrders(ordersToGossip)
 	}
 
 	return nil

@@ -15,9 +15,10 @@ import (
 
 type SignedOrder struct {
 	LimitOrder
-	OrderType uint8    `json:"orderType"`
-	ExpireAt  *big.Int `json:"expireAt"`
-	Sig       []byte   `json:"sig"`
+	OrderType uint8       `json:"orderType"`
+	ExpireAt  *big.Int    `json:"expireAt"`
+	Sig       []byte      `json:"sig"`
+	OrderHash common.Hash `json:"orderHash"`
 }
 
 var (
@@ -89,7 +90,8 @@ func (order *SignedOrder) DecodeFromRawOrder(rawOrder interface{}) {
 
 func (o *SignedOrder) String() string {
 	return fmt.Sprintf(
-		"Order %s, OrderType: %d, ExpireAt: %d, Sig: %s",
+		"Hash: %s, Order: %s, OrderType: %d, ExpireAt: %d, Sig: %s",
+		o.OrderHash.String(),
 		o.LimitOrder.String(),
 		o.OrderType,
 		o.ExpireAt,
