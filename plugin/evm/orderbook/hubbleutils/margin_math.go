@@ -13,6 +13,7 @@ const (
 	V2
 )
 
+const V1ActivationTime = uint64(1697129100) // Thursday, 12 October 2023 16:45:00 GMT
 type HubbleState struct {
 	Assets             []Collateral
 	OraclePrices       map[Market]*big.Int
@@ -32,8 +33,7 @@ type UserState struct {
 }
 
 func UpgradeVersionV0orV1(blockTimestamp uint64) UpgradeVersion {
-	// Thursday, 12 October 2023 16:45:00 GMT
-	if blockTimestamp >= 1697129100 {
+	if blockTimestamp >= V1ActivationTime {
 		return V1
 	}
 	return V0

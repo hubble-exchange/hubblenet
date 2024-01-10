@@ -121,7 +121,7 @@ func TestGetOptimalPnlV2(t *testing.T) {
 	position := userState.Positions[market]
 	marginMode := Maintenance_Margin
 
-	notionalPosition, uPnL := getOptimalPnl(hState, position, margin, market, marginMode, OPTIMAL_PNL_V3-1)
+	notionalPosition, uPnL := getOptimalPnl(hState, position, margin, market, marginMode, V1)
 
 	// mid price pnl is more than oracle price pnl
 	expectedNotionalPosition := Unscale(Mul(position.Size, hState.MidPrices[market]), 18)
@@ -134,7 +134,7 @@ func TestGetOptimalPnlV2(t *testing.T) {
 	// ------ when marginMode is Min_Allowable_Margin ------
 
 	marginMode = Min_Allowable_Margin
-	notionalPosition, uPnL = getOptimalPnl(hState, position, margin, market, marginMode, OPTIMAL_PNL_V3-1)
+	notionalPosition, uPnL = getOptimalPnl(hState, position, margin, market, marginMode, V1)
 
 	expectedNotionalPosition = Unscale(Mul(position.Size, hState.OraclePrices[market]), 18)
 	expectedUPnL = Sub(expectedNotionalPosition, position.OpenNotional)
@@ -150,7 +150,7 @@ func TestGetOptimalPnlV1(t *testing.T) {
 	position := userState.Positions[market]
 	marginMode := Maintenance_Margin
 
-	notionalPosition, uPnL := getOptimalPnl(hState, position, margin, market, marginMode, OPTIMAL_PNL_V2-1)
+	notionalPosition, uPnL := getOptimalPnl(hState, position, margin, market, marginMode, V1)
 
 	// mid price pnl is more than oracle price pnl
 	expectedNotionalPosition := Unscale(Mul(position.Size, hState.MidPrices[market]), 18)
@@ -176,7 +176,7 @@ func TestGetOptimalPnlV1(t *testing.T) {
 func TestGetTotalNotionalPositionAndUnrealizedPnlV2(t *testing.T) {
 	margin := GetNormalizedMargin(hState.Assets, userState.Margins)
 	marginMode := Maintenance_Margin
-	notionalPosition, uPnL := GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, OPTIMAL_PNL_V3-1)
+	notionalPosition, uPnL := GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, V1)
 
 	// mid price pnl is more than oracle price pnl for long position
 	expectedNotionalPosition := Unscale(Mul(userState.Positions[0].Size, hState.MidPrices[0]), 18)
@@ -192,7 +192,7 @@ func TestGetTotalNotionalPositionAndUnrealizedPnlV2(t *testing.T) {
 	// ------ when marginMode is Min_Allowable_Margin ------
 
 	marginMode = Min_Allowable_Margin
-	notionalPosition, uPnL = GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, OPTIMAL_PNL_V3-1)
+	notionalPosition, uPnL = GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, V1)
 	fmt.Println("Min_Allowable_Margin_Mode ", "notionalPosition = ", notionalPosition, "uPnL = ", uPnL)
 
 	expectedNotionalPosition = Unscale(Mul(userState.Positions[0].Size, hState.OraclePrices[0]), 18)
@@ -208,7 +208,7 @@ func TestGetTotalNotionalPositionAndUnrealizedPnlV2(t *testing.T) {
 func TestGetTotalNotionalPositionAndUnrealizedPnl(t *testing.T) {
 	margin := GetNormalizedMargin(hState.Assets, userState.Margins)
 	marginMode := Maintenance_Margin
-	notionalPosition, uPnL := GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, OPTIMAL_PNL_V3)
+	notionalPosition, uPnL := GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, V2)
 
 	// mid price pnl is more than oracle price pnl for long position
 	expectedNotionalPosition := Unscale(Mul(userState.Positions[0].Size, hState.OraclePrices[0]), 18)
@@ -224,7 +224,7 @@ func TestGetTotalNotionalPositionAndUnrealizedPnl(t *testing.T) {
 	// ------ when marginMode is Min_Allowable_Margin ------
 
 	marginMode = Min_Allowable_Margin
-	notionalPosition, uPnL = GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, OPTIMAL_PNL_V3)
+	notionalPosition, uPnL = GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, V2)
 	fmt.Println("Min_Allowable_Margin_Mode ", "notionalPosition = ", notionalPosition, "uPnL = ", uPnL)
 
 	expectedNotionalPosition = Unscale(Mul(userState.Positions[0].Size, hState.OraclePrices[0]), 18)

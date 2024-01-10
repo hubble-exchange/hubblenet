@@ -132,7 +132,7 @@ func GetAMMVariables(stateDB contract.StateDB, ammAddress common.Address, ammInd
 	minAllowableMargin := GetMinAllowableMargin(stateDB)
 	takerFee := GetTakerFee(stateDB)
 	totalMargin := GetNormalizedMargin(stateDB, trader)
-	availableMargin := GetAvailableMargin(stateDB, trader, 0)
+	availableMargin := GetAvailableMargin(stateDB, trader, hu.V2)
 	reduceOnlyAmount := getReduceOnlyAmount(stateDB, trader, big.NewInt(ammIndex))
 	longOpenOrdersAmount := getLongOpenOrdersAmount(stateDB, trader, big.NewInt(ammIndex))
 	shortOpenOrdersAmount := getShortOpenOrdersAmount(stateDB, trader, big.NewInt(ammIndex))
