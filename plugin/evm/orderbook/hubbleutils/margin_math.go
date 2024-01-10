@@ -31,6 +31,14 @@ type UserState struct {
 	ReservedMargin *big.Int
 }
 
+func UpgradeVersionV0orV1(blockTimestamp uint64) UpgradeVersion {
+	// Thursday, 12 October 2023 16:45:00 GMT
+	if blockTimestamp >= 1697129100 {
+		return V1
+	}
+	return V0
+}
+
 func GetAvailableMargin(hState *HubbleState, userState *UserState) *big.Int {
 	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Min_Allowable_Margin, hState.UpgradeVersion)
 	return GetAvailableMargin_(notionalPosition, margin, userState.ReservedMargin, hState.MinAllowableMargin)

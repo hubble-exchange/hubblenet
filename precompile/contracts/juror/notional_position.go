@@ -6,7 +6,7 @@ import (
 )
 
 func GetNotionalPositionAndMargin(bibliophile b.BibliophileClient, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
-	notionalPosition, margin := bibliophile.GetNotionalPositionAndMargin(input.Trader, input.IncludeFundingPayments, input.Mode, hu.V1)
+	notionalPosition, margin := bibliophile.GetNotionalPositionAndMargin(input.Trader, input.IncludeFundingPayments, input.Mode, hu.UpgradeVersionV0orV1(bibliophile.GetTimeStamp()))
 	return GetNotionalPositionAndMarginOutput{
 		NotionalPosition: notionalPosition,
 		Margin:           margin,
