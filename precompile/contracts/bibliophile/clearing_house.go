@@ -66,7 +66,7 @@ type GetNotionalPositionAndMarginOutput struct {
 	Margin           *big.Int
 }
 
-func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput, blockTimestamp uint64) GetNotionalPositionAndMarginOutput {
+func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput, upgradeVersion hu.UpgradeVersion) GetNotionalPositionAndMarginOutput {
 	markets := GetMarkets(stateDB)
 	numMarkets := len(markets)
 	positions := make(map[int]*hu.Position, numMarkets)
@@ -96,7 +96,7 @@ func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 			PendingFunding: pendingFunding,
 		},
 		input.Mode,
-		blockTimestamp,
+		upgradeVersion,
 	)
 	return GetNotionalPositionAndMarginOutput{
 		NotionalPosition: notionalPosition,

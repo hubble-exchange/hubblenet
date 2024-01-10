@@ -82,7 +82,7 @@ func getTotalNotionalPositionAndUnrealizedPnl(trader *Trader, margin *big.Int, m
 		},
 		margin,
 		marginMode,
-		0,
+		hu.V2,
 	)
 }
 

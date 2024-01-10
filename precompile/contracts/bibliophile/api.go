@@ -3,6 +3,7 @@ package bibliophile
 import (
 	"math/big"
 
+	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ava-labs/subnet-evm/precompile/contract"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -30,7 +31,7 @@ func GetClearingHouseVariables(stateDB contract.StateDB, trader common.Address) 
 		Trader:                 trader,
 		IncludeFundingPayments: false,
 		Mode:                   0,
-	}, 0 /* use new algorithm */)
+	}, hu.V2)
 	totalFunding := GetTotalFunding(stateDB, &trader)
 	positionSizes := getPosSizes(stateDB, &trader)
 	underlyingPrices := GetUnderlyingPrices(stateDB)

@@ -5,6 +5,14 @@ import (
 	"math/big"
 )
 
+type UpgradeVersion uint8
+
+const (
+	V0 UpgradeVersion = iota
+	V1                // Activated on Thursday, 12 October 2023 16:45:00 GMT
+	V2
+)
+
 type HubbleState struct {
 	Assets             []Collateral
 	OraclePrices       map[Market]*big.Int
@@ -13,6 +21,7 @@ type HubbleState struct {
 	MinAllowableMargin *big.Int
 	MaintenanceMargin  *big.Int
 	TakerFee           *big.Int
+	UpgradeVersion     UpgradeVersion
 }
 
 type UserState struct {
@@ -23,7 +32,7 @@ type UserState struct {
 }
 
 func GetAvailableMargin(hState *HubbleState, userState *UserState) *big.Int {
-	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Min_Allowable_Margin, 0)
+	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Min_Allowable_Margin, hState.UpgradeVersion)
 	return GetAvailableMargin_(notionalPosition, margin, userState.ReservedMargin, hState.MinAllowableMargin)
 }
 
@@ -33,34 +42,47 @@ func GetAvailableMargin_(notionalPosition, margin, reservedMargin, minAllowableM
 }
 
 func GetMarginFraction(hState *HubbleState, userState *UserState) *big.Int {
-	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Maintenance_Margin, 0)
+	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Maintenance_Margin, hState.UpgradeVersion)
 	if notionalPosition.Sign() == 0 {
 		return big.NewInt(math.MaxInt64)
 	}
 	return Div(Mul1e6(margin), notionalPosition)
 }
 
-func GetNotionalPositionAndMargin(hState *HubbleState, userState *UserState, marginMode MarginMode, blockTimestamp uint64) (*big.Int, *big.Int) {
+func GetNotionalPositionAndMargin(hState *HubbleState, userState *UserState, marginMode MarginMode, upgradeVersion UpgradeVersion) (*big.Int, *big.Int) {
 	margin := Sub(GetNormalizedMargin(hState.Assets, userState.Margins), userState.PendingFunding)
-	notionalPosition, unrealizedPnl := GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, blockTimestamp)
+	notionalPosition, unrealizedPnl := GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, upgradeVersion)
 	return notionalPosition, Add(margin, unrealizedPnl)
 }
 
-func GetTotalNotionalPositionAndUnrealizedPnl(hState *HubbleState, userState *UserState, margin *big.Int, marginMode MarginMode, blockTimestamp uint64) (*big.Int, *big.Int) {
+func GetTotalNotionalPositionAndUnrealizedPnl(hState *HubbleState, userState *UserState, margin *big.Int, marginMode MarginMode, upgradeVersion UpgradeVersion) (*big.Int, *big.Int) {
 	notionalPosition := big.NewInt(0)
 	unrealizedPnl := big.NewInt(0)
 
 	for _, market := range hState.ActiveMarkets {
-		_notionalPosition, _unrealizedPnl := getOptimalPnl(hState, userState.Positions[market], margin, market, marginMode, blockTimestamp)
+		_notionalPosition, _unrealizedPnl := getOptimalPnl(hState, userState.Positions[market], margin, market, marginMode, upgradeVersion)
 		notionalPosition.Add(notionalPosition, _notionalPosition)
 		unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
 	}
 	return notionalPosition, unrealizedPnl
 }
 
-func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, market Market, marginMode MarginMode, blockTimestamp uint64) (notionalPosition *big.Int, uPnL *big.Int) {
+func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, market Market, marginMode MarginMode, upgradeVersion UpgradeVersion) (notionalPosition *big.Int, uPnL *big.Int) {
 	if position == nil || position.Size.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0)
+	}
+
+	// based on oracle price
+	oracleBasedNotional, oracleBasedUnrealizedPnl, oracleBasedMF := GetPositionMetadata(
+		hState.OraclePrices[market],
+		position.OpenNotional,
+		position.Size,
+		margin,
+	)
+
+	// convert to uint8 so that it auto-applies to future version upgrades that may touch unrelated parts of the code
+	if uint8(upgradeVersion) >= uint8(V2) {
+		return oracleBasedNotional, oracleBasedUnrealizedPnl
 	}
 
 	// based on last price
@@ -71,16 +93,7 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 		margin,
 	)
 
-	// based on oracle price
-	oracleBasedNotional, oracleBasedUnrealizedPnl, oracleBasedMF := GetPositionMetadata(
-		hState.OraclePrices[market],
-		position.OpenNotional,
-		position.Size,
-		margin,
-	)
-
-	// Thursday, 12 October 2023 16:45:00 GMT
-	if blockTimestamp == 0 || blockTimestamp >= 1697129100 { // use new algorithm
+	if upgradeVersion == V1 {
 		if (marginMode == Maintenance_Margin && oracleBasedUnrealizedPnl.Cmp(unrealizedPnl) == 1) || // for liquidations
 			(marginMode == Min_Allowable_Margin && oracleBasedUnrealizedPnl.Cmp(unrealizedPnl) == -1) { // for increasing leverage
 			return oracleBasedNotional, oracleBasedUnrealizedPnl
@@ -88,7 +101,7 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 		return notionalPosition, unrealizedPnl
 	}
 
-	// use old algorithm
+	// use V0 logic
 	if (marginMode == Maintenance_Margin && oracleBasedMF.Cmp(midPriceBasedMF) == 1) || // for liquidations
 		(marginMode == Min_Allowable_Margin && oracleBasedMF.Cmp(midPriceBasedMF) == -1) { // for increasing leverage
 		return oracleBasedNotional, oracleBasedUnrealizedPnl
