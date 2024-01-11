@@ -9,7 +9,7 @@ type UpgradeVersion uint8
 
 const (
 	V0 UpgradeVersion = iota
-	V1                // Activated on Thursday, 12 October 2023 16:45:00 GMT
+	V1
 	V2
 )
 
@@ -40,7 +40,7 @@ func UpgradeVersionV0orV1(blockTimestamp uint64) UpgradeVersion {
 }
 
 func GetAvailableMargin(hState *HubbleState, userState *UserState) *big.Int {
-	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Min_Allowable_Margin, hState.UpgradeVersion)
+	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Min_Allowable_Margin)
 	return GetAvailableMargin_(notionalPosition, margin, userState.ReservedMargin, hState.MinAllowableMargin)
 }
 
@@ -50,32 +50,32 @@ func GetAvailableMargin_(notionalPosition, margin, reservedMargin, minAllowableM
 }
 
 func GetMarginFraction(hState *HubbleState, userState *UserState) *big.Int {
-	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Maintenance_Margin, hState.UpgradeVersion)
+	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Maintenance_Margin)
 	if notionalPosition.Sign() == 0 {
 		return big.NewInt(math.MaxInt64)
 	}
 	return Div(Mul1e6(margin), notionalPosition)
 }
 
-func GetNotionalPositionAndMargin(hState *HubbleState, userState *UserState, marginMode MarginMode, upgradeVersion UpgradeVersion) (*big.Int, *big.Int) {
+func GetNotionalPositionAndMargin(hState *HubbleState, userState *UserState, marginMode MarginMode) (*big.Int, *big.Int) {
 	margin := Sub(GetNormalizedMargin(hState.Assets, userState.Margins), userState.PendingFunding)
-	notionalPosition, unrealizedPnl := GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode, upgradeVersion)
+	notionalPosition, unrealizedPnl := GetTotalNotionalPositionAndUnrealizedPnl(hState, userState, margin, marginMode)
 	return notionalPosition, Add(margin, unrealizedPnl)
 }
 
-func GetTotalNotionalPositionAndUnrealizedPnl(hState *HubbleState, userState *UserState, margin *big.Int, marginMode MarginMode, upgradeVersion UpgradeVersion) (*big.Int, *big.Int) {
+func GetTotalNotionalPositionAndUnrealizedPnl(hState *HubbleState, userState *UserState, margin *big.Int, marginMode MarginMode) (*big.Int, *big.Int) {
 	notionalPosition := big.NewInt(0)
 	unrealizedPnl := big.NewInt(0)
 
 	for _, market := range hState.ActiveMarkets {
-		_notionalPosition, _unrealizedPnl := getOptimalPnl(hState, userState.Positions[market], margin, market, marginMode, upgradeVersion)
+		_notionalPosition, _unrealizedPnl := getOptimalPnl(hState, userState.Positions[market], margin, market, marginMode)
 		notionalPosition.Add(notionalPosition, _notionalPosition)
 		unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
 	}
 	return notionalPosition, unrealizedPnl
 }
 
-func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, market Market, marginMode MarginMode, upgradeVersion UpgradeVersion) (notionalPosition *big.Int, uPnL *big.Int) {
+func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, market Market, marginMode MarginMode) (notionalPosition *big.Int, uPnL *big.Int) {
 	if position == nil || position.Size.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0)
 	}
@@ -89,7 +89,7 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 	)
 
 	// convert to uint8 so that it auto-applies to future version upgrades that may touch unrelated parts of the code
-	if uint8(upgradeVersion) >= uint8(V2) {
+	if uint8(hState.UpgradeVersion) >= uint8(V2) {
 		return oracleBasedNotional, oracleBasedUnrealizedPnl
 	}
 
@@ -101,7 +101,7 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 		margin,
 	)
 
-	if upgradeVersion == V1 {
+	if hState.UpgradeVersion == V1 {
 		if (marginMode == Maintenance_Margin && oracleBasedUnrealizedPnl.Cmp(unrealizedPnl) == 1) || // for liquidations
 			(marginMode == Min_Allowable_Margin && oracleBasedUnrealizedPnl.Cmp(unrealizedPnl) == -1) { // for increasing leverage
 			return oracleBasedNotional, oracleBasedUnrealizedPnl

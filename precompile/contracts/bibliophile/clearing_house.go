@@ -85,10 +85,11 @@ func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 	}
 	notionalPosition, margin := hu.GetNotionalPositionAndMargin(
 		&hu.HubbleState{
-			Assets:        GetCollaterals(stateDB),
-			OraclePrices:  underlyingPrices,
-			MidPrices:     midPrices,
-			ActiveMarkets: activeMarketIds,
+			Assets:         GetCollaterals(stateDB),
+			OraclePrices:   underlyingPrices,
+			MidPrices:      midPrices,
+			ActiveMarkets:  activeMarketIds,
+			UpgradeVersion: upgradeVersion,
 		},
 		&hu.UserState{
 			Positions:      positions,
@@ -96,7 +97,6 @@ func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 			PendingFunding: pendingFunding,
 		},
 		input.Mode,
-		upgradeVersion,
 	)
 	return GetNotionalPositionAndMarginOutput{
 		NotionalPosition: notionalPosition,
