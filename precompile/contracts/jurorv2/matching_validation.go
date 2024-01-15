@@ -10,7 +10,6 @@ import (
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
-	// "github.com/ethereum/go-ethereum/log"
 )
 
 type Metadata struct {
