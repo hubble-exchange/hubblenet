@@ -257,6 +257,7 @@ type LimitOrderDatabase interface {
 		trader common.Address,
 		marketId int,
 	) OrderValidationFields
+	SampleImpactPrice() (impactBids, impactAsks, midPrices []*big.Int)
 }
 
 type Snapshot struct {
@@ -1236,4 +1237,62 @@ func (db *InMemoryDatabase) GetOrderValidationFields(
 		fields.Exists = true
 	}
 	return fields
+}
+
+func (db *InMemoryDatabase) SampleImpactPrice() (impactBids, impactAsks, midPrices []*big.Int) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	count := db.configService.GetActiveMarketsCount()
+	impactBids = make([]*big.Int, count)
+	impactAsks = make([]*big.Int, count)
+	midPrices = make([]*big.Int, count)
+
+	for m := int64(0); m < count; m++ {
+		// @todo make the optimisation to fetch orders only until impactMarginNotional
+		longOrders := db.getLongOrdersWithoutLock(Market(m), nil, nil, true)
+		shortOrders := db.getLongOrdersWithoutLock(Market(m), nil, nil, true)
+		ammAddress := db.configService.GetMarketAddressFromMarketID(m)
+		impactMarginNotional := db.configService.GetImpactMarginNotional(ammAddress)
+		if len(longOrders) == 0 || len(shortOrders) == 0 {
+			impactBids[m] = big.NewInt(0)
+			impactAsks[m] = big.NewInt(0)
+			midPrices[m] = big.NewInt(0)
+			continue
+		}
+		midPrices[m] = hu.Div(hu.Add(longOrders[0].Price, shortOrders[0].Price), new(big.Int).SetInt64(2))
+		impactBids[m] = calculateImpactPrice(longOrders, impactMarginNotional)
+		impactAsks[m] = calculateImpactPrice(shortOrders, impactMarginNotional)
+	}
+	return impactBids, impactAsks, midPrices
+}
+
+func calculateImpactPrice(orders []Order, _impactMarginNotional *big.Int) *big.Int {
+	if _impactMarginNotional.Sign() == 0 {
+		return big.NewInt(0)
+	}
+	impactMarginNotional := new(big.Int).Mul(_impactMarginNotional, big.NewInt(1e12)) // 18 decimals
+	accNotional := big.NewInt(0)                                                      // 18 decimals
+	accBaseQ := big.NewInt(0)                                                         // 18 decimals
+	tick := big.NewInt(0)                                                             // 6 decimals
+	found := false
+	for _, order := range orders {
+		amount := hu.Abs(big.NewInt(0).Sub(order.BaseAssetQuantity, order.FilledBaseAssetQuantity)) // 18 decimals
+		if amount.Sign() == 0 {
+			continue
+		}
+		tick = order.Price
+		accumulator := new(big.Int).Add(accNotional, hu.Div1e6(big.NewInt(0).Mul(amount, tick)))
+		if accumulator.Cmp(impactMarginNotional) >= 0 {
+			found = true // that we have enough liquidity to fill the impactMarginNotional
+			break
+		}
+		accNotional = accumulator
+		accBaseQ.Add(accBaseQ, amount)
+	}
+	if !found {
+		return big.NewInt(0)
+	}
+	baseQAtTick := new(big.Int).Div(hu.Mul1e6(new(big.Int).Sub(impactMarginNotional, accNotional)), tick)
+	return new(big.Int).Div(hu.Mul1e6(impactMarginNotional), new(big.Int).Add(baseQAtTick, accBaseQ)) // return value is in 6 decimals
 }

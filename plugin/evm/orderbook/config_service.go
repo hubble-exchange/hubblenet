@@ -31,6 +31,9 @@ type IConfigService interface {
 	IsTradingAuthority(trader, signer common.Address) bool
 	GetSignedOrderbookContract() common.Address
 	GetUpgradeVersion() hu.UpgradeVersion
+
+	GetMarketAddressFromMarketID(marketId int64) common.Address
+	GetImpactMarginNotional(ammAddress common.Address) *big.Int
 }
 
 type ConfigService struct {
@@ -129,4 +132,12 @@ func (cs *ConfigService) GetUpgradeVersion() hu.UpgradeVersion {
 		return hu.V2
 	}
 	return hu.V1
+}
+
+func (cs *ConfigService) GetMarketAddressFromMarketID(marketId int64) common.Address {
+	return bibliophile.GetMarketAddressFromMarketID(marketId, cs.getStateAtCurrentBlock())
+}
+
+func (cs *ConfigService) GetImpactMarginNotional(ammAddress common.Address) *big.Int {
+	return bibliophile.GetImpactMarginNotional(cs.getStateAtCurrentBlock(), ammAddress)
 }
