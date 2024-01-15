@@ -165,6 +165,10 @@ func (db *MockLimitOrderDatabase) GetOrderValidationFields(
 	return OrderValidationFields{}
 }
 
+func (db *MockLimitOrderDatabase) SampleImpactPrice() (impactBids, impactAsks, midPrices []*big.Int) {
+	return []*big.Int{}, []*big.Int{}, []*big.Int{}
+}
+
 type MockLimitOrderTxProcessor struct {
 	mock.Mock
 }
@@ -321,4 +325,12 @@ func (cs *MockConfigService) GetSignedOrderbookContract() common.Address {
 
 func (cs *MockConfigService) GetUpgradeVersion() hu.UpgradeVersion {
 	return hu.V2
+}
+
+func (cs *MockConfigService) GetMarketAddressFromMarketID(marketId int64) common.Address {
+	return common.Address{}
+}
+
+func (cs *MockConfigService) GetImpactMarginNotional(ammAddress common.Address) *big.Int {
+	return big.NewInt(0)
 }
