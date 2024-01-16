@@ -347,18 +347,17 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 	fields := api.db.GetOrderValidationFields(orderId, order)
 	// P1. Order is not already in memdb
 	if fields.Exists {
-		return hu.ErrOrderAlreadyExists
+		return orderId, hu.ErrOrderAlreadyExists
 	}
 
 	if !order.ReduceOnly {
 		// P2. Margin is available for non-reduce only orders
 		requiredMargin := hu.Div1e18(hu.Mul(order.BaseAssetQuantity, order.Price))
 		if fields.AvailableMargin.Cmp(requiredMargin) == -1 {
-			return hu.ErrInsufficientMargin
+			return orderId, hu.ErrInsufficientMargin
 		}
 	} else {
-		// P3. Sum of all reduce only orders should not exceed the total position size
-
+		// @todo P3. Sum of all reduce only orders should not exceed the total position size
 	}
 
 	// P4. Post only order shouldn't cross the market

@@ -157,11 +157,7 @@ func (db *MockLimitOrderDatabase) GetSamplePIAttemptedTime() uint64 {
 
 func (db *MockLimitOrderDatabase) SignalSamplePIAttempted(time uint64) {}
 
-func (db *MockLimitOrderDatabase) GetOrderValidationFields(
-	orderId common.Hash,
-	trader common.Address,
-	marketId int,
-) OrderValidationFields {
+func (db *MockLimitOrderDatabase) GetOrderValidationFields(orderId common.Hash, order *hu.SignedOrder) OrderValidationFields {
 	return OrderValidationFields{}
 }
 

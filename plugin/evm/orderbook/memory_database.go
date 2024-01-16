@@ -255,6 +255,7 @@ type LimitOrderDatabase interface {
 	GetOrderById(orderId common.Hash) *Order
 	GetTraderInfo(trader common.Address) *Trader
 	GetOrderValidationFields(orderId common.Hash, order *hu.SignedOrder) OrderValidationFields
+	SampleImpactPrice() (impactBids, impactAsks, midPrices []*big.Int)
 }
 
 type Snapshot struct {
@@ -452,7 +453,7 @@ func (db *InMemoryDatabase) Add(order *Order) {
 
 	if order.OrderType == Signed {
 		// reserve margin in-memory
-		db.UpdateVirtualReservedMargin(order.Trader, hu.Div1e18(hu.Mul(order.BaseAssetQuantity, order.Price))) // even tho order might be matched at a different price, we reserve margin at the price the order was placed at to keep it simple
+		db.updateVirtualReservedMargin(order.Trader, hu.Div1e18(hu.Mul(order.BaseAssetQuantity, order.Price))) // even tho order might be matched at a different price, we reserve margin at the price the order was placed at to keep it simple
 	}
 }
 
@@ -749,10 +750,7 @@ func (db *InMemoryDatabase) UpdateReservedMargin(trader common.Address, addAmoun
 	db.TraderMap[trader].Margin.Reserved.Add(db.TraderMap[trader].Margin.Reserved, addAmount)
 }
 
-func (db *InMemoryDatabase) UpdateVirtualReservedMargin(trader common.Address, addAmount *big.Int) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
+func (db *InMemoryDatabase) updateVirtualReservedMargin(trader common.Address, addAmount *big.Int) {
 	if _, ok := db.TraderMap[trader]; !ok {
 		db.TraderMap[trader] = getBlankTrader()
 	}
@@ -1252,7 +1250,7 @@ func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order 
 	return OrderValidationFields{
 		Exists:          false,
 		PosSize:         posSize,
-		AvailableMargin: db.TraderMap[trader].Margin.Available, // as fresh as the last matching engine run
+		AvailableMargin: hu.Sub(db.TraderMap[trader].Margin.Available /* as fresh as the last matching engine run */, db.TraderMap[trader].Margin.VirtualReserved),
 		AsksHead:        asksHead,
 		BidsHead:        bidsHead,
 	}
