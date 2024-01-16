@@ -41,6 +41,9 @@ func (db *MockLimitOrderDatabase) GetMarketOrders(market Market) []Order {
 func (db *MockLimitOrderDatabase) Add(order *Order) {
 }
 
+func (db *MockLimitOrderDatabase) AddSignedOrder(order *Order, requiredMargin *big.Int) {
+}
+
 func (db *MockLimitOrderDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, blockNumber uint64) {
 }
 
@@ -297,6 +300,10 @@ func (cs *MockConfigService) GetCollaterals() []hu.Collateral {
 
 func (cs *MockConfigService) GetTakerFee() *big.Int {
 	return big.NewInt(0)
+}
+
+func (cs *MockConfigService) HasReferrer(trader common.Address) bool {
+	return true
 }
 
 func (cs *MockConfigService) GetPriceMultiplier(market Market) *big.Int {

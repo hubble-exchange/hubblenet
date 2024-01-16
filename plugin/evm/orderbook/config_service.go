@@ -26,6 +26,7 @@ type IConfigService interface {
 	GetAcceptableBounds(market Market) (*big.Int, *big.Int)
 	GetAcceptableBoundsForLiquidation(market Market) (*big.Int, *big.Int)
 	GetTakerFee() *big.Int
+	HasReferrer(trader common.Address) bool
 
 	GetSignedOrderStatus(orderHash common.Hash) int64
 	IsTradingAuthority(trader, signer common.Address) bool
@@ -112,6 +113,10 @@ func (cs *ConfigService) GetCumulativePremiumFraction(market Market) *big.Int {
 func (cs *ConfigService) GetTakerFee() *big.Int {
 	takerFee := bibliophile.GetTakerFee(cs.getStateAtCurrentBlock())
 	return hu.Div(hu.Mul(takerFee, big.NewInt(8)), big.NewInt(10)) // 20% discount, which is applied to everyone currently
+}
+
+func (cs *ConfigService) HasReferrer(trader common.Address) bool {
+	return bibliophile.HasReferrer(cs.getStateAtCurrentBlock(), trader)
 }
 
 func (cs *ConfigService) GetSignedOrderStatus(orderHash common.Hash) int64 {

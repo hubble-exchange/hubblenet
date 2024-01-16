@@ -30,6 +30,7 @@ var (
 	ErrCrossingMarket        = errors.New("crossing market")
 	ErrNoTradingAuthority    = errors.New("no trading authority")
 	ErrInsufficientMargin    = errors.New("insufficient margin")
+	ErrNoReferrer            = errors.New("no referrer")
 )
 
 // Common Checks

@@ -225,6 +225,7 @@ type LimitOrderDatabase interface {
 	GetAllOrders() []Order
 	GetMarketOrders(market Market) []Order
 	Add(order *Order)
+	AddSignedOrder(order *Order, requiredMargin *big.Int)
 	Delete(orderId common.Hash)
 	UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, blockNumber uint64)
 	GetLongOrders(market Market, lowerbound *big.Int, blockNumber *big.Int) []Order
@@ -443,18 +444,32 @@ func (db *InMemoryDatabase) GetMarketOrders(market Market) []Order {
 }
 
 func (db *InMemoryDatabase) Add(order *Order) {
+	if order.OrderType != Limit && order.OrderType != IOC {
+		log.Error("In Add - order type is not Limit or IOC", "order", order)
+		return
+	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	db.addOrderWithoutLock(order)
+}
 
-	log.Info("Adding order to memdb", "order", order)
+func (db *InMemoryDatabase) AddSignedOrder(order *Order, requiredMargin *big.Int) {
+	if order.OrderType != Signed {
+		log.Error("In AddSignedOrder - order type is not Signed", "order", order)
+		return
+	}
+	log.Info("SignedOrder/OrderAccepted", "order", order)
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.addOrderWithoutLock(order)
+	db.updateVirtualReservedMargin(order.Trader, requiredMargin)
+}
+
+func (db *InMemoryDatabase) addOrderWithoutLock(order *Order) {
 	order.LifecycleList = append(order.LifecycleList, Lifecycle{order.BlockNumber.Uint64(), Placed, ""})
 	db.AddInSortedArray(order)
 	db.Orders[order.Id] = order
-
-	if order.OrderType == Signed {
-		// reserve margin in-memory
-		db.updateVirtualReservedMargin(order.Trader, hu.Div1e18(hu.Mul(order.BaseAssetQuantity, order.Price))) // even tho order might be matched at a different price, we reserve margin at the price the order was placed at to keep it simple
-	}
 }
 
 // caller is expected to acquire db.mu before calling this function
@@ -1136,11 +1151,12 @@ func getBlankTrader() *Trader {
 	return &Trader{
 		Positions: map[Market]*Position{},
 		Margin: Margin{
-			VirtualReserved: big.NewInt(0),
-			Reserved:        big.NewInt(0),
+			Available: big.NewInt(0),
 			Deposited: map[Collateral]*big.Int{
 				0: big.NewInt(0),
 			},
+			Reserved:        big.NewInt(0),
+			VirtualReserved: big.NewInt(0),
 		},
 	}
 }

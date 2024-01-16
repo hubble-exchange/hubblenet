@@ -207,5 +207,5 @@ func (b *bibliophileClient) GetNotionalPositionAndMargin(trader common.Address, 
 }
 
 func (b *bibliophileClient) HasReferrer(trader common.Address) bool {
-	return hasReferrer(b.accessibleState.GetStateDB(), trader)
+	return HasReferrer(b.accessibleState.GetStateDB(), trader)
 }
