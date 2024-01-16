@@ -168,6 +168,8 @@ func (db *MockLimitOrderDatabase) SampleImpactPrice() (impactBids, impactAsks, m
 	return []*big.Int{}, []*big.Int{}, []*big.Int{}
 }
 
+func (db *MockLimitOrderDatabase) RemoveExpiredSignedOrders() {}
+
 type MockLimitOrderTxProcessor struct {
 	mock.Mock
 }

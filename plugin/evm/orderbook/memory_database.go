@@ -257,6 +257,7 @@ type LimitOrderDatabase interface {
 	GetTraderInfo(trader common.Address) *Trader
 	GetOrderValidationFields(orderId common.Hash, order *hu.SignedOrder) OrderValidationFields
 	SampleImpactPrice() (impactBids, impactAsks, midPrices []*big.Int)
+	RemoveExpiredSignedOrders()
 }
 
 type Snapshot struct {
@@ -388,6 +389,17 @@ func shouldRemove(acceptedBlockNumber, blockTimestamp uint64, order Order) Order
 		return KEEP_IF_MATCHEABLE
 	}
 	return KEEP
+}
+
+func (db *InMemoryDatabase) RemoveExpiredSignedOrders() {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	for _, order := range db.Orders {
+		if order.OrderType == Signed && order.getExpireAt().Int64() < time.Now().Unix() {
+			db.deleteOrderWithoutLock(order.Id)
+		}
+	}
 }
 
 func (db *InMemoryDatabase) SetOrderStatus(orderId common.Hash, status Status, info string, blockNumber uint64) error {
@@ -569,6 +581,12 @@ func (db *InMemoryDatabase) deleteOrderWithoutLock(orderId common.Hash) {
 	}
 
 	delete(db.Orders, orderId)
+
+	if order.OrderType == Signed && !order.ReduceOnly {
+		minAllowableMargin := db.configService.getMinAllowableMargin()
+		requiredMargin := hu.GetRequiredMargin(order.Price, order.GetUnFilledBaseAssetQuantity(), minAllowableMargin, big.NewInt(0))
+		db.updateVirtualReservedMargin(order.Trader, hu.Neg(requiredMargin))
+	}
 }
 
 func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, orderId common.Hash, blockNumber uint64) {
@@ -595,6 +613,14 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 	if quantity.Cmp(big.NewInt(0)) == -1 && order.getOrderStatus().Status == FulFilled {
 		// handling reorgs
 		order.LifecycleList = order.LifecycleList[:len(order.LifecycleList)-1]
+	}
+
+	if order.OrderType == Signed && !order.ReduceOnly {
+		// only update margin if the order is not reduce-only
+		minAllowableMargin := db.configService.getMinAllowableMargin()
+		requiredMargin := hu.GetRequiredMargin(order.Price, quantity, minAllowableMargin, big.NewInt(0))
+		db.updateVirtualReservedMargin(order.Trader, hu.Neg(requiredMargin))
+
 	}
 }
 

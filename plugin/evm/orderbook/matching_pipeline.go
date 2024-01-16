@@ -54,6 +54,9 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 	// start fresh and purge all local transactions
 	pipeline.lotp.PurgeOrderBookTxs()
 
+	// remove expired signed orders
+	pipeline.db.RemoveExpiredSignedOrders()
+
 	if isFundingPaymentTime(pipeline.db.GetNextFundingTime()) {
 		log.Info("MatchingPipeline:isFundingPaymentTime")
 		err := executeFundingPayment(pipeline.lotp)

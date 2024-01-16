@@ -393,5 +393,32 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 	}
 	placeSignedOrderCounter.Inc(1)
 	api.db.AddSignedOrder(signedOrder, requiredMargin)
+
+	// send to trader feed - both for head and accepted block
+	go func() {
+		orderMap := order.Map()
+		orderMap["orderType"] = "signed"
+		orderMap["expireAt"] = order.ExpireAt.String()
+		args := map[string]interface{}{
+			"order": orderMap,
+		}
+
+		traderEvent := TraderEvent{
+			Trader:      trader,
+			Removed:     false,
+			EventName:   "OrderAccepted",
+			Args:        args,
+			BlockStatus: ConfirmationLevelHead,
+			OrderId:     orderId,
+			OrderType:   Signed.String(),
+			Timestamp:   big.NewInt(time.Now().Unix()),
+		}
+
+		traderFeed.Send(traderEvent)
+
+		traderEvent.BlockStatus = ConfirmationLevelAccepted
+		traderFeed.Send(traderEvent)
+	}()
+
 	return orderId, nil
 }
