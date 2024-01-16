@@ -350,7 +350,7 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 		// P2. Margin is available for non-reduce only orders
 		minAllowableMargin := api.configService.getMinAllowableMargin()
 		// even tho order might be matched at a different price, we reserve margin at the price the order was placed at to keep it simple
-		requiredMargin = hu.GetRequiredMargin(order.Price, order.BaseAssetQuantity, minAllowableMargin, big.NewInt(0))
+		requiredMargin = hu.GetRequiredMargin(order.Price, hu.Abs(order.BaseAssetQuantity), minAllowableMargin, big.NewInt(0))
 		if fields.AvailableMargin.Cmp(requiredMargin) == -1 {
 			return orderId, hu.ErrInsufficientMargin
 		}

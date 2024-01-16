@@ -395,8 +395,9 @@ func (db *InMemoryDatabase) RemoveExpiredSignedOrders() {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
+	now := time.Now().Unix()
 	for _, order := range db.Orders {
-		if order.OrderType == Signed && order.getExpireAt().Int64() < time.Now().Unix() {
+		if order.OrderType == Signed && order.getExpireAt().Int64() <= now {
 			db.deleteOrderWithoutLock(order.Id)
 		}
 	}
