@@ -324,7 +324,7 @@ func areMatchingOrders(longOrder, shortOrder Order, marginMap map[common.Address
 		return nil
 	}
 
-	shortMargin := big.NewInt(0)
+	var shortMargin *big.Int = big.NewInt(0)
 	_isExecutable, shortMargin = isExecutable(&shortOrder, fillAmount, minAllowableMargin, takerFee, upperBound, marginMap[longOrder.Trader])
 	if !_isExecutable {
 		return nil

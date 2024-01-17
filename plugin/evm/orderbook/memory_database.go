@@ -1024,6 +1024,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(hState *hu.HubbleState) ([]Liquida
 		}
 		marginFraction := hu.GetMarginFraction(hState, userState)
 		db.TraderMap[addr].Margin.Available = hu.GetAvailableMargin(hState, userState)
+		marginMap[addr] = new(big.Int).Set(db.TraderMap[addr].Margin.Available)
 		if marginFraction.Cmp(hState.MaintenanceMargin) == -1 {
 			log.Info("below maintenanceMargin", "trader", addr.String(), "marginFraction", prettifyScaledBigInt(marginFraction, 6))
 			if len(minSizes) == 0 {
