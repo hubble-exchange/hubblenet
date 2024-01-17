@@ -618,10 +618,6 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 
 	// only update margin if the order is not reduce-only
 	if order.OrderType == Signed && !order.ReduceOnly {
-		// for short orders, quantity is negative when filled and positive when event was removed
-		if order.PositionType == SHORT {
-			quantity = hu.Neg(quantity)
-		}
 		minAllowableMargin := db.configService.getMinAllowableMargin()
 		requiredMargin := hu.GetRequiredMargin(order.Price, quantity, minAllowableMargin, big.NewInt(0))
 		db.updateVirtualReservedMargin(order.Trader, hu.Neg(requiredMargin))
