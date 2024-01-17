@@ -156,6 +156,6 @@ func WeightedAndSpotCollateral(assets []Collateral, margins []*big.Int) (weighte
 }
 
 func GetRequiredMargin(price, fillAmount, minAllowableMargin, takerFee *big.Int) *big.Int {
-	quoteAsset := Div1e18(Abs(Mul(fillAmount, price)))
+	quoteAsset := Div1e18(Mul(fillAmount, price))
 	return Add(Div1e6(Mul(quoteAsset, minAllowableMargin)), Div1e6(Mul(quoteAsset, takerFee)))
 }

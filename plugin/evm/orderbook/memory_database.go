@@ -585,7 +585,7 @@ func (db *InMemoryDatabase) deleteOrderWithoutLock(orderId common.Hash) {
 
 	if order.OrderType == Signed && !order.ReduceOnly {
 		minAllowableMargin := db.configService.getMinAllowableMargin()
-		requiredMargin := hu.GetRequiredMargin(order.Price, order.GetUnFilledBaseAssetQuantity(), minAllowableMargin, big.NewInt(0))
+		requiredMargin := hu.GetRequiredMargin(order.Price, hu.Abs(order.GetUnFilledBaseAssetQuantity()), minAllowableMargin, big.NewInt(0))
 		db.updateVirtualReservedMargin(order.Trader, hu.Neg(requiredMargin))
 	}
 }
@@ -616,8 +616,12 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 		order.LifecycleList = order.LifecycleList[:len(order.LifecycleList)-1]
 	}
 
+	// only update margin if the order is not reduce-only
 	if order.OrderType == Signed && !order.ReduceOnly {
-		// only update margin if the order is not reduce-only
+		// for short orders, quantity is negative when filled and positive when event was removed
+		if order.PositionType == SHORT {
+			quantity = hu.Neg(quantity)
+		}
 		minAllowableMargin := db.configService.getMinAllowableMargin()
 		requiredMargin := hu.GetRequiredMargin(order.Price, quantity, minAllowableMargin, big.NewInt(0))
 		db.updateVirtualReservedMargin(order.Trader, hu.Neg(requiredMargin))
