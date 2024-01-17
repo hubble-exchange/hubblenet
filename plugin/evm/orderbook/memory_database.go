@@ -1311,18 +1311,29 @@ func (db *InMemoryDatabase) SampleImpactPrice() (impactBids, impactAsks, midPric
 	for m := int64(0); m < count; m++ {
 		// @todo make the optimisation to fetch orders only until impactMarginNotional
 		longOrders := db.getLongOrdersWithoutLock(Market(m), nil, nil, true)
-		shortOrders := db.getLongOrdersWithoutLock(Market(m), nil, nil, true)
+		shortOrders := db.getShortOrdersWithoutLock(Market(m), nil, nil, true)
 		ammAddress := db.configService.GetMarketAddressFromMarketID(m)
 		impactMarginNotional := db.configService.GetImpactMarginNotional(ammAddress)
-		if len(longOrders) == 0 || len(shortOrders) == 0 {
+		calcMidPrice := true
+		if len(longOrders) != 0 {
+			impactBids[m] = calculateImpactPrice(longOrders, impactMarginNotional)
+		} else {
 			impactBids[m] = big.NewInt(0)
-			impactAsks[m] = big.NewInt(0)
-			midPrices[m] = big.NewInt(0)
-			continue
+			calcMidPrice = false
 		}
-		midPrices[m] = hu.Div(hu.Add(longOrders[0].Price, shortOrders[0].Price), new(big.Int).SetInt64(2))
-		impactBids[m] = calculateImpactPrice(longOrders, impactMarginNotional)
-		impactAsks[m] = calculateImpactPrice(shortOrders, impactMarginNotional)
+
+		if len(shortOrders) != 0 {
+			impactAsks[m] = calculateImpactPrice(shortOrders, impactMarginNotional)
+		} else {
+			impactAsks[m] = big.NewInt(0)
+			calcMidPrice = false
+		}
+
+		if calcMidPrice {
+			midPrices[m] = hu.Div(hu.Add(longOrders[0].Price, shortOrders[0].Price), new(big.Int).SetInt64(2))
+		} else {
+			midPrices[m] = big.NewInt(0)
+		}
 	}
 	return impactBids, impactAsks, midPrices
 }
@@ -1337,7 +1348,7 @@ func calculateImpactPrice(orders []Order, _impactMarginNotional *big.Int) *big.I
 	tick := big.NewInt(0)                                                             // 6 decimals
 	found := false
 	for _, order := range orders {
-		amount := hu.Abs(big.NewInt(0).Sub(order.BaseAssetQuantity, order.FilledBaseAssetQuantity)) // 18 decimals
+		amount := hu.Abs(hu.Sub(order.BaseAssetQuantity, order.FilledBaseAssetQuantity)) // 18 decimals
 		if amount.Sign() == 0 {
 			continue
 		}

@@ -337,5 +337,5 @@ func (cs *MockConfigService) GetMarketAddressFromMarketID(marketId int64) common
 }
 
 func (cs *MockConfigService) GetImpactMarginNotional(ammAddress common.Address) *big.Int {
-	return big.NewInt(0)
+	return big.NewInt(500e6)
 }
