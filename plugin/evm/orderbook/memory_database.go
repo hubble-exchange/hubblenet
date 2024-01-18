@@ -299,7 +299,6 @@ func (db *InMemoryDatabase) Accept(acceptedBlockNumber, blockTimestamp uint64) {
 
 		for _, longOrder := range longOrders {
 			status := shouldRemove(acceptedBlockNumber, blockTimestamp, longOrder)
-			log.Info("evaluating order...", "longOrder", longOrder, "status", status)
 			if status == KEEP_IF_MATCHEABLE {
 				matchFound := false
 				for _, shortOrder := range shortOrders {
@@ -326,7 +325,6 @@ func (db *InMemoryDatabase) Accept(acceptedBlockNumber, blockTimestamp uint64) {
 
 		for _, shortOrder := range shortOrders {
 			status := shouldRemove(acceptedBlockNumber, blockTimestamp, shortOrder)
-			log.Info("Accept", "shortOrder", shortOrder, "status", status)
 			if status == KEEP_IF_MATCHEABLE {
 				matchFound := false
 				for _, longOrder := range longOrders {
