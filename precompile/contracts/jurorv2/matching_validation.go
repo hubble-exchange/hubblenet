@@ -109,6 +109,7 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 	if err != nil {
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(err, Order1, common.Hash{})
 	}
+	log.Info("decodeStep1", "decodeStep1", decodeStep1)
 	m1, err := validateOrder(bibliophile, decodeStep1.OrderType, decodeStep1.EncodedOrder, Short, new(big.Int).Neg(inputStruct.FillAmount))
 	if err != nil {
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(err, Order1, m1.OrderHash)

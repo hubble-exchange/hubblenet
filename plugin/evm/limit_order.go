@@ -18,6 +18,7 @@ import (
 	"github.com/ava-labs/subnet-evm/eth/filters"
 	"github.com/ava-labs/subnet-evm/metrics"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ava-labs/subnet-evm/utils"
 
 	"github.com/ava-labs/avalanchego/database"
@@ -27,7 +28,7 @@ import (
 
 const (
 	memoryDBSnapshotKey string = "memoryDBSnapshot"
-	snapshotInterval    uint64 = 1000 // save snapshot every 1000 blocks
+	snapshotInterval    uint64 = 10 // save snapshot every 10 blocks
 )
 
 type LimitOrderProcesser interface {
@@ -71,8 +72,9 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 	filterAPI := filters.NewFilterAPI(filterSystem)
 
 	// need to register the types for gob encoding because memory DB has an interface field(ContractOrder)
-	gob.Register(&orderbook.LimitOrder{})
-	gob.Register(&orderbook.IOCOrder{})
+	gob.Register(&hu.LimitOrder{})
+	gob.Register(&hu.IOCOrder{})
+	gob.Register(&hu.SignedOrder{})
 	return &limitOrderProcesser{
 		ctx:                     ctx,
 		mu:                      &sync.Mutex{},
