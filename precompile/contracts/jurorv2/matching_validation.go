@@ -1,4 +1,4 @@
-package juror
+package jurorv2
 
 import (
 	"errors"
