@@ -1289,10 +1289,21 @@ func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order 
 		bidsHead = db.LongOrders[marketId][0].Price
 	}
 
+	availableMargin := big.NewInt(0)
+	if db.TraderMap[trader] != nil {
+		// backwards compatibility
+		if db.TraderMap[trader].Margin.Available == nil {
+			db.TraderMap[trader].Margin.Available = big.NewInt(0)
+		}
+		if db.TraderMap[trader].Margin.VirtualReserved == nil {
+			db.TraderMap[trader].Margin.Available = big.NewInt(0)
+		}
+		availableMargin = hu.Sub(db.TraderMap[trader].Margin.Available /* as fresh as the last matching engine run */, db.TraderMap[trader].Margin.VirtualReserved)
+	}
 	return OrderValidationFields{
 		Exists:          false,
 		PosSize:         posSize,
-		AvailableMargin: hu.Sub(db.TraderMap[trader].Margin.Available /* as fresh as the last matching engine run */, db.TraderMap[trader].Margin.VirtualReserved),
+		AvailableMargin: availableMargin,
 		AsksHead:        asksHead,
 		BidsHead:        bidsHead,
 	}
