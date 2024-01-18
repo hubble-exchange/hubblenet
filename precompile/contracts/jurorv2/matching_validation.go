@@ -109,7 +109,6 @@ func ValidateOrdersAndDetermineFillPrice(bibliophile b.BibliophileClient, inputS
 	if err != nil {
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(err, Order1, common.Hash{})
 	}
-	log.Info("decodeStep1", "decodeStep1", decodeStep1)
 	m1, err := validateOrder(bibliophile, decodeStep1.OrderType, decodeStep1.EncodedOrder, Short, new(big.Int).Neg(inputStruct.FillAmount))
 	if err != nil {
 		return getValidateOrdersAndDetermineFillPriceErrorOutput(err, Order1, m1.OrderHash)
@@ -336,7 +335,7 @@ func validateOrder(bibliophile b.BibliophileClient, orderType ob.OrderType, enco
 func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *ob.LimitOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
 	orderHash, err := order.Hash()
 	if err != nil {
-		return nil, err
+		return &Metadata{OrderHash: common.Hash{}}, err
 	}
 	if err := validateLimitOrderLike(bibliophile, &order.BaseOrder, bibliophile.GetOrderFilledAmount(orderHash), OrderStatus(bibliophile.GetOrderStatus(orderHash)), side, fillAmount); err != nil {
 		return &Metadata{OrderHash: orderHash}, err
@@ -356,7 +355,7 @@ func validateExecuteLimitOrder(bibliophile b.BibliophileClient, order *ob.LimitO
 func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
 	orderHash, err := order.Hash()
 	if err != nil {
-		return nil, err
+		return &Metadata{OrderHash: common.Hash{}}, err
 	}
 	if ob.OrderType(order.OrderType) != ob.IOC {
 		return &Metadata{OrderHash: orderHash}, errors.New("not ioc order")
@@ -382,7 +381,7 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder
 func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *hu.SignedOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
 	orderHash, err := order.Hash()
 	if err != nil {
-		return nil, err
+		return &Metadata{OrderHash: common.Hash{}}, err
 	}
 
 	trader, signer, err := hu.ValidateSignedOrder(
