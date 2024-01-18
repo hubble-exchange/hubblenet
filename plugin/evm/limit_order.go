@@ -65,7 +65,7 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 	configService := orderbook.NewConfigService(blockChain)
 	memoryDb := orderbook.NewInMemoryDatabase(configService)
 	lotp := orderbook.NewLimitOrderTxProcessor(txPool, memoryDb, backend, validatorPrivateKey)
-	contractEventProcessor := orderbook.NewContractEventsProcessor(memoryDb)
+	contractEventProcessor := orderbook.NewContractEventsProcessor(memoryDb, configService.GetSignedOrderbookContract())
 	matchingPipeline := orderbook.NewMatchingPipeline(memoryDb, lotp, configService)
 	filterSystem := filters.NewFilterSystem(backend, filters.Config{})
 	filterAPI := filters.NewFilterAPI(filterSystem)
@@ -383,7 +383,7 @@ func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.In
 			logsToRemove[i].Removed = true
 		}
 
-		cev := orderbook.NewContractEventsProcessor(memoryDBCopy)
+		cev := orderbook.NewContractEventsProcessor(memoryDBCopy, lop.configService.GetSignedOrderbookContract())
 		cev.ProcessEvents(logsToRemove)
 	}
 

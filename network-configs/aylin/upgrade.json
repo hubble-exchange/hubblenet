@@ -2,7 +2,7 @@
     "precompileUpgrades": [
         {
             "jurorV2Config": {
-                "blockTimestamp": 1705577400
+                "blockTimestamp": 1705581000
             }
         }
     ]
