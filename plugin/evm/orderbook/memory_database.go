@@ -1036,6 +1036,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(hState *hu.HubbleState) ([]Liquida
 			continue // we do not check for their open orders yet. Maybe liquidating them first will make available margin positive
 		}
 
+		shouldLookForOrdersToCancel := false
 		marketsToCancelReduceOnlyOrdersIn := make(map[int]bool)
 		for _, marketId := range hState.ActiveMarkets {
 			posSize := big.NewInt(0)
@@ -1048,26 +1049,36 @@ func (db *InMemoryDatabase) GetNaughtyTraders(hState *hu.HubbleState) ([]Liquida
 				(posSize.Sign() < 0 && (totalReduceAmount.Sign() < 0 || (totalReduceAmount.Sign() > 0 && totalReduceAmount.Cmp(hu.Neg(posSize)) > 0)))
 			if hasStaleReduceOnlyOrders {
 				marketsToCancelReduceOnlyOrdersIn[marketId] = true
+				shouldLookForOrdersToCancel = true
 			}
 		}
-		if trader.Margin.Reserved.Sign() == 0 {
-			continue
-		}
-		// has orders that might be cancellable
+
+		// now check for regular un-fillable orders
 		availableMargin := new(big.Int).Set(db.TraderMap[addr].Margin.Available)
-		if availableMargin.Sign() >= 0 {
+		if availableMargin.Sign() < 0 {
+			// negative available margin, and has reserved margin
+			if trader.Margin.Reserved.Sign() > 0 {
+				shouldLookForOrdersToCancel = true
+			} else {
+				// this has the affect that we will not look for non-reduce only orders to cancel
+				availableMargin = big.NewInt(0)
+			}
+		}
+
+		if !shouldLookForOrdersToCancel {
 			continue
 		}
+
 		foundCancellableOrders := false
 		foundCancellableOrders = db.determineOrdersToCancel(addr, trader, availableMargin, marketsToCancelReduceOnlyOrdersIn, hState.OraclePrices, ordersToCancel, hState.MinAllowableMargin)
 		if foundCancellableOrders {
-			log.Info("negative available margin", "trader", addr.String(), "availableMargin", prettifyScaledBigInt(availableMargin, 6))
+			log.Info("found orders to cancel for", "trader", addr.String())
 		} else {
 			count++
 		}
 	}
 	if count > 0 {
-		log.Info("#traders that have -ve margin but no orders to cancel", "count", count)
+		log.Info("#traders that have shouldLookForOrdersToCancel=true but no orders to cancel", "count", count)
 	}
 	// lower margin fraction positions should be liquidated first
 	sortLiquidableSliceByMarginFraction(liquidablePositions)
@@ -1093,7 +1104,6 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 	ordersToCancel[addr] = []Order{}
 	foundCancellableOrders := false
 	for _, order := range traderOrders {
-		// @todo how are reduce only orders that are not fillable cancelled?
 		if order.OrderType != Limit {
 			// ioc and signed orders dont need to be cancelled
 			continue
@@ -1102,18 +1112,14 @@ func (db *InMemoryDatabase) determineOrdersToCancel(addr common.Address, trader 
 			if marketsToCancelReduceOnlyOrdersIn[order.Market] {
 				ordersToCancel[addr] = append(ordersToCancel[addr], order)
 				marketsToCancelReduceOnlyOrdersIn[order.Market] = false // keeping it simple by cancelling just 1 stale order per market per run
-			} else {
-				continue
+				foundCancellableOrders = true
 			}
-		} else {
+		} else if _availableMargin.Sign() < 0 {
 			ordersToCancel[addr] = append(ordersToCancel[addr], order)
 			foundCancellableOrders = true
 			orderNotional := big.NewInt(0).Abs(hu.Div1e18(hu.Mul(order.GetUnFilledBaseAssetQuantity(), order.Price))) // | size * current price |
 			marginReleased := hu.Div1e6(hu.Mul(orderNotional, db.configService.getMinAllowableMargin()))
 			_availableMargin.Add(_availableMargin, marginReleased)
-			if _availableMargin.Sign() >= 0 {
-				break
-			}
 		}
 	}
 	return foundCancellableOrders
