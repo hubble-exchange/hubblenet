@@ -5,6 +5,7 @@ package orderbook
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -353,6 +354,7 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 		}
 	} else {
 		// @todo P3. Sum of all reduce only orders should not exceed the total position size
+		return orderId, errors.New("reduce only orders via makerbook are not supported yet")
 	}
 
 	// P4. Post only order shouldn't cross the market

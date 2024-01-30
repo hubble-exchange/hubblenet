@@ -28,7 +28,7 @@ import (
 
 const (
 	memoryDBSnapshotKey string = "memoryDBSnapshot"
-	snapshotInterval    uint64 = 1000 // save snapshot every 1000 blocks
+	snapshotInterval    uint64 = 10 // save snapshot every 1000 blocks
 )
 
 type LimitOrderProcesser interface {
