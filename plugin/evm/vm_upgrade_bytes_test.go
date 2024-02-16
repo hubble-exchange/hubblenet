@@ -251,10 +251,11 @@ func TestMandatoryUpgradesEnforced(t *testing.T) {
 		networkID uint32
 		expected  bool
 	}{
-		{
-			networkID: constants.MainnetID,
-			expected:  true,
-		},
+		// This won't work because mainnet is not suppored in fuji release.
+		// {
+		// 	networkID: constants.MainnetID,
+		// 	expected:  true,
+		// },
 		{
 			networkID: constants.FujiID,
 			expected:  true,

@@ -257,6 +257,7 @@ type VM struct {
 	// Avalanche Warp Messaging backend
 	// Used to serve BLS signatures of warp messages over RPC
 	warpBackend warp.Backend
+
 	// Initialize only sets these if nil so they can be overridden in tests
 	p2pSender          commonEng.AppSender
 	ethTxGossipHandler p2p.Handler
@@ -276,6 +277,9 @@ func (vm *VM) Initialize(
 	fxs []*commonEng.Fx,
 	appSender commonEng.AppSender,
 ) error {
+	if chainCtx.NetworkID == avalanchegoConstants.MainnetID {
+		return errors.New("mainnet is not supported")
+	}
 	vm.config.SetDefaults()
 	if len(configBytes) > 0 {
 		if err := json.Unmarshal(configBytes, &vm.config); err != nil {
@@ -341,8 +345,8 @@ func (vm *VM) Initialize(
 		g.Config = params.SubnetEVMDefaultChainConfig
 	}
 
-	mandatoryNetworkUpgrades, enforce := getMandatoryNetworkUpgrades(chainCtx.NetworkID)
-	if enforce {
+	mandatoryNetworkUpgrades := params.GetMandatoryNetworkUpgrades(chainCtx.NetworkID)
+	if avalanchegoConstants.ProductionNetworkIDs.Contains(chainCtx.NetworkID) {
 		// We enforce network upgrades here, regardless of the chain config
 		// provided in the genesis file
 		g.Config.MandatoryNetworkUpgrades = mandatoryNetworkUpgrades
@@ -711,7 +715,7 @@ func (vm *VM) initBlockBuilding() error {
 	vm.builder.awaitSubmittedTxs()
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
 
-	ethTxPool, err := NewGossipEthTxPool(vm.txPool)
+	ethTxPool, err := NewGossipEthTxPool(vm.txPool, vm.sdkMetrics)
 	if err != nil {
 		return err
 	}
@@ -808,6 +812,7 @@ func (vm *VM) Shutdown(context.Context) error {
 	return nil
 }
 
+// buildBlock builds a block to be wrapped by ChainState
 func (vm *VM) buildBlock(ctx context.Context) (snowman.Block, error) {
 	return vm.buildBlockWithContext(ctx, nil)
 }
@@ -1191,19 +1196,4 @@ func loadPrivateKeyFromFile(keyFile string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSuffix(string(key), "\n"), nil
-}
-
-// getMandatoryNetworkUpgrades returns the mandatory network upgrades for the specified network ID,
-// along with a flag that indicates if returned upgrades should be strictly enforced.
-func getMandatoryNetworkUpgrades(networkID uint32) (params.MandatoryNetworkUpgrades, bool) {
-	switch networkID {
-	case avalanchegoConstants.MainnetID:
-		return params.MainnetNetworkUpgrades, true
-	case avalanchegoConstants.FujiID:
-		return params.FujiNetworkUpgrades, true
-	case avalanchegoConstants.UnitTestID:
-		return params.UnitTestNetworkUpgrades, false
-	default:
-		return params.LocalNetworkUpgrades, false
-	}
 }
