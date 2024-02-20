@@ -1,3 +1,6 @@
 {
-    "proposerMinBlockDelay": 0
+    "proposerMinBlockDelay": 0,
+    "appGossipValidatorSize": 10,
+    "appGossipNonValidatorSize": 5,
+    "appGossipPeerSize": 15
 }
