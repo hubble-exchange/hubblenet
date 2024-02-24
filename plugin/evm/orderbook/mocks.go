@@ -332,10 +332,6 @@ func (cs *MockConfigService) GetSignedOrderbookContract() common.Address {
 	return common.Address{}
 }
 
-func (cs *MockConfigService) GetUpgradeVersion() hu.UpgradeVersion {
-	return hu.V2
-}
-
 func (cs *MockConfigService) GetMarketAddressFromMarketID(marketId int64) common.Address {
 	return common.Address{}
 }

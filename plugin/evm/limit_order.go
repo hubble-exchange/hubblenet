@@ -77,7 +77,7 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 		MinAllowableMargin: configService.GetMinAllowableMargin(),
 		MaintenanceMargin:  configService.GetMaintenanceMargin(),
 		TakerFee:           configService.GetTakerFee(),
-		UpgradeVersion:     configService.GetUpgradeVersion(),
+		UpgradeVersion:     hu.V2,
 	}
 	hu.SetHubbleState(hState)
 	hu.SetChainIdAndVerifyingSignedOrdersContract(backend.ChainConfig().ChainID.Int64(), signedObAddy.String())

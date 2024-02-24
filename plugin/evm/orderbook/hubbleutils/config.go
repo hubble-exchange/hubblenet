@@ -1,5 +1,7 @@
 package hubbleutils
 
+import "math/big"
+
 var (
 	ChainId           int64
 	VerifyingContract string
@@ -16,12 +18,18 @@ func SetHubbleState(_hState *HubbleState) {
 }
 
 func GetHubbleState() *HubbleState {
+	assets := make([]Collateral, len(hState.Assets))
+	copy(assets, hState.Assets)
+
+	activeMarkets := make([]Market, len(hState.ActiveMarkets))
+	copy(activeMarkets, hState.ActiveMarkets)
+
 	return &HubbleState{
-		Assets:             hState.Assets,
-		ActiveMarkets:      hState.ActiveMarkets,
-		MinAllowableMargin: hState.MinAllowableMargin,
-		MaintenanceMargin:  hState.MaintenanceMargin,
-		TakerFee:           hState.TakerFee,
+		Assets:             assets,
+		ActiveMarkets:      activeMarkets,
+		MinAllowableMargin: new(big.Int).Set(hState.MinAllowableMargin),
+		MaintenanceMargin:  new(big.Int).Set(hState.MaintenanceMargin),
+		TakerFee:           new(big.Int).Set(hState.TakerFee),
 		UpgradeVersion:     hState.UpgradeVersion,
 	}
 }
