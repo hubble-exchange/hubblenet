@@ -170,6 +170,10 @@ func (db *MockLimitOrderDatabase) SampleImpactPrice() (impactBids, impactAsks, m
 
 func (db *MockLimitOrderDatabase) RemoveExpiredSignedOrders() {}
 
+func (db *MockLimitOrderDatabase) GetMarginAvailableForMakerbook(trader common.Address, prices map[int]*big.Int) *big.Int {
+	return big.NewInt(0)
+}
+
 type MockLimitOrderTxProcessor struct {
 	mock.Mock
 }

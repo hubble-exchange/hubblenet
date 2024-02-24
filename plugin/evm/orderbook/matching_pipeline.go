@@ -78,10 +78,9 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 		}
 	}
 
-	// fetch the underlying price and run the matching engine
-	hState := hu.HState
-	hState.OraclePrices = pipeline.GetUnderlyingPrices()
-	hState.MidPrices = pipeline.GetMidPrices()
+	// fetch various hubble market params and run the matching engine
+	hState := hu.GetHubbleState()
+	hState.OraclePrices = hu.ArrayToMap(pipeline.configService.GetUnderlyingPrices())
 
 	// build trader map
 	liquidablePositions, ordersToCancel, marginMap := pipeline.db.GetNaughtyTraders(hState)
@@ -118,26 +117,6 @@ func (pipeline *MatchingPipeline) GetActiveMarkets() []Market {
 		markets[i] = Market(i)
 	}
 	return markets
-}
-
-func (pipeline *MatchingPipeline) GetUnderlyingPrices() map[Market]*big.Int {
-	prices := pipeline.configService.GetUnderlyingPrices()
-	// log.Info("GetUnderlyingPrices", "prices", prices)
-	underlyingPrices := make(map[Market]*big.Int)
-	for market, price := range prices {
-		underlyingPrices[Market(market)] = price
-	}
-	return underlyingPrices
-}
-
-func (pipeline *MatchingPipeline) GetMidPrices() map[Market]*big.Int {
-	prices := pipeline.configService.GetMidPrices()
-	// log.Info("GetMidPrices", "prices", prices)
-	midPrices := make(map[Market]*big.Int)
-	for market, price := range prices {
-		midPrices[Market(market)] = price
-	}
-	return midPrices
 }
 
 func (pipeline *MatchingPipeline) GetCollaterals() []hu.Collateral {

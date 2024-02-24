@@ -3,7 +3,7 @@ package hubbleutils
 var (
 	ChainId           int64
 	VerifyingContract string
-	HState            *HubbleState
+	hState            *HubbleState
 )
 
 func SetChainIdAndVerifyingSignedOrdersContract(chainId int64, verifyingContract string) {
@@ -11,6 +11,17 @@ func SetChainIdAndVerifyingSignedOrdersContract(chainId int64, verifyingContract
 	VerifyingContract = verifyingContract
 }
 
-func SetHubbleState(hState *HubbleState) {
-	HState = hState
+func SetHubbleState(_hState *HubbleState) {
+	hState = _hState
+}
+
+func GetHubbleState() *HubbleState {
+	return &HubbleState{
+		Assets:             hState.Assets,
+		ActiveMarkets:      hState.ActiveMarkets,
+		MinAllowableMargin: hState.MinAllowableMargin,
+		MaintenanceMargin:  hState.MaintenanceMargin,
+		TakerFee:           hState.TakerFee,
+		UpgradeVersion:     hState.UpgradeVersion,
+	}
 }
