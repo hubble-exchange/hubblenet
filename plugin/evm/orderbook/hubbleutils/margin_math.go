@@ -160,3 +160,11 @@ func GetRequiredMargin(price, fillAmount, minAllowableMargin, takerFee *big.Int)
 	quoteAsset := Div1e18(Mul(fillAmount, price))
 	return Add(Div1e6(Mul(quoteAsset, minAllowableMargin)), Div1e6(Mul(quoteAsset, takerFee)))
 }
+
+func ArrayToMap(prices []*big.Int) map[Market]*big.Int {
+	underlyingPrices := make(map[Market]*big.Int)
+	for market, price := range prices {
+		underlyingPrices[Market(market)] = price
+	}
+	return underlyingPrices
+}

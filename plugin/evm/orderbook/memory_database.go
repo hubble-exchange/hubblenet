@@ -258,6 +258,7 @@ type LimitOrderDatabase interface {
 	GetOrderValidationFields(orderId common.Hash, order *hu.SignedOrder) OrderValidationFields
 	SampleImpactPrice() (impactBids, impactAsks, midPrices []*big.Int)
 	RemoveExpiredSignedOrders()
+	GetMarginAvailableForMakerbook(trader common.Address, prices map[int]*big.Int) *big.Int
 }
 
 type Snapshot struct {
@@ -1290,11 +1291,10 @@ func getOrderIdx(orders []*Order, orderId common.Hash) int {
 }
 
 type OrderValidationFields struct {
-	Exists          bool
-	PosSize         *big.Int
-	AvailableMargin *big.Int
-	AsksHead        *big.Int
-	BidsHead        *big.Int
+	Exists   bool
+	PosSize  *big.Int
+	AsksHead *big.Int
+	BidsHead *big.Int
 }
 
 func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order *hu.SignedOrder) OrderValidationFields {
@@ -1323,28 +1323,35 @@ func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order 
 		bidsHead = db.LongOrders[marketId][0].Price
 	}
 
-	availableMargin := big.NewInt(0)
-	_trader := db.TraderMap[trader]
-	if _trader != nil {
-		hState := hu.HState
-		userState := &hu.UserState{
-			Positions:      translatePositions(_trader.Positions),
-			Margins:        getMargins(_trader, len(hState.Assets)),
-			PendingFunding: getTotalFunding(_trader, hState.ActiveMarkets),
-			ReservedMargin: new(big.Int).Set(_trader.Margin.Reserved),
-		}
-		if _trader.Margin.VirtualReserved == nil {
-			_trader.Margin.VirtualReserved = big.NewInt(0)
-		}
-		availableMargin = hu.Sub(hu.GetAvailableMargin(hState, userState), _trader.Margin.VirtualReserved)
-	}
 	return OrderValidationFields{
-		Exists:          false,
-		PosSize:         posSize,
-		AvailableMargin: availableMargin,
-		AsksHead:        asksHead,
-		BidsHead:        bidsHead,
+		Exists:   false,
+		PosSize:  posSize,
+		AsksHead: asksHead,
+		BidsHead: bidsHead,
 	}
+}
+
+func (db *InMemoryDatabase) GetMarginAvailableForMakerbook(trader common.Address, prices map[int]*big.Int) *big.Int {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	_trader := db.TraderMap[trader]
+	if _trader == nil {
+		return big.NewInt(0)
+	}
+
+	hState := hu.GetHubbleState()
+	hState.OraclePrices = prices
+	userState := &hu.UserState{
+		Positions:      translatePositions(_trader.Positions),
+		Margins:        getMargins(_trader, len(hState.Assets)),
+		PendingFunding: getTotalFunding(_trader, hState.ActiveMarkets),
+		ReservedMargin: new(big.Int).Set(_trader.Margin.Reserved),
+	}
+	if _trader.Margin.VirtualReserved == nil {
+		_trader.Margin.VirtualReserved = big.NewInt(0)
+	}
+	return hu.Sub(hu.GetAvailableMargin(hState, userState), _trader.Margin.VirtualReserved)
 }
 
 func (db *InMemoryDatabase) SampleImpactPrice() (impactBids, impactAsks, midPrices []*big.Int) {

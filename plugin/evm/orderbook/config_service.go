@@ -31,7 +31,6 @@ type IConfigService interface {
 	GetSignedOrderStatus(orderHash common.Hash) int64
 	IsTradingAuthority(trader, signer common.Address) bool
 	GetSignedOrderbookContract() common.Address
-	GetUpgradeVersion() hu.UpgradeVersion
 
 	GetMarketAddressFromMarketID(marketId int64) common.Address
 	GetImpactMarginNotional(ammAddress common.Address) *big.Int
@@ -130,14 +129,6 @@ func (cs *ConfigService) IsTradingAuthority(trader, signer common.Address) bool 
 
 func (cs *ConfigService) GetSignedOrderbookContract() common.Address {
 	return bibliophile.GetSignedOrderBookAddress(cs.getStateAtCurrentBlock())
-}
-
-func (cs *ConfigService) GetUpgradeVersion() hu.UpgradeVersion {
-	jurorAddy := bibliophile.JurorAddress(cs.getStateAtCurrentBlock())
-	if jurorAddy == common.HexToAddress("0x03000000000000000000000000000000000000a2") {
-		return hu.V2
-	}
-	return hu.V1
 }
 
 func (cs *ConfigService) GetMarketAddressFromMarketID(marketId int64) common.Address {

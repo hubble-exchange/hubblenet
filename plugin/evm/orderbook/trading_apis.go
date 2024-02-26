@@ -349,7 +349,8 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 		minAllowableMargin := api.configService.GetMinAllowableMargin()
 		// even tho order might be matched at a different price, we reserve margin at the price the order was placed at to keep it simple
 		requiredMargin = hu.GetRequiredMargin(order.Price, hu.Abs(order.BaseAssetQuantity), minAllowableMargin, big.NewInt(0))
-		if fields.AvailableMargin.Cmp(requiredMargin) == -1 {
+		availableMargin := api.db.GetMarginAvailableForMakerbook(trader, hu.ArrayToMap(api.configService.GetUnderlyingPrices()))
+		if availableMargin.Cmp(requiredMargin) == -1 {
 			return orderId, hu.ErrInsufficientMargin
 		}
 	} else {

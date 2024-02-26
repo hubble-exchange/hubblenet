@@ -170,6 +170,10 @@ func (db *MockLimitOrderDatabase) SampleImpactPrice() (impactBids, impactAsks, m
 
 func (db *MockLimitOrderDatabase) RemoveExpiredSignedOrders() {}
 
+func (db *MockLimitOrderDatabase) GetMarginAvailableForMakerbook(trader common.Address, prices map[int]*big.Int) *big.Int {
+	return big.NewInt(0)
+}
+
 type MockLimitOrderTxProcessor struct {
 	mock.Mock
 }
@@ -326,10 +330,6 @@ func NewMockConfigService() *MockConfigService {
 
 func (cs *MockConfigService) GetSignedOrderbookContract() common.Address {
 	return common.Address{}
-}
-
-func (cs *MockConfigService) GetUpgradeVersion() hu.UpgradeVersion {
-	return hu.V2
 }
 
 func (cs *MockConfigService) GetMarketAddressFromMarketID(marketId int64) common.Address {
