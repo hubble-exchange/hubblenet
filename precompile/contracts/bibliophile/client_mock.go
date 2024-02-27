@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	hubbleutils "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	contract "github.com/ava-labs/subnet-evm/precompile/contract"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -49,6 +50,20 @@ func (m *MockBibliophileClient) GetAcceptableBoundsForLiquidation(marketId int64
 func (mr *MockBibliophileClientMockRecorder) GetAcceptableBoundsForLiquidation(marketId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAcceptableBoundsForLiquidation", reflect.TypeOf((*MockBibliophileClient)(nil).GetAcceptableBoundsForLiquidation), marketId)
+}
+
+// GetAccessibleState mocks base method.
+func (m *MockBibliophileClient) GetAccessibleState() contract.AccessibleState {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAccessibleState")
+	ret0, _ := ret[0].(contract.AccessibleState)
+	return ret0
+}
+
+// GetAccessibleState indicates an expected call of GetAccessibleState.
+func (mr *MockBibliophileClientMockRecorder) GetAccessibleState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccessibleState", reflect.TypeOf((*MockBibliophileClient)(nil).GetAccessibleState))
 }
 
 // GetActiveMarketsCount mocks base method.

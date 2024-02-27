@@ -3,6 +3,7 @@ package jurorv2
 import (
 	"errors"
 	"math/big"
+	"strings"
 
 	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
@@ -379,11 +380,19 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder
 }
 
 func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *hu.SignedOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	// these fields are only set in plugin/evm/limit_order.go.NewLimitOrderProcesser
+	// however, the above is not invoked after the bootstrap, so we need to set these fields here to serve the precompile validation during the bootstrap
+	if hu.VerifyingContract == "" || hu.ChainId == 0 {
+		chainId := bibliophile.GetAccessibleState().GetSnowContext().ChainID
+		if strings.EqualFold(chainId.String(), "2jfjkB7NkK4v8zoaoWmh5eaABNW6ynjQvemPFZpgPQ7ugrmUXv") { // mainnet
+			hu.SetChainIdAndVerifyingSignedOrdersContract(1992, "0x211682829664a5e289885DE21897B094eF289d18")
+		}
+	}
+
 	orderHash, err := order.Hash()
 	if err != nil {
 		return &Metadata{OrderHash: common.Hash{}}, err
 	}
-
 	trader, signer, err := hu.ValidateSignedOrder(
 		order,
 		hu.SignedOrderValidationFields{
