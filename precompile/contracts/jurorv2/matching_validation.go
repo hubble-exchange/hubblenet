@@ -3,6 +3,7 @@ package jurorv2
 import (
 	"errors"
 	"math/big"
+	"strings"
 
 	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
@@ -379,11 +380,22 @@ func validateExecuteIOCOrder(bibliophile b.BibliophileClient, order *ob.IOCOrder
 }
 
 func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *hu.SignedOrder, side Side, fillAmount *big.Int) (metadata *Metadata, err error) {
+	// these fields are only set in plugin/evm/limit_order.go.NewLimitOrderProcesser
+	// however, the above is not invoked until the node bootstraps completely, and hence causes the signed order match validations during bootstrap to fail
+	// here we hardcode the values for mainnet and aylin testnet
+	if hu.VerifyingContract == "" || hu.ChainId == 0 {
+		chainId := bibliophile.GetAccessibleState().GetSnowContext().ChainID
+		if strings.EqualFold(chainId.String(), "2jfjkB7NkK4v8zoaoWmh5eaABNW6ynjQvemPFZpgPQ7ugrmUXv") { // mainnet
+			hu.SetChainIdAndVerifyingSignedOrdersContract(1992, "0x211682829664a5e289885DE21897B094eF289d18")
+		} else if strings.EqualFold(chainId.String(), "2qR64ZGVHTJjTZTzEnQTDoD1oMVQMYFVaBtN5tDoYaDKfVY5Xz") { // aylin
+			hu.SetChainIdAndVerifyingSignedOrdersContract(486, "0xb589490250fAEaF7D80D0b5A41db5059d55A85Df")
+		}
+	}
+
 	orderHash, err := order.Hash()
 	if err != nil {
 		return &Metadata{OrderHash: common.Hash{}}, err
 	}
-
 	trader, signer, err := hu.ValidateSignedOrder(
 		order,
 		hu.SignedOrderValidationFields{
