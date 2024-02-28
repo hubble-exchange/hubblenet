@@ -5,10 +5,12 @@ package orderbook
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ava-labs/subnet-evm/eth"
@@ -17,23 +19,46 @@ import (
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var traderFeed event.Feed
 var marketFeed event.Feed
+var MakerbookDatabaseFile string
 
 type TradingAPI struct {
-	db            LimitOrderDatabase
-	backend       *eth.EthAPIBackend
-	configService IConfigService
+	db                     LimitOrderDatabase
+	backend                *eth.EthAPIBackend
+	configService          IConfigService
+	makerbookFileWriteChan chan Order
+	shutdownChan           <-chan struct{}
+	shutdownWg             *sync.WaitGroup
 }
 
-func NewTradingAPI(database LimitOrderDatabase, backend *eth.EthAPIBackend, configService IConfigService) *TradingAPI {
-	return &TradingAPI{
-		db:            database,
-		backend:       backend,
-		configService: configService,
+func NewTradingAPI(database LimitOrderDatabase, backend *eth.EthAPIBackend, configService IConfigService, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup) *TradingAPI {
+	tradingAPI := &TradingAPI{
+		db:                     database,
+		backend:                backend,
+		configService:          configService,
+		makerbookFileWriteChan: make(chan Order, 100),
+		shutdownChan:           shutdownChan,
+		shutdownWg:             shutdownWg,
 	}
+
+	shutdownWg.Add(1)
+	go func() {
+		defer shutdownWg.Done()
+		for {
+			select {
+			case order := <-tradingAPI.makerbookFileWriteChan:
+				writeOrderToFile(order)
+			case <-tradingAPI.shutdownChan:
+				return
+			}
+		}
+	}()
+
+	return tradingAPI
 }
 
 type TradingOrderBookDepthResponse struct {
@@ -97,13 +122,9 @@ var mapStatus = map[Status]string{
 }
 
 func (api *TradingAPI) GetTradingOrderBookDepth(ctx context.Context, market int8) TradingOrderBookDepthResponse {
-	response := TradingOrderBookDepthResponse{
-		Asks: [][]string{},
-		Bids: [][]string{},
-	}
 	depth := getDepthForMarket(api.db, Market(market))
 
-	response = transformMarketDepth(depth)
+	response := transformMarketDepth(depth)
 	response.T = time.Now().Unix()
 
 	return response
@@ -340,6 +361,7 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 		return orderId, err
 	}
 	if trader != signer && !api.configService.IsTradingAuthority(trader, signer) {
+		log.Error("not trading authority", "trader", trader.String(), "signer", signer.String())
 		return orderId, hu.ErrNoTradingAuthority
 	}
 
@@ -391,8 +413,20 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 		RawOrder:                order,
 		OrderType:               Signed,
 	}
+
 	placeSignedOrderCounter.Inc(1)
 	api.db.AddSignedOrder(signedOrder, requiredMargin)
+
+	if len(MakerbookDatabaseFile) > 0 {
+		go func() {
+			select {
+			case api.makerbookFileWriteChan <- *signedOrder:
+				log.Info("Successfully sent to the makerbook file write channel")
+			default:
+				log.Error("Failed to send to the makerbook file write channel", "order", signedOrder.Id.String())
+			}
+		}()
+	}
 
 	// send to trader feed - both for head and accepted block
 	go func() {
@@ -421,4 +455,35 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 	}()
 
 	return orderId, nil
+}
+
+func writeOrderToFile(order Order) {
+	doc := map[string]interface{}{
+		"type":      "OrderAccepted",
+		"timestamp": time.Now().Unix(),
+		"trader":    order.Trader.String(),
+		"orderHash": strings.ToLower(order.Id.String()),
+		"orderType": "signed",
+		"order": map[string]interface{}{
+			"orderType":         2,
+			"expireAt":          order.getExpireAt().Uint64(),
+			"ammIndex":          int(order.Market),
+			"trader":            order.Trader.String(),
+			"baseAssetQuantity": utils.BigIntToFloat(order.BaseAssetQuantity, 18),
+			"price":             utils.BigIntToFloat(order.Price, 6),
+			"salt":              order.Salt.Int64(),
+			"reduceOnly":        order.ReduceOnly,
+		},
+	}
+	jsonDoc, err := json.Marshal(doc)
+	if err != nil {
+		log.Error("writeOrderToFile: failed to marshal order", "err", err)
+		makerBookWriteFailuresCounter.Inc(1)
+		return
+	}
+	err = utils.AppendToFile(MakerbookDatabaseFile, jsonDoc)
+	if err != nil {
+		log.Error("writeOrderToFile: failed to write order to file", "err", err)
+		makerBookWriteFailuresCounter.Inc(1)
+	}
 }

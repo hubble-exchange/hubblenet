@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"math/big"
+	"os"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -58,6 +59,7 @@ type limitOrderProcesser struct {
 	tradingAPIEnabled        bool
 	loadFromSnapshotEnabled  bool
 	snapshotSavedBlockNumber uint64
+	snapshotFilePath         string
 	tradingAPI               *orderbook.TradingAPI
 }
 
@@ -109,6 +111,7 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 		isValidator:             config.IsValidator,
 		tradingAPIEnabled:       config.TradingAPIEnabled,
 		loadFromSnapshotEnabled: config.LoadFromSnapshotEnabled,
+		snapshotFilePath:        config.SnapshotFilePath,
 	}
 }
 
@@ -128,7 +131,6 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 			} else {
 				if acceptedBlockNumber > 0 {
 					fromBlock = big.NewInt(int64(acceptedBlockNumber) + 1)
-					log.Info("ListenAndProcessTransactions - memory DB snapshot loaded", "acceptedBlockNumber", acceptedBlockNumber)
 				} else {
 					// not an error, but unlikely after the blockchain is running for some time
 					log.Warn("ListenAndProcessTransactions - no snapshot found")
@@ -193,7 +195,7 @@ func (lop *limitOrderProcesser) GetOrderBookAPI() *orderbook.OrderBookAPI {
 
 func (lop *limitOrderProcesser) GetTradingAPI() *orderbook.TradingAPI {
 	if lop.tradingAPI == nil {
-		lop.tradingAPI = orderbook.NewTradingAPI(lop.memoryDb, lop.backend, lop.configService)
+		lop.tradingAPI = orderbook.NewTradingAPI(lop.memoryDb, lop.backend, lop.configService, lop.shutdownChan, lop.shutdownWg)
 	}
 	return lop.tradingAPI
 }
@@ -268,6 +270,7 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 						lop.memoryDb.Accept(snapshotBlockNumber, snapshotBlock.Timestamp())
 						err := lop.saveMemoryDBSnapshot(big.NewInt(int64(snapshotBlockNumber)))
 						if err != nil {
+							orderbook.SnapshotWriteFailuresCounter.Inc(1)
 							log.Error("Error in saving memory DB snapshot", "err", err, "snapshotBlockNumber", snapshotBlockNumber, "current blockNumber", blockNumber, "blockNumberFloor", blockNumberFloor)
 						}
 					}
@@ -349,36 +352,76 @@ func (lop *limitOrderProcesser) runMatchingTimer() {
 }
 
 func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint64, err error) {
+	acceptedBlockNumber, err = lop.loadMemoryDBSnapshotFromFile()
+	if err != nil || acceptedBlockNumber == 0 {
+		acceptedBlockNumber, err = lop.loadMemoryDBSnapshotFromHubbleDB()
+	}
+	return acceptedBlockNumber, err
+}
+
+func (lop *limitOrderProcesser) loadMemoryDBSnapshotFromHubbleDB() (uint64, error) {
 	snapshotFound, err := lop.hubbleDB.Has([]byte(memoryDBSnapshotKey))
 	if err != nil {
-		return acceptedBlockNumber, fmt.Errorf("Error in checking snapshot in hubbleDB: err=%v", err)
+		return 0, fmt.Errorf("Error in checking snapshot in hubbleDB: err=%v", err)
 	}
 
 	if !snapshotFound {
-		return acceptedBlockNumber, nil
+		return 0, nil
 	}
 
 	memorySnapshotBytes, err := lop.hubbleDB.Get([]byte(memoryDBSnapshotKey))
 	if err != nil {
-		return acceptedBlockNumber, fmt.Errorf("Error in fetching snapshot from hubbleDB; err=%v", err)
+		return 0, fmt.Errorf("Error in fetching snapshot from hubbleDB; err=%v", err)
 	}
 
 	buf := bytes.NewBuffer(memorySnapshotBytes)
 	var snapshot orderbook.Snapshot
 	err = gob.NewDecoder(buf).Decode(&snapshot)
 	if err != nil {
-		return acceptedBlockNumber, fmt.Errorf("Error in snapshot parsing; err=%v", err)
+		return 0, fmt.Errorf("Error in snapshot parsing from hubbleDB; err=%v", err)
 	}
 
 	if snapshot.AcceptedBlockNumber != nil && snapshot.AcceptedBlockNumber.Uint64() > 0 {
 		err = lop.memoryDb.LoadFromSnapshot(snapshot)
 		if err != nil {
-			return acceptedBlockNumber, fmt.Errorf("Error in loading from snapshot: err=%v", err)
+			return 0, fmt.Errorf("Error in loading snapshot from hubbleDB: err=%v", err)
+		} else {
+			log.Info("memory DB snapshot loaded from hubbleDB", "acceptedBlockNumber", snapshot.AcceptedBlockNumber)
+			return snapshot.AcceptedBlockNumber.Uint64(), nil
+		}
+	} else {
+		return 0, nil
+	}
+}
+
+func (lop *limitOrderProcesser) loadMemoryDBSnapshotFromFile() (uint64, error) {
+	if lop.snapshotFilePath == "" {
+		return 0, fmt.Errorf("snapshot file path not set")
+	}
+
+	memorySnapshotBytes, err := os.ReadFile(lop.snapshotFilePath)
+	if err != nil {
+		return 0, fmt.Errorf("Error in reading snapshot file: err=%v", err)
+	}
+
+	buf := bytes.NewBuffer(memorySnapshotBytes)
+	var snapshot orderbook.Snapshot
+	err = gob.NewDecoder(buf).Decode(&snapshot)
+	if err != nil {
+		return 0, fmt.Errorf("Error in snapshot parsing from file; err=%v", err)
+	}
+
+	if snapshot.AcceptedBlockNumber != nil && snapshot.AcceptedBlockNumber.Uint64() > 0 {
+		err = lop.memoryDb.LoadFromSnapshot(snapshot)
+		if err != nil {
+			return 0, fmt.Errorf("Error in loading snapshot from file: err=%v", err)
+		} else {
+			log.Info("memory DB snapshot loaded from file", "acceptedBlockNumber", snapshot.AcceptedBlockNumber)
 		}
 
 		return snapshot.AcceptedBlockNumber.Uint64(), nil
 	} else {
-		return acceptedBlockNumber, nil
+		return 0, nil
 	}
 }
 
@@ -386,6 +429,10 @@ func (lop *limitOrderProcesser) loadMemoryDBSnapshot() (acceptedBlockNumber uint
 func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.Int) error {
 	start := time.Now()
 	currentHeadBlock := lop.blockChain.CurrentBlock()
+
+	if lop.snapshotFilePath == "" {
+		return fmt.Errorf("snapshot file path not set")
+	}
 
 	memoryDBCopy, err := lop.memoryDb.GetOrderBookDataCopy()
 	if err != nil {
@@ -428,9 +475,11 @@ func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.In
 		return fmt.Errorf("error in gob encoding: err=%v", err)
 	}
 
-	err = lop.hubbleDB.Put([]byte(memoryDBSnapshotKey), buf.Bytes())
+	snapshotBytes := buf.Bytes()
+	// write to snapshot file
+	err = os.WriteFile(lop.snapshotFilePath, snapshotBytes, 0644)
 	if err != nil {
-		return fmt.Errorf("Error in saving to DB: err=%v", err)
+		return fmt.Errorf("Error in writing to snapshot file: err=%v", err)
 	}
 
 	lop.snapshotSavedBlockNumber = acceptedBlockNumber.Uint64()
