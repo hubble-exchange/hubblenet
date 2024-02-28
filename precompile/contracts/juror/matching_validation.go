@@ -434,6 +434,18 @@ func reducesPosition(positionSize *big.Int, baseAssetQuantity *big.Int) bool {
 }
 
 func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrder) *big.Int {
+	if false { // @todo find apt condition
+		return getRequiredMarginNew(bibliophile, order)
+	}
+	return getRequiredMarginLegacy(bibliophile, order)
+}
+
+func getRequiredMarginNew(bibliophile b.BibliophileClient, order ILimitOrderBookOrder) *big.Int {
+	// @todo implement
+	return big.NewInt(0)
+}
+
+func getRequiredMarginLegacy(bibliophile b.BibliophileClient, order ILimitOrderBookOrder) *big.Int {
 	price := order.Price
 	upperBound, _ := bibliophile.GetUpperAndLowerBoundForMarket(order.AmmIndex.Int64())
 	if order.BaseAssetQuantity.Sign() == -1 && order.Price.Cmp(upperBound) == -1 {
