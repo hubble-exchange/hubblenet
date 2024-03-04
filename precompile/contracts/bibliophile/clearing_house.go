@@ -64,6 +64,7 @@ type GetNotionalPositionAndMarginInput struct {
 type GetNotionalPositionAndMarginOutput struct {
 	NotionalPosition *big.Int
 	Margin           *big.Int
+	RequiredMargin   *big.Int
 }
 
 func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput, upgradeVersion hu.UpgradeVersion) GetNotionalPositionAndMarginOutput {
@@ -101,6 +102,47 @@ func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 	return GetNotionalPositionAndMarginOutput{
 		NotionalPosition: notionalPosition,
 		Margin:           margin,
+	}
+}
+
+func getNotionalPositionAndRequiredMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput, upgradeVersion hu.UpgradeVersion) GetNotionalPositionAndMarginOutput {
+	markets := GetMarkets(stateDB)
+	numMarkets := len(markets)
+	positions := make(map[int]*hu.Position, numMarkets)
+	underlyingPrices := make(map[int]*big.Int, numMarkets)
+	accountPreferences := make(map[int]*hu.AccountPreferences, numMarkets)
+	var activeMarketIds []int
+	for i, market := range markets {
+		// @todo can use `market` instead of `GetMarketAddressFromMarketID`?
+		positions[i] = getPosition(stateDB, GetMarketAddressFromMarketID(int64(i), stateDB), &input.Trader)
+		underlyingPrices[i] = getUnderlyingPrice(stateDB, market)
+		activeMarketIds = append(activeMarketIds, i)
+		accountPreferences[i].MarginType = getMarginType(stateDB, market, &input.Trader)
+		accountPreferences[i].MarginFraction = getMarginFractionByMode(stateDB, market, &input.Trader, input.Mode)
+	}
+	pendingFunding := big.NewInt(0)
+	if input.IncludeFundingPayments {
+		// @todo change it to return only cross margin funding
+		pendingFunding = GetTotalFunding(stateDB, &input.Trader)
+	}
+	notionalPosition, margin, requiredMargin := hu.GetNotionalPositionAndRequiredMargin(
+		&hu.HubbleState{
+			Assets:         GetCollaterals(stateDB),
+			OraclePrices:   underlyingPrices,
+			ActiveMarkets:  activeMarketIds,
+			UpgradeVersion: upgradeVersion,
+		},
+		&hu.UserState{
+			Positions:      positions,
+			Margins:        getMargins(stateDB, input.Trader),
+			PendingFunding: pendingFunding,
+			AccountPreferences: accountPreferences,
+		},
+	)
+	return GetNotionalPositionAndMarginOutput{
+		NotionalPosition: notionalPosition,
+		Margin:           margin,
+		RequiredMargin:   requiredMargin,
 	}
 }
 

@@ -54,6 +54,7 @@ type BibliophileClient interface {
 
 	GetTimeStamp() uint64
 	GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int)
+	GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int)
 	HasReferrer(trader common.Address) bool
 	GetActiveMarketsCount() int64
 
@@ -210,6 +211,11 @@ func (b *bibliophileClient) GetAvailableMargin(trader common.Address, upgradeVer
 func (b *bibliophileClient) GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int) {
 	output := getNotionalPositionAndMargin(b.accessibleState.GetStateDB(), &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayments, Mode: mode}, upgradeVersion)
 	return output.NotionalPosition, output.Margin
+}
+
+func (b *bibliophileClient) GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int) {
+	output := getNotionalPositionAndRequiredMargin(b.accessibleState.GetStateDB(), &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayments, Mode: mode}, upgradeVersion)
+	return output.NotionalPosition, output.Margin, output.RequiredMargin
 }
 
 func (b *bibliophileClient) HasReferrer(trader common.Address) bool {

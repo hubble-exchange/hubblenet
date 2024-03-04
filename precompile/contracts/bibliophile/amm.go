@@ -24,6 +24,11 @@ const (
 	ASKS_SLOT                       int64 = 22
 	BIDS_HEAD_SLOT                  int64 = 23
 	ASKS_HEAD_SLOT                  int64 = 24
+	TRADE_MARGIN_FRACTION_SLOT      int64 = 28
+	LIQUIDATION_MARGIN_FRACTION_SLOT int64 = 29
+	ISOLATED_TRADE_MARGIN_FRACTION_SLOT int64 = 30
+	ISOLATED_LIQUIDATION_MARGIN_FRACTION_SLOT int64 = 31
+	ACCOUNT_PREFERENCES_SLOT        int64 = 33
 )
 
 // AMM State
@@ -143,6 +148,57 @@ func getPosition(stateDB contract.StateDB, market common.Address, trader *common
 	return &hu.Position{
 		Size:         getSize(stateDB, market, trader),
 		OpenNotional: getOpenNotional(stateDB, market, trader),
+	}
+}
+
+func getTradeMarginFraction(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(TRADE_MARGIN_FRACTION_SLOT))).Big()
+}
+
+func getLiquidationMarginFraction(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(LIQUIDATION_MARGIN_FRACTION_SLOT))).Big()
+}
+
+func getIsolatedTradeMarginFraction(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(ISOLATED_TRADE_MARGIN_FRACTION_SLOT))).Big()
+}
+
+func getIsolatedLiquidationMarginFraction(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(ISOLATED_LIQUIDATION_MARGIN_FRACTION_SLOT))).Big()
+}
+
+func accountPreferencesSlot(trader *common.Address) *big.Int {
+	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(ACCOUNT_PREFERENCES_SLOT).Bytes(), 32)...)))
+}
+
+func getMarginType(stateDB contract.StateDB, market common.Address, trader *common.Address) uint8 {
+	return uint8(stateDB.GetState(market, common.BigToHash(accountPreferencesSlot(trader))).Big().Uint64())
+}
+
+func getTraderMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(accountPreferencesSlot(trader), big.NewInt(1)))).Big()
+}
+
+func getMarginFractionByMode(stateDB contract.StateDB, market common.Address, trader *common.Address, mode uint8) *big.Int {
+	if mode == 0 {
+		if (getMarginType(stateDB, market, trader) == 1) {
+			return getIsolatedLiquidationMarginFraction(stateDB, market)
+		} else {
+			return getLiquidationMarginFraction(stateDB, market)
+		}
+	}
+	// retuns trade margin fraction by default
+	// @todo check if can be reverted in case of invalid mode
+	return calcTradeMarginFraction(stateDB, market, trader)
+}
+
+func calcTradeMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+	if (getTraderMarginFraction(stateDB, market, trader).Cmp(big.NewInt(0)) != 0) {
+		return getTraderMarginFraction(stateDB, market, trader)
+	} else if (getMarginType(stateDB, market, trader) == 1) {
+		return getIsolatedTradeMarginFraction(stateDB, market)
+	} else {
+		return getTradeMarginFraction(stateDB, market)
 	}
 }
 
