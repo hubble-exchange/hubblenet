@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/precompile/contract"
 	"github.com/ava-labs/subnet-evm/vmerrs"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 
 	_ "embed"
 
@@ -195,8 +196,8 @@ func getNotionalPositionAndMargin(accessibleState contract.AccessibleState, call
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct                               // CUSTOM CODE OPERATES ON INPUT
-	var output GetNotionalPositionAndMarginOutput // CUSTOM CODE FOR AN OUTPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output := GetNotionalPositionAndMargin(bibliophile, &inputStruct)
 	packedOutput, err := PackGetNotionalPositionAndMarginOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
