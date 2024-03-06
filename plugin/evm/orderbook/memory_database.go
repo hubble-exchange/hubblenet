@@ -299,54 +299,13 @@ func (db *InMemoryDatabase) Accept(acceptedBlockNumber, blockTimestamp uint64) {
 		shortOrders := db.getShortOrdersWithoutLock(Market(m), nil, nil, false)
 
 		for _, longOrder := range longOrders {
-			status := shouldRemove(acceptedBlockNumber, blockTimestamp, longOrder)
-			if status == KEEP_IF_MATCHEABLE {
-				matchFound := false
-				for _, shortOrder := range shortOrders {
-					if longOrder.Price.Cmp(shortOrder.Price) < 0 {
-						break // because the short orders are sorted in ascending order of price, there is no point in checking further
-					}
-					// an IOC order even if has a price overlap can only be matched if the order came before it (or same block)
-					if longOrder.BlockNumber.Uint64() >= shortOrder.BlockNumber.Uint64() {
-						matchFound = true
-						break
-					} /* else {
-						dont break here because there might be an a short order with higher price that came before the IOC longOrder in question
-					} */
-				}
-				if !matchFound {
-					status = REMOVE
-				}
-			}
-
-			if status == REMOVE {
+			if shouldRemove(acceptedBlockNumber, blockTimestamp, longOrder) == REMOVE {
 				db.deleteOrderWithoutLock(longOrder.Id)
 			}
 		}
 
 		for _, shortOrder := range shortOrders {
-			status := shouldRemove(acceptedBlockNumber, blockTimestamp, shortOrder)
-			if status == KEEP_IF_MATCHEABLE {
-				matchFound := false
-				for _, longOrder := range longOrders {
-					if longOrder.Price.Cmp(shortOrder.Price) < 0 {
-						break // because the long orders are sorted in descending order of price, there is no point in checking further
-					}
-					// an IOC order even if has a price overlap can only be matched if the order came before it (or same block)
-					if shortOrder.BlockNumber.Uint64() >= longOrder.BlockNumber.Uint64() {
-						matchFound = true
-						break
-					}
-					/* else {
-						dont break here because there might be an a long order with lower price that came before the IOC shortOrder in question
-					} */
-				}
-				if !matchFound {
-					status = REMOVE
-				}
-			}
-
-			if status == REMOVE {
+			if shouldRemove(acceptedBlockNumber, blockTimestamp, shortOrder) == REMOVE {
 				db.deleteOrderWithoutLock(shortOrder.Id)
 			}
 		}
@@ -358,7 +317,6 @@ type OrderStatus uint8
 const (
 	KEEP OrderStatus = iota
 	REMOVE
-	KEEP_IF_MATCHEABLE
 )
 
 func shouldRemove(acceptedBlockNumber, blockTimestamp uint64, order Order) OrderStatus {
