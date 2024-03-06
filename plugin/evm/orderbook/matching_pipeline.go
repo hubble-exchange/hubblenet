@@ -97,7 +97,7 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 	}
 
 	orderBookTxsCount := pipeline.lotp.GetOrderBookTxsCount()
-	log.Info("MatchingPipeline:Run", "orderBookTxsCount", orderBookTxsCount)
+	log.Info("MatchingPipeline:Complete", "orderBookTxsCount", orderBookTxsCount)
 	if orderBookTxsCount > 0 {
 		pipeline.lotp.SetOrderBookTxsBlockNumber(blockNumber.Uint64())
 		return true

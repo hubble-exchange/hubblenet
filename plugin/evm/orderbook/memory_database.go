@@ -378,15 +378,6 @@ func shouldRemove(acceptedBlockNumber, blockTimestamp uint64, order Order) Order
 	if expireAt.Sign() > 0 && expireAt.Int64() < int64(blockTimestamp) {
 		return REMOVE
 	}
-
-	// IOC order can not matched with any order that came after it (same block is allowed)
-	// we can only surely say about orders that came at <= acceptedBlockNumber
-	if order.OrderType == IOC {
-		if order.BlockNumber.Uint64() > acceptedBlockNumber {
-			return KEEP
-		}
-		return KEEP_IF_MATCHEABLE
-	}
 	return KEEP
 }
 
