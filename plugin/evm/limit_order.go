@@ -268,11 +268,13 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 						log.Info("Saving memory DB snapshot", "snapshotBlockNumber", snapshotBlockNumber, "current blockNumber", blockNumber, "blockNumberFloor", blockNumberFloor)
 						snapshotBlock := lop.blockChain.GetBlockByNumber(snapshotBlockNumber)
 						lop.memoryDb.Accept(snapshotBlockNumber, snapshotBlock.Timestamp())
-						err := lop.saveMemoryDBSnapshot(big.NewInt(int64(snapshotBlockNumber)))
-						if err != nil {
-							orderbook.SnapshotWriteFailuresCounter.Inc(1)
-							log.Error("Error in saving memory DB snapshot", "err", err, "snapshotBlockNumber", snapshotBlockNumber, "current blockNumber", blockNumber, "blockNumberFloor", blockNumberFloor)
-						}
+						executeFuncAndRecoverPanic(func() {
+							err := lop.saveMemoryDBSnapshot(big.NewInt(int64(snapshotBlockNumber)))
+							if err != nil {
+								orderbook.SnapshotWriteFailuresCounter.Inc(1)
+								log.Error("Error in saving memory DB snapshot", "err", err, "snapshotBlockNumber", snapshotBlockNumber, "current blockNumber", blockNumber, "blockNumberFloor", blockNumberFloor)
+							}
+						}, orderbook.SaveSnapshotPanicMessage, orderbook.SaveSnapshotPanicsCounter)
 					}
 
 					lop.contractEventProcessor.ProcessAcceptedEvents(logs, false)
@@ -458,6 +460,7 @@ func (lop *limitOrderProcesser) saveMemoryDBSnapshot(acceptedBlockNumber *big.In
 		}
 
 		cev := orderbook.NewContractEventsProcessor(memoryDBCopy, lop.configService.GetSignedOrderbookContract())
+		// @todo: find a way to not log events removal here(add a logger in ContractEventsProcessor struct and use that to log everything)
 		cev.ProcessEvents(logsToRemove)
 	}
 

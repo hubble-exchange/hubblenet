@@ -28,7 +28,7 @@ type InMemoryDatabase struct {
 	CumulativePremiumFraction map[Market]*big.Int        `json:"cumulative_last_premium_fraction"`
 	NextSamplePITime          uint64                     `json:"next_sample_pi_time"`
 	SamplePIAttemptedTime     uint64                     `json:"sample_pi_attempted_time"`
-	configService             IConfigService
+	configService             IConfigService             `json:"-"`
 }
 
 func NewInMemoryDatabase(configService IConfigService) *InMemoryDatabase {
@@ -617,7 +617,7 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 
 	// only update margin if the order is not reduce-only
 	if order.OrderType == Signed && !order.ReduceOnly {
-		minAllowableMargin := db.configService.GetMinAllowableMargin()
+		minAllowableMargin := hu.GetHubbleState().MinAllowableMargin
 		requiredMargin := hu.GetRequiredMargin(order.Price, quantity, minAllowableMargin, big.NewInt(0))
 		db.updateVirtualReservedMargin(order.Trader, hu.Neg(requiredMargin))
 
@@ -1198,6 +1198,7 @@ func (db *InMemoryDatabase) GetOrderBookDataCopy() (*InMemoryDatabase, error) {
 	}
 
 	memoryDBCopy.mu = &sync.RWMutex{}
+	memoryDBCopy.configService = db.configService
 	return memoryDBCopy, nil
 }
 
