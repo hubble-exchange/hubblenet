@@ -1315,13 +1315,26 @@ func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order 
 	}
 
 	// market data
+	// allow some grace to market orders to be filled and accept post-only orders that might fill them
+	// iterate until we find a short order that is not an IOC order.
 	asksHead := big.NewInt(0)
 	if len(db.ShortOrders[marketId]) > 0 {
-		asksHead = db.ShortOrders[marketId][0].Price
+		for _, order := range db.ShortOrders[marketId] {
+			if order.OrderType != IOC {
+				asksHead = order.Price
+				break
+			}
+		}
 	}
+
 	bidsHead := big.NewInt(0)
 	if len(db.LongOrders[marketId]) > 0 {
-		bidsHead = db.LongOrders[marketId][0].Price
+		for _, order := range db.LongOrders[marketId] {
+			if order.OrderType != IOC {
+				bidsHead = order.Price
+				break
+			}
+		}
 	}
 
 	return OrderValidationFields{
