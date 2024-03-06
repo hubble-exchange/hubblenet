@@ -23,6 +23,7 @@ var (
 	RunSanitaryPipelinePanicsCounter         = metrics.NewRegisteredCounter("sanitary_pipeline_panics", nil)
 	HandleHubbleFeedLogsPanicsCounter        = metrics.NewRegisteredCounter("handle_hubble_feed_logs_panics", nil)
 	HandleChainAcceptedLogsPanicsCounter     = metrics.NewRegisteredCounter("handle_chain_accepted_logs_panics", nil)
+	SaveSnapshotPanicsCounter                = metrics.NewRegisteredCounter("save_snapshot_panics", nil)
 	HandleChainAcceptedEventPanicsCounter    = metrics.NewRegisteredCounter("handle_chain_accepted_event_panics", nil)
 	HandleMatchingPipelineTimerPanicsCounter = metrics.NewRegisteredCounter("handle_matching_pipeline_timer_panics", nil)
 	RPCPanicsCounter                         = metrics.NewRegisteredCounter("rpc_panic", nil)

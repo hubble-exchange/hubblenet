@@ -7,4 +7,5 @@ const (
 	RunMatchingPipelinePanicMessage       = "panic while running matching pipeline"
 	RunSanitaryPipelinePanicMessage       = "panic while running sanitary pipeline"
 	MakerBookFileWriteChannelPanicMessage = "panic while sending to makerbook file write channel"
+	SaveSnapshotPanicMessage              = "panic while saving snapshot"
 )
