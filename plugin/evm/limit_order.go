@@ -37,6 +37,7 @@ type LimitOrderProcesser interface {
 	GetOrderBookAPI() *orderbook.OrderBookAPI
 	GetTestingAPI() *orderbook.TestingAPI
 	GetTradingAPI() *orderbook.TradingAPI
+	RunMatchingPipeline()
 }
 
 type limitOrderProcesser struct {
@@ -348,6 +349,7 @@ func (lop *limitOrderProcesser) runMatchingTimer() {
 
 			case <-lop.shutdownChan:
 				lop.matchingPipeline.MatchingTicker.Stop()
+				lop.matchingPipeline.SanitaryTicker.Stop()
 				return
 			}
 		}

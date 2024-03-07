@@ -335,15 +335,15 @@ func (api *TradingAPI) StreamMarketTrades(ctx context.Context, market Market, bl
 }
 
 // @todo cache api.configService values to avoid db lookups on every order placement
-func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
+func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, bool, error) {
 	orderId, err := order.Hash()
 	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to hash order: %s", err)
+		return common.Hash{}, false, fmt.Errorf("failed to hash order: %s", err)
 	}
 	fields := api.db.GetOrderValidationFields(orderId, order)
 	// P1. Order is not already in memdb
 	if fields.Exists {
-		return orderId, hu.ErrOrderAlreadyExists
+		return orderId, false, hu.ErrOrderAlreadyExists
 	}
 	marketId := int(order.AmmIndex.Int64())
 	trader, signer, err := hu.ValidateSignedOrder(
@@ -358,11 +358,11 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 		},
 	)
 	if err != nil {
-		return orderId, err
+		return orderId, false, err
 	}
 	if trader != signer && !api.configService.IsTradingAuthority(trader, signer) {
 		log.Error("not trading authority", "trader", trader.String(), "signer", signer.String())
-		return orderId, hu.ErrNoTradingAuthority
+		return orderId, false, hu.ErrNoTradingAuthority
 	}
 
 	requiredMargin := big.NewInt(0)
@@ -373,11 +373,11 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 		requiredMargin = hu.GetRequiredMargin(order.Price, hu.Abs(order.BaseAssetQuantity), minAllowableMargin, big.NewInt(0))
 		availableMargin := api.db.GetMarginAvailableForMakerbook(trader, hu.ArrayToMap(api.configService.GetUnderlyingPrices()))
 		if availableMargin.Cmp(requiredMargin) == -1 {
-			return orderId, hu.ErrInsufficientMargin
+			return orderId, false, hu.ErrInsufficientMargin
 		}
 	} else {
 		// @todo P3. Sum of all reduce only orders should not exceed the total position size
-		return orderId, errors.New("reduce only orders via makerbook are not supported yet")
+		return orderId, false, errors.New("reduce only orders via makerbook are not supported yet")
 	}
 
 	// P4. Post only order shouldn't cross the market
@@ -389,13 +389,13 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 		asksHead := fields.AsksHead
 		bidsHead := fields.BidsHead
 		if (orderSide == hu.Side(hu.Short) && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == hu.Side(hu.Long) && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
-			return orderId, hu.ErrCrossingMarket
+			return orderId, false, hu.ErrCrossingMarket
 		}
 	}
 
 	// P5. HasReferrer
 	if !api.configService.HasReferrer(order.Trader) {
-		return orderId, hu.ErrNoReferrer
+		return orderId, false, hu.ErrNoReferrer
 	}
 
 	// validations passed, add to db
@@ -454,7 +454,7 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, error) {
 		traderFeed.Send(traderEvent)
 	}()
 
-	return orderId, nil
+	return orderId, fields.ShouldTriggerMatching, nil
 }
 
 func writeOrderToFile(order Order) {

@@ -1241,10 +1241,11 @@ func getOrderIdx(orders []*Order, orderId common.Hash) int {
 }
 
 type OrderValidationFields struct {
-	Exists   bool
-	PosSize  *big.Int
-	AsksHead *big.Int
-	BidsHead *big.Int
+	Exists                bool
+	PosSize               *big.Int
+	AsksHead              *big.Int
+	BidsHead              *big.Int
+	ShouldTriggerMatching bool
 }
 
 func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order *hu.SignedOrder) OrderValidationFields {
@@ -1266,11 +1267,16 @@ func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order 
 	// market data
 	// allow some grace to market orders to be filled and accept post-only orders that might fill them
 	// iterate until we find a short order that is not an IOC order.
+	isLongOrder := order.BaseAssetQuantity.Sign() > 0
+	shouldTriggerMatching := false
 	asksHead := big.NewInt(0)
-	if len(db.ShortOrders[marketId]) > 0 {
-		for _, order := range db.ShortOrders[marketId] {
-			if order.OrderType != IOC {
-				asksHead = order.Price
+	if isLongOrder && len(db.ShortOrders[marketId]) > 0 {
+		for _, _order := range db.ShortOrders[marketId] {
+			if _order.Price.Cmp(order.Price) <= 0 {
+				shouldTriggerMatching = true
+			}
+			if _order.OrderType != IOC {
+				asksHead = _order.Price
 				break
 			}
 		}
@@ -1278,19 +1284,23 @@ func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order 
 
 	bidsHead := big.NewInt(0)
 	if len(db.LongOrders[marketId]) > 0 {
-		for _, order := range db.LongOrders[marketId] {
-			if order.OrderType != IOC {
-				bidsHead = order.Price
+		for _, _order := range db.LongOrders[marketId] {
+			if _order.Price.Cmp(order.Price) >= 0 {
+				shouldTriggerMatching = true
+			}
+			if _order.OrderType != IOC {
+				bidsHead = _order.Price
 				break
 			}
 		}
 	}
 
 	return OrderValidationFields{
-		Exists:   false,
-		PosSize:  posSize,
-		AsksHead: asksHead,
-		BidsHead: bidsHead,
+		Exists:                false,
+		PosSize:               posSize,
+		AsksHead:              asksHead,
+		BidsHead:              bidsHead,
+		ShouldTriggerMatching: shouldTriggerMatching,
 	}
 }
 
