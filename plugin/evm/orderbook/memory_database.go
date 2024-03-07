@@ -299,54 +299,13 @@ func (db *InMemoryDatabase) Accept(acceptedBlockNumber, blockTimestamp uint64) {
 		shortOrders := db.getShortOrdersWithoutLock(Market(m), nil, nil, false)
 
 		for _, longOrder := range longOrders {
-			status := shouldRemove(acceptedBlockNumber, blockTimestamp, longOrder)
-			if status == KEEP_IF_MATCHEABLE {
-				matchFound := false
-				for _, shortOrder := range shortOrders {
-					if longOrder.Price.Cmp(shortOrder.Price) < 0 {
-						break // because the short orders are sorted in ascending order of price, there is no point in checking further
-					}
-					// an IOC order even if has a price overlap can only be matched if the order came before it (or same block)
-					if longOrder.BlockNumber.Uint64() >= shortOrder.BlockNumber.Uint64() {
-						matchFound = true
-						break
-					} /* else {
-						dont break here because there might be an a short order with higher price that came before the IOC longOrder in question
-					} */
-				}
-				if !matchFound {
-					status = REMOVE
-				}
-			}
-
-			if status == REMOVE {
+			if shouldRemove(acceptedBlockNumber, blockTimestamp, longOrder) == REMOVE {
 				db.deleteOrderWithoutLock(longOrder.Id)
 			}
 		}
 
 		for _, shortOrder := range shortOrders {
-			status := shouldRemove(acceptedBlockNumber, blockTimestamp, shortOrder)
-			if status == KEEP_IF_MATCHEABLE {
-				matchFound := false
-				for _, longOrder := range longOrders {
-					if longOrder.Price.Cmp(shortOrder.Price) < 0 {
-						break // because the long orders are sorted in descending order of price, there is no point in checking further
-					}
-					// an IOC order even if has a price overlap can only be matched if the order came before it (or same block)
-					if shortOrder.BlockNumber.Uint64() >= longOrder.BlockNumber.Uint64() {
-						matchFound = true
-						break
-					}
-					/* else {
-						dont break here because there might be an a long order with lower price that came before the IOC shortOrder in question
-					} */
-				}
-				if !matchFound {
-					status = REMOVE
-				}
-			}
-
-			if status == REMOVE {
+			if shouldRemove(acceptedBlockNumber, blockTimestamp, shortOrder) == REMOVE {
 				db.deleteOrderWithoutLock(shortOrder.Id)
 			}
 		}
@@ -358,7 +317,6 @@ type OrderStatus uint8
 const (
 	KEEP OrderStatus = iota
 	REMOVE
-	KEEP_IF_MATCHEABLE
 )
 
 func shouldRemove(acceptedBlockNumber, blockTimestamp uint64, order Order) OrderStatus {
@@ -377,15 +335,6 @@ func shouldRemove(acceptedBlockNumber, blockTimestamp uint64, order Order) Order
 	expireAt := order.getExpireAt()
 	if expireAt.Sign() > 0 && expireAt.Int64() < int64(blockTimestamp) {
 		return REMOVE
-	}
-
-	// IOC order can not matched with any order that came after it (same block is allowed)
-	// we can only surely say about orders that came at <= acceptedBlockNumber
-	if order.OrderType == IOC {
-		if order.BlockNumber.Uint64() > acceptedBlockNumber {
-			return KEEP
-		}
-		return KEEP_IF_MATCHEABLE
 	}
 	return KEEP
 }
@@ -1292,10 +1241,11 @@ func getOrderIdx(orders []*Order, orderId common.Hash) int {
 }
 
 type OrderValidationFields struct {
-	Exists   bool
-	PosSize  *big.Int
-	AsksHead *big.Int
-	BidsHead *big.Int
+	Exists                bool
+	PosSize               *big.Int
+	AsksHead              *big.Int
+	BidsHead              *big.Int
+	ShouldTriggerMatching bool
 }
 
 func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order *hu.SignedOrder) OrderValidationFields {
@@ -1315,20 +1265,40 @@ func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order 
 	}
 
 	// market data
+	// allow some grace to market orders to be filled and accept post-only orders that might fill them
+	// iterate until we find a short order that is not an IOC order.
+	isLongOrder := order.BaseAssetQuantity.Sign() > 0
+	shouldTriggerMatching := false
 	asksHead := big.NewInt(0)
-	if len(db.ShortOrders[marketId]) > 0 {
-		asksHead = db.ShortOrders[marketId][0].Price
+	if isLongOrder && len(db.ShortOrders[marketId]) > 0 {
+		for _, _order := range db.ShortOrders[marketId] {
+			if _order.OrderType != IOC {
+				asksHead = _order.Price
+				break
+			} else if _order.Price.Cmp(order.Price) <= 0 {
+				shouldTriggerMatching = true
+			}
+		}
 	}
+
 	bidsHead := big.NewInt(0)
-	if len(db.LongOrders[marketId]) > 0 {
-		bidsHead = db.LongOrders[marketId][0].Price
+	if !isLongOrder && len(db.LongOrders[marketId]) > 0 {
+		for _, _order := range db.LongOrders[marketId] {
+			if _order.OrderType != IOC {
+				bidsHead = _order.Price
+				break
+			} else if _order.Price.Cmp(order.Price) >= 0 {
+				shouldTriggerMatching = true
+			}
+		}
 	}
 
 	return OrderValidationFields{
-		Exists:   false,
-		PosSize:  posSize,
-		AsksHead: asksHead,
-		BidsHead: bidsHead,
+		Exists:                false,
+		PosSize:               posSize,
+		AsksHead:              asksHead,
+		BidsHead:              bidsHead,
+		ShouldTriggerMatching: shouldTriggerMatching,
 	}
 }
 

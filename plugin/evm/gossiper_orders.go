@@ -158,10 +158,14 @@ func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.Signed
 	// re-gossip orders, but not when we already knew the orders
 	ordersToGossip := make([]*hu.SignedOrder, 0)
 	for _, order := range orders {
-		_, err := tradingAPI.PlaceOrder(order)
+		_, shouldTriggerMatching, err := tradingAPI.PlaceOrder(order)
 		if err == nil {
 			h.stats.IncSignedOrdersGossipReceivedNew()
 			ordersToGossip = append(ordersToGossip, order)
+			if shouldTriggerMatching {
+				log.Info("received new match-able signed order, triggering matching pipeline...")
+				h.vm.limitOrderProcesser.RunMatchingPipeline()
+			}
 		} else if err == hu.ErrOrderAlreadyExists {
 			h.stats.IncSignedOrdersGossipReceivedKnown()
 		} else {
