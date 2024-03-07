@@ -1073,7 +1073,7 @@ func TestGetOrderValidationFields(t *testing.T) {
 				BaseOrder: hu.BaseOrder{
 					AmmIndex:          big.NewInt(0),
 					Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
-					BaseAssetQuantity: big.NewInt(5000000000000000000),
+					BaseAssetQuantity: big.NewInt(-5000000000000000000),
 					Price:             big.NewInt(1000000000),
 					Salt:              big.NewInt(1688994806105),
 					ReduceOnly:        false,
