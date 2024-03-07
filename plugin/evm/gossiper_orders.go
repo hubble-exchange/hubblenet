@@ -163,6 +163,7 @@ func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.Signed
 			h.stats.IncSignedOrdersGossipReceivedNew()
 			ordersToGossip = append(ordersToGossip, order)
 			if shouldTriggerMatching {
+				log.Info("received new match-able signed order, triggering matching pipeline...")
 				h.vm.limitOrderProcesser.RunMatchingPipeline()
 			}
 		} else if err == hu.ErrOrderAlreadyExists {
