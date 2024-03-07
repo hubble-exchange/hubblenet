@@ -19,8 +19,11 @@ var (
 
 // GossipHandler handles incoming gossip messages
 type GossipHandler interface {
-	HandleSignedOrders(nodeID ids.NodeID, msg SignedOrdersGossip) error
 	HandleEthTxs(nodeID ids.NodeID, msg EthTxsGossip) error
+}
+
+type LegacyGossipHandler interface {
+	HandleSignedOrders(nodeID ids.NodeID, msg SignedOrdersGossip) error
 }
 
 type NoopMempoolGossipHandler struct{}

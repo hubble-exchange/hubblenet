@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-func (n *pushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error {
+func (n *legacyPushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error {
 	select {
 	case n.ordersToGossipChan <- orders:
 	case <-n.shutdownChan:
@@ -20,7 +20,7 @@ func (n *pushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error {
 	return nil
 }
 
-func (n *pushGossiper) awaitSignedOrderGossip() {
+func (n *legacyPushGossiper) awaitSignedOrderGossip() {
 	n.shutdownWg.Add(1)
 	go executeFuncAndRecoverPanic(func() {
 		var (
@@ -59,7 +59,7 @@ func (n *pushGossiper) awaitSignedOrderGossip() {
 	}, "panic in awaitSignedOrderGossip", orderbook.AwaitSignedOrdersGossipPanicsCounter)
 }
 
-func (n *pushGossiper) gossipSignedOrders() (int, error) {
+func (n *legacyPushGossiper) gossipSignedOrders() (int, error) {
 	if (time.Since(n.lastOrdersGossiped) < minGossipOrdersBatchInterval) || len(n.ordersToGossip) == 0 {
 		return 0, nil
 	}
@@ -93,7 +93,7 @@ func (n *pushGossiper) gossipSignedOrders() (int, error) {
 	return len(selectedOrders), err
 }
 
-func (n *pushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
+func (n *legacyPushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 	if len(orders) == 0 {
 		return nil
 	}
@@ -107,7 +107,7 @@ func (n *pushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 	msg := message.SignedOrdersGossip{
 		Orders: ordersBytes,
 	}
-	msgBytes, err := message.BuildGossipMessage(n.codec, msg)
+	msgBytes, err := message.BuildLegacyGossipMessage(n.codec, msg)
 	if err != nil {
 		return err
 	}
@@ -119,12 +119,12 @@ func (n *pushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 	)
 	n.stats.IncSignedOrdersGossipSent(int64(len(orders)))
 	n.stats.IncSignedOrdersGossipBatchSent()
-	return n.client.Gossip(msgBytes)
+	return n.client.LegacyGossip(msgBytes)
 }
 
 //   #### HANDLER ####
 
-func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.SignedOrdersGossip) error {
+func (h *LegacyGossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.SignedOrdersGossip) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -171,7 +171,7 @@ func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.Signed
 	}
 
 	if len(ordersToGossip) > 0 {
-		h.vm.gossiper.GossipSignedOrders(ordersToGossip)
+		h.vm.legacyGossiper.GossipSignedOrders(ordersToGossip)
 	}
 
 	return nil

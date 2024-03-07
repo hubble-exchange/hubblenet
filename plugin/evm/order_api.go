@@ -72,7 +72,7 @@ func (api *OrderAPI) PlaceSignedOrders(ctx context.Context, input string) (Place
 		ordersToGossip = append(ordersToGossip, order)
 	}
 
-	api.vm.gossiper.GossipSignedOrders(ordersToGossip)
+	api.vm.legacyGossiper.GossipSignedOrders(ordersToGossip)
 
 	return PlaceSignedOrdersResponse{Orders: response}, nil
 }

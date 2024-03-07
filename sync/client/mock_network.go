@@ -74,7 +74,7 @@ func (t *mockNetwork) processMock(request []byte) ([]byte, error) {
 	return response, err
 }
 
-func (t *mockNetwork) Gossip([]byte) error {
+func (t *mockNetwork) LegacyGossip([]byte) error {
 	panic("not implemented") // we don't care about this function for this test
 }
 

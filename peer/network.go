@@ -51,9 +51,6 @@ type Network interface {
 	// SendAppRequest sends message to given nodeID, notifying handler when there's a response or timeout
 	SendAppRequest(ctx context.Context, nodeID ids.NodeID, message []byte, handler message.ResponseHandler) error
 
-	// Gossip sends given gossip message to peers
-	Gossip(gossip []byte) error
-
 	// SendCrossChainRequest sends a message to given chainID notifying handler when there's a response or timeout
 	SendCrossChainRequest(ctx context.Context, chainID ids.ID, message []byte, handler message.ResponseHandler) error
 
@@ -64,6 +61,8 @@ type Network interface {
 
 	// SetGossipHandler sets the provided gossip handler as the gossip handler
 	SetGossipHandler(handler message.GossipHandler)
+
+	SetLegacyGossipHandler(handler message.LegacyGossipHandler)
 
 	// SetRequestHandler sets the provided request handler as the request handler
 	SetRequestHandler(handler message.RequestHandler)
@@ -82,6 +81,9 @@ type Network interface {
 	NewClient(protocol uint64, options ...p2p.ClientOption) *p2p.Client
 	// AddHandler registers a server handler for an application protocol
 	AddHandler(protocol uint64, handler p2p.Handler) error
+
+	// FIXME this has been removed in subnet evm
+	LegacyGossip(gossip []byte) error
 }
 
 // network is an implementation of Network that processes message requests for
@@ -100,6 +102,7 @@ type network struct {
 	appRequestHandler          message.RequestHandler           // maps request type => handler
 	crossChainRequestHandler   message.CrossChainRequestHandler // maps cross chain request type => handler
 	gossipHandler              message.GossipHandler            // maps gossip type => handler
+	legacyGossipHandler        message.LegacyGossipHandler      // maps gossip type => handler
 	peers                      *peerTracker                     // tracking of peers & bandwidth
 	appStats                   stats.RequestHandlerStats        // Provide request handler metrics
 	crossChainStats            stats.RequestHandlerStats        // Provide cross chain request handler metrics
@@ -126,6 +129,7 @@ func NewNetwork(p2pNetwork *p2p.Network, appSender common.AppSender, codec codec
 		activeCrossChainRequests:   semaphore.NewWeighted(maxActiveCrossChainRequests),
 		p2pNetwork:                 p2pNetwork,
 		gossipHandler:              message.NoopMempoolGossipHandler{},
+		legacyGossipHandler:        message.NoopMempoolGossipHandler{},
 		appRequestHandler:          message.NoopRequestHandler{},
 		crossChainRequestHandler:   message.NoopCrossChainRequestHandler{},
 		peers:                      NewPeerTracker(),
@@ -437,15 +441,6 @@ func (n *network) markRequestFulfilled(requestID uint32) (message.ResponseHandle
 	return handler, true
 }
 
-// Gossip sends given gossip message to peers
-func (n *network) Gossip(gossip []byte) error {
-	if n.closed.Get() {
-		return nil
-	}
-
-	return n.appSender.SendAppGossip(context.TODO(), gossip)
-}
-
 // AppGossip is called by avalanchego -> VM when there is an incoming AppGossip
 // from a peer. An error returned by this function is treated as fatal by the
 // engine.
@@ -516,6 +511,13 @@ func (n *network) SetGossipHandler(handler message.GossipHandler) {
 	n.gossipHandler = handler
 }
 
+func (n *network) SetLegacyGossipHandler(handler message.LegacyGossipHandler) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	n.legacyGossipHandler = handler
+}
+
 func (n *network) SetRequestHandler(handler message.RequestHandler) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
@@ -562,4 +564,12 @@ func (n *network) nextRequestID() uint32 {
 	n.requestIDGen += 2
 
 	return next
+}
+
+func (n *network) LegacyGossip(gossip []byte) error {
+	if n.closed.Get() {
+		return nil
+	}
+
+	return n.appSender.SendAppGossip(context.TODO(), gossip, 0, 0, 0)
 }
