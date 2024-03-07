@@ -67,6 +67,14 @@ type GetNotionalPositionAndMarginOutput struct {
 	RequiredMargin   *big.Int
 }
 
+type GetTraderDataForMarketOutput struct {
+	NotionalPosition *big.Int
+	RequiredMargin   *big.Int
+	UnrealizedPnl    *big.Int
+	PendingFunding   *big.Int
+	IsIsolated 	 	 bool
+}
+
 func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput, upgradeVersion hu.UpgradeVersion) GetNotionalPositionAndMarginOutput {
 	markets := GetMarkets(stateDB)
 	numMarkets := len(markets)
@@ -106,24 +114,10 @@ func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 }
 
 func getNotionalPositionAndRequiredMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput, upgradeVersion hu.UpgradeVersion) GetNotionalPositionAndMarginOutput {
-	markets := GetMarkets(stateDB)
-	numMarkets := len(markets)
-	positions := make(map[int]*hu.Position, numMarkets)
-	underlyingPrices := make(map[int]*big.Int, numMarkets)
-	accountPreferences := make(map[int]*hu.AccountPreferences, numMarkets)
-	var activeMarketIds []int
-	for i, market := range markets {
-		// @todo can use `market` instead of `GetMarketAddressFromMarketID`?
-		positions[i] = getPosition(stateDB, GetMarketAddressFromMarketID(int64(i), stateDB), &input.Trader)
-		underlyingPrices[i] = getUnderlyingPrice(stateDB, market)
-		activeMarketIds = append(activeMarketIds, i)
-		accountPreferences[i].MarginType = getMarginType(stateDB, market, &input.Trader)
-		accountPreferences[i].MarginFraction = getMarginFractionByMode(stateDB, market, &input.Trader, input.Mode)
-	}
+	positions, underlyingPrices, accountPreferences, activeMarketIds := getMarketsDataFromDB(stateDB, &input.Trader, input.Mode)
 	pendingFunding := big.NewInt(0)
 	if input.IncludeFundingPayments {
-		// @todo change it to return only cross margin funding
-		pendingFunding = GetTotalFunding(stateDB, &input.Trader)
+		pendingFunding = getTotalFundingForCrossMarginPositions(stateDB, &input.Trader)
 	}
 	notionalPosition, margin, requiredMargin := hu.GetNotionalPositionAndRequiredMargin(
 		&hu.HubbleState{
@@ -143,6 +137,73 @@ func getNotionalPositionAndRequiredMargin(stateDB contract.StateDB, input *GetNo
 		NotionalPosition: notionalPosition,
 		Margin:           margin,
 		RequiredMargin:   requiredMargin,
+	}
+}
+
+func getCrossMarginAccountData(stateDB contract.StateDB, trader *common.Address, mode uint8, upgradeVersion hu.UpgradeVersion) GetTraderDataForMarketOutput {
+	positions, underlyingPrices, accountPreferences, activeMarketIds := getMarketsDataFromDB(stateDB, trader, mode)
+	notionalPosition, requiredMargin, unrealizedPnl := hu.GetCrossMarginAccountData(
+		&hu.HubbleState{
+			ActiveMarkets:  activeMarketIds,
+			OraclePrices:   underlyingPrices,
+			UpgradeVersion: upgradeVersion,
+		},
+		&hu.UserState{
+			Positions:          positions,
+			AccountPreferences: accountPreferences,
+		},
+	)
+	pendingFunding := getTotalFundingForCrossMarginPositions(stateDB, trader)
+	return GetTraderDataForMarketOutput {
+		NotionalPosition: notionalPosition,
+		RequiredMargin:   requiredMargin,
+		UnrealizedPnl:    unrealizedPnl,
+		PendingFunding:   pendingFunding,
+	}
+}
+
+func getMarketsDataFromDB(stateDB contract.StateDB, trader *common.Address, mode uint8) (positions map[int]*hu.Position, underlyingPrices map[int]*big.Int, accountPreferences map[int]*hu.AccountPreferences, activeMarketIds []int) {
+	markets := GetMarkets(stateDB)
+	numMarkets := len(markets)
+	positions = make(map[int]*hu.Position, numMarkets)
+	underlyingPrices = make(map[int]*big.Int, numMarkets)
+	accountPreferences = make(map[int]*hu.AccountPreferences, numMarkets)
+	activeMarketIds = make([]int, numMarkets)
+	for i, market := range markets {
+		// @todo can use `market` instead of `GetMarketAddressFromMarketID`?
+		positions[i] = getPosition(stateDB, GetMarketAddressFromMarketID(int64(i), stateDB), trader)
+		underlyingPrices[i] = getUnderlyingPrice(stateDB, market)
+		activeMarketIds[i] = i
+		accountPreferences[i].MarginType = getMarginType(stateDB, market, trader)
+		accountPreferences[i].MarginFraction = getMarginFractionByMode(stateDB, market, trader, mode)
+	}
+	return positions, underlyingPrices, accountPreferences, activeMarketIds
+}
+
+func getTotalFundingForCrossMarginPositions(stateDB contract.StateDB, trader *common.Address) *big.Int {
+	totalFunding := big.NewInt(0)
+	for _, market := range GetMarkets(stateDB) {
+		if getMarginType(stateDB, market, trader) == hu.Cross_Margin {
+			totalFunding.Add(totalFunding, getPendingFundingPayment(stateDB, market, trader))
+		}
+	}
+	return totalFunding
+}
+
+func getTraderDataForMarket(stateDB contract.StateDB, trader *common.Address, marketId int64, mode uint8) GetTraderDataForMarketOutput {
+	market := GetMarketAddressFromMarketID(marketId, stateDB)
+	position := getPosition(stateDB, market, trader)
+	marginFraction := getMarginFractionByMode(stateDB, market, trader, mode)
+	underlyingPrice := getUnderlyingPrice(stateDB, market)
+	notionalPosition, unrealizedPnl, requiredMargin := hu.GetTraderPositionDetails(position, underlyingPrice, marginFraction)
+	pendingFunding := getPendingFundingPayment(stateDB, market, trader)
+	isIsolated := getMarginType(stateDB, market, trader) == hu.Isolated_Margin
+	return GetTraderDataForMarketOutput{
+		IsIsolated:       isIsolated,
+		NotionalPosition: notionalPosition,
+		RequiredMargin:   requiredMargin,
+		UnrealizedPnl:    unrealizedPnl,
+		PendingFunding:   pendingFunding,
 	}
 }
 

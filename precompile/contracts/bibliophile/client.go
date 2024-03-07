@@ -55,6 +55,9 @@ type BibliophileClient interface {
 	GetTimeStamp() uint64
 	GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int)
 	GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int)
+	GetCrossMarginAccountData(trader common.Address, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int, *big.Int)
+	GetTotalFundingForCrossMarginPositions(trader *common.Address) *big.Int
+	GetTraderDataForMarket(trader common.Address, marketId int64, mode uint8) (bool, *big.Int, *big.Int, *big.Int, *big.Int)
 	HasReferrer(trader common.Address) bool
 	GetActiveMarketsCount() int64
 
@@ -216,6 +219,20 @@ func (b *bibliophileClient) GetNotionalPositionAndMargin(trader common.Address, 
 func (b *bibliophileClient) GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int) {
 	output := getNotionalPositionAndRequiredMargin(b.accessibleState.GetStateDB(), &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayments, Mode: mode}, upgradeVersion)
 	return output.NotionalPosition, output.Margin, output.RequiredMargin
+}
+
+func (b *bibliophileClient) GetCrossMarginAccountData(trader common.Address, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int, *big.Int) {
+	output := getCrossMarginAccountData(b.accessibleState.GetStateDB(), &trader, mode, upgradeVersion)
+	return output.NotionalPosition, output.RequiredMargin, output.UnrealizedPnl, output.PendingFunding
+}
+
+func (b *bibliophileClient) GetTotalFundingForCrossMarginPositions(trader *common.Address) *big.Int {
+	return getTotalFundingForCrossMarginPositions(b.accessibleState.GetStateDB(), trader)
+}
+
+func (b *bibliophileClient) GetTraderDataForMarket(trader common.Address, marketId int64, mode uint8) (bool, *big.Int, *big.Int, *big.Int, *big.Int) {
+	output := getTraderDataForMarket(b.accessibleState.GetStateDB(), &trader, marketId, mode)
+	return output.IsIsolated, output.NotionalPosition, output.UnrealizedPnl, output.RequiredMargin, output.PendingFunding
 }
 
 func (b *bibliophileClient) HasReferrer(trader common.Address) bool {
