@@ -138,8 +138,8 @@ func getCrossMarginAccountData(accessibleState contract.AccessibleState, caller 
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct                            // CUSTOM CODE OPERATES ON INPUT
-	var output GetCrossMarginAccountDataOutput // CUSTOM CODE FOR AN OUTPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output := GetCrossMarginAccountData(bibliophile, &inputStruct)
 	packedOutput, err := PackGetCrossMarginAccountDataOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
@@ -256,9 +256,8 @@ func getTotalFundingForCrossMarginPositions(accessibleState contract.AccessibleS
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct // CUSTOM CODE OPERATES ON INPUT
-
-	var output *big.Int // CUSTOM CODE FOR AN OUTPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output := GetTotalFundingForCrossMarginPositions(bibliophile, &inputStruct)
 	packedOutput, err := PackGetTotalFundingForCrossMarginPositionsOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
@@ -317,8 +316,8 @@ func getTraderDataForMarket(accessibleState contract.AccessibleState, caller com
 	}
 
 	// CUSTOM CODE STARTS HERE
-	_ = inputStruct                         // CUSTOM CODE OPERATES ON INPUT
-	var output GetTraderDataForMarketOutput // CUSTOM CODE FOR AN OUTPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	output := GetTraderDataForMarket(bibliophile, &inputStruct)
 	packedOutput, err := PackGetTraderDataForMarketOutput(output)
 	if err != nil {
 		return nil, remainingGas, err

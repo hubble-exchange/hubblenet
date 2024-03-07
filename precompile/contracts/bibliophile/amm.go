@@ -180,8 +180,8 @@ func getTraderMarginFraction(stateDB contract.StateDB, market common.Address, tr
 }
 
 func getMarginFractionByMode(stateDB contract.StateDB, market common.Address, trader *common.Address, mode uint8) *big.Int {
-	if mode == 0 {
-		if (getMarginType(stateDB, market, trader) == 1) {
+	if mode == hu.Maintenance_Margin {
+		if (getMarginType(stateDB, market, trader) == hu.Isolated_Margin) {
 			return getIsolatedLiquidationMarginFraction(stateDB, market)
 		} else {
 			return getLiquidationMarginFraction(stateDB, market)
@@ -195,7 +195,7 @@ func getMarginFractionByMode(stateDB contract.StateDB, market common.Address, tr
 func calcTradeMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	if (getTraderMarginFraction(stateDB, market, trader).Cmp(big.NewInt(0)) != 0) {
 		return getTraderMarginFraction(stateDB, market, trader)
-	} else if (getMarginType(stateDB, market, trader) == 1) {
+	} else if (getMarginType(stateDB, market, trader) == hu.Isolated_Margin) {
 		return getIsolatedTradeMarginFraction(stateDB, market)
 	} else {
 		return getTradeMarginFraction(stateDB, market)

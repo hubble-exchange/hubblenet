@@ -121,18 +121,18 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 
 func GetNotionalPositionAndRequiredMargin(hState *HubbleState, userState *UserState) (*big.Int, *big.Int, *big.Int) {
 	margin := Sub(GetNormalizedMargin(hState.Assets, userState.Margins), userState.PendingFunding)
-	notionalPosition, requiredMargin, unrealizedPnl := getCrossMarginAccountData(hState, userState)
+	notionalPosition, requiredMargin, unrealizedPnl := GetCrossMarginAccountData(hState, userState)
 	return notionalPosition, Add(margin, unrealizedPnl), requiredMargin
 }
 
-func getCrossMarginAccountData(hState *HubbleState, userState *UserState) (*big.Int, *big.Int, *big.Int) {
+func GetCrossMarginAccountData(hState *HubbleState, userState *UserState) (*big.Int, *big.Int, *big.Int) {
 	notionalPosition := big.NewInt(0)
 	unrealizedPnl := big.NewInt(0)
 	requiredMargin := big.NewInt(0)
 
 	for _, market := range hState.ActiveMarkets {
 		if userState.AccountPreferences[market].MarginType == Cross_Margin {
-			_notionalPosition, _unrealizedPnl, _requiredMargin := getTraderPositionDetails(hState, userState.Positions[market], market, userState.AccountPreferences[market].MarginFraction)
+			_notionalPosition, _unrealizedPnl, _requiredMargin := GetTraderPositionDetails(userState.Positions[market], hState.OraclePrices[market], userState.AccountPreferences[market].MarginFraction)
 			notionalPosition.Add(notionalPosition, _notionalPosition)
 			unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
 			requiredMargin.Add(requiredMargin, _requiredMargin)
@@ -141,14 +141,14 @@ func getCrossMarginAccountData(hState *HubbleState, userState *UserState) (*big.
 	return notionalPosition, requiredMargin, unrealizedPnl
 }
 
-func getTraderPositionDetails(hState *HubbleState, position *Position, market Market, marginFraction *big.Int) (notionalPosition *big.Int, uPnL *big.Int, requiredMargin *big.Int) {
+func GetTraderPositionDetails(position *Position, oraclePrice *big.Int, marginFraction *big.Int) (notionalPosition *big.Int, uPnL *big.Int, requiredMargin *big.Int) {
 	if position == nil || position.Size.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0), big.NewInt(0)
 	}
 
 	// based on oracle price,
 	notionalPosition, unrealizedPnl, _  := GetPositionMetadata(
-		hState.OraclePrices[market],
+		oraclePrice,
 		position.OpenNotional,
 		position.Size,
 		big.NewInt(0), // margin is not used here
