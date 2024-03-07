@@ -58,6 +58,7 @@ type BibliophileClient interface {
 	GetCrossMarginAccountData(trader common.Address, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int, *big.Int)
 	GetTotalFundingForCrossMarginPositions(trader *common.Address) *big.Int
 	GetTraderDataForMarket(trader common.Address, marketId int64, mode uint8) (bool, *big.Int, *big.Int, *big.Int, *big.Int)
+	GetRequiredMargin(baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int
 	HasReferrer(trader common.Address) bool
 	GetActiveMarketsCount() int64
 
@@ -233,6 +234,10 @@ func (b *bibliophileClient) GetTotalFundingForCrossMarginPositions(trader *commo
 func (b *bibliophileClient) GetTraderDataForMarket(trader common.Address, marketId int64, mode uint8) (bool, *big.Int, *big.Int, *big.Int, *big.Int) {
 	output := getTraderDataForMarket(b.accessibleState.GetStateDB(), &trader, marketId, mode)
 	return output.IsIsolated, output.NotionalPosition, output.UnrealizedPnl, output.RequiredMargin, output.PendingFunding
+}
+
+func (b *bibliophileClient) GetRequiredMargin(baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int {
+	return getRequiredMargin(b.accessibleState.GetStateDB(), baseAsset, price, marketId, trader)
 }
 
 func (b *bibliophileClient) HasReferrer(trader common.Address) bool {

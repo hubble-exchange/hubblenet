@@ -175,7 +175,7 @@ func getMarginType(stateDB contract.StateDB, market common.Address, trader *comm
 	return uint8(stateDB.GetState(market, common.BigToHash(accountPreferencesSlot(trader))).Big().Uint64())
 }
 
-func getTraderMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+func traderMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(accountPreferencesSlot(trader), big.NewInt(1)))).Big()
 }
 
@@ -189,17 +189,27 @@ func getMarginFractionByMode(stateDB contract.StateDB, market common.Address, tr
 	}
 	// retuns trade margin fraction by default
 	// @todo check if can be reverted in case of invalid mode
-	return calcTradeMarginFraction(stateDB, market, trader)
+	return getTraderMarginFraction(stateDB, market, trader)
 }
 
-func calcTradeMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
-	if (getTraderMarginFraction(stateDB, market, trader).Cmp(big.NewInt(0)) != 0) {
-		return getTraderMarginFraction(stateDB, market, trader)
+func getTraderMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+	if (traderMarginFraction(stateDB, market, trader).Cmp(big.NewInt(0)) != 0) {
+		return traderMarginFraction(stateDB, market, trader)
 	} else if (getMarginType(stateDB, market, trader) == hu.Isolated_Margin) {
 		return getIsolatedTradeMarginFraction(stateDB, market)
 	} else {
 		return getTradeMarginFraction(stateDB, market)
 	}
+}
+
+func getRequiredMargin(stateDB contract.StateDB, baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int {
+	quoteAsset := hu.Div1e18(hu.Mul(new(big.Int).Abs(baseAsset), price))
+	return getRequiredMarginForQuote(stateDB, GetMarketAddressFromMarketID(marketId, stateDB), trader, quoteAsset)
+}
+
+func getRequiredMarginForQuote(stateDB contract.StateDB, market common.Address, trader *common.Address, quote *big.Int) *big.Int {
+	marginFraction := getTraderMarginFraction(stateDB, market, trader)
+	return hu.Div1e6(new(big.Int).Mul(quote, marginFraction))
 }
 
 // Utils
