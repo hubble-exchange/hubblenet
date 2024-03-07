@@ -1282,7 +1282,7 @@ func (db *InMemoryDatabase) GetOrderValidationFields(orderId common.Hash, order 
 	}
 
 	bidsHead := big.NewInt(0)
-	if len(db.LongOrders[marketId]) > 0 {
+	if !isLongOrder && len(db.LongOrders[marketId]) > 0 {
 		for _, _order := range db.LongOrders[marketId] {
 			if _order.OrderType != IOC {
 				bidsHead = _order.Price
