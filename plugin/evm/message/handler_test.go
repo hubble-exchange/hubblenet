@@ -37,11 +37,30 @@ func TestHandleEthTxs(t *testing.T) {
 	assert.Equal(1, handler.EthTxs)
 }
 
-func TestNoopHandler(t *testing.T) {
+func TestHandleSignedOrders(t *testing.T) {
+	assert := assert.New(t)
+
+	handler := CounterHandler{}
+	msg := SignedOrdersGossip{}
+
+	err := msg.Handle(&handler, ids.EmptyNodeID)
+	assert.NoError(err)
+	assert.Equal(1, handler.Orders)
+}
+
+func HandleEthTxs(t *testing.T) {
 	assert := assert.New(t)
 
 	handler := NoopMempoolGossipHandler{}
 
 	err := handler.HandleEthTxs(ids.EmptyNodeID, EthTxsGossip{})
+	assert.NoError(err)
+}
+func HandleSignedOrders(t *testing.T) {
+	assert := assert.New(t)
+
+	handler := NoopMempoolGossipHandler{}
+
+	err := handler.HandleSignedOrders(ids.EmptyNodeID, SignedOrdersGossip{})
 	assert.NoError(err)
 }

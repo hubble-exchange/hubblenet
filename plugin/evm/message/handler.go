@@ -26,6 +26,10 @@ type LegacyGossipHandler interface {
 	HandleSignedOrders(nodeID ids.NodeID, msg SignedOrdersGossip) error
 }
 
+type HubbleGossipHandler interface {
+	HandleSignedOrders(nodeID ids.NodeID, msg SignedOrdersGossip) error
+}
+
 type NoopMempoolGossipHandler struct{}
 
 func (NoopMempoolGossipHandler) HandleEthTxs(nodeID ids.NodeID, msg EthTxsGossip) error {
