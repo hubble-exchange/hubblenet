@@ -60,7 +60,8 @@ func (api *OrderAPI) PlaceSignedOrders(ctx context.Context, input string) (Place
 			continue
 		}
 
-		orderId, _, err := api.tradingAPI.PlaceOrder(order)
+		// since PlaceSignedOrders is only called in API nodes, we do not trigger matching in them
+		orderId /* shouldTriggerMatching */, _, err := api.tradingAPI.PlaceOrder(order)
 		orderResponse.OrderId = orderId.String()
 		if err != nil {
 			orderResponse.Error = err.Error()

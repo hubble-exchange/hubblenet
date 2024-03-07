@@ -567,7 +567,10 @@ func (vm *VM) initializeChain(lastAcceptedHash common.Hash, ethConfig ethconfig.
 	vm.blockChain = vm.eth.BlockChain()
 	vm.miner = vm.eth.Miner()
 
-	vm.limitOrderProcesser = vm.NewLimitOrderProcesser()
+	vm.limitOrderProcesser, err = vm.NewLimitOrderProcesser()
+	if err != nil {
+		return err
+	}
 	vm.eth.Start()
 	return vm.initChainState(vm.blockChain.LastAcceptedBlock())
 }
@@ -1008,23 +1011,25 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]http.Handler, error) {
 		}
 		enabledAPIs = append(enabledAPIs, "snowman")
 	}
-	if err := handler.RegisterName("order", NewOrderAPI(vm.limitOrderProcesser.GetTradingAPI(), vm)); err != nil {
-		return nil, err
-	}
-	orderbook.MakerbookDatabaseFile = vm.config.MakerbookDatabasePath
 
-	if err := handler.RegisterName("orderbook", vm.limitOrderProcesser.GetOrderBookAPI()); err != nil {
-		return nil, err
-	}
+	if vm.limitOrderProcesser.isAPINode() {
+		if err := handler.RegisterName("order", NewOrderAPI(vm.limitOrderProcesser.GetTradingAPI(), vm)); err != nil {
+			return nil, err
+		}
+		orderbook.MakerbookDatabaseFile = vm.config.MakerbookDatabasePath
 
-	if vm.config.TradingAPIEnabled {
+		if err := handler.RegisterName("orderbook", vm.limitOrderProcesser.GetOrderBookAPI()); err != nil {
+			return nil, err
+		}
+
 		if err := handler.RegisterName("trading", vm.limitOrderProcesser.GetTradingAPI()); err != nil {
 			return nil, err
 		}
-	}
-	if vm.config.TestingApiEnabled {
-		if err := handler.RegisterName("testing", vm.limitOrderProcesser.GetTestingAPI()); err != nil {
-			return nil, err
+
+		if vm.config.TestingApiEnabled {
+			if err := handler.RegisterName("testing", vm.limitOrderProcesser.GetTestingAPI()); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1166,10 +1171,10 @@ func attachEthService(handler *rpc.Server, apis []rpc.API, names []string) error
 	return nil
 }
 
-func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
+func (vm *VM) NewLimitOrderProcesser() (LimitOrderProcesser, error) {
 	var validatorPrivateKey string
 	var err error
-	if vm.config.IsValidator {
+	if vm.config.NodeType == "kitkat" {
 		validatorPrivateKey, err = loadPrivateKeyFromFile(vm.config.ValidatorPrivateKeyFile)
 		if err != nil {
 			panic(fmt.Sprint("please specify correct path for validator-private-key-file in chain.json ", err))

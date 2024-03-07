@@ -32,12 +32,24 @@ const (
 	snapshotInterval    uint64 = 10 // save snapshot every 1000 blocks
 )
 
+type NodeType string
+
+const (
+	Tresor          NodeType = "tresor"          // vanilla validator
+	Kitkat          NodeType = "kitkat"          // matching engine
+	Berghain        NodeType = "berghain"        // rpc node
+	Kitkat_Berghain NodeType = "kitkat_berghain" // matching engine + rpc node
+)
+
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions(blockBuilder *blockBuilder)
 	GetOrderBookAPI() *orderbook.OrderBookAPI
 	GetTestingAPI() *orderbook.TestingAPI
 	GetTradingAPI() *orderbook.TradingAPI
 	RunMatchingPipeline()
+	GetNodeType() NodeType
+	isAPINode() bool
+	isMatcherNode() bool
 }
 
 type limitOrderProcesser struct {
@@ -56,16 +68,22 @@ type limitOrderProcesser struct {
 	hubbleDB                 database.Database
 	configService            orderbook.IConfigService
 	blockBuilder             *blockBuilder
-	isValidator              bool
 	tradingAPIEnabled        bool
+	nodeType                 NodeType
 	loadFromSnapshotEnabled  bool
 	snapshotSavedBlockNumber uint64
 	snapshotFilePath         string
 	tradingAPI               *orderbook.TradingAPI
 }
 
-func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string, config Config) LimitOrderProcesser {
+func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string, config Config) (LimitOrderProcesser, error) {
 	log.Info("**** NewLimitOrderProcesser")
+
+	nodeType, err := stringToNodeType(config.NodeType)
+	if err != nil {
+		return nil, err
+	}
+
 	configService := orderbook.NewConfigService(blockChain)
 	memoryDb := orderbook.NewInMemoryDatabase(configService)
 	lotp := orderbook.NewLimitOrderTxProcessor(txPool, memoryDb, backend, validatorPrivateKey)
@@ -110,14 +128,32 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 		matchingPipeline:        matchingPipeline,
 		filterAPI:               filterAPI,
 		configService:           configService,
-		isValidator:             config.IsValidator,
-		tradingAPIEnabled:       config.TradingAPIEnabled,
+		nodeType:                nodeType,
 		loadFromSnapshotEnabled: config.LoadFromSnapshotEnabled,
 		snapshotFilePath:        config.SnapshotFilePath,
+	}, nil
+}
+
+func stringToNodeType(nodeTypeString string) (NodeType, error) {
+	switch nodeTypeString {
+	case string(Tresor):
+		return Tresor, nil
+	case string(Kitkat):
+		return Kitkat, nil
+	case string(Berghain):
+		return Berghain, nil
+	case string(Kitkat_Berghain):
+		return Kitkat_Berghain, nil
+	default:
+		return "", fmt.Errorf("unknown NodeType: %s", nodeTypeString)
 	}
 }
 
 func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *blockBuilder) {
+	if lop.nodeType == Tresor {
+		return
+	}
+
 	lop.mu.Lock()
 
 	lastAccepted := lop.blockChain.LastAcceptedBlock()
@@ -174,7 +210,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 }
 
 func (lop *limitOrderProcesser) RunMatchingPipeline() {
-	if !lop.isValidator {
+	if !lop.isMatcherNode() {
 		return
 	}
 	executeFuncAndRecoverPanic(func() {
@@ -204,6 +240,18 @@ func (lop *limitOrderProcesser) GetTradingAPI() *orderbook.TradingAPI {
 
 func (lop *limitOrderProcesser) GetTestingAPI() *orderbook.TestingAPI {
 	return orderbook.NewTestingAPI(lop.memoryDb, lop.backend, lop.configService, lop.hubbleDB)
+}
+
+func (lop *limitOrderProcesser) GetNodeType() NodeType {
+	return lop.nodeType
+}
+
+func (lop *limitOrderProcesser) isAPINode() bool {
+	return lop.nodeType == Berghain || lop.nodeType == Kitkat_Berghain
+}
+
+func (lop *limitOrderProcesser) isMatcherNode() bool {
+	return lop.nodeType == Kitkat || lop.nodeType == Kitkat_Berghain
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
