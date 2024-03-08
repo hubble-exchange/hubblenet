@@ -125,6 +125,11 @@ func (n *pushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 //   #### HANDLER ####
 
 func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.SignedOrdersGossip) error {
+	// for vanilla validators we do not care about gossiping orders
+	if h.vm.limitOrderProcesser.GetNodeType() == Tresor {
+		return nil
+	}
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

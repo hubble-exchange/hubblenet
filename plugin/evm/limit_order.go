@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,12 +33,23 @@ const (
 	snapshotInterval    uint64 = 10 // save snapshot every 1000 blocks
 )
 
+type NodeType string
+
+const (
+	Tresor          NodeType = "tresor"          // vanilla validator
+	Kitkat          NodeType = "kitkat"          // validator + matching engine
+	Berghain        NodeType = "berghain"        // rpc node
+	Kitkat_Berghain NodeType = "kitkat_berghain" // validator + matching engine + rpc node
+)
+
 type LimitOrderProcesser interface {
 	ListenAndProcessTransactions(blockBuilder *blockBuilder)
 	GetOrderBookAPI() *orderbook.OrderBookAPI
 	GetTestingAPI() *orderbook.TestingAPI
 	GetTradingAPI() *orderbook.TradingAPI
 	RunMatchingPipeline()
+	GetNodeType() NodeType
+	isMatcherNode() bool
 }
 
 type limitOrderProcesser struct {
@@ -56,19 +68,36 @@ type limitOrderProcesser struct {
 	hubbleDB                 database.Database
 	configService            orderbook.IConfigService
 	blockBuilder             *blockBuilder
-	isValidator              bool
 	tradingAPIEnabled        bool
+	nodeType                 NodeType
 	loadFromSnapshotEnabled  bool
 	snapshotSavedBlockNumber uint64
 	snapshotFilePath         string
 	tradingAPI               *orderbook.TradingAPI
 }
 
-func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string, config Config) LimitOrderProcesser {
+func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, config Config) (LimitOrderProcesser, error) {
 	log.Info("**** NewLimitOrderProcesser")
+
 	configService := orderbook.NewConfigService(blockChain)
 	memoryDb := orderbook.NewInMemoryDatabase(configService)
+
+	nodeType, err := stringToNodeType(config.NodeType)
+	if err != nil {
+		return nil, err
+	}
+	var validatorPrivateKey string
+	if nodeType == Kitkat || nodeType == Kitkat_Berghain {
+		validatorPrivateKey, err = loadPrivateKeyFromFile(config.ValidatorPrivateKeyFile)
+		if err != nil {
+			panic(fmt.Sprint("please specify correct path for validator-private-key-file in chain.json ", err))
+		}
+		if validatorPrivateKey == "" {
+			panic("validator private key is empty")
+		}
+	}
 	lotp := orderbook.NewLimitOrderTxProcessor(txPool, memoryDb, backend, validatorPrivateKey)
+
 	signedObAddy := configService.GetSignedOrderbookContract()
 	contractEventProcessor := orderbook.NewContractEventsProcessor(memoryDb, signedObAddy)
 
@@ -110,14 +139,40 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 		matchingPipeline:        matchingPipeline,
 		filterAPI:               filterAPI,
 		configService:           configService,
-		isValidator:             config.IsValidator,
-		tradingAPIEnabled:       config.TradingAPIEnabled,
+		nodeType:                nodeType,
 		loadFromSnapshotEnabled: config.LoadFromSnapshotEnabled,
 		snapshotFilePath:        config.SnapshotFilePath,
+	}, nil
+}
+
+func loadPrivateKeyFromFile(keyFile string) (string, error) {
+	key, err := os.ReadFile(keyFile)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(string(key), "\n"), nil
+}
+
+func stringToNodeType(nodeTypeString string) (NodeType, error) {
+	switch nodeTypeString {
+	case string(Tresor):
+		return Tresor, nil
+	case string(Kitkat):
+		return Kitkat, nil
+	case string(Berghain):
+		return Berghain, nil
+	case string(Kitkat_Berghain):
+		return Kitkat_Berghain, nil
+	default:
+		return "", fmt.Errorf("unknown NodeType: %s", nodeTypeString)
 	}
 }
 
 func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *blockBuilder) {
+	if lop.nodeType == Tresor {
+		return
+	}
+
 	lop.mu.Lock()
 
 	lastAccepted := lop.blockChain.LastAcceptedBlock()
@@ -174,7 +229,7 @@ func (lop *limitOrderProcesser) ListenAndProcessTransactions(blockBuilder *block
 }
 
 func (lop *limitOrderProcesser) RunMatchingPipeline() {
-	if !lop.isValidator {
+	if !lop.isMatcherNode() {
 		return
 	}
 	executeFuncAndRecoverPanic(func() {
@@ -204,6 +259,14 @@ func (lop *limitOrderProcesser) GetTradingAPI() *orderbook.TradingAPI {
 
 func (lop *limitOrderProcesser) GetTestingAPI() *orderbook.TestingAPI {
 	return orderbook.NewTestingAPI(lop.memoryDb, lop.backend, lop.configService, lop.hubbleDB)
+}
+
+func (lop *limitOrderProcesser) GetNodeType() NodeType {
+	return lop.nodeType
+}
+
+func (lop *limitOrderProcesser) isMatcherNode() bool {
+	return lop.nodeType == Kitkat || lop.nodeType == Kitkat_Berghain
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
