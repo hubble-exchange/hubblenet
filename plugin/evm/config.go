@@ -236,6 +236,7 @@ type Config struct {
 	// Testing apis enabled
 	TestingApiEnabled bool `json:"testing-api-enabled"`
 
+	// NodeType is the type of node among the following: "tresor", "kitkat", "berghain", meaning validator only, matching engine, rpc node respectively
 	NodeType string `json:"node-type"`
 
 	// LoadFromSnapshotEnabled = true if the node should load the memory db from a snapshot

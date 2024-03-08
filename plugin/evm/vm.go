@@ -567,7 +567,16 @@ func (vm *VM) initializeChain(lastAcceptedHash common.Hash, ethConfig ethconfig.
 	vm.blockChain = vm.eth.BlockChain()
 	vm.miner = vm.eth.Miner()
 
-	vm.limitOrderProcesser, err = vm.NewLimitOrderProcesser()
+	vm.limitOrderProcesser, err = NewLimitOrderProcesser(
+		vm.ctx,
+		vm.txPool,
+		vm.shutdownChan,
+		&vm.shutdownWg,
+		vm.eth.APIBackend,
+		vm.blockChain,
+		vm.hubbleDB,
+		vm.config,
+	)
 	if err != nil {
 		return err
 	}
@@ -1169,41 +1178,4 @@ func attachEthService(handler *rpc.Server, apis []rpc.API, names []string) error
 	}
 
 	return nil
-}
-
-func (vm *VM) NewLimitOrderProcesser() (LimitOrderProcesser, error) {
-	nodeType, err := stringToNodeType(vm.config.NodeType)
-	if err != nil {
-		return nil, err
-	}
-
-	var validatorPrivateKey string
-	if nodeType == Kitkat || nodeType == Kitkat_Berghain {
-		validatorPrivateKey, err = loadPrivateKeyFromFile(vm.config.ValidatorPrivateKeyFile)
-		if err != nil {
-			panic(fmt.Sprint("please specify correct path for validator-private-key-file in chain.json ", err))
-		}
-		if validatorPrivateKey == "" {
-			panic("validator private key is empty")
-		}
-	}
-	return NewLimitOrderProcesser(
-		vm.ctx,
-		vm.txPool,
-		vm.shutdownChan,
-		&vm.shutdownWg,
-		vm.eth.APIBackend,
-		vm.blockChain,
-		vm.hubbleDB,
-		validatorPrivateKey,
-		vm.config,
-	)
-}
-
-func loadPrivateKeyFromFile(keyFile string) (string, error) {
-	key, err := os.ReadFile(keyFile)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSuffix(string(key), "\n"), nil
 }

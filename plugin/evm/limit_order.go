@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,17 +77,28 @@ type limitOrderProcesser struct {
 	tradingAPI               *orderbook.TradingAPI
 }
 
-func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, validatorPrivateKey string, config Config) (LimitOrderProcesser, error) {
+func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownChan <-chan struct{}, shutdownWg *sync.WaitGroup, backend *eth.EthAPIBackend, blockChain *core.BlockChain, hubbleDB database.Database, config Config) (LimitOrderProcesser, error) {
 	log.Info("**** NewLimitOrderProcesser")
+
+	configService := orderbook.NewConfigService(blockChain)
+	memoryDb := orderbook.NewInMemoryDatabase(configService)
 
 	nodeType, err := stringToNodeType(config.NodeType)
 	if err != nil {
 		return nil, err
 	}
-
-	configService := orderbook.NewConfigService(blockChain)
-	memoryDb := orderbook.NewInMemoryDatabase(configService)
+	var validatorPrivateKey string
+	if nodeType == Kitkat || nodeType == Kitkat_Berghain {
+		validatorPrivateKey, err = loadPrivateKeyFromFile(config.ValidatorPrivateKeyFile)
+		if err != nil {
+			panic(fmt.Sprint("please specify correct path for validator-private-key-file in chain.json ", err))
+		}
+		if validatorPrivateKey == "" {
+			panic("validator private key is empty")
+		}
+	}
 	lotp := orderbook.NewLimitOrderTxProcessor(txPool, memoryDb, backend, validatorPrivateKey)
+
 	signedObAddy := configService.GetSignedOrderbookContract()
 	contractEventProcessor := orderbook.NewContractEventsProcessor(memoryDb, signedObAddy)
 
@@ -132,6 +144,14 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 		loadFromSnapshotEnabled: config.LoadFromSnapshotEnabled,
 		snapshotFilePath:        config.SnapshotFilePath,
 	}, nil
+}
+
+func loadPrivateKeyFromFile(keyFile string) (string, error) {
+	key, err := os.ReadFile(keyFile)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(string(key), "\n"), nil
 }
 
 func stringToNodeType(nodeTypeString string) (NodeType, error) {
