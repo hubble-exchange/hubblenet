@@ -49,7 +49,6 @@ type LimitOrderProcesser interface {
 	GetTradingAPI() *orderbook.TradingAPI
 	RunMatchingPipeline()
 	GetNodeType() NodeType
-	isAPINode() bool
 	isMatcherNode() bool
 }
 
@@ -264,10 +263,6 @@ func (lop *limitOrderProcesser) GetTestingAPI() *orderbook.TestingAPI {
 
 func (lop *limitOrderProcesser) GetNodeType() NodeType {
 	return lop.nodeType
-}
-
-func (lop *limitOrderProcesser) isAPINode() bool {
-	return lop.nodeType == Berghain || lop.nodeType == Kitkat_Berghain
 }
 
 func (lop *limitOrderProcesser) isMatcherNode() bool {

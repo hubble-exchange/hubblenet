@@ -1021,7 +1021,8 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]http.Handler, error) {
 		enabledAPIs = append(enabledAPIs, "snowman")
 	}
 
-	if vm.limitOrderProcesser.isAPINode() {
+	if vm.limitOrderProcesser.GetNodeType() != Tresor {
+		// orderbook and trading APIs should be enabled for kitkat too cuz it's good to have visibility on memory db in those nodes. To understand the validators' memory db.
 		if err := handler.RegisterName("order", NewOrderAPI(vm.limitOrderProcesser.GetTradingAPI(), vm)); err != nil {
 			return nil, err
 		}
