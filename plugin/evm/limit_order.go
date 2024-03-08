@@ -36,9 +36,9 @@ type NodeType string
 
 const (
 	Tresor          NodeType = "tresor"          // vanilla validator
-	Kitkat          NodeType = "kitkat"          // matching engine
+	Kitkat          NodeType = "kitkat"          // validator + matching engine
 	Berghain        NodeType = "berghain"        // rpc node
-	Kitkat_Berghain NodeType = "kitkat_berghain" // matching engine + rpc node
+	Kitkat_Berghain NodeType = "kitkat_berghain" // validator + matching engine + rpc node
 )
 
 type LimitOrderProcesser interface {

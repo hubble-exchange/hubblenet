@@ -1172,9 +1172,13 @@ func attachEthService(handler *rpc.Server, apis []rpc.API, names []string) error
 }
 
 func (vm *VM) NewLimitOrderProcesser() (LimitOrderProcesser, error) {
+	nodeType, err := stringToNodeType(vm.config.NodeType)
+	if err != nil {
+		return nil, err
+	}
+
 	var validatorPrivateKey string
-	var err error
-	if vm.config.NodeType == "kitkat" {
+	if nodeType == Kitkat || nodeType == Kitkat_Berghain {
 		validatorPrivateKey, err = loadPrivateKeyFromFile(vm.config.ValidatorPrivateKeyFile)
 		if err != nil {
 			panic(fmt.Sprint("please specify correct path for validator-private-key-file in chain.json ", err))
