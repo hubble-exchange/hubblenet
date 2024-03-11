@@ -61,6 +61,7 @@ func (vm *VM) NewBlockBuilder(notifyBuildBlockChan chan<- commonEng.Message) *bl
 		shutdownWg:           &vm.shutdownWg,
 		notifyBuildBlockChan: notifyBuildBlockChan,
 	}
+	log.Info("New block builder created")
 	b.handleBlockBuilding()
 	return b
 }
@@ -80,6 +81,7 @@ func (b *blockBuilder) buildBlockTimerCallback() {
 
 	// If there are still transactions in the mempool, send another notification to
 	// the engine to retry BuildBlock.
+	log.Info("Timer expired, trying to generate a block")
 	if b.needToBuild() {
 		b.markBuilding()
 	}
@@ -87,6 +89,7 @@ func (b *blockBuilder) buildBlockTimerCallback() {
 
 // handleGenerateBlock is called from the VM immediately after BuildBlock.
 func (b *blockBuilder) handleGenerateBlock() {
+	log.Info("handleGenerateBlock, setting timer to retry building a block")
 	b.buildBlockLock.Lock()
 	defer b.buildBlockLock.Unlock()
 
@@ -100,7 +103,8 @@ func (b *blockBuilder) handleGenerateBlock() {
 // needToBuild returns true if there are outstanding transactions to be issued
 // into a block.
 func (b *blockBuilder) needToBuild() bool {
-	size := b.txPool.PendingSize(true)
+	size := b.txPool.PendingSize(true) + int(b.txPool.GetOrderBookTxsCount())
+	log.Info("Checking if we need to build a block", "size", size)
 	return size > 0
 }
 
@@ -108,6 +112,7 @@ func (b *blockBuilder) needToBuild() bool {
 // markBuilding assumes the [buildBlockLock] is held.
 func (b *blockBuilder) markBuilding() {
 	// If the engine has not called BuildBlock, no need to send another message.
+	log.Info("Marking building", "b.buildSent", b.buildSent)
 	if b.buildSent {
 		return
 	}
@@ -115,6 +120,7 @@ func (b *blockBuilder) markBuilding() {
 
 	select {
 	case b.notifyBuildBlockChan <- commonEng.PendingTxs:
+		log.Info("Sent PendingTxs message to the consensus engine.")
 		b.buildSent = true
 	default:
 		log.Error("Failed to push PendingTxs notification to the consensus engine.")

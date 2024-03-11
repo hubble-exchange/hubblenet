@@ -125,6 +125,7 @@ func (w *worker) setEtherbase(addr common.Address) {
 
 // commitNewWork generates several new sealing tasks based on the parent block.
 func (w *worker) commitNewWork(predicateContext *precompileconfig.PredicateContext) (*types.Block, error) {
+	log.Info("commitNewWork", "address", w.coinbase.String())
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 

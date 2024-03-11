@@ -235,6 +235,7 @@ func (lop *limitOrderProcesser) RunMatchingPipeline() {
 	executeFuncAndRecoverPanic(func() {
 		matchesFound := lop.matchingPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number, big.NewInt(1)))
 		if matchesFound {
+			log.Info("RunMatchingPipeline - matches found")
 			lop.blockBuilder.signalTxsReady()
 		}
 	}, orderbook.RunMatchingPipelinePanicMessage, orderbook.RunMatchingPipelinePanicsCounter)
