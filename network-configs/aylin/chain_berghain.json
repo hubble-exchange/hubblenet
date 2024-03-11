@@ -1,14 +1,9 @@
 {
+    "node-type": "berghain",
     "snowman-api-enabled": true,
     "local-txs-enabled": true,
-    "priority-regossip-frequency": "1s",
-    "tx-regossip-max-size": 32,
-    "priority-regossip-max-txs": 32,
-    "priority-regossip-txs-per-address": 20,
-    "priority-regossip-addresses": ["0x06CCAD927e6B1d36E219Cb582Af3185D0705f78F"],
     "coreth-admin-api-enabled": true,
     "eth-apis": ["public-eth","public-eth-filter","net","web3","internal-eth","internal-blockchain","internal-transaction","internal-debug","internal-tx-pool","internal-account","debug-tracer"],
-    "trading-api-enabled": true,
     "testing-api-enabled": true,
     "snapshot-file-path": "/tmp/snapshot",
     "makerbook-database-path": "/tmp/makerbook"

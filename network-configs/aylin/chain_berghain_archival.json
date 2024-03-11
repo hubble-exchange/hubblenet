@@ -1,0 +1,11 @@
+{
+    "node-type": "berghain",
+    "pruning-enabled": false,
+    "snowman-api-enabled": true,
+    "local-txs-enabled": true,
+    "coreth-admin-api-enabled": true,
+    "eth-apis": ["public-eth","public-eth-filter","net","web3","internal-eth","internal-blockchain","internal-transaction","internal-debug","internal-tx-pool","internal-account","debug-tracer"],
+    "testing-api-enabled": true,
+    "snapshot-file-path": "/tmp/snapshot",
+    "makerbook-database-path": "/tmp/makerbook"
+}

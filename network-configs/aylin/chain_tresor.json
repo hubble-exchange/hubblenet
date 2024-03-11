@@ -1,5 +1,5 @@
 {
+    "node-type": "tresor",
     "state-sync-enabled": true,
-    "feeRecipient": "0xB3D25D47291D7F8b97FE3884A924541cDDcbB8Be",
-    "node-type": "tresor"
+    "feeRecipient": "0xB3D25D47291D7F8b97FE3884A924541cDDcbB8Be"
 }
