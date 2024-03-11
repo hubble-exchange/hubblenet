@@ -223,6 +223,7 @@ func (w *worker) commitNewWork(predicateContext *precompileconfig.PredicateConte
 	}
 
 	orderBookTxs := w.eth.TxPool().GetOrderBookTxs()
+	log.Info("commitNewWork - OrderBookTxs", "orderBookTxs", len(orderBookTxs))
 	if len(orderBookTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, orderBookTxs, header.BaseFee)
 		w.commitTransactions(env, txs, header.Coinbase)
