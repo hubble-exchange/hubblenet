@@ -113,19 +113,3 @@ type addrStatus struct {
 	nonce    uint64
 	txsAdded int
 }
-
-// GossipHandler handles incoming gossip messages
-type LegacyGossipHandler struct {
-	mu     sync.RWMutex
-	vm     *VM
-	txPool *txpool.TxPool
-	stats  GossipStats
-}
-
-func NewLegacyGossipHandler(vm *VM, stats GossipStats) *LegacyGossipHandler {
-	return &LegacyGossipHandler{
-		vm:     vm,
-		txPool: vm.txPool,
-		stats:  stats,
-	}
-}
