@@ -830,6 +830,7 @@ func (vm *VM) buildBlock(ctx context.Context) (snowman.Block, error) {
 }
 
 func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *block.Context) (blk_ snowman.Block, err error) {
+	log.Info("buildBlockWithContext called")
 	defer func(start time.Time) {
 		buildBlockCalledCounter.Inc(1)
 		if err != nil {

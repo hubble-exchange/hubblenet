@@ -37,6 +37,7 @@ import (
 	"github.com/ava-labs/subnet-evm/precompile/precompileconfig"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // Backend wraps all methods required for mining.
@@ -65,6 +66,7 @@ func (miner *Miner) SetEtherbase(addr common.Address) {
 }
 
 func (miner *Miner) GenerateBlock(predicateContext *precompileconfig.PredicateContext) (*types.Block, error) {
+	log.Info("GenerateBlock", "address", miner.worker.coinbase.String())
 	return miner.worker.commitNewWork(predicateContext)
 }
 
