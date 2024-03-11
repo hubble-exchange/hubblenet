@@ -17,6 +17,7 @@ source "$SUBNET_EVM_PATH"/scripts/versions.sh
 source "$SUBNET_EVM_PATH"/scripts/constants.sh
 
 BUILD_IMAGE_ID=${BUILD_IMAGE_ID:-"${AVALANCHE_VERSION}-Subnet-EVM-${CURRENT_BRANCH}"}
+DOCKERHUB_REPO=${DOCKERHUB_REPO:-"avaplatform/avalanchego"}
 
 echo "Building Docker Image: $DOCKERHUB_REPO:$BUILD_IMAGE_ID based of $AVALANCHE_VERSION"
 docker build -t "$DOCKERHUB_REPO:$BUILD_IMAGE_ID" "$SUBNET_EVM_PATH" -f "$SUBNET_EVM_PATH/Dockerfile" \
