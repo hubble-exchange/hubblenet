@@ -380,6 +380,20 @@ func (mr *MockBibliophileClientMockRecorder) GetReduceOnlyAmount(trader, ammInde
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReduceOnlyAmount", reflect.TypeOf((*MockBibliophileClient)(nil).GetReduceOnlyAmount), trader, ammIndex)
 }
 
+// GetRequiredMargin mocks base method.
+func (m *MockBibliophileClient) GetRequiredMargin(baseAsset, price *big.Int, marketId int64, trader *common.Address) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRequiredMargin", baseAsset, price, marketId, trader)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetRequiredMargin indicates an expected call of GetRequiredMargin.
+func (mr *MockBibliophileClientMockRecorder) GetRequiredMargin(baseAsset, price, marketId, trader interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRequiredMargin", reflect.TypeOf((*MockBibliophileClient)(nil).GetRequiredMargin), baseAsset, price, marketId, trader)
+}
+
 // GetShortOpenOrdersAmount mocks base method.
 func (m *MockBibliophileClient) GetShortOpenOrdersAmount(trader common.Address, ammIndex *big.Int) *big.Int {
 	m.ctrl.T.Helper()
