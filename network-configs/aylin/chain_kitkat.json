@@ -1,0 +1,9 @@
+{
+    "node-type": "kitkat",
+    "snowman-api-enabled": true,
+    "local-txs-enabled": true,
+    "validator-private-key-file": "/home/ubuntu/validator.pk",
+    "feeRecipient": "0x4d5C074bB156D4c8D9e91fEE416b3b423ba8f6f2",
+    "snapshot-file-path": "/tmp/snapshot",
+    "makerbook-database-path": "/tmp/makerbook"
+}
