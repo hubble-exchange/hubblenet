@@ -203,13 +203,13 @@ func getTraderMarginFraction(stateDB contract.StateDB, market common.Address, tr
 }
 
 func getRequiredMargin(stateDB contract.StateDB, baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int {
-	quoteAsset := hu.Div1e18(hu.Mul(new(big.Int).Abs(baseAsset), price))
+	quoteAsset := hu.Div1e18(hu.Mul(hu.Abs(baseAsset), price))
 	return getRequiredMarginForQuote(stateDB, GetMarketAddressFromMarketID(marketId, stateDB), trader, quoteAsset)
 }
 
 func getRequiredMarginForQuote(stateDB contract.StateDB, market common.Address, trader *common.Address, quote *big.Int) *big.Int {
 	marginFraction := getTraderMarginFraction(stateDB, market, trader)
-	return hu.Div1e6(new(big.Int).Mul(quote, marginFraction))
+	return hu.Div1e6(hu.Mul(quote, marginFraction))
 }
 
 // Utils
