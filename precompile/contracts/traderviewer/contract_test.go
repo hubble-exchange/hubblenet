@@ -77,7 +77,9 @@ var (
 			InputFn: func(t testing.TB) []byte {
 				// CUSTOM CODE STARTS HERE
 				// populate test input here
-				testInput := GetTraderDataForMarketInput{}
+				testInput := GetTraderDataForMarketInput{
+					AmmIndex: big.NewInt(0),
+				}
 				input, err := PackGetTraderDataForMarket(testInput)
 				require.NoError(t, err)
 				return input
