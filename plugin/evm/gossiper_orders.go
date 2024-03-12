@@ -2,6 +2,7 @@ package evm
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"sync"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/ava-labs/avalanchego/cache"
 	"github.com/ava-labs/avalanchego/codec"
 	"github.com/ava-labs/avalanchego/snow"
+	commonEng "github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/txpool"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -79,6 +81,8 @@ type orderPushGossiper struct {
 	codec  codec.Manager
 	signer types.Signer
 	stats  GossipStats
+
+	appSender commonEng.AppSender
 }
 
 // createGossiper constructs and returns a pushGossiper or noopGossiper
@@ -102,6 +106,7 @@ func (vm *VM) createGossiper(
 		stats:              stats,
 		ordersToGossipChan: make(chan []*hubbleutils.SignedOrder),
 		ordersToGossip:     []*hubbleutils.SignedOrder{},
+		appSender:          vm.p2pSender,
 	}
 
 	net.awaitSignedOrderGossip()
@@ -222,5 +227,7 @@ func (n *orderPushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 	)
 	n.stats.IncSignedOrdersGossipSent(int64(len(orders)))
 	n.stats.IncSignedOrdersGossipBatchSent()
-	return n.client.LegacyGossip(msgBytes)
+
+	// TODO: fix the number of validators, non-validators, and peers
+	return n.appSender.SendAppGossip(context.TODO(), msgBytes, 0, 0, 0)
 }

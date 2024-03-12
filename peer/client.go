@@ -37,9 +37,6 @@ type NetworkClient interface {
 	// TrackBandwidth should be called for each valid request with the bandwidth
 	// (length of response divided by request time), and with 0 if the response is invalid.
 	TrackBandwidth(nodeID ids.NodeID, bandwidth float64)
-
-	// FIXME this has been removed in subnet-evm
-	LegacyGossip(gossip []byte) error
 }
 
 // client implements NetworkClient interface
@@ -88,11 +85,6 @@ func (c *client) SendCrossChainRequest(ctx context.Context, chainID ids.ID, requ
 		return nil, err
 	}
 	return waitingHandler.WaitForResult(ctx)
-}
-
-// FIXME this has been removed in subnet-evm
-func (c *client) LegacyGossip(gossip []byte) error {
-	return c.network.LegacyGossip(gossip)
 }
 
 func (c *client) TrackBandwidth(nodeID ids.NodeID, bandwidth float64) {
