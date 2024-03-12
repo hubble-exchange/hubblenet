@@ -3,15 +3,119 @@ package evm
 import (
 	"bytes"
 	"encoding/gob"
+	"sync"
 	"time"
 
+	"github.com/ava-labs/avalanchego/cache"
+	"github.com/ava-labs/avalanchego/codec"
+	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/subnet-evm/core"
+	"github.com/ava-labs/subnet-evm/core/txpool"
+	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/peer"
 	"github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
 
-func (n *legacyPushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error {
+const (
+	// We allow [recentCacheSize] to be fairly large because we only store hashes
+	// in the cache, not entire transactions.
+	recentCacheSize = 512
+
+	// [ordersGossipInterval] is how often we attempt to gossip newly seen
+	// signed orders to other nodes.
+	ordersGossipInterval = 100 * time.Millisecond
+
+	// [minGossipBatchInterval] is the minimum amount of time that must pass
+	// before our last gossip to peers.
+	minGossipBatchInterval = 50 * time.Millisecond
+
+	// [minGossipOrdersBatchInterval] is the minimum amount of time that must pass
+	// before our last gossip to peers.
+	minGossipOrdersBatchInterval = 50 * time.Millisecond
+
+	// [maxSignedOrdersGossipBatchSize] is the maximum number of orders we will
+	// attempt to gossip at once.
+	maxSignedOrdersGossipBatchSize = 100
+)
+
+var _ OrderGossiper = &orderPushGossiper{}
+
+// Gossiper handles outgoing gossip of transactions
+type OrderGossiper interface {
+	// GossipSignedOrders sends signed orders to the network
+	GossipSignedOrders(orders []*hubbleutils.SignedOrder) error
+}
+
+// pushGossiper is used to gossip transactions to the network
+type orderPushGossiper struct {
+	ctx    *snow.Context
+	config Config
+
+	client     peer.NetworkClient
+	blockchain *core.BlockChain
+	txPool     *txpool.TxPool
+
+	// We attempt to batch transactions we need to gossip to avoid runaway
+	// amplification of mempol chatter.
+	ethTxsToGossipChan chan []*types.Transaction
+	ethTxsToGossip     map[common.Hash]*types.Transaction
+	lastGossiped       time.Time
+	shutdownChan       chan struct{}
+	shutdownWg         *sync.WaitGroup
+
+	ordersToGossipChan chan []*hubbleutils.SignedOrder
+	ordersToGossip     []*hubbleutils.SignedOrder
+	lastOrdersGossiped time.Time
+
+	// [recentEthTxs] prevent us from over-gossiping the
+	// same transaction in a short period of time.
+	recentEthTxs *cache.LRU[common.Hash, interface{}]
+
+	codec  codec.Manager
+	signer types.Signer
+	stats  GossipStats
+}
+
+// createGossiper constructs and returns a pushGossiper or noopGossiper
+// based on whether vm.chainConfig.SubnetEVMTimestamp is set
+func (vm *VM) createGossiper(
+	stats GossipStats,
+) OrderGossiper {
+	net := &orderPushGossiper{
+		ctx:                vm.ctx,
+		config:             vm.config,
+		client:             vm.client,
+		blockchain:         vm.blockChain,
+		txPool:             vm.txPool,
+		ethTxsToGossipChan: make(chan []*types.Transaction),
+		ethTxsToGossip:     make(map[common.Hash]*types.Transaction),
+		shutdownChan:       vm.shutdownChan,
+		shutdownWg:         &vm.shutdownWg,
+		recentEthTxs:       &cache.LRU[common.Hash, interface{}]{Size: recentCacheSize},
+		codec:              vm.networkCodec,
+		signer:             types.LatestSigner(vm.blockChain.Config()),
+		stats:              stats,
+		ordersToGossipChan: make(chan []*hubbleutils.SignedOrder),
+		ordersToGossip:     []*hubbleutils.SignedOrder{},
+	}
+
+	net.awaitSignedOrderGossip()
+	return net
+}
+
+// addrStatus used to track the metadata of addresses being queued for
+// regossip.
+type addrStatus struct {
+	nonce    uint64
+	txsAdded int
+}
+
+func (n *orderPushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error {
 	select {
 	case n.ordersToGossipChan <- orders:
 	case <-n.shutdownChan:
@@ -19,7 +123,7 @@ func (n *legacyPushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error 
 	return nil
 }
 
-func (n *legacyPushGossiper) awaitSignedOrderGossip() {
+func (n *orderPushGossiper) awaitSignedOrderGossip() {
 	n.shutdownWg.Add(1)
 	go executeFuncAndRecoverPanic(func() {
 		var (
@@ -58,7 +162,7 @@ func (n *legacyPushGossiper) awaitSignedOrderGossip() {
 	}, "panic in awaitSignedOrderGossip", orderbook.AwaitSignedOrdersGossipPanicsCounter)
 }
 
-func (n *legacyPushGossiper) gossipSignedOrders() (int, error) {
+func (n *orderPushGossiper) gossipSignedOrders() (int, error) {
 	if (time.Since(n.lastOrdersGossiped) < minGossipOrdersBatchInterval) || len(n.ordersToGossip) == 0 {
 		return 0, nil
 	}
@@ -92,7 +196,7 @@ func (n *legacyPushGossiper) gossipSignedOrders() (int, error) {
 	return len(selectedOrders), err
 }
 
-func (n *legacyPushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
+func (n *orderPushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 	if len(orders) == 0 {
 		return nil
 	}
@@ -106,7 +210,7 @@ func (n *legacyPushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 	msg := message.SignedOrdersGossip{
 		Orders: ordersBytes,
 	}
-	msgBytes, err := message.BuildLegacyGossipMessage(n.codec, msg)
+	msgBytes, err := message.BuildOrderGossipMessage(n.codec, msg)
 	if err != nil {
 		return err
 	}

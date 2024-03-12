@@ -62,7 +62,7 @@ type Network interface {
 	// SetGossipHandler sets the provided gossip handler as the gossip handler
 	SetGossipHandler(handler message.GossipHandler)
 
-	SetLegacyGossipHandler(handler message.LegacyGossipHandler)
+	SetOrderGossipHandler(handler message.OrderGossipHandler)
 
 	// SetRequestHandler sets the provided request handler as the request handler
 	SetRequestHandler(handler message.RequestHandler)
@@ -102,7 +102,7 @@ type network struct {
 	appRequestHandler          message.RequestHandler           // maps request type => handler
 	crossChainRequestHandler   message.CrossChainRequestHandler // maps cross chain request type => handler
 	gossipHandler              message.GossipHandler            // maps gossip type => handler
-	legacyGossipHandler        message.LegacyGossipHandler      // maps gossip type => handler
+	orderGossipHandler         message.OrderGossipHandler       // maps gossip type => handler
 	peers                      *peerTracker                     // tracking of peers & bandwidth
 	appStats                   stats.RequestHandlerStats        // Provide request handler metrics
 	crossChainStats            stats.RequestHandlerStats        // Provide cross chain request handler metrics
@@ -129,7 +129,7 @@ func NewNetwork(p2pNetwork *p2p.Network, appSender common.AppSender, codec codec
 		activeCrossChainRequests:   semaphore.NewWeighted(maxActiveCrossChainRequests),
 		p2pNetwork:                 p2pNetwork,
 		gossipHandler:              message.NoopMempoolGossipHandler{},
-		legacyGossipHandler:        message.NoopMempoolGossipHandler{},
+		orderGossipHandler:         message.NoopMempoolGossipHandler{},
 		appRequestHandler:          message.NoopRequestHandler{},
 		crossChainRequestHandler:   message.NoopCrossChainRequestHandler{},
 		peers:                      NewPeerTracker(),
@@ -511,11 +511,11 @@ func (n *network) SetGossipHandler(handler message.GossipHandler) {
 	n.gossipHandler = handler
 }
 
-func (n *network) SetLegacyGossipHandler(handler message.LegacyGossipHandler) {
+func (n *network) SetOrderGossipHandler(handler message.OrderGossipHandler) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	n.legacyGossipHandler = handler
+	n.orderGossipHandler = handler
 }
 
 func (n *network) SetRequestHandler(handler message.RequestHandler) {

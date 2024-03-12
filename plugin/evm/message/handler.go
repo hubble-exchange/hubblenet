@@ -22,11 +22,7 @@ type GossipHandler interface {
 	HandleEthTxs(nodeID ids.NodeID, msg EthTxsGossip) error
 }
 
-type LegacyGossipHandler interface {
-	HandleSignedOrders(nodeID ids.NodeID, msg SignedOrdersGossip) error
-}
-
-type HubbleGossipHandler interface {
+type OrderGossipHandler interface {
 	HandleSignedOrders(nodeID ids.NodeID, msg SignedOrdersGossip) error
 }
 

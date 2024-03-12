@@ -35,12 +35,12 @@ type GossipMessage interface {
 	Handle(handler GossipHandler, nodeID ids.NodeID) error
 }
 
-type LegacyGossipMessage interface {
+type OrderGossipMessage interface {
 	// types implementing GossipMessage should also implement fmt.Stringer for logging purposes.
 	fmt.Stringer
 
 	// Handle this gossip message with the gossip handler.
-	Handle(handler LegacyGossipHandler, nodeID ids.NodeID) error
+	Handle(handler OrderGossipHandler, nodeID ids.NodeID) error
 }
 
 type EthTxsGossip struct {
@@ -59,7 +59,7 @@ func (msg EthTxsGossip) String() string {
 	return fmt.Sprintf("EthTxsGossip(Len=%d)", len(msg.Txs))
 }
 
-func (msg SignedOrdersGossip) Handle(handler LegacyGossipHandler, nodeID ids.NodeID) error {
+func (msg SignedOrdersGossip) Handle(handler OrderGossipHandler, nodeID ids.NodeID) error {
 	return handler.HandleSignedOrders(nodeID, msg)
 }
 
@@ -84,7 +84,7 @@ func BuildGossipMessage(codec codec.Manager, msg GossipMessage) ([]byte, error) 
 	return bytes, err
 }
 
-func BuildLegacyGossipMessage(codec codec.Manager, msg LegacyGossipMessage) ([]byte, error) {
+func BuildOrderGossipMessage(codec codec.Manager, msg OrderGossipMessage) ([]byte, error) {
 	bytes, err := codec.Marshal(Version, &msg)
 	return bytes, err
 }

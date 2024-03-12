@@ -229,7 +229,7 @@ type VM struct {
 
 	limitOrderProcesser LimitOrderProcesser
 
-	legacyGossiper LegacyGossiper
+	orderGossiper OrderGossiper
 
 	clock mockable.Clock
 
@@ -740,7 +740,7 @@ func (vm *VM) initBlockBuilding() error {
 	vm.builder = vm.NewBlockBuilder(vm.toEngine)
 	vm.builder.awaitSubmittedTxs()
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
-	vm.Network.SetLegacyGossipHandler(NewLegacyGossipHandler(vm, gossipStats))
+	vm.Network.SetOrderGossipHandler(NewOrderGossipHandler(vm, gossipStats))
 
 	if vm.ethTxGossipHandler == nil {
 		vm.ethTxGossipHandler = newTxGossipHandler[*GossipEthTx](

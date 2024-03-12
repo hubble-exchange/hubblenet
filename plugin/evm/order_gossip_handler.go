@@ -12,22 +12,21 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-// GossipHandler handles incoming gossip messages
-type LegacyGossipHandler struct {
+type OrderGossipHandler struct {
 	mu     sync.RWMutex
 	vm     *VM
 	txPool *txpool.TxPool
 	stats  GossipStats
 }
 
-func NewLegacyGossipHandler(vm *VM, stats GossipStats) *LegacyGossipHandler {
-	return &LegacyGossipHandler{
+func NewOrderGossipHandler(vm *VM, stats GossipStats) *OrderGossipHandler {
+	return &OrderGossipHandler{
 		vm:     vm,
 		txPool: vm.txPool,
 		stats:  stats,
 	}
 }
-func (h *LegacyGossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.SignedOrdersGossip) error {
+func (h *OrderGossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.SignedOrdersGossip) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -74,7 +73,7 @@ func (h *LegacyGossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.
 	}
 
 	if len(ordersToGossip) > 0 {
-		h.vm.legacyGossiper.GossipSignedOrders(ordersToGossip)
+		h.vm.orderGossiper.GossipSignedOrders(ordersToGossip)
 	}
 
 	return nil
