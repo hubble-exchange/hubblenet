@@ -1212,6 +1212,60 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 			Mode:      uint8(Taker),
 		}, response.Res.Instructions[1])
 	})
+
+	t.Run("2 market orders can't be matched", func(t *testing.T) {
+		order0 := &hu.IOCOrder{
+			BaseOrder: hu.BaseOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            trader,
+				BaseAssetQuantity: big.NewInt(10),
+				Price:             big.NewInt(100),
+				Salt:              big.NewInt(1),
+				ReduceOnly:        false,
+			},
+			OrderType: 1,
+			ExpireAt:  big.NewInt(100),
+		}
+		order0Hash, _ := order0.Hash()
+		order1 := &hu.IOCOrder{
+			BaseOrder: hu.BaseOrder{
+				AmmIndex:          big.NewInt(0),
+				Trader:            trader,
+				BaseAssetQuantity: big.NewInt(-10),
+				Price:             big.NewInt(100),
+				Salt:              big.NewInt(2),
+				ReduceOnly:        false,
+			},
+			OrderType: 1,
+			ExpireAt:  big.NewInt(100),
+		}
+		order1Hash, _ := order1.Hash()
+		fillAmount := big.NewInt(2)
+
+		mockBibliophile := b.NewMockBibliophileClient(ctrl)
+		mockBibliophile.EXPECT().IOC_GetOrderFilledAmount(order0Hash).Return(big.NewInt(0))
+		mockBibliophile.EXPECT().IOC_GetOrderStatus(order0Hash).Return(int64(1)) // placed
+		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order0.AmmIndex.Int64()).Return(common.Address{101})
+		mockBibliophile.EXPECT().IOC_GetBlockPlaced(order0Hash).Return(big.NewInt(10))
+
+		mockBibliophile.EXPECT().IOC_GetOrderFilledAmount(order1Hash).Return(big.NewInt(0))
+		mockBibliophile.EXPECT().IOC_GetOrderStatus(order1Hash).Return(int64(1)) // placed
+		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order1.AmmIndex.Int64()).Return(common.Address{101})
+		mockBibliophile.EXPECT().IOC_GetBlockPlaced(order1Hash).Return(big.NewInt(12))
+		mockBibliophile.EXPECT().GetTimeStamp().Times(2).Return(uint64(99)) // expiry is 100
+
+		mockBibliophile.EXPECT().GetMinSizeRequirement(order1.AmmIndex.Int64()).Return(big.NewInt(1))
+		mockBibliophile.EXPECT().GetUpperAndLowerBoundForMarket(order1.AmmIndex.Int64()).Return(big.NewInt(110), big.NewInt(90))
+
+		testCase := ValidateOrdersAndDetermineFillPriceTestCase{
+			Order0:     order0,
+			Order1:     order1,
+			FillAmount: fillAmount,
+			Err:        ErrIOCOrderExpired,
+			BadElement: Order0,
+		}
+		testValidateOrdersAndDetermineFillPriceTestCase(t, mockBibliophile, testCase)
+	})
 }
 
 type ValidateLiquidationOrderAndDetermineFillPriceTestCase struct {
