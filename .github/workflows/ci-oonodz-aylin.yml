@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - aylin
+      - main
+    tags:
+      - "*"
 
 defaults:
   run:
@@ -13,52 +16,39 @@ jobs:
   build_oonodz_fuji_image_aylin:
     name: Build Docker Image
     timeout-minutes: 60
-    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
-      - name: Login to Docker hub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }} 
-          password: ${{ secrets.DOCKER_PASS }} 
-      - name: Build Dockerfile for Fuji
-        run: |
-          echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
-          ./scripts/build_image.sh
-        env:
-          CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
-          PUSH_DOCKER_IMAGE: true 
-          BUILD_IMAGE_ID: ${{ vars.AVALANCHE_VERSION }}-fuji-${{ github.sha }}
-          DOCKERHUB_REPO: logisticx/ava
-  build_oonodz_fuji_image_release:
-    name: Build Docker Image
-    timeout-minutes: 60
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v4
-      # - name: Gets latest created release info
-      #   id: latest_release_info
-      #   uses: jossef/action-latest-release-info@v1.2.1
-      #   env:
-      #     GITHUB_TOKEN: ${{ github.token }}
-      # - name: Get the latest version
-      #   id: latest_version
-      #   run: |
-      #     echo "version=$(npm version ${{ github.event.inputs.version }} --no-git-tag-version)" >> $GITHUB_OUTPUT
-      - name: Get Latest Version
-        id: latest_version
+
+      - name: Get Current Tag
+        id: get_tag
         run: echo ::set-output name=tag::$(git describe --abbrev=0 --tags)
+
       - name: Login to Docker hub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }} 
           password: ${{ secrets.DOCKER_PASS }} 
-      - name: Build Dockerfile for Fuji
+
+      - name: Build Dockerfile and Push it
         run: |
-          echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
+          TAG_SUFFIX=""
+          
+          if [ "$CURRENT_BRANCH" == "aylin" ]; then
+            TAG_SUFFIX="fuji-"
+            echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
+          fi
+
+          if [ -z "${{ steps.get_tag.outputs.tag }}" ]; then
+            TAG_END="${{ steps.get_tag.outputs.tag }}"
+          else
+            TAG_END="${{ github.sha }}"
+          fi
+
+          export BUILD_IMAGE_ID="${BUILD_IMAGE_BASE}-${TAG_SUFFIX}${TAG_END}"
+
           ./scripts/build_image.sh
         env:
           CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
           PUSH_DOCKER_IMAGE: true 
-          BUILD_IMAGE_ID: ${{ vars.AVALANCHE_VERSION }}-fuji-${{ steps.latest_version.outputs.tag }}
+          BUILD_IMAGE_BASE: ${{ vars.AVALANCHE_VERSION }}
           DOCKERHUB_REPO: logisticx/ava
