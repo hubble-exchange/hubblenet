@@ -18,7 +18,7 @@ jobs:
       - name: Login to Docker hub
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }} 
+          username: ${{ vars.DOCKER_USERNAME }} 
           password: ${{ secrets.DOCKER_PASS }} 
       - name: Build Dockerfile for Fuji
         run: |
@@ -28,4 +28,5 @@ jobs:
           CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
           PUSH_DOCKER_IMAGE: true 
           BUILD_IMAGE_ID: ${{ vars.AVALANCHE_VERSION }}-fuji-${{ github.sha }}
+          DOCKERHUB_REPO: logisticx/hubblenet
 
