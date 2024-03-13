@@ -67,8 +67,8 @@ func ValidatePlaceIOCorder(bibliophile b.BibliophileClient, inputStruct *Validat
 	}
 
 	// this check is sort of redundant because either ways user can circumvent this by placing several reduceOnly order in a single tx/block
+	posSize := bibliophile.GetSize(ammAddress, &trader)
 	if order.ReduceOnly {
-		posSize := bibliophile.GetSize(ammAddress, &trader)
 		// a reduce only order should reduce position
 		if !reducesPosition(posSize, order.BaseAssetQuantity) {
 			response.Err = ErrReduceOnlyBaseAssetQuantityInvalid.Error()
@@ -91,6 +91,15 @@ func ValidatePlaceIOCorder(bibliophile b.BibliophileClient, inputStruct *Validat
 		response.Err = ErrPricePrecision.Error()
 		return
 	}
+
+	if bibliophile.GetPrecompileVersion(common.HexToAddress(SelfAddress)).Cmp(big.NewInt(1)) >= 0 {
+		posCap := bibliophile.GetPositionCap(order.AmmIndex.Int64(), trader)
+		if hu.Abs(hu.Add(posSize, order.BaseAssetQuantity)).Cmp(posCap) == 1 {
+			response.Err = ErrOverPositionCap.Error()
+			return
+		}
+	}
+
 	return response
 }
 

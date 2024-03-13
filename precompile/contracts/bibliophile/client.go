@@ -27,6 +27,7 @@ type BibliophileClient interface {
 	GetBlockPlaced(orderHash [32]byte) *big.Int
 	GetOrderFilledAmount(orderHash [32]byte) *big.Int
 	GetOrderStatus(orderHash [32]byte) int64
+	GetPrecompileVersion(precompileAddress common.Address) *big.Int
 
 	// IOC Order
 	IOC_GetBlockPlaced(orderHash [32]byte) *big.Int
@@ -51,6 +52,7 @@ type BibliophileClient interface {
 	GetPriceMultiplier(market common.Address) *big.Int
 	GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int)
 	GetAcceptableBoundsForLiquidation(marketId int64) (*big.Int, *big.Int)
+	GetPositionCap(marketId int64, trader common.Address) *big.Int
 
 	GetTimeStamp() uint64
 	GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int)
@@ -242,4 +244,12 @@ func (b *bibliophileClient) GetRequiredMargin(baseAsset *big.Int, price *big.Int
 
 func (b *bibliophileClient) HasReferrer(trader common.Address) bool {
 	return HasReferrer(b.accessibleState.GetStateDB(), trader)
+}
+
+func (b *bibliophileClient) GetPositionCap(marketId int64, trader common.Address) *big.Int {
+	return getPositionCap(b.accessibleState.GetStateDB(), marketId, &trader)
+}
+
+func (b *bibliophileClient) GetPrecompileVersion(precompileAddress common.Address) *big.Int {
+	return getPrecompileVersion(b.accessibleState.GetStateDB(), precompileAddress)
 }
