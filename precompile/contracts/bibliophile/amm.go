@@ -29,6 +29,7 @@ const (
 	ISOLATED_TRADE_MARGIN_FRACTION_SLOT int64 = 30
 	ISOLATED_LIQUIDATION_MARGIN_FRACTION_SLOT int64 = 31
 	ACCOUNT_PREFERENCES_SLOT        int64 = 33
+	MAX_POSITION_CAP_SLOT           int64 = 34
 )
 
 // AMM State
@@ -210,6 +211,17 @@ func getRequiredMargin(stateDB contract.StateDB, baseAsset *big.Int, price *big.
 func getRequiredMarginForQuote(stateDB contract.StateDB, market common.Address, trader *common.Address, quote *big.Int) *big.Int {
 	marginFraction := getTraderMarginFraction(stateDB, market, trader)
 	return hu.Div1e6(hu.Mul(quote, marginFraction))
+}
+
+func getMaxPositionCap(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_POSITION_CAP_SLOT))).Big()
+}
+
+func getPositionCap(stateDB contract.StateDB, market int64, trader *common.Address) *big.Int {
+	marketAddress := GetMarketAddressFromMarketID(market, stateDB)
+	maxPositionCap := getMaxPositionCap(stateDB, marketAddress)
+	traderMarginFraction := getTraderMarginFraction(stateDB, marketAddress, trader)
+	return hu.Div1e6(hu.Mul(maxPositionCap, traderMarginFraction))
 }
 
 // Utils

@@ -14,6 +14,7 @@ const (
 	REDUCE_ONLY_AMOUNT_SLOT         int64 = 2
 	LONG_OPEN_ORDERS_SLOT           int64 = 4
 	SHORT_OPEN_ORDERS_SLOT          int64 = 5
+	PRECOMPILE_VERSION_SLOT         int64 = 8
 )
 
 func getOrderFilledAmount(stateDB contract.StateDB, orderHash [32]byte) *big.Int {
@@ -52,4 +53,9 @@ func getShortOpenOrdersAmount(stateDB contract.StateDB, trader common.Address, a
 func getBlockPlaced(stateDB contract.StateDB, orderHash [32]byte) *big.Int {
 	orderInfo := orderInfoMappingStorageSlot(orderHash)
 	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(LIMIT_ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(orderInfo)).Bytes())
+}
+
+func getPrecompileVersion(stateDB contract.StateDB, precompileAddress common.Address) *big.Int {
+	slot := new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(precompileAddress.Bytes(), 32), common.LeftPadBytes(big.NewInt(PRECOMPILE_VERSION_SLOT).Bytes(), 32)...)))
+	return stateDB.GetState(common.HexToAddress(LIMIT_ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(slot)).Big()
 }
