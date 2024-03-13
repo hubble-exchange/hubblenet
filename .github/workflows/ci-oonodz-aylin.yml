@@ -22,9 +22,10 @@ jobs:
           password: ${{ secrets.DOCKER_PASS }} 
       - name: Build Dockerfile for Fuji
         run: |
-          CURRENT_BRANCH=${{ github.head_ref || github.ref_name }} 
-          PUSH_DOCKER_IMAGE=true 
-          GITHUB_SHA_SHORT=$(echo $GITHUB_SHA | cut -c1-7)
-          BUILD_IMAGE_ID=${AVALANCHE_VERSION}-fuji-${GITHUB_SHA_SHORT}
           echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
           ./scripts/build_image.sh
+        env:
+          CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
+          PUSH_DOCKER_IMAGE: true 
+          BUILD_IMAGE_ID: ${AVALANCHE_VERSION}-fuji-$(echo $GITHUB_SHA | cut -c1-7)
+
