@@ -27,5 +27,5 @@ jobs:
         env:
           CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
           PUSH_DOCKER_IMAGE: true 
-          BUILD_IMAGE_ID: ${{ vars.AVALANCHE_VERSION }}-fuji-${{ GITHUB_SHA }}
+          BUILD_IMAGE_ID: ${{ vars.AVALANCHE_VERSION }}-fuji-${{ github.sha }}
 
