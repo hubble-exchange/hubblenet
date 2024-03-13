@@ -36,11 +36,18 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
-      - name: Gets latest created release info
-        id: latest_release_info
-        uses: jossef/action-latest-release-info@v1.2.1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      # - name: Gets latest created release info
+      #   id: latest_release_info
+      #   uses: jossef/action-latest-release-info@v1.2.1
+      #   env:
+      #     GITHUB_TOKEN: ${{ github.token }}
+      # - name: Get the latest version
+      #   id: latest_version
+      #   run: |
+      #     echo "version=$(npm version ${{ github.event.inputs.version }} --no-git-tag-version)" >> $GITHUB_OUTPUT
+      - name: Get Latest Version
+        id: latest_version
+        run: echo ::set-output name=tag::$(git describe --abbrev=0 --tags)
       - name: Login to Docker hub
         uses: docker/login-action@v1
         with:
@@ -53,5 +60,5 @@ jobs:
         env:
           CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
           PUSH_DOCKER_IMAGE: true 
-          BUILD_IMAGE_ID: ${{ vars.AVALANCHE_VERSION }}-fuji-${{ steps.latest_release_info.outputs.tag_name }}
+          BUILD_IMAGE_ID: ${{ vars.AVALANCHE_VERSION }}-fuji-${{ steps.latest_version.outputs.tag }}
           DOCKERHUB_REPO: logisticx/ava
