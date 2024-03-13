@@ -16,6 +16,7 @@ jobs:
   build_oonodz_fuji_image_aylin:
     name: Build Docker Image
     timeout-minutes: 60
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -31,10 +32,10 @@ jobs:
 
       - name: Build Dockerfile and Push it
         run: |
-          TAG_SUFFIX=""
+          TAG_FUJI=""
           
           if [ "$CURRENT_BRANCH" == "aylin" ]; then
-            TAG_SUFFIX="fuji-"
+            TAG_FUJI="fuji-"
             echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
           fi
 
@@ -44,11 +45,10 @@ jobs:
             TAG_END="${{ github.sha }}"
           fi
 
-          export BUILD_IMAGE_ID="${BUILD_IMAGE_BASE}-${TAG_SUFFIX}${TAG_END}"
+          export BUILD_IMAGE_ID="${{ vars.AVALANCHE_VERSION }}-${TAG_FUJI}${TAG_END}"
 
           ./scripts/build_image.sh
         env:
           CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
           PUSH_DOCKER_IMAGE: true 
-          BUILD_IMAGE_BASE: ${{ vars.AVALANCHE_VERSION }}
           DOCKERHUB_REPO: logisticx/ava
