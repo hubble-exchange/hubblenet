@@ -39,7 +39,7 @@ jobs:
             echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
           fi
 
-          if [ -z "$GITHUB_TAG" ]; then
+          if [ -n "$GITHUB_TAG" ]; then
             TAG_END=$GITHUB_TAG
           else
             TAG_END=$GITHUB_SHA
@@ -53,3 +53,4 @@ jobs:
           PUSH_DOCKER_IMAGE: true 
           DOCKERHUB_REPO: logisticx/ava
           GITHUB_TAG: ${{ steps.get_tag.outputs.tag }}
+          GITHUB_SHA: ${{ github.sha }}
