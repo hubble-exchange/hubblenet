@@ -39,10 +39,10 @@ jobs:
             echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
           fi
 
-          if [ -z "${{ steps.get_tag.outputs.tag }}" ]; then
-            TAG_END="${{ steps.get_tag.outputs.tag }}"
+          if [ -z "$GITHUB_TAG" ]; then
+            TAG_END=$GITHUB_TAG
           else
-            TAG_END="${{ github.sha }}"
+            TAG_END=$GITHUB_SHA
           fi
 
           export BUILD_IMAGE_ID="${{ vars.AVALANCHE_VERSION }}-${TAG_FUJI}${TAG_END}"
@@ -52,3 +52,4 @@ jobs:
           CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
           PUSH_DOCKER_IMAGE: true 
           DOCKERHUB_REPO: logisticx/ava
+          GITHUB_TAG: ${{ steps.get_tag.outputs.tag }}
