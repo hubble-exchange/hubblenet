@@ -10,8 +10,9 @@ defaults:
     shell: bash
 
 jobs:
-  build_oonodz_image:
+  build_oonodz_fuji_image_aylin:
     name: Build Docker Image
+    timeout-minutes: 60
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
@@ -29,4 +30,28 @@ jobs:
           PUSH_DOCKER_IMAGE: true 
           BUILD_IMAGE_ID: ${{ vars.AVALANCHE_VERSION }}-fuji-${{ github.sha }}
           DOCKERHUB_REPO: logisticx/ava
-
+  build_oonodz_fuji_image_release:
+    name: Build Docker Image
+    timeout-minutes: 60
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gets latest created release info
+        id: latest_release_info
+        uses: jossef/action-latest-release-info@v1.2.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Login to Docker hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }} 
+          password: ${{ secrets.DOCKER_PASS }} 
+      - name: Build Dockerfile for Fuji
+        run: |
+          echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
+          ./scripts/build_image.sh
+        env:
+          CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
+          PUSH_DOCKER_IMAGE: true 
+          BUILD_IMAGE_ID: ${{ vars.AVALANCHE_VERSION }}-fuji-${{ steps.latest_release_info.outputs.tag_name }}
+          DOCKERHUB_REPO: logisticx/ava
