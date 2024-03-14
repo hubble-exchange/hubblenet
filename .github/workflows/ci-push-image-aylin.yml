@@ -29,16 +29,20 @@ jobs:
 
       - name: Build Dockerfile and Push it
         run: |
-          TAG_FUJI="fuji-"
           TAG_END=$GITHUB_SHA
           
           if [ -n "$GITHUB_TAG" ]; then
             TAG_END=$GITHUB_TAG
           fi
 
-          export BUILD_IMAGE_ID="${{ vars.AVALANCHE_VERSION_DEV }}-${TAG_FUJI}${TAG_END}"
+          export BUILD_IMAGE_ID="${{ vars.AVALANCHE_VERSION_DEV }}-aylin-${TAG_END}"
 
-          echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
+          # Copy binary to the correct Fuji VM ID respository
+          echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile 
+
+          # Copy binary to the correct Mainnet VM ID respository
+          echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/o1Fg94YujMqL75Ebrdkos95MTVjZpPpdeAp5ocEsp2X9c2FSz" >> Dockerfile
+
           ./scripts/build_image.sh
         env:
           CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
