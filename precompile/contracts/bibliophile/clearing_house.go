@@ -113,7 +113,7 @@ func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 	}
 }
 
-func getNotionalPositionAndRequiredMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput, upgradeVersion hu.UpgradeVersion) GetNotionalPositionAndMarginOutput {
+func getNotionalPositionAndRequiredMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
 	positions, underlyingPrices, accountPreferences, activeMarketIds := getMarketsDataFromDB(stateDB, &input.Trader, input.Mode)
 	pendingFunding := big.NewInt(0)
 	if input.IncludeFundingPayments {
@@ -124,7 +124,6 @@ func getNotionalPositionAndRequiredMargin(stateDB contract.StateDB, input *GetNo
 			Assets:         GetCollaterals(stateDB),
 			OraclePrices:   underlyingPrices,
 			ActiveMarkets:  activeMarketIds,
-			UpgradeVersion: upgradeVersion,
 		},
 		&hu.UserState{
 			Positions:      positions,

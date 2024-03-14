@@ -442,10 +442,10 @@ func reducesPosition(positionSize *big.Int, baseAssetQuantity *big.Int) bool {
 }
 
 func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrder) *big.Int {
-	if false { // @todo find apt condition, maybe by block number?
-		return getRequiredMarginNew(bibliophile, order.BaseAssetQuantity, order.Price, order.AmmIndex.Int64(), &order.Trader)
+	if bibliophile.GetPrecompileVersion(common.HexToAddress(SelfAddress)).Cmp(big.NewInt(0)) == 0 {
+		return getRequiredMarginLegacy(bibliophile, order)
 	}
-	return getRequiredMarginLegacy(bibliophile, order)
+	return getRequiredMarginNew(bibliophile, order.BaseAssetQuantity, order.Price, order.AmmIndex.Int64(), &order.Trader)
 }
 
 func getRequiredMarginNew(bibliophile b.BibliophileClient, baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int {

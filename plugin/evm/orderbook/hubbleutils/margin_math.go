@@ -41,6 +41,7 @@ func UpgradeVersionV0orV1(blockTimestamp uint64) UpgradeVersion {
 	return V0
 }
 
+// @todo update to newer version wherever it is used in the evm
 func GetAvailableMargin(hState *HubbleState, userState *UserState) *big.Int {
 	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Min_Allowable_Margin)
 	return GetAvailableMargin_(notionalPosition, margin, userState.ReservedMargin, hState.MinAllowableMargin)

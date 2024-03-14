@@ -12,11 +12,11 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/precompile/contract"
 	"github.com/ava-labs/subnet-evm/vmerrs"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 
 	_ "embed"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 )
 
 const (
@@ -26,8 +26,10 @@ const (
 	// There are some predefined gas costs in contract/utils.go that you can use.
 	GetCrossMarginAccountDataGasCost              uint64 = 1 /* SET A GAS COST HERE */
 	GetNotionalPositionAndMarginGasCost           uint64 = 1 /* SET A GAS COST HERE */
+	GetRequiredMarginGasCost                      uint64 = 1 /* SET A GAS COST HERE */
 	GetTotalFundingForCrossMarginPositionsGasCost uint64 = 1 /* SET A GAS COST HERE */
 	GetTraderDataForMarketGasCost                 uint64 = 1 /* SET A GAS COST HERE */
+	ValidateCancelLimitOrderV2GasCost             uint64 = 1 /* SET A GAS COST HERE */
 )
 
 // CUSTOM CODE STARTS HERE
@@ -51,6 +53,23 @@ var (
 
 	TraderViewerPrecompile = createTraderViewerPrecompile()
 )
+
+// ILimitOrderBookOrder is an auto generated low-level Go binding around an user-defined struct.
+type ILimitOrderBookOrder struct {
+	AmmIndex          *big.Int
+	Trader            common.Address
+	BaseAssetQuantity *big.Int
+	Price             *big.Int
+	Salt              *big.Int
+	ReduceOnly        bool
+	PostOnly          bool
+}
+
+// IOrderHandlerCancelOrderRes is an auto generated low-level Go binding around an user-defined struct.
+type IOrderHandlerCancelOrderRes struct {
+	UnfilledAmount *big.Int
+	Amm            common.Address
+}
 
 type GetCrossMarginAccountDataInput struct {
 	Trader common.Address
@@ -76,6 +95,13 @@ type GetNotionalPositionAndMarginOutput struct {
 	RequiredMargin   *big.Int
 }
 
+type GetRequiredMarginInput struct {
+	BaseAssetQuantity *big.Int
+	Price             *big.Int
+	AmmIndex          *big.Int
+	Trader            common.Address
+}
+
 type GetTraderDataForMarketInput struct {
 	Trader   common.Address
 	AmmIndex *big.Int
@@ -88,6 +114,19 @@ type GetTraderDataForMarketOutput struct {
 	UnrealizedPnl    *big.Int
 	RequiredMargin   *big.Int
 	PendingFunding   *big.Int
+}
+
+type ValidateCancelLimitOrderV2Input struct {
+	Order                 ILimitOrderBookOrder
+	Sender                common.Address
+	AssertLowMargin       bool
+	AssertOverPositionCap bool
+}
+
+type ValidateCancelLimitOrderV2Output struct {
+	Err       string
+	OrderHash [32]byte
+	Res       IOrderHandlerCancelOrderRes
 }
 
 // UnpackGetCrossMarginAccountDataInput attempts to unpack [input] as GetCrossMarginAccountDataInput
@@ -199,6 +238,63 @@ func getNotionalPositionAndMargin(accessibleState contract.AccessibleState, call
 	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
 	output := GetNotionalPositionAndMargin(bibliophile, &inputStruct)
 	packedOutput, err := PackGetNotionalPositionAndMarginOutput(output)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
+// UnpackGetRequiredMarginInput attempts to unpack [input] as GetRequiredMarginInput
+// assumes that [input] does not include selector (omits first 4 func signature bytes)
+func UnpackGetRequiredMarginInput(input []byte) (GetRequiredMarginInput, error) {
+	inputStruct := GetRequiredMarginInput{}
+	// The strict mode in decoding is disabled after Durango. You can re-enable by changing the last argument to true.
+	err := TraderViewerABI.UnpackInputIntoInterface(&inputStruct, "getRequiredMargin", input, false)
+
+	return inputStruct, err
+}
+
+// PackGetRequiredMargin packs [inputStruct] of type GetRequiredMarginInput into the appropriate arguments for getRequiredMargin.
+func PackGetRequiredMargin(inputStruct GetRequiredMarginInput) ([]byte, error) {
+	return TraderViewerABI.Pack("getRequiredMargin", inputStruct.BaseAssetQuantity, inputStruct.Price, inputStruct.AmmIndex, inputStruct.Trader)
+}
+
+// PackGetRequiredMarginOutput attempts to pack given requiredMargin of type *big.Int
+// to conform the ABI outputs.
+func PackGetRequiredMarginOutput(requiredMargin *big.Int) ([]byte, error) {
+	return TraderViewerABI.PackOutput("getRequiredMargin", requiredMargin)
+}
+
+// UnpackGetRequiredMarginOutput attempts to unpack given [output] into the *big.Int type output
+// assumes that [output] does not include selector (omits first 4 func signature bytes)
+func UnpackGetRequiredMarginOutput(output []byte) (*big.Int, error) {
+	res, err := TraderViewerABI.Unpack("getRequiredMargin", output)
+	if err != nil {
+		return new(big.Int), err
+	}
+	unpacked := *abi.ConvertType(res[0], new(*big.Int)).(**big.Int)
+	return unpacked, nil
+}
+
+func getRequiredMargin(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, GetRequiredMarginGasCost); err != nil {
+		return nil, 0, err
+	}
+	// attempts to unpack [input] into the arguments to the GetRequiredMarginInput.
+	// Assumes that [input] does not include selector
+	// You can use unpacked [inputStruct] variable in your code
+	inputStruct, err := UnpackGetRequiredMarginInput(input)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// CUSTOM CODE STARTS HERE
+	_ = inputStruct // CUSTOM CODE OPERATES ON INPUT
+
+	var output *big.Int // CUSTOM CODE FOR AN OUTPUT
+	packedOutput, err := PackGetRequiredMarginOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
 	}
@@ -327,6 +423,64 @@ func getTraderDataForMarket(accessibleState contract.AccessibleState, caller com
 	return packedOutput, remainingGas, nil
 }
 
+// UnpackValidateCancelLimitOrderV2Input attempts to unpack [input] as ValidateCancelLimitOrderV2Input
+// assumes that [input] does not include selector (omits first 4 func signature bytes)
+func UnpackValidateCancelLimitOrderV2Input(input []byte) (ValidateCancelLimitOrderV2Input, error) {
+	inputStruct := ValidateCancelLimitOrderV2Input{}
+	// The strict mode in decoding is disabled after Durango. You can re-enable by changing the last argument to true.
+	err := TraderViewerABI.UnpackInputIntoInterface(&inputStruct, "validateCancelLimitOrderV2", input, false)
+
+	return inputStruct, err
+}
+
+// PackValidateCancelLimitOrderV2 packs [inputStruct] of type ValidateCancelLimitOrderV2Input into the appropriate arguments for validateCancelLimitOrderV2.
+func PackValidateCancelLimitOrderV2(inputStruct ValidateCancelLimitOrderV2Input) ([]byte, error) {
+	return TraderViewerABI.Pack("validateCancelLimitOrderV2", inputStruct.Order, inputStruct.Sender, inputStruct.AssertLowMargin, inputStruct.AssertOverPositionCap)
+}
+
+// PackValidateCancelLimitOrderV2Output attempts to pack given [outputStruct] of type ValidateCancelLimitOrderV2Output
+// to conform the ABI outputs.
+func PackValidateCancelLimitOrderV2Output(outputStruct ValidateCancelLimitOrderV2Output) ([]byte, error) {
+	return TraderViewerABI.PackOutput("validateCancelLimitOrderV2",
+		outputStruct.Err,
+		outputStruct.OrderHash,
+		outputStruct.Res,
+	)
+}
+
+// UnpackValidateCancelLimitOrderV2Output attempts to unpack [output] as ValidateCancelLimitOrderV2Output
+// assumes that [output] does not include selector (omits first 4 func signature bytes)
+func UnpackValidateCancelLimitOrderV2Output(output []byte) (ValidateCancelLimitOrderV2Output, error) {
+	outputStruct := ValidateCancelLimitOrderV2Output{}
+	err := TraderViewerABI.UnpackIntoInterface(&outputStruct, "validateCancelLimitOrderV2", output)
+
+	return outputStruct, err
+}
+
+func validateCancelLimitOrderV2(accessibleState contract.AccessibleState, caller common.Address, addr common.Address, input []byte, suppliedGas uint64, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	if remainingGas, err = contract.DeductGas(suppliedGas, ValidateCancelLimitOrderV2GasCost); err != nil {
+		return nil, 0, err
+	}
+	// attempts to unpack [input] into the arguments to the ValidateCancelLimitOrderV2Input.
+	// Assumes that [input] does not include selector
+	// You can use unpacked [inputStruct] variable in your code
+	inputStruct, err := UnpackValidateCancelLimitOrderV2Input(input)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// CUSTOM CODE STARTS HERE
+	_ = inputStruct                             // CUSTOM CODE OPERATES ON INPUT
+	var output ValidateCancelLimitOrderV2Output // CUSTOM CODE FOR AN OUTPUT
+	packedOutput, err := PackValidateCancelLimitOrderV2Output(output)
+	if err != nil {
+		return nil, remainingGas, err
+	}
+
+	// Return the packed output and the remaining gas
+	return packedOutput, remainingGas, nil
+}
+
 // createTraderViewerPrecompile returns a StatefulPrecompiledContract with getters and setters for the precompile.
 
 func createTraderViewerPrecompile() contract.StatefulPrecompiledContract {
@@ -335,8 +489,10 @@ func createTraderViewerPrecompile() contract.StatefulPrecompiledContract {
 	abiFunctionMap := map[string]contract.RunStatefulPrecompileFunc{
 		"getCrossMarginAccountData":              getCrossMarginAccountData,
 		"getNotionalPositionAndMargin":           getNotionalPositionAndMargin,
+		"getRequiredMargin":                      getRequiredMargin,
 		"getTotalFundingForCrossMarginPositions": getTotalFundingForCrossMarginPositions,
 		"getTraderDataForMarket":                 getTraderDataForMarket,
+		"validateCancelLimitOrderV2":             validateCancelLimitOrderV2,
 	}
 
 	for name, function := range abiFunctionMap {

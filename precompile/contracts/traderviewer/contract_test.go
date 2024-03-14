@@ -57,6 +57,20 @@ var (
 			ReadOnly:    false,
 			ExpectedErr: vmerrs.ErrOutOfGas.Error(),
 		},
+		"insufficient gas for getRequiredMargin should fail": {
+			Caller: common.Address{1},
+			InputFn: func(t testing.TB) []byte {
+				// CUSTOM CODE STARTS HERE
+				// populate test input here
+				testInput := GetRequiredMarginInput{}
+				input, err := PackGetRequiredMargin(testInput)
+				require.NoError(t, err)
+				return input
+			},
+			SuppliedGas: GetRequiredMarginGasCost - 1,
+			ReadOnly:    false,
+			ExpectedErr: vmerrs.ErrOutOfGas.Error(),
+		},
 		"insufficient gas for getTotalFundingForCrossMarginPositions should fail": {
 			Caller: common.Address{1},
 			InputFn: func(t testing.TB) []byte {
@@ -85,6 +99,20 @@ var (
 				return input
 			},
 			SuppliedGas: GetTraderDataForMarketGasCost - 1,
+			ReadOnly:    false,
+			ExpectedErr: vmerrs.ErrOutOfGas.Error(),
+		},
+		"insufficient gas for validateCancelLimitOrderV2 should fail": {
+			Caller: common.Address{1},
+			InputFn: func(t testing.TB) []byte {
+				// CUSTOM CODE STARTS HERE
+				// populate test input here
+				testInput := ValidateCancelLimitOrderV2Input{}
+				input, err := PackValidateCancelLimitOrderV2(testInput)
+				require.NoError(t, err)
+				return input
+			},
+			SuppliedGas: ValidateCancelLimitOrderV2GasCost - 1,
 			ReadOnly:    false,
 			ExpectedErr: vmerrs.ErrOutOfGas.Error(),
 		},
