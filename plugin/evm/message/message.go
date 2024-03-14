@@ -23,6 +23,7 @@ const (
 
 var (
 	_ GossipMessage = EthTxsGossip{}
+	_ GossipMessage = SignedOrdersGossip{}
 
 	errUnexpectedCodecVersion = errors.New("unexpected codec version")
 )
@@ -33,14 +34,6 @@ type GossipMessage interface {
 
 	// Handle this gossip message with the gossip handler.
 	Handle(handler GossipHandler, nodeID ids.NodeID) error
-}
-
-type LegacyGossipMessage interface {
-	// types implementing GossipMessage should also implement fmt.Stringer for logging purposes.
-	fmt.Stringer
-
-	// Handle this gossip message with the gossip handler.
-	Handle(handler LegacyGossipHandler, nodeID ids.NodeID) error
 }
 
 type EthTxsGossip struct {
@@ -59,7 +52,7 @@ func (msg EthTxsGossip) String() string {
 	return fmt.Sprintf("EthTxsGossip(Len=%d)", len(msg.Txs))
 }
 
-func (msg SignedOrdersGossip) Handle(handler LegacyGossipHandler, nodeID ids.NodeID) error {
+func (msg SignedOrdersGossip) Handle(handler GossipHandler, nodeID ids.NodeID) error {
 	return handler.HandleSignedOrders(nodeID, msg)
 }
 
@@ -80,11 +73,6 @@ func ParseGossipMessage(codec codec.Manager, bytes []byte) (GossipMessage, error
 }
 
 func BuildGossipMessage(codec codec.Manager, msg GossipMessage) ([]byte, error) {
-	bytes, err := codec.Marshal(Version, &msg)
-	return bytes, err
-}
-
-func BuildLegacyGossipMessage(codec codec.Manager, msg LegacyGossipMessage) ([]byte, error) {
 	bytes, err := codec.Marshal(Version, &msg)
 	return bytes, err
 }
