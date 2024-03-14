@@ -961,8 +961,8 @@ func TestHubbleLogs(t *testing.T) {
 	// Create two VMs which will agree on block A and then
 	// build the two distinct preferred chains above
 	ctx := context.Background()
-	issuer1, vm1, _, _ := GenesisVM(t, true, genesisJSON, "{\"pruning-enabled\":true}", "")
-	issuer2, vm2, _, _ := GenesisVM(t, true, genesisJSON, "{\"pruning-enabled\":true}", "")
+	issuer1, vm1, _, _ := GenesisVM(t, true, genesisJSON, "{\"pruning-enabled\":true,\"node-type\":\"kitkat\"}", "")
+	issuer2, vm2, _, _ := GenesisVM(t, true, genesisJSON, "{\"pruning-enabled\":true,\"node-type\":\"kitkat\"}", "")
 
 	defer func() {
 		if err := vm1.Shutdown(ctx); err != nil {

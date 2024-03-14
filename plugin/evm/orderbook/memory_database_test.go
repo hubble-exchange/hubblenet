@@ -1063,3 +1063,91 @@ func TestSampleImpactPrice(t *testing.T) {
 		})
 	})
 }
+
+func TestGetOrderValidationFields(t *testing.T) {
+	db := getDatabase()
+
+	t.Run("bidsHead is unaffected by IOC orders", func(t *testing.T) {
+		signedOrder := &hu.SignedOrder{
+			LimitOrder: LimitOrder{
+				BaseOrder: hu.BaseOrder{
+					AmmIndex:          big.NewInt(0),
+					Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+					BaseAssetQuantity: big.NewInt(-5000000000000000000),
+					Price:             big.NewInt(1000000000),
+					Salt:              big.NewInt(1688994806105),
+					ReduceOnly:        false,
+				},
+				PostOnly: true,
+			},
+			OrderType: 2,
+			ExpireAt:  big.NewInt(1688994854),
+		}
+		orderId, _ := signedOrder.Hash()
+
+		// no orders, ask and bids head should be 0
+		fields := db.GetOrderValidationFields(orderId, signedOrder)
+		assert.Equal(t, big.NewInt(0), fields.BidsHead)
+		assert.Equal(t, big.NewInt(0), fields.AsksHead)
+
+		// send a bid at $100
+		order1 := createLimitOrder(LONG, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", big.NewInt(1), big.NewInt(100), Placed, big.NewInt(2), big.NewInt(1688994806105))
+		db.Add(&order1)
+		fields = db.GetOrderValidationFields(orderId, signedOrder)
+		assert.Equal(t, big.NewInt(100), fields.BidsHead)
+		assert.Equal(t, big.NewInt(0), fields.AsksHead)
+
+		// send a market market bid at $101
+		// assert that bidsHead remains at $101 so signed orders at (100, 101) can be accepted and matched
+		order2 := createIOCOrder(LONG, "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", big.NewInt(1e18), big.NewInt(101), Placed, big.NewInt(2), big.NewInt(2), big.NewInt(10))
+		db.Add(&order2)
+		fields = db.GetOrderValidationFields(orderId, signedOrder)
+		assert.Equal(t, big.NewInt(100), fields.BidsHead)
+		assert.Equal(t, big.NewInt(0), fields.AsksHead)
+
+		db.Delete(order1.Id)
+		db.Delete(order2.Id)
+	})
+
+	t.Run("asksHead is unaffected by IOC orders", func(t *testing.T) {
+		signedOrder := &hu.SignedOrder{
+			LimitOrder: LimitOrder{
+				BaseOrder: hu.BaseOrder{
+					AmmIndex:          big.NewInt(0),
+					Trader:            common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+					BaseAssetQuantity: big.NewInt(5000000000000000000),
+					Price:             big.NewInt(1000000000),
+					Salt:              big.NewInt(1688994806105),
+					ReduceOnly:        false,
+				},
+				PostOnly: true,
+			},
+			OrderType: 2,
+			ExpireAt:  big.NewInt(1688994854),
+		}
+		orderId, _ := signedOrder.Hash()
+
+		// no orders, ask and bids head should be 0
+		fields := db.GetOrderValidationFields(orderId, signedOrder)
+		assert.Equal(t, big.NewInt(0), fields.BidsHead)
+		assert.Equal(t, big.NewInt(0), fields.AsksHead)
+
+		// send a bid at $100
+		order1 := createLimitOrder(SHORT, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", big.NewInt(-1), big.NewInt(100), Placed, big.NewInt(2), big.NewInt(1688994806105))
+		db.Add(&order1)
+		fields = db.GetOrderValidationFields(orderId, signedOrder)
+		assert.Equal(t, big.NewInt(0), fields.BidsHead)
+		assert.Equal(t, big.NewInt(100), fields.AsksHead)
+
+		// send a market market bid at $101
+		// assert that bidsHead remains at $101 so signed orders at (100, 101) can be accepted and matched
+		order2 := createIOCOrder(SHORT, "0x22Bb736b64A0b4D4081E103f83bccF864F0404aa", big.NewInt(-1), big.NewInt(99), Placed, big.NewInt(2), big.NewInt(2), big.NewInt(10))
+		db.Add(&order2)
+		fields = db.GetOrderValidationFields(orderId, signedOrder)
+		assert.Equal(t, big.NewInt(0), fields.BidsHead)
+		assert.Equal(t, big.NewInt(100), fields.AsksHead)
+
+		db.Delete(order1.Id)
+		db.Delete(order2.Id)
+	})
+}

@@ -61,8 +61,7 @@ const (
 	defaultStateSyncMinBlocks   = 300_000
 	defaultStateSyncRequestSize = 1024 // the number of key/values to ask peers for per request
 
-	defaultIsValidator             = false
-	defaultTradingAPIEnabled       = false
+	defaultNodeType                = "tresor"
 	defaultLoadFromSnapshotEnabled = true
 	defaultSnapshotFilePath        = "/tmp/snapshot"
 	defaultMakerbookDatabasePath   = "/tmp/makerbook"
@@ -236,11 +235,9 @@ type Config struct {
 
 	// Testing apis enabled
 	TestingApiEnabled bool `json:"testing-api-enabled"`
-	// IsValidator is true if this node is a validator
-	IsValidator bool `json:"is-validator"`
 
-	// TradingAPI is for the sdk
-	TradingAPIEnabled bool `json:"trading-api-enabled"`
+	// NodeType is the type of node among the following: "tresor", "kitkat", "berghain", meaning validator only, matching engine, rpc node respectively
+	NodeType string `json:"node-type"`
 
 	// LoadFromSnapshotEnabled = true if the node should load the memory db from a snapshot
 	LoadFromSnapshotEnabled bool `json:"load-from-snapshot-enabled"`
@@ -311,8 +308,7 @@ func (c *Config) SetDefaults() {
 	c.AcceptedCacheSize = defaultAcceptedCacheSize
 	c.ValidatorPrivateKeyFile = defaultValidatorPrivateKeyFile
 	c.TestingApiEnabled = defaultTestingApiEnabled
-	c.IsValidator = defaultIsValidator
-	c.TradingAPIEnabled = defaultTradingAPIEnabled
+	c.NodeType = defaultNodeType
 	c.LoadFromSnapshotEnabled = defaultLoadFromSnapshotEnabled
 	c.SnapshotFilePath = defaultSnapshotFilePath
 	c.MakerbookDatabasePath = defaultMakerbookDatabasePath

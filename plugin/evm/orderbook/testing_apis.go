@@ -76,5 +76,5 @@ func (api *TestingAPI) GetSnapshot(ctx context.Context) (Snapshot, error) {
 }
 
 func getCurrentBlockNumber(backend *eth.EthAPIBackend) uint64 {
-	return backend.CurrentHeader().Number.Uint64()
+	return backend.LastAcceptedBlock().NumberU64()
 }

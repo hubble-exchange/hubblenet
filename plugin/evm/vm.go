@@ -568,7 +568,19 @@ func (vm *VM) initializeChain(lastAcceptedHash common.Hash, ethConfig ethconfig.
 	vm.blockChain = vm.eth.BlockChain()
 	vm.miner = vm.eth.Miner()
 
-	vm.limitOrderProcesser = vm.NewLimitOrderProcesser()
+	vm.limitOrderProcesser, err = NewLimitOrderProcesser(
+		vm.ctx,
+		vm.txPool,
+		vm.shutdownChan,
+		&vm.shutdownWg,
+		vm.eth.APIBackend,
+		vm.blockChain,
+		vm.hubbleDB,
+		vm.config,
+	)
+	if err != nil {
+		return err
+	}
 	vm.eth.Start()
 	return vm.initChainState(vm.blockChain.LastAcceptedBlock())
 }
@@ -1029,23 +1041,26 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]http.Handler, error) {
 		}
 		enabledAPIs = append(enabledAPIs, "snowman")
 	}
-	if err := handler.RegisterName("order", NewOrderAPI(vm.limitOrderProcesser.GetTradingAPI(), vm)); err != nil {
-		return nil, err
-	}
-	orderbook.MakerbookDatabaseFile = vm.config.MakerbookDatabasePath
 
-	if err := handler.RegisterName("orderbook", vm.limitOrderProcesser.GetOrderBookAPI()); err != nil {
-		return nil, err
-	}
+	if vm.limitOrderProcesser.GetNodeType() != Tresor {
+		// orderbook and trading APIs should be enabled for kitkat too cuz it's good to have visibility on memory db in those nodes. To understand the validators' memory db.
+		if err := handler.RegisterName("order", NewOrderAPI(vm.limitOrderProcesser.GetTradingAPI(), vm)); err != nil {
+			return nil, err
+		}
+		orderbook.MakerbookDatabaseFile = vm.config.MakerbookDatabasePath
 
-	if vm.config.TradingAPIEnabled {
+		if err := handler.RegisterName("orderbook", vm.limitOrderProcesser.GetOrderBookAPI()); err != nil {
+			return nil, err
+		}
+
 		if err := handler.RegisterName("trading", vm.limitOrderProcesser.GetTradingAPI()); err != nil {
 			return nil, err
 		}
-	}
-	if vm.config.TestingApiEnabled {
-		if err := handler.RegisterName("testing", vm.limitOrderProcesser.GetTestingAPI()); err != nil {
-			return nil, err
+
+		if vm.config.TestingApiEnabled {
+			if err := handler.RegisterName("testing", vm.limitOrderProcesser.GetTestingAPI()); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1185,37 +1200,4 @@ func attachEthService(handler *rpc.Server, apis []rpc.API, names []string) error
 	}
 
 	return nil
-}
-
-func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
-	var validatorPrivateKey string
-	var err error
-	if vm.config.IsValidator {
-		validatorPrivateKey, err = loadPrivateKeyFromFile(vm.config.ValidatorPrivateKeyFile)
-		if err != nil {
-			panic(fmt.Sprint("please specify correct path for validator-private-key-file in chain.json ", err))
-		}
-		if validatorPrivateKey == "" {
-			panic("validator private key is empty")
-		}
-	}
-	return NewLimitOrderProcesser(
-		vm.ctx,
-		vm.txPool,
-		vm.shutdownChan,
-		&vm.shutdownWg,
-		vm.eth.APIBackend,
-		vm.blockChain,
-		vm.hubbleDB,
-		validatorPrivateKey,
-		vm.config,
-	)
-}
-
-func loadPrivateKeyFromFile(keyFile string) (string, error) {
-	key, err := os.ReadFile(keyFile)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSuffix(string(key), "\n"), nil
 }
