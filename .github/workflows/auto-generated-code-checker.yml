@@ -19,7 +19,7 @@ jobs:
           go-version: '~1.21.7'
           check-latest: true
       - shell: bash
-        run: ls go.mod
+        run: go mod verify
       - shell: bash
         run: scripts/mock.gen.sh
       - shell: bash
