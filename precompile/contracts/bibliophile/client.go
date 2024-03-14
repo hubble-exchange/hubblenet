@@ -56,7 +56,7 @@ type BibliophileClient interface {
 
 	GetTimeStamp() uint64
 	GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int)
-	GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int)
+	GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int, *big.Int)
 	GetCrossMarginAccountData(trader common.Address, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int, *big.Int)
 	GetTotalFundingForCrossMarginPositions(trader *common.Address) *big.Int
 	GetTraderDataForMarket(trader common.Address, marketId int64, mode uint8) (bool, *big.Int, *big.Int, *big.Int, *big.Int)
@@ -219,8 +219,8 @@ func (b *bibliophileClient) GetNotionalPositionAndMargin(trader common.Address, 
 	return output.NotionalPosition, output.Margin
 }
 
-func (b *bibliophileClient) GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int) {
-	output := getNotionalPositionAndRequiredMargin(b.accessibleState.GetStateDB(), &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayments, Mode: mode}, upgradeVersion)
+func (b *bibliophileClient) GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int, *big.Int) {
+	output := getNotionalPositionAndRequiredMargin(b.accessibleState.GetStateDB(), &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayments, Mode: mode})
 	return output.NotionalPosition, output.Margin, output.RequiredMargin
 }
 
