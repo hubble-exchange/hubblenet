@@ -82,7 +82,7 @@ type legacyPushGossiper struct {
 
 // createGossiper constructs and returns a pushGossiper or noopGossiper
 // based on whether vm.chainConfig.SubnetEVMTimestamp is set
-func (vm *VM) createGossiper(
+func (vm *VM) createLegacyGossiper(
 	stats GossipStats,
 ) LegacyGossiper {
 	net := &legacyPushGossiper{
