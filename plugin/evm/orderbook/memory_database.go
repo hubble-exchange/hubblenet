@@ -645,11 +645,11 @@ func (db *InMemoryDatabase) getLongOrdersWithoutLock(market Market, lowerbound *
 func (db *InMemoryDatabase) GetShortOrders(market Market, upperbound *big.Int, blockNumber *big.Int) []Order {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+	log.Debug("calling getShortOrdersWithoutLock", "market", market, "upperbound", upperbound, "blockNumber", blockNumber, "shouldClean", true)
 	return db.getShortOrdersWithoutLock(market, upperbound, blockNumber, true)
 }
 
 func (db *InMemoryDatabase) getShortOrdersWithoutLock(market Market, upperbound *big.Int, blockNumber *big.Int, shouldClean bool) []Order {
-	log.Debug("getShortOrdersWithoutLock", "market", market, "upperbound", upperbound, "blockNumber", blockNumber, "shouldClean", shouldClean)
 	var shortOrders []Order
 
 	marketOrders := db.ShortOrders[market]

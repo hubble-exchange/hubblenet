@@ -167,6 +167,7 @@ func (pipeline *MatchingPipeline) fetchOrders(market Market, underlyingPrice *bi
 		// take the max of price of highest long and liq upper bound. But say longOrders[0].Price > oracleUpperBound ? - then we discard orders above oracleUpperBound, because they won't be matched no matter what
 		upperBoundforShorts = utils.BigIntMin(utils.BigIntMax(longOrders[0].Price, upperBoundforShorts), oracleUpperBound)
 	}
+	log.Debug("invoking GetShortOrders", "market", market, "upperBoundforShorts", upperBoundforShorts, "blockNumber", blockNumber)
 	shortOrders := removeOrdersWithIds(pipeline.db.GetShortOrders(market, upperBoundforShorts, blockNumber), cancellableOrderIds)
 	return &Orders{longOrders, shortOrders}
 }
