@@ -88,6 +88,12 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 	orderMap := make(map[Market]*Orders)
 	for _, market := range markets {
 		orderMap[market] = pipeline.fetchOrders(market, hState.OraclePrices[market], cancellableOrderIds, blockNumber)
+		for i, order := range orderMap[market].longOrders {
+			log.Debug("long order", "i", i, "order", order)
+		}
+		for i, order := range orderMap[market].shortOrders {
+			log.Debug("short order", "i", i, "order", order)
+		}
 	}
 	pipeline.runLiquidations(liquidablePositions, orderMap, hState.OraclePrices, marginMap)
 	for _, market := range markets {
@@ -279,26 +285,31 @@ func (pipeline *MatchingPipeline) runMatchingEngine(lotp LimitOrderTxProcessor, 
 
 func areMatchingOrders(longOrder, shortOrder Order, marginMap map[common.Address]*big.Int, minAllowableMargin, takerFee, upperBound *big.Int) *big.Int {
 	if longOrder.Price.Cmp(shortOrder.Price) == -1 {
+		log.Debug("long order price is less than short order price", "longOrder", longOrder, "shortOrder", shortOrder)
 		return nil
 	}
 	blockDiff := longOrder.BlockNumber.Cmp(shortOrder.BlockNumber)
 	if blockDiff == -1 && (longOrder.OrderType == IOC || shortOrder.isPostOnly()) ||
 		blockDiff == 1 && (shortOrder.OrderType == IOC || longOrder.isPostOnly()) {
+		log.Debug("post only or IOC order matched with a resting order", "longOrder", longOrder, "shortOrder", shortOrder)
 		return nil
 	}
 	fillAmount := utils.BigIntMinAbs(longOrder.GetUnFilledBaseAssetQuantity(), shortOrder.GetUnFilledBaseAssetQuantity())
 	if fillAmount.Sign() == 0 {
+		log.Debug("fillAmount is 0", "longOrder", longOrder, "shortOrder", shortOrder)
 		return nil
 	}
 
 	_isExecutable, longMargin := isExecutable(&longOrder, fillAmount, minAllowableMargin, takerFee, upperBound, marginMap[longOrder.Trader])
 	if !_isExecutable {
+		log.Debug("long order is not executable due to insufficient margin", "longOrder", longOrder, "shortOrder", shortOrder)
 		return nil
 	}
 
 	var shortMargin *big.Int = big.NewInt(0)
 	_isExecutable, shortMargin = isExecutable(&shortOrder, fillAmount, minAllowableMargin, takerFee, upperBound, marginMap[longOrder.Trader])
 	if !_isExecutable {
+		log.Debug("short order is not executable due to insufficient margin", "longOrder", longOrder, "shortOrder", shortOrder)
 		return nil
 	}
 	marginMap[longOrder.Trader].Sub(marginMap[longOrder.Trader], longMargin)
@@ -312,11 +323,19 @@ func isExecutable(order *Order, fillAmount, minAllowableMargin, takerFee, upperB
 	}
 	if order.OrderType == IOC {
 		requiredMargin := getRequiredMargin(order, fillAmount, minAllowableMargin, takerFee, upperBound)
-		return requiredMargin.Cmp(availableMargin) <= 0, requiredMargin
+		isExecutable := requiredMargin.Cmp(availableMargin) <= 0
+		if !isExecutable {
+			log.Debug("signed order is not executable due to insufficient margin", "order", order, "requiredMargin", requiredMargin, "availableMargin", availableMargin)
+		}
+		return isExecutable, requiredMargin
 	}
 	if order.OrderType == Signed {
 		requiredMargin := getRequiredMargin(order, fillAmount, minAllowableMargin, big.NewInt(0) /* signed orders are always maker */, upperBound)
-		return requiredMargin.Cmp(availableMargin) <= 0, requiredMargin
+		isExecutable := requiredMargin.Cmp(availableMargin) <= 0
+		if !isExecutable {
+			log.Debug("signed order is not executable due to insufficient margin", "order", order, "requiredMargin", requiredMargin, "availableMargin", availableMargin)
+		}
+		return isExecutable, requiredMargin
 	}
 	return false, big.NewInt(0)
 }

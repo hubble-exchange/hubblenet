@@ -411,7 +411,7 @@ func validateExecuteSignedOrder(bibliophile b.BibliophileClient, order *hu.Signe
 		return &Metadata{OrderHash: orderHash}, err
 	}
 
-	log.Info("validateExecuteSignedOrder", "trader", trader, "signer", signer, "orderHash", orderHash)
+	log.Debug("validateExecuteSignedOrder", "trader", trader, "signer", signer, "orderHash", orderHash)
 	if trader != signer && !bibliophile.IsTradingAuthority(trader, signer) {
 		return &Metadata{OrderHash: orderHash}, hu.ErrNoTradingAuthority
 	}

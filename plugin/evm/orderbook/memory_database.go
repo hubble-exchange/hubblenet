@@ -998,6 +998,7 @@ func (db *InMemoryDatabase) GetNaughtyTraders(hState *hu.HubbleState) ([]Liquida
 				(posSize.Sign() > 0 && (totalReduceAmount.Sign() > 0 || (totalReduceAmount.Sign() < 0 && hu.Neg(totalReduceAmount).Cmp(posSize) > 0))) ||
 				(posSize.Sign() < 0 && (totalReduceAmount.Sign() < 0 || (totalReduceAmount.Sign() > 0 && totalReduceAmount.Cmp(hu.Neg(posSize)) > 0)))
 			if hasStaleReduceOnlyOrders {
+				log.Debug("hasStaleReduceOnlyOrders", "trader", addr.String(), "marketId", marketId, "posSize", posSize, "totalReduceAmount", totalReduceAmount)
 				marketsToCancelReduceOnlyOrdersIn[marketId] = true
 				shouldLookForOrdersToCancel = true
 			}

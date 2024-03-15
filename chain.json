@@ -12,5 +12,6 @@
   "testing-api-enabled": true,
   "load-from-snapshot-enabled": true,
   "snapshot-file-path": "/tmp/snapshot",
-  "makerbook-database-path": "/tmp/makerbook"
+  "makerbook-database-path": "/tmp/makerbook",
+  "log-level": "debug"
 }

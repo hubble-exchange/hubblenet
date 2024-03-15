@@ -3,10 +3,8 @@ package orderbook
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"time"
 
-	// "encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -117,7 +115,6 @@ func (lotp *limitOrderTxProcessor) ExecuteLiquidation(trader common.Address, mat
 	}
 	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "liquidateAndExecuteOrder", trader, orderBytes, fillAmount)
 	log.Info("ExecuteLiquidation", "trader", trader, "matchedOrder", matchedOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String(), "err", err)
-	// log.Info("ExecuteLiquidation", "trader", trader, "matchedOrder", matchedOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "orderBytes", hex.EncodeToString(orderBytes), "txHash", txHash.String(), "err", err)
 	return err
 }
 
@@ -151,8 +148,7 @@ func (lotp *limitOrderTxProcessor) ExecuteMatchedOrdersTx(longOrder Order, short
 		log.Error("EncodeLimitOrder failed for shortOrder", "order", shortOrder, "err", err)
 		return err
 	}
-	log.Info("ExecuteMatchedOrdersTx", "longOrder", hex.EncodeToString(orders[0]), "shortOrder", hex.EncodeToString(orders[1]), "fillAmount", prettifyScaledBigInt(fillAmount, 18), "err", err)
-
+	// log.Info("ExecuteMatchedOrdersTx", "longOrder", hex.EncodeToString(orders[0]), "shortOrder", hex.EncodeToString(orders[1]), "fillAmount", prettifyScaledBigInt(fillAmount, 18), "err", err)
 	txHash, err := lotp.executeLocalTx(lotp.orderBookContractAddress, lotp.orderBookABI, "executeMatchedOrders", orders, fillAmount)
 	log.Info("ExecuteMatchedOrdersTx", "LongOrder", longOrder, "ShortOrder", shortOrder, "fillAmount", prettifyScaledBigInt(fillAmount, 18), "txHash", txHash.String(), "err", err)
 	return err

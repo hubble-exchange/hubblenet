@@ -12,5 +12,6 @@
   "validator-private-key-file": "/var/avalanche/validator.pk",
   "feeRecipient": "0xa5e31FbE901362Cc93b6fdab99DB9741c673a942",
   "is-validator": true,
-  "snapshot-file-path": "/tmp/snapshot"
+  "snapshot-file-path": "/tmp/snapshot",
+  "log-level": "debug"
 }
