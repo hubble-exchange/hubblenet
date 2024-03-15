@@ -781,6 +781,11 @@ func (db *InMemoryDatabase) UpdatePosition(trader common.Address, market Market,
 		db.TraderMap[trader].Positions[market].LiquidationThreshold = getLiquidationThreshold(db.configService.getMaxLiquidationRatio(market), db.configService.getMinSizeRequirement(market), size)
 	}
 
+	// temp hack
+	if db.TraderMap[trader].Positions[market].LiquidationThreshold == nil {
+		db.TraderMap[trader].Positions[market].LiquidationThreshold = size
+	}
+
 	// adjust the liquidation threshold if > resultant position size (for both isLiquidation = true/false)
 	threshold := utils.BigIntMinAbs(db.TraderMap[trader].Positions[market].LiquidationThreshold, size)
 	db.TraderMap[trader].Positions[market].LiquidationThreshold.Mul(threshold, big.NewInt(int64(size.Sign()))) // same sign as size
