@@ -31,10 +31,6 @@ const (
 	// signed orders to other nodes.
 	ordersGossipInterval = 100 * time.Millisecond
 
-	// [minGossipBatchInterval] is the minimum amount of time that must pass
-	// before our last gossip to peers.
-	minGossipBatchInterval = 50 * time.Millisecond
-
 	// [minGossipOrdersBatchInterval] is the minimum amount of time that must pass
 	// before our last gossip to peers.
 	minGossipOrdersBatchInterval = 50 * time.Millisecond
@@ -63,7 +59,6 @@ type legacyPushGossiper struct {
 	// amplification of mempol chatter.
 	ethTxsToGossipChan chan []*types.Transaction
 	ethTxsToGossip     map[common.Hash]*types.Transaction
-	lastGossiped       time.Time
 	shutdownChan       chan struct{}
 	shutdownWg         *sync.WaitGroup
 
@@ -105,27 +100,4 @@ func (vm *VM) createLegacyGossiper(
 
 	net.awaitSignedOrderGossip()
 	return net
-}
-
-// addrStatus used to track the metadata of addresses being queued for
-// regossip.
-type addrStatus struct {
-	nonce    uint64
-	txsAdded int
-}
-
-// GossipHandler handles incoming gossip messages
-type LegacyGossipHandler struct {
-	mu     sync.RWMutex
-	vm     *VM
-	txPool *txpool.TxPool
-	stats  GossipStats
-}
-
-func NewLegacyGossipHandler(vm *VM, stats GossipStats) *LegacyGossipHandler {
-	return &LegacyGossipHandler{
-		vm:     vm,
-		txPool: vm.txPool,
-		stats:  stats,
-	}
 }
