@@ -649,11 +649,13 @@ func (db *InMemoryDatabase) GetShortOrders(market Market, upperbound *big.Int, b
 }
 
 func (db *InMemoryDatabase) getShortOrdersWithoutLock(market Market, upperbound *big.Int, blockNumber *big.Int, shouldClean bool) []Order {
+	log.Debug("getShortOrdersWithoutLock", "market", market, "upperbound", upperbound, "blockNumber", blockNumber, "shouldClean", shouldClean)
 	var shortOrders []Order
 
 	marketOrders := db.ShortOrders[market]
 
 	for _, order := range marketOrders {
+		log.Debug("orders", "order", order, "blockNumber", blockNumber, "upperbound", upperbound)
 		if upperbound != nil && order.Price.Cmp(upperbound) > 0 {
 			// short orders are sorted in ascending order of price
 			break
@@ -673,7 +675,7 @@ func (db *InMemoryDatabase) getCleanOrder(order *Order, blockNumber *big.Int) *O
 	// log.Info("getCleanOrder", "order", order, "blockNumber", blockNumber)
 	eligibleForExecution := false
 	orderStatus := order.getOrderStatus()
-	// log.Info("getCleanOrder", "orderStatus", orderStatus)
+	log.Debug("getCleanOrder", "orderStatus", orderStatus, "order", order, "blockNumber", blockNumber)
 	switch orderStatus.Status {
 	case Placed:
 		eligibleForExecution = true
@@ -700,6 +702,7 @@ func (db *InMemoryDatabase) getCleanOrder(order *Order, blockNumber *big.Int) *O
 
 	expireAt := order.getExpireAt()
 	if expireAt.Sign() == 1 && expireAt.Int64() <= time.Now().Unix() {
+		log.Debug("expire check", "expireAt", expireAt, "time.Now().Unix()", time.Now().Unix())
 		eligibleForExecution = false
 	}
 	// log.Info("getCleanOrder", "expireAt", expireAt, "eligibleForExecution", eligibleForExecution)
