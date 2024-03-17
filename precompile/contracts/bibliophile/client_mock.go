@@ -309,9 +309,9 @@ func (mr *MockBibliophileClientMockRecorder) GetNotionalPositionAndMargin(trader
 }
 
 // GetNotionalPositionAndRequiredMargin mocks base method.
-func (m *MockBibliophileClient) GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hubbleutils.UpgradeVersion) (*big.Int, *big.Int, *big.Int) {
+func (m *MockBibliophileClient) GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int, *big.Int) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetNotionalPositionAndRequiredMargin", trader, includeFundingPayments, mode, upgradeVersion)
+	ret := m.ctrl.Call(m, "GetNotionalPositionAndRequiredMargin", trader, includeFundingPayments, mode)
 	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(*big.Int)
 	ret2, _ := ret[2].(*big.Int)
@@ -319,9 +319,9 @@ func (m *MockBibliophileClient) GetNotionalPositionAndRequiredMargin(trader comm
 }
 
 // GetNotionalPositionAndRequiredMargin indicates an expected call of GetNotionalPositionAndRequiredMargin.
-func (mr *MockBibliophileClientMockRecorder) GetNotionalPositionAndRequiredMargin(trader, includeFundingPayments, mode, upgradeVersion interface{}) *gomock.Call {
+func (mr *MockBibliophileClientMockRecorder) GetNotionalPositionAndRequiredMargin(trader, includeFundingPayments, mode interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNotionalPositionAndRequiredMargin", reflect.TypeOf((*MockBibliophileClient)(nil).GetNotionalPositionAndRequiredMargin), trader, includeFundingPayments, mode, upgradeVersion)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNotionalPositionAndRequiredMargin", reflect.TypeOf((*MockBibliophileClient)(nil).GetNotionalPositionAndRequiredMargin), trader, includeFundingPayments, mode)
 }
 
 // GetOrderFilledAmount mocks base method.
@@ -350,6 +350,34 @@ func (m *MockBibliophileClient) GetOrderStatus(orderHash [32]byte) int64 {
 func (mr *MockBibliophileClientMockRecorder) GetOrderStatus(orderHash interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderStatus", reflect.TypeOf((*MockBibliophileClient)(nil).GetOrderStatus), orderHash)
+}
+
+// GetPositionCap mocks base method.
+func (m *MockBibliophileClient) GetPositionCap(marketId int64, trader common.Address) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPositionCap", marketId, trader)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetPositionCap indicates an expected call of GetPositionCap.
+func (mr *MockBibliophileClientMockRecorder) GetPositionCap(marketId, trader interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPositionCap", reflect.TypeOf((*MockBibliophileClient)(nil).GetPositionCap), marketId, trader)
+}
+
+// GetPrecompileVersion mocks base method.
+func (m *MockBibliophileClient) GetPrecompileVersion(precompileAddress common.Address) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPrecompileVersion", precompileAddress)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetPrecompileVersion indicates an expected call of GetPrecompileVersion.
+func (mr *MockBibliophileClientMockRecorder) GetPrecompileVersion(precompileAddress interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPrecompileVersion", reflect.TypeOf((*MockBibliophileClient)(nil).GetPrecompileVersion), precompileAddress)
 }
 
 // GetPriceMultiplier mocks base method.

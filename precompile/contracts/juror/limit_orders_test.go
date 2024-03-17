@@ -248,6 +248,7 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 						mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(Invalid)).Times(1)
 						mockBibliophile.EXPECT().GetSize(ammAddress, &trader).Return(positionSize).Times(1)
 						mockBibliophile.EXPECT().GetReduceOnlyAmount(trader, longOrder.AmmIndex).Return(big.NewInt(0)).Times(1)
+						mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).AnyTimes()
 						output := ValidatePlaceLimitOrder(mockBibliophile, &ValidatePlaceLimitOrderInput{Order: longOrder, Sender: trader})
 						assert.Equal(t, ErrReduceOnlyBaseAssetQuantityInvalid.Error(), output.Err)
 						assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
