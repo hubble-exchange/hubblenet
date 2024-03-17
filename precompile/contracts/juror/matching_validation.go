@@ -409,7 +409,6 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *hu.BaseOrder
 			return ErrOverFill
 		}
 		if order.ReduceOnly {
-			posSize := bibliophile.GetSize(market, &order.Trader)
 			// posSize should continue to be Long
 			// this also returns is posSize <= 0, which should not happen because we are executing a short reduceOnly order on this account
 			if new(big.Int).Add(posSize, fillAmount).Sign() < 0 {

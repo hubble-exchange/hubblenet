@@ -408,6 +408,7 @@ func TestValidatePlaceIOCOrder(t *testing.T) {
 			mockBibliophile.EXPECT().GetSize(common.Address{101}, &trader).Return(big.NewInt(-15))
 			mockBibliophile.EXPECT().GetReduceOnlyAmount(trader, order.AmmIndex).Return(big.NewInt(0))
 			mockBibliophile.EXPECT().GetPriceMultiplier(common.Address{101}).Return(big.NewInt(10))
+			mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 
 			testValidatePlaceIOCOrderTestCase(t, mockBibliophile, ValidatePlaceIOCOrderTestCase{
 				Order:  order,
@@ -489,6 +490,8 @@ func TestValidateExecuteIOCOrder(t *testing.T) {
 		mockBibliophile.EXPECT().IOC_GetOrderFilledAmount(hash).Return(big.NewInt(0))
 		mockBibliophile.EXPECT().IOC_GetOrderStatus(hash).Return(int64(1))
 		mockBibliophile.EXPECT().IOC_GetBlockPlaced(hash).Return(big.NewInt(21))
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0))
+		mockBibliophile.EXPECT().GetSize(ammAddress, &trader).Return(big.NewInt(0))
 
 		m, err := validateExecuteIOCOrder(mockBibliophile, &order, Long, big.NewInt(10))
 		assert.Nil(t, err)
@@ -525,6 +528,7 @@ func TestValidateExecuteIOCOrder(t *testing.T) {
 		mockBibliophile.EXPECT().IOC_GetOrderFilledAmount(hash).Return(big.NewInt(0))
 		mockBibliophile.EXPECT().IOC_GetOrderStatus(hash).Return(int64(1))
 		mockBibliophile.EXPECT().IOC_GetBlockPlaced(hash).Return(big.NewInt(21))
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0))
 
 		_, err := validateExecuteIOCOrder(mockBibliophile, &order, Long, big.NewInt(10))
 		assert.Nil(t, err)

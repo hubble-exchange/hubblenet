@@ -62,7 +62,12 @@ var (
 			InputFn: func(t testing.TB) []byte {
 				// CUSTOM CODE STARTS HERE
 				// populate test input here
-				testInput := GetRequiredMarginInput{}
+				testInput := GetRequiredMarginInput{
+					Trader: common.Address{1},
+					BaseAssetQuantity: big.NewInt(0),
+					Price: big.NewInt(0),
+					AmmIndex: big.NewInt(0),
+				}
 				input, err := PackGetRequiredMargin(testInput)
 				require.NoError(t, err)
 				return input
@@ -107,7 +112,18 @@ var (
 			InputFn: func(t testing.TB) []byte {
 				// CUSTOM CODE STARTS HERE
 				// populate test input here
-				testInput := ValidateCancelLimitOrderV2Input{}
+				testInput := ValidateCancelLimitOrderV2Input{
+					Order: ILimitOrderBookOrder{
+						AmmIndex:          big.NewInt(0),
+						Trader:            common.Address{1},
+						BaseAssetQuantity: big.NewInt(0),
+						Price:             big.NewInt(0),
+						Salt:              big.NewInt(0),
+						ReduceOnly:        false,
+						PostOnly:          false,
+					},
+					Sender: common.Address{1},
+				}
 				input, err := PackValidateCancelLimitOrderV2(testInput)
 				require.NoError(t, err)
 				return input

@@ -49,7 +49,7 @@ func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *Va
 		return
 	default:
 	}
-	response.Res.UnfilledAmount = big.NewInt(0).Sub(order.BaseAssetQuantity, bibliophile.GetOrderFilledAmount(orderHash))
+	response.Res.UnfilledAmount = hu.Sub(order.BaseAssetQuantity, bibliophile.GetOrderFilledAmount(orderHash))
 	if assertLowMargin && bibliophile.GetAvailableMargin(trader, hu.UpgradeVersionV0orV1(bibliophile.GetTimeStamp())).Sign() != -1 {
 		response.Err = "Not Low Margin"
 		return
@@ -84,6 +84,6 @@ func GetLimitOrderHashFromContractStruct(o *ILimitOrderBookOrder) (common.Hash, 
 	return ILimitOrderBookOrderToLimitOrder(o).Hash()
 }
 
-func GetRequiredMargin(bibliophile b.BibliophileClient, baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int {
-	return bibliophile.GetRequiredMargin(baseAsset, price, marketId, trader)
+func GetRequiredMargin(bibliophile b.BibliophileClient, inputStruct *GetRequiredMarginInput) *big.Int {
+	return bibliophile.GetRequiredMargin(inputStruct.BaseAssetQuantity, inputStruct.Price, inputStruct.AmmIndex.Int64(), &inputStruct.Trader)
 }

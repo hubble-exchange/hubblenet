@@ -293,7 +293,8 @@ func getRequiredMargin(accessibleState contract.AccessibleState, caller common.A
 	// CUSTOM CODE STARTS HERE
 	_ = inputStruct // CUSTOM CODE OPERATES ON INPUT
 
-	var output *big.Int // CUSTOM CODE FOR AN OUTPUT
+	bibliophile := bibliophile.NewBibliophileClient(accessibleState)
+	var output = GetRequiredMargin(bibliophile, &inputStruct)
 	packedOutput, err := PackGetRequiredMarginOutput(output)
 	if err != nil {
 		return nil, remainingGas, err
