@@ -39,7 +39,7 @@ type NetworkClient interface {
 	TrackBandwidth(nodeID ids.NodeID, bandwidth float64)
 
 	// FIXME this has been removed in subnet-evm
-	LegacyGossip(gossip []byte) error
+	LegacyGossip(gossip []byte, validators int, nonValidators int, peers int) error
 }
 
 // client implements NetworkClient interface
@@ -91,8 +91,8 @@ func (c *client) SendCrossChainRequest(ctx context.Context, chainID ids.ID, requ
 }
 
 // FIXME this has been removed in subnet-evm
-func (c *client) LegacyGossip(gossip []byte) error {
-	return c.network.LegacyGossip(gossip)
+func (c *client) LegacyGossip(gossip []byte, validators int, nonValidators int, peers int) error {
+	return c.network.LegacyGossip(gossip, validators, nonValidators, peers)
 }
 
 func (c *client) TrackBandwidth(nodeID ids.NodeID, bandwidth float64) {

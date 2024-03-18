@@ -81,7 +81,7 @@ type Network interface {
 	AddHandler(protocol uint64, handler p2p.Handler) error
 
 	// FIXME this has been removed in subnet evm
-	LegacyGossip(gossip []byte) error
+	LegacyGossip(gossip []byte, validators, nonValidators, peers int) error
 }
 
 // network is an implementation of Network that processes message requests for
@@ -555,10 +555,10 @@ func (n *network) nextRequestID() uint32 {
 	return next
 }
 
-func (n *network) LegacyGossip(gossip []byte) error {
+func (n *network) LegacyGossip(gossip []byte, validators, nonValidators, peers int) error {
 	if n.closed.Get() {
 		return nil
 	}
 
-	return n.appSender.SendAppGossip(context.TODO(), gossip, 1, 1, 1)
+	return n.appSender.SendAppGossip(context.TODO(), gossip, validators, nonValidators, peers)
 }

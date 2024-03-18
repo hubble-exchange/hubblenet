@@ -116,5 +116,5 @@ func (n *legacyPushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 	)
 	n.stats.IncSignedOrdersGossipSent(int64(len(orders)))
 	n.stats.IncSignedOrdersGossipBatchSent()
-	return n.client.LegacyGossip(msgBytes)
+	return n.client.LegacyGossip(msgBytes, n.config.OrderGossipNumValidators, n.config.OrderGossipNumNonValidators, n.config.OrderGossipNumPeers)
 }

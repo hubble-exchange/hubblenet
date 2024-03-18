@@ -172,6 +172,11 @@ type Config struct {
 	RegossipFrequency         Duration         `json:"regossip-frequency"`
 	PriorityRegossipAddresses []common.Address `json:"priority-regossip-addresses"`
 
+	// Order Gossip Settings
+	OrderGossipNumValidators    int `json:"order-gossip-num-validators"`
+	OrderGossipNumNonValidators int `json:"order-gossip-num-non-validators"`
+	OrderGossipNumPeers         int `json:"order-gossip-num-peers"`
+
 	// Log
 	LogLevel      string `json:"log-level"`
 	LogJSONFormat bool   `json:"log-json-format"`
