@@ -8,9 +8,6 @@ set -euo pipefail
 # Set the PATHS
 GOPATH="$(go env GOPATH)"
 
-# Avalabs docker hub
-DOCKERHUB_REPO="avaplatform/avalanchego"
-
 # if this isn't a git repository (say building from a release), don't set our git constants.
 if [ ! -d .git ]; then
     CURRENT_BRANCH=""

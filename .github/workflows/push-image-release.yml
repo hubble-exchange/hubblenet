@@ -1,0 +1,85 @@
+name: Build + Push release image
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag'
+        required: true
+        type: string
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build_release_image:
+    name: Build Docker Image
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Docker hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }} 
+          password: ${{ secrets.DOCKER_PASS }} 
+
+      - name: Create the Dockerfile
+        env:
+          HUBBLENET_RELEASE_TAG: ${{ inputs.release_tag }}
+          AVALANCHE_VERSION: ${{ vars.AVALANCHE_VERSION }}
+        run: |
+          if [ "${HUBBLENET_RELEASE_TAG:0:1}" = "v" ]; then
+            HUBBLENET_VERSION="${HUBBLENET_RELEASE_TAG:1}";
+            HUBBLENET_RELEASE_TAG="${HUBBLENET_RELEASE_TAG}";
+          else
+            HUBBLENET_VERSION="${HUBBLENET_RELEASE_TAG}";
+          fi
+
+          multiline_text=$(cat <<EOF
+          FROM avaplatform/avalanchego:${AVALANCHE_VERSION} as builder
+
+          RUN apt update \
+            && DEBIAN_FRONTEND="noninteractive" apt install -y wget \
+            && cd /tmp \
+            && wget https://github.com/hubble-exchange/hubblenet/releases/download/${HUBBLENET_RELEASE_TAG}/hubblenet_${HUBBLENET_VERSION}_linux_amd64.tar.gz \
+            && tar -xf hubblenet_${HUBBLENET_VERSION}_linux_amd64.tar.gz
+
+          FROM avaplatform/avalanchego:${AVALANCHE_VERSION}
+          LABEL Description="Hubblenet image"
+          ARG VM_ID
+
+          RUN mkdir -p /root/.avalanchego/plugins \
+            && DEBIAN_FRONTEND="noninteractive" apt update \
+            && DEBIAN_FRONTEND="noninteractive" apt install -y wget
+
+          COPY --from=builder /tmp/hubblenet-${HUBBLENET_VERSION} /root/.avalanchego/plugins/\${VM_ID}
+
+          EOF
+          )
+          
+          echo "$multiline_text" > Dockerfile-release 
+          cat Dockerfile-release
+
+      - name: Build and push release image for the mainnet
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile-release
+          push: true
+          tags: "hubbleexchange/hubblenet:${{ vars.AVALANCHE_VERSION }}-${{ inputs.release_tag }}"
+          build-args: | 
+            VM_ID=o1Fg94YujMqL75Ebrdkos95MTVjZpPpdeAp5ocEsp2X9c2FSz
+
+
+      - name: Build and push release image for the fuji
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile-release
+          push: true
+          tags: "hubbleexchange/hubblenet:${{ vars.AVALANCHE_VERSION }}-fuji-${{ inputs.release_tag }}"
+          build-args: |
+            VM_ID=jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ 
