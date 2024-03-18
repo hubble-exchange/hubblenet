@@ -3275,6 +3275,12 @@ func TestCrossChainMessagestoVM(t *testing.T) {
 	require.True(calledSendCrossChainAppResponseFn, "sendCrossChainAppResponseFn was not called")
 }
 
+func TestVMOrderGossiperIsSet(t *testing.T) {
+	_, vm, _, _ := GenesisVM(t, true, "", "", "")
+	require.NotNil(t, vm.orderGossiper, "legacy gossiper should be initialized")
+	require.NoError(t, vm.Shutdown(context.Background()))
+}
+
 func createValidatorPrivateKeyIfNotExists() {
 	// Create a new validator private key file
 	defaultValidatorPrivateKeyFile = "/tmp/validator.pk"
