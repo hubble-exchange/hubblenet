@@ -50,6 +50,9 @@ const (
 	defaultPopulateMissingTriesParallelism            = 1024
 	defaultStateSyncServerTrieCache                   = 64 // MB
 	defaultAcceptedCacheSize                          = 32 // blocks
+	defaulOrderGossipNumValidators                    = 10
+	defaultOrderGossipNumNonValidators                = 5
+	defaultOrderGossipNumPeers                        = 15
 
 	// defaultStateSyncMinBlocks is the minimum number of blocks the blockchain
 	// should be ahead of local last accepted to perform state sync.
@@ -172,6 +175,11 @@ type Config struct {
 	PullGossipFrequency       Duration         `json:"pull-gossip-frequency"`
 	RegossipFrequency         Duration         `json:"regossip-frequency"`
 	PriorityRegossipAddresses []common.Address `json:"priority-regossip-addresses"`
+
+	// Order Gossip Settings
+	OrderGossipNumValidators    int `json:"order-gossip-num-validators"`
+	OrderGossipNumNonValidators int `json:"order-gossip-num-non-validators"`
+	OrderGossipNumPeers         int `json:"order-gossip-num-peers"`
 
 	// Log
 	LogLevel      string `json:"log-level"`
@@ -316,6 +324,9 @@ func (c *Config) SetDefaults() {
 	c.LoadFromSnapshotEnabled = defaultLoadFromSnapshotEnabled
 	c.SnapshotFilePath = defaultSnapshotFilePath
 	c.MakerbookDatabasePath = defaultMakerbookDatabasePath
+	c.OrderGossipNumValidators = defaulOrderGossipNumValidators
+	c.OrderGossipNumNonValidators = defaultOrderGossipNumNonValidators
+	c.OrderGossipNumPeers = defaultOrderGossipNumPeers
 }
 
 func (d *Duration) UnmarshalJSON(data []byte) (err error) {

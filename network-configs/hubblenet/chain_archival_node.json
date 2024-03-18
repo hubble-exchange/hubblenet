@@ -6,14 +6,31 @@
     "tx-regossip-max-size": 32,
     "priority-regossip-max-txs": 32,
     "priority-regossip-txs-per-address": 20,
-    "priority-regossip-addresses": ["0x8747adFCE380492ec7e9b78761Ec7C87F5Cd3d4F"],
+    "priority-regossip-addresses": [
+        "0x8747adFCE380492ec7e9b78761Ec7C87F5Cd3d4F"
+    ],
     "continuous-profiler-dir": "/var/avalanche/profiles/hubblenet/continuous/",
     "continuous-profiler-max-files": 200,
     "continuous-profiler-frequency": "10m",
     "admin-api-enabled": true,
-    "eth-apis": ["public-eth","public-eth-filter","net","web3","internal-public-eth","internal-blockchain","internal-transaction","internal-debug","internal-tx-pool","internal-account","debug-tracer"],
+    "eth-apis": [
+        "public-eth",
+        "public-eth-filter",
+        "net",
+        "web3",
+        "internal-public-eth",
+        "internal-blockchain",
+        "internal-transaction",
+        "internal-debug",
+        "internal-tx-pool",
+        "internal-account",
+        "debug-tracer"
+    ],
     "trading-api-enabled": true,
     "testing-api-enabled": true,
     "snapshot-file-path": "/tmp/snapshot",
-    "makerbook-database-path": "/tmp/makerbook"
+    "makerbook-database-path": "/tmp/makerbook",
+    "order-gossip-num-validators": 10,
+    "order-gossip-num-non-validators": 5,
+    "order-gossip-num-peers": 15
 }

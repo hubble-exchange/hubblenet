@@ -229,7 +229,7 @@ type VM struct {
 
 	limitOrderProcesser LimitOrderProcesser
 
-	// gossiper Gossiper
+	orderGossiper OrderGossiper
 
 	clock mockable.Clock
 
@@ -737,6 +737,7 @@ func (vm *VM) initBlockBuilding() error {
 
 	// NOTE: gossip network must be initialized first otherwise ETH tx gossip will not work.
 	gossipStats := NewGossipStats()
+	vm.orderGossiper = vm.createOrderGossiper(gossipStats)
 	vm.builder = vm.NewBlockBuilder(vm.toEngine)
 	vm.builder.awaitSubmittedTxs()
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
