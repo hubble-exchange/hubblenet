@@ -326,13 +326,10 @@ func isExecutable(order *Order, fillAmount, minAllowableMargin, takerFee, upperB
 
 func getRequiredMargin(order *Order, fillAmount, minAllowableMargin, takerFee, upperBound *big.Int) *big.Int {
 	price := order.Price
-	log.Info("getRequiredMargin", "fillAmount", fillAmount, "minAllowableMargin", minAllowableMargin, "takerFee", takerFee, "upperBound", upperBound, "price", price)
 	if order.BaseAssetQuantity.Sign() == -1 && order.Price.Cmp(upperBound) == -1 {
 		price = upperBound
 	}
-	m := hu.GetRequiredMargin(price, fillAmount, minAllowableMargin, takerFee)
-	log.Info("getRequiredMargin", "fillAmount", fillAmount, "minAllowableMargin", minAllowableMargin, "takerFee", takerFee, "upperBound", upperBound, "price", price, "m", m)
-	return m
+	return hu.GetRequiredMargin(price, fillAmount, minAllowableMargin, takerFee)
 }
 
 func ExecuteMatchedOrders(lotp LimitOrderTxProcessor, longOrder, shortOrder Order, fillAmount *big.Int) (Order, Order) {
