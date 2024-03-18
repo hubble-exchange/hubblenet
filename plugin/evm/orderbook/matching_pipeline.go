@@ -155,6 +155,7 @@ func (pipeline *MatchingPipeline) fetchOrders(market Market, underlyingPrice *bi
 	_, lowerBoundForLongs := pipeline.configService.GetAcceptableBounds(market)
 	// any long orders below the permissible lowerbound are irrelevant, because they won't be matched no matter what.
 	// this assumes that all above cancelOrder transactions got executed successfully (or atleast they are not meant to be executed anyway if they passed the cancellation criteria)
+	log.Debug("invoking GetLongOrders", "market", market, "lowerBoundForLongs", lowerBoundForLongs, "blockNumber", blockNumber)
 	longOrders := removeOrdersWithIds(pipeline.db.GetLongOrders(market, lowerBoundForLongs, blockNumber), cancellableOrderIds)
 
 	// say if there were no long orders, then shord orders above liquidation upper bound are irrelevant, because they won't be matched no matter what
