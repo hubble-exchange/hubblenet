@@ -204,6 +204,7 @@ func (pipeline *MatchingPipeline) runLiquidations(liquidablePositions []Liquidab
 				}
 				requiredMargin, err := isExecutable(&order, fillAmount, minAllowableMargin, takerFee, liquidationBounds[market].Upperbound, marginMap[order.Trader])
 				if err != nil {
+					log.Error("order is not executable", "order", order, "err", err)
 					numOrdersExhausted++
 					continue
 				}
@@ -231,6 +232,7 @@ func (pipeline *MatchingPipeline) runLiquidations(liquidablePositions []Liquidab
 				}
 				requiredMargin, err := isExecutable(&order, fillAmount, minAllowableMargin, takerFee, liquidationBounds[market].Upperbound, marginMap[order.Trader])
 				if err != nil {
+					log.Error("order is not executable", "order", order, "err", err)
 					numOrdersExhausted++
 					continue
 				}
@@ -264,7 +266,7 @@ func (pipeline *MatchingPipeline) runMatchingEngine(lotp LimitOrderTxProcessor, 
 		for j := 0; j < len(shortOrders); j++ {
 			fillAmount, err := areMatchingOrders(longOrders[i], shortOrders[j], marginMap, minAllowableMargin, takerFee, upperBound)
 			if err != nil {
-				log.Error("Error in areMatchingOrders", "longOrder", longOrders[i], "shortOrder", shortOrders[i], "err", err)
+				log.Error("orders not matcheable", "longOrder", longOrders[i], "shortOrder", shortOrders[i], "err", err)
 				continue
 			}
 			longOrders[i], shortOrders[j] = ExecuteMatchedOrders(lotp, longOrders[i], shortOrders[j], fillAmount)
