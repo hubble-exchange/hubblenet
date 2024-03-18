@@ -71,7 +71,7 @@ var (
 	ErrOpenReduceOnlyOrders               = errors.New("open reduce only orders")
 	ErrNoTradingAuthority                 = errors.New("no trading authority")
 	ErrNoReferrer                         = errors.New("no referrer")
-	ErrOverPositionCap 				  	  = errors.New("position size over max cap")
+	ErrOverPositionCap                    = errors.New("position size over max cap")
 )
 
 type BadElement uint8

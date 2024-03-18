@@ -64,7 +64,7 @@ func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *Valid
 	}
 
 	if bibliophile.GetPrecompileVersion(common.HexToAddress(SelfAddress)).Cmp(big.NewInt(1)) >= 0 {
-		if isOverPositionCap(bibliophile, trader, order.AmmIndex, order.BaseAssetQuantity) {
+		if isOverPositionCap(bibliophile, trader, order.AmmIndex, order.BaseAssetQuantity, posSize) {
 			response.Err = ErrOverPositionCap.Error()
 			return
 		}
@@ -190,8 +190,7 @@ func GetLimitOrderHashFromContractStruct(o *ILimitOrderBookOrder) (common.Hash, 
 	return ILimitOrderBookOrderToLimitOrder(o).Hash()
 }
 
-func isOverPositionCap(bibliophile b.BibliophileClient, trader common.Address, ammIndex *big.Int, baseAssetQuantity *big.Int) bool {
-	posSize := bibliophile.GetSize(bibliophile.GetMarketAddressFromMarketID(ammIndex.Int64()), &trader)
+func isOverPositionCap(bibliophile b.BibliophileClient, trader common.Address, ammIndex *big.Int, baseAssetQuantity *big.Int, posSize *big.Int) bool {
 	posCap := bibliophile.GetPositionCap(ammIndex.Int64(), trader)
 	longOpenOrdersAmount := bibliophile.GetLongOpenOrdersAmount(trader, ammIndex)
 	if baseAssetQuantity.Sign() == 1 {

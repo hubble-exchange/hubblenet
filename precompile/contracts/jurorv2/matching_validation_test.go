@@ -96,12 +96,22 @@ func TestValidateLimitOrderLike(t *testing.T) {
 			start := new(big.Int).Neg(fillAmount).Int64()
 			for i := start; i > start-5; i-- {
 				mockBibliophile.EXPECT().GetSize(gomock.Any(), gomock.Any()).Return(big.NewInt(i)).Times(1)
+				mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 				err := validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Long, fillAmount)
 				assert.Nil(t, err)
 			}
 		})
 
+		t.Run("position cap reached", func(t *testing.T) {
+			mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(1)).Times(1)
+			mockBibliophile.EXPECT().GetSize(common.Address{}, &order.Trader).Return(big.NewInt(1)).Times(1)
+			mockBibliophile.EXPECT().GetPositionCap(int64(0), order.Trader).Return(order.BaseAssetQuantity).Times(1)
+			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Long, fillAmount)
+			assert.EqualError(t, err, ErrOverPositionCap.Error())
+		})
+
 		t.Run("all conditions met", func(t *testing.T) {
+			mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Long, fillAmount)
 			assert.Nil(t, err)
 		})
@@ -174,12 +184,14 @@ func TestValidateLimitOrderLike(t *testing.T) {
 			start := new(big.Int).Abs(fillAmount).Int64()
 			for i := start; i < start+5; i++ {
 				mockBibliophile.EXPECT().GetSize(gomock.Any(), gomock.Any()).Return(big.NewInt(i)).Times(1)
+				mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 				err := validateLimitOrderLike(mockBibliophile, &badOrder, filledAmount, Placed, Short, fillAmount)
 				assert.Nil(t, err)
 			}
 		})
 
 		t.Run("all conditions met", func(t *testing.T) {
+			mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Short, fillAmount)
 			assert.Nil(t, err)
 		})
@@ -292,6 +304,7 @@ func testValidateExecuteSignedOrder(t *testing.T, mockBibliophile *b.MockBibliop
 	mockBibliophile.EXPECT().GetSignedOrderStatus(h).Return(int64(0)).Times(1) // Invalid
 	mockBibliophile.EXPECT().GetSignedOrderFilledAmount(h).Return(filledAmount).Times(1)
 	mockBibliophile.EXPECT().HasReferrer(order.Trader).Return(true).Times(1)
+	mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 
 	m, err := validateOrder(mockBibliophile, ob.Signed, encodedOrder, side, fillAmount)
 	assert.Nil(t, err)
@@ -340,6 +353,7 @@ func TestValidateExecuteLimitOrder(t *testing.T) {
 		mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(1)).Times(1)                                 // placed
 		mockBibliophile.EXPECT().GetBlockPlaced(orderHash).Return(blockPlaced).Times(1)                              // placed
 		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(marketAddress).Times(1) // placed
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 
 		m, err := validateOrder(mockBibliophile, ob.Limit, encodedOrder, Long, fillAmount)
 		assert.Nil(t, err)
@@ -403,6 +417,7 @@ func TestValidateExecuteIOCOrder(t *testing.T) {
 		mockBibliophile.EXPECT().IOC_GetBlockPlaced(orderHash).Return(blockPlaced).Times(1)                          // placed
 		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order.AmmIndex.Int64()).Return(marketAddress).Times(1) // placed
 		mockBibliophile.EXPECT().GetTimeStamp().Return(uint64(60)).Times(1)                                          // placed
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 
 		m, err := validateOrder(mockBibliophile, ob.IOC, encodedOrder, Long, fillAmount)
 		assert.Nil(t, err)
@@ -1034,6 +1049,7 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 		mockBibliophile.EXPECT().GetOrderStatus(order1Hash).Return(int64(1)) // placed
 		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order1.AmmIndex.Int64()).Return(common.Address{102})
 		mockBibliophile.EXPECT().GetBlockPlaced(order1Hash).Return(big.NewInt(12))
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(2)
 		testCase := ValidateOrdersAndDetermineFillPriceTestCase{
 			Order0:     order0,
 			Order1:     order1,
@@ -1082,6 +1098,7 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 		mockBibliophile.EXPECT().GetOrderStatus(order1Hash).Return(int64(1)) // placed
 		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(order1.AmmIndex.Int64()).Return(common.Address{101})
 		mockBibliophile.EXPECT().GetBlockPlaced(order1Hash).Return(big.NewInt(12))
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(2)
 		testCase := ValidateOrdersAndDetermineFillPriceTestCase{
 			Order0:     order0,
 			Order1:     order1,
@@ -1132,6 +1149,7 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 		mockBibliophile.EXPECT().GetBlockPlaced(order1Hash).Return(big.NewInt(12))
 
 		mockBibliophile.EXPECT().GetMinSizeRequirement(order1.AmmIndex.Int64()).Return(big.NewInt(5))
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(2)
 
 		testCase := ValidateOrdersAndDetermineFillPriceTestCase{
 			Order0:     order0,
@@ -1184,6 +1202,7 @@ func TestValidateOrdersAndDetermineFillPrice(t *testing.T) {
 
 		mockBibliophile.EXPECT().GetMinSizeRequirement(order1.AmmIndex.Int64()).Return(big.NewInt(1))
 		mockBibliophile.EXPECT().GetUpperAndLowerBoundForMarket(order1.AmmIndex.Int64()).Return(big.NewInt(110), big.NewInt(90))
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(2)
 
 		testCase := ValidateOrdersAndDetermineFillPriceTestCase{
 			Order0:     order0,
@@ -1300,6 +1319,7 @@ func TestValidateLiquidationOrderAndDetermineFillPrice(t *testing.T) {
 		mockBibliophile.EXPECT().GetSize(common.Address{101}, &trader).Return(big.NewInt(10))
 
 		mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(big.NewInt(5))
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 
 		testCase := ValidateLiquidationOrderAndDetermineFillPriceTestCase{
 			Order:             order,
@@ -1334,6 +1354,7 @@ func TestValidateLiquidationOrderAndDetermineFillPrice(t *testing.T) {
 		mockBibliophile.EXPECT().GetMinSizeRequirement(order.AmmIndex.Int64()).Return(big.NewInt(1))
 		mockBibliophile.EXPECT().GetUpperAndLowerBoundForMarket(order.AmmIndex.Int64()).Return(big.NewInt(110), big.NewInt(90))
 		mockBibliophile.EXPECT().GetAcceptableBoundsForLiquidation(order.AmmIndex.Int64()).Return(big.NewInt(110), big.NewInt(90))
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 
 		testCase := ValidateLiquidationOrderAndDetermineFillPriceTestCase{
 			Order:             order,

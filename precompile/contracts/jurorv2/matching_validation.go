@@ -75,6 +75,7 @@ var (
 	ErrOpenReduceOnlyOrders               = errors.New("open reduce only orders")
 	ErrNoTradingAuthority                 = errors.New("no trading authority")
 	ErrNoReferrer                         = errors.New("no referrer")
+	ErrOverPositionCap 				  	  = errors.New("position size over max cap")
 )
 
 type BadElement uint8
@@ -492,6 +493,14 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *hu.BaseOrder
 		}
 	} else {
 		return errors.New("invalid side")
+	}
+
+	if bibliophile.GetPrecompileVersion(common.HexToAddress(SelfAddress)).Cmp(big.NewInt(1)) >= 0 {
+		posSize := bibliophile.GetSize(market, &order.Trader)
+		posCap := bibliophile.GetPositionCap(order.AmmIndex.Int64(), order.Trader)
+		if hu.Abs(hu.Add(posSize, order.BaseAssetQuantity)).Cmp(posCap) == 1 {
+			return ErrOverPositionCap
+		}
 	}
 	return nil
 }
