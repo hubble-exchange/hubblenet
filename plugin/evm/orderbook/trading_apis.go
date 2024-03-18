@@ -240,7 +240,7 @@ func (api *TradingAPI) StreamDepthUpdateForMarket(ctx context.Context, market in
 		for {
 			select {
 			case <-ticker.C:
-				newMarketDepth := getDepthForMarket(api.db, Market(market))
+				newMarketDepth := getDepthForMarket(api.db, market)
 				depthUpdate := getUpdateInDepth(newMarketDepth, oldMarketDepth)
 				transformedDepthUpdate := transformMarketDepth(depthUpdate)
 				response := TradingOrderBookDepthUpdateResponse{
@@ -382,13 +382,13 @@ func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, bool, err
 
 	// P4. Post only order shouldn't cross the market
 	if order.PostOnly {
-		orderSide := hu.Side(hu.Long)
+		orderSide := hu.Long
 		if order.BaseAssetQuantity.Sign() == -1 {
-			orderSide = hu.Side(hu.Short)
+			orderSide = hu.Short
 		}
 		asksHead := fields.AsksHead
 		bidsHead := fields.BidsHead
-		if (orderSide == hu.Side(hu.Short) && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == hu.Side(hu.Long) && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
+		if (orderSide == hu.Short && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == hu.Long && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
 			return orderId, false, hu.ErrCrossingMarket
 		}
 	}
@@ -467,7 +467,7 @@ func writeOrderToFile(order Order) {
 		"order": map[string]interface{}{
 			"orderType":         2,
 			"expireAt":          order.getExpireAt().Uint64(),
-			"ammIndex":          int(order.Market),
+			"ammIndex":          order.Market,
 			"trader":            order.Trader.String(),
 			"baseAssetQuantity": utils.BigIntToFloat(order.BaseAssetQuantity, 18),
 			"price":             utils.BigIntToFloat(order.Price, 6),

@@ -1052,7 +1052,6 @@ func buildBlockAndSetPreference(t *testing.T, vms ...*VM) []snowman.Block {
 	response = append(response, vm1Blk)
 
 	for _, vm := range vms[1:] {
-
 		vm2Blk, err := vm.ParseBlock(context.Background(), vm1Blk.Bytes())
 		if err != nil {
 			t.Fatalf("Unexpected error parsing block from vm2: %s", err)
@@ -1070,23 +1069,6 @@ func buildBlockAndSetPreference(t *testing.T, vms ...*VM) []snowman.Block {
 	}
 
 	return response
-}
-
-func buildBlock(t *testing.T, vm *VM) snowman.Block {
-	vmBlk, err := vm.BuildBlock(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := vmBlk.Verify(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-
-	if status := vmBlk.Status(); status != choices.Processing {
-		t.Fatalf("Expected status of built block to be %s, but found %s", choices.Processing, status)
-	}
-
-	return vmBlk
 }
 
 func parseBlock(t *testing.T, vm *VM, block snowman.Block) snowman.Block {

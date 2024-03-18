@@ -181,7 +181,6 @@ func TestOrderBookMarginAccountClearingHouseEventInLog(t *testing.T) {
 	//MarginAccount log - marginAdded
 	actualMargin := db.GetOrderBookData().TraderMap[traderAddress].Margin.Deposited[collateral]
 	assert.Equal(t, big.NewInt(0).Add(marginAdded, originalMargin), actualMargin)
-
 }
 
 func TestHandleOrderBookEvent(t *testing.T) {

@@ -117,9 +117,7 @@ func (n *orderPushGossiper) awaitSignedOrderGossip() {
 					)
 				}
 			case orders := <-n.ordersToGossipChan:
-				for _, order := range orders {
-					n.ordersToGossip = append(n.ordersToGossip, order)
-				}
+				n.ordersToGossip = append(n.ordersToGossip, orders...)
 				if attempted, err := n.gossipSignedOrders(); err != nil {
 					log.Warn(
 						"failed to send signed orders",

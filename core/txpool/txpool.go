@@ -1130,7 +1130,7 @@ func (pool *TxPool) PurgeOrderBookTxs() {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	for from, _ := range pool.orderBookTxs.txs {
+	for from := range pool.orderBookTxs.txs {
 		delete(pool.orderBookTxs.txs, from)
 	}
 

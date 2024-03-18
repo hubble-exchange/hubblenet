@@ -120,7 +120,7 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 
 func GetPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, margin *big.Int) (notionalPosition *big.Int, unrealisedPnl *big.Int, marginFraction *big.Int) {
 	notionalPosition = GetNotionalPosition(price, size)
-	uPnL := new(big.Int)
+	var uPnL *big.Int
 	if notionalPosition.Sign() == 0 {
 		return big.NewInt(0), big.NewInt(0), big.NewInt(0)
 	}
@@ -164,7 +164,7 @@ func GetRequiredMargin(price, fillAmount, minAllowableMargin, takerFee *big.Int)
 func ArrayToMap(prices []*big.Int) map[Market]*big.Int {
 	underlyingPrices := make(map[Market]*big.Int)
 	for market, price := range prices {
-		underlyingPrices[Market(market)] = price
+		underlyingPrices[market] = price
 	}
 	return underlyingPrices
 }

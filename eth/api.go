@@ -90,7 +90,6 @@ func (api *EthereumAPI) GetTransactionStatus(ctx context.Context, hash common.Ha
 			return map[string]interface{}{
 				"status": "NOT_FOUND",
 			}, nil
-
 		}
 
 		for _, tx := range currentBlock.Transactions() {

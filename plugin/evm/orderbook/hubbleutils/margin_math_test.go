@@ -72,7 +72,6 @@ func TestWeightedAndSpotCollateral(t *testing.T) {
 
 	normalisedMargin := GetNormalizedMargin(assets, margins)
 	assert.Equal(t, expectedWeighted, normalisedMargin)
-
 }
 
 func TestGetNotionalPosition(t *testing.T) {
@@ -127,7 +126,7 @@ func TestGetOptimalPnlV2(t *testing.T) {
 	// mid price pnl is more than oracle price pnl
 	expectedNotionalPosition := Unscale(Mul(position.Size, _hState.MidPrices[market]), 18)
 	expectedUPnL := Sub(expectedNotionalPosition, position.OpenNotional)
-	fmt.Println("Maintenace_Margin_Mode", "notionalPosition", notionalPosition, "uPnL", uPnL)
+	fmt.Println("Maintenance_Margin_Mode", "notionalPosition", notionalPosition, "uPnL", uPnL)
 
 	assert.Equal(t, expectedNotionalPosition, notionalPosition)
 	assert.Equal(t, expectedUPnL, uPnL)
@@ -156,7 +155,7 @@ func TestGetOptimalPnlV1(t *testing.T) {
 	// mid price pnl is more than oracle price pnl
 	expectedNotionalPosition := Unscale(Mul(position.Size, _hState.MidPrices[market]), 18)
 	expectedUPnL := Sub(expectedNotionalPosition, position.OpenNotional)
-	fmt.Println("Maintenace_Margin_Mode", "notionalPosition", notionalPosition, "uPnL", uPnL)
+	fmt.Println("Maintenance_Margin_Mode", "notionalPosition", notionalPosition, "uPnL", uPnL)
 
 	assert.Equal(t, expectedNotionalPosition, notionalPosition)
 	assert.Equal(t, expectedUPnL, uPnL)

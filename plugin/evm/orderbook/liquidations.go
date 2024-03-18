@@ -53,7 +53,7 @@ func getMargins(trader *Trader, numAssets int) []*big.Int {
 		numAssets = numAssets_
 	}
 	for i := 0; i < numAssets; i++ {
-		margin[i] = trader.Margin.Deposited[Collateral(i)]
+		margin[i] = trader.Margin.Deposited[i]
 	}
 	return margin
 }

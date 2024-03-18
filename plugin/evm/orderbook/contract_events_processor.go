@@ -445,7 +445,7 @@ func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {
 		}
 		cumulativePremiumFraction := args["cumulativePremiumFraction"].(*big.Int)
 		nextFundingTime := args["nextFundingTime"].(*big.Int)
-		market := Market(int(event.Topics[1].Big().Int64()))
+		market := Market(event.Topics[1].Big().Int64())
 		log.Info("FundingRateUpdated", "args", args, "cumulativePremiumFraction", cumulativePremiumFraction, "market", market)
 		cep.database.UpdateUnrealisedFunding(market, cumulativePremiumFraction)
 		cep.database.UpdateNextFundingTime(nextFundingTime.Uint64())
@@ -457,7 +457,7 @@ func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {
 			return
 		}
 		trader := getAddressFromTopicHash(event.Topics[1])
-		market := Market(int(event.Topics[2].Big().Int64()))
+		market := Market(event.Topics[2].Big().Int64())
 		cumulativePremiumFraction := args["cumulativePremiumFraction"].(*big.Int)
 		log.Info("FundingPaid", "trader", trader, "market", market, "cumulativePremiumFraction", cumulativePremiumFraction)
 		cep.database.ResetUnrealisedFunding(market, trader, cumulativePremiumFraction)
@@ -470,7 +470,7 @@ func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {
 		}
 
 		trader := getAddressFromTopicHash(event.Topics[1])
-		market := Market(int(event.Topics[2].Big().Int64()))
+		market := Market(event.Topics[2].Big().Int64())
 		lastPrice := args["price"].(*big.Int)
 		cep.database.UpdateLastPrice(market, lastPrice)
 
@@ -486,7 +486,7 @@ func (cep *ContractEventsProcessor) handleClearingHouseEvent(event *types.Log) {
 		}
 		trader := getAddressFromTopicHash(event.Topics[1])
 
-		market := Market(int(event.Topics[2].Big().Int64()))
+		market := Market(event.Topics[2].Big().Int64())
 		lastPrice := args["price"].(*big.Int)
 		cep.database.UpdateLastPrice(market, lastPrice)
 
@@ -721,7 +721,7 @@ func (cep *ContractEventsProcessor) PushToMarketFeed(events []*types.Log, blockS
 			}
 
 			trader := getAddressFromTopicHash(event.Topics[1])
-			market := Market(int(event.Topics[2].Big().Int64()))
+			market := Market(event.Topics[2].Big().Int64())
 			price := args["price"].(*big.Int)
 
 			size := args["baseAsset"].(*big.Int)

@@ -31,7 +31,6 @@ func NewMatchingPipeline(
 	db LimitOrderDatabase,
 	lotp LimitOrderTxProcessor,
 	configService IConfigService) *MatchingPipeline {
-
 	return &MatchingPipeline{
 		db:             db,
 		lotp:           lotp,
@@ -172,7 +171,7 @@ func (pipeline *MatchingPipeline) runLiquidations(liquidablePositions []Liquidab
 
 	log.Info("found positions to liquidate", "num", len(liquidablePositions))
 
-	// we need to retreive permissible bounds for liquidations in each market
+	// we need to retrieve permissible bounds for liquidations in each market
 	markets := pipeline.GetActiveMarkets()
 	type S struct {
 		Upperbound *big.Int
@@ -296,7 +295,7 @@ func areMatchingOrders(longOrder, shortOrder Order, marginMap map[common.Address
 		return nil
 	}
 
-	var shortMargin *big.Int = big.NewInt(0)
+	var shortMargin *big.Int
 	_isExecutable, shortMargin = isExecutable(&shortOrder, fillAmount, minAllowableMargin, takerFee, upperBound, marginMap[longOrder.Trader])
 	if !_isExecutable {
 		return nil

@@ -62,9 +62,9 @@ func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *Valid
 		return
 	}
 
-	var orderSide Side = Side(Long)
+	var orderSide Side = Long
 	if order.BaseAssetQuantity.Sign() == -1 {
-		orderSide = Side(Short)
+		orderSide = Short
 	}
 	if order.ReduceOnly {
 		// a reduce only order should reduce position
@@ -78,8 +78,8 @@ func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *Valid
 		// if the trader is placing a reduceOnly long that means they have a short position
 		// we allow only 1 kind of order in the opposite direction of the position
 		// otherwise we run the risk of having stale reduceOnly orders (orders that are not actually reducing the position)
-		if (orderSide == Side(Long) && longOrdersAmount.Sign() != 0) ||
-			(orderSide == Side(Short) && shortOrdersAmount.Sign() != 0) {
+		if (orderSide == Long && longOrdersAmount.Sign() != 0) ||
+			(orderSide == Short && shortOrdersAmount.Sign() != 0) {
 			response.Err = ErrOpenOrders.Error()
 			return
 		}
@@ -105,7 +105,7 @@ func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *Valid
 	if order.PostOnly {
 		asksHead := bibliophile.GetAsksHead(ammAddress)
 		bidsHead := bibliophile.GetBidsHead(ammAddress)
-		if (orderSide == Side(Short) && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == Side(Long) && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
+		if (orderSide == Short && bidsHead.Sign() != 0 && order.Price.Cmp(bidsHead) != 1) || (orderSide == Long && asksHead.Sign() != 0 && order.Price.Cmp(asksHead) != -1) {
 			response.Err = ErrCrossingMarket.Error()
 			return
 		}

@@ -22,7 +22,7 @@ var blockNumber = big.NewInt(2)
 var market = Market(0)
 var assets = []hu.Collateral{{Price: big.NewInt(1e6), Weight: big.NewInt(1e6), Decimals: 6}}
 
-func TestgetDatabase(t *testing.T) {
+func TestGetDatabase(t *testing.T) {
 	inMemoryDatabase := getDatabase()
 	assert.NotNil(t, inMemoryDatabase)
 }

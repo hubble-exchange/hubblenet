@@ -2638,7 +2638,7 @@ func BenchmarkMultiAccountBatchInsert(b *testing.B) {
 
 func TestAddOrderBookTx(t *testing.T) {
 	t.Run("when adding only one tx to orderbook queue", func(t *testing.T) {
-		pool, _ := setupTxPool()
+		pool, _ := setupPool()
 		defer pool.Stop()
 
 		key, _ := crypto.GenerateKey()
@@ -2647,13 +2647,12 @@ func TestAddOrderBookTx(t *testing.T) {
 		tx := transaction(uint64(0), 100000, key)
 
 		pool.AddOrderBookTx(tx)
-		actualTxs := pool.OrderBookTxMap[account].Flatten()
+		actualTxs := pool.orderBookTxs.txs[account].Flatten()
 		assert.Equal(t, 1, actualTxs.Len())
 		assert.Equal(t, tx, actualTxs[0])
-
 	})
 	t.Run("when adding more than one tx to orderbook queue", func(t *testing.T) {
-		pool, _ := setupTxPool()
+		pool, _ := setupPool()
 		defer pool.Stop()
 
 		key, _ := crypto.GenerateKey()
@@ -2662,7 +2661,7 @@ func TestAddOrderBookTx(t *testing.T) {
 		pool.AddOrderBookTx(tx1)
 		tx2 := transaction(uint64(1), 100000, key)
 		pool.AddOrderBookTx(tx2)
-		actualTxs := pool.OrderBookTxMap[account].Flatten()
+		actualTxs := pool.orderBookTxs.txs[account].Flatten()
 		assert.Equal(t, 2, actualTxs.Len())
 		assert.Equal(t, tx1, actualTxs[0])
 		assert.Equal(t, tx2, actualTxs[1])
@@ -2670,7 +2669,7 @@ func TestAddOrderBookTx(t *testing.T) {
 }
 
 func TestGetOrderBookTxNonce(t *testing.T) {
-	pool, _ := setupTxPool()
+	pool, _ := setupPool()
 	defer pool.Stop()
 	key, _ := crypto.GenerateKey()
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -2687,13 +2686,13 @@ func TestGetOrderBookTxNonce(t *testing.T) {
 }
 
 func TestGetOrderBookTxs(t *testing.T) {
-	pool, _ := setupTxPool()
+	pool, _ := setupPool()
 	defer pool.Stop()
 	key, _ := crypto.GenerateKey()
 	account := crypto.PubkeyToAddress(key.PublicKey)
 
 	t.Run("when there are no tx in orderBookTxMap", func(t *testing.T) {
-		actualTxList := pool.OrderBookTxMap[account]
+		actualTxList := pool.orderBookTxs.txs[account]
 		assert.Equal(t, nil, actualTxList)
 	})
 	t.Run("when there are txs in orderBookTxMap", func(t *testing.T) {
@@ -2701,31 +2700,30 @@ func TestGetOrderBookTxs(t *testing.T) {
 		pool.AddOrderBookTx(tx1)
 		tx2 := transaction(uint64(1), 100000, key)
 		pool.AddOrderBookTx(tx2)
-		actualTxs := pool.OrderBookTxMap[account].Flatten()
+		actualTxs := pool.orderBookTxs.txs[account].Flatten()
 		assert.Equal(t, types.Transactions{tx1, tx2}, actualTxs)
 	})
 }
 
 func TestPurgeOrderBookTxs(t *testing.T) {
-	pool, _ := setupTxPool()
+	pool, _ := setupPool()
 	defer pool.Stop()
 	key, _ := crypto.GenerateKey()
 	account := crypto.PubkeyToAddress(key.PublicKey)
 
-	t.Run("when there is no tx for an account in orderBookTxMap", func(t *testing.T) {
-		txList := pool.OrderBookTxMap[account]
+	t.Run("when there is no tx for an account in orderBookTx", func(t *testing.T) {
+		txList := pool.orderBookTxs.txs[account]
 		assert.Nil(t, txList)
 	})
-	t.Run("when there is tx for an account in orderBookTxMap", func(t *testing.T) {
+	t.Run("when there is tx for an account in orderBookTxs", func(t *testing.T) {
 		tx1 := transaction(uint64(0), 100000, key)
 		pool.AddOrderBookTx(tx1)
-		actualTxs := pool.OrderBookTxMap[account].Flatten()
+		actualTxs := pool.orderBookTxs.txs[account].Flatten()
 		assert.Equal(t, types.Transactions{tx1}, actualTxs)
 
 		pool.PurgeOrderBookTxs()
 
-		txList := pool.OrderBookTxMap[account]
+		txList := pool.orderBookTxs.txs[account]
 		assert.Nil(t, txList)
 	})
-
 }

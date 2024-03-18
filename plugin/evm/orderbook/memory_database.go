@@ -569,7 +569,6 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 		minAllowableMargin := hu.GetHubbleState().MinAllowableMargin
 		requiredMargin := hu.GetRequiredMargin(order.Price, quantity, minAllowableMargin, big.NewInt(0))
 		db.updateVirtualReservedMargin(order.Trader, hu.Neg(requiredMargin))
-
 	}
 }
 

@@ -160,7 +160,7 @@ func (api *OrderBookAPI) GetOrderBook(ctx context.Context, marketStr string) (*O
 	if market == nil {
 		orders = api.db.GetAllOrders()
 	} else {
-		orders = api.db.GetMarketOrders(Market(*market))
+		orders = api.db.GetMarketOrders(*market)
 	}
 
 	responseOrders := []OrderMin{}
@@ -191,7 +191,7 @@ func (api *OrderBookAPI) GetOpenOrders(ctx context.Context, trader string, marke
 	traderHash := common.HexToAddress(trader)
 	orders := api.db.GetOpenOrdersForTraderByType(traderHash, Limit)
 	for _, order := range orders {
-		if strings.EqualFold(order.Trader.String(), trader) && (market == nil || order.Market == Market(*market)) {
+		if strings.EqualFold(order.Trader.String(), trader) && (market == nil || order.Market == *market) {
 			traderOrders = append(traderOrders, OrderForOpenOrders{
 				Market:     order.Market,
 				Price:      order.Price.String(),
@@ -246,7 +246,7 @@ func (api *OrderBookAPI) NewOrderBookState(ctx context.Context) (*rpc.Subscripti
 }
 
 func (api *OrderBookAPI) GetDepthForMarket(ctx context.Context, market int) *MarketDepth {
-	return getDepthForMarket(api.db, Market(market))
+	return getDepthForMarket(api.db, market)
 }
 
 // used by UI
@@ -262,7 +262,7 @@ func (api *OrderBookAPI) StreamDepthUpdateForMarket(ctx context.Context, market 
 		for {
 			select {
 			case <-ticker.C:
-				newMarketDepth := getDepthForMarket(api.db, Market(market))
+				newMarketDepth := getDepthForMarket(api.db, market)
 				depthUpdate := getUpdateInDepth(newMarketDepth, oldMarketDepth)
 				notifier.Notify(rpcSub.ID, depthUpdate)
 				oldMarketDepth = newMarketDepth
@@ -297,7 +297,7 @@ func (api *OrderBookAPI) StreamDepthUpdateForMarketAndFreq(ctx context.Context, 
 		for {
 			select {
 			case <-ticker.C:
-				newMarketDepth := getDepthForMarket(api.db, Market(market))
+				newMarketDepth := getDepthForMarket(api.db, market)
 				depthUpdate := getUpdateInDepth(newMarketDepth, oldMarketDepth)
 				notifier.Notify(rpcSub.ID, depthUpdate)
 				oldMarketDepth = newMarketDepth

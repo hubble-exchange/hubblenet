@@ -306,7 +306,6 @@ func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
 
 					// update metrics asynchronously
 					go lop.limitOrderTxProcessor.UpdateMetrics(block)
-
 				}, orderbook.HandleChainAcceptedEventPanicMessage, orderbook.HandleChainAcceptedEventPanicsCounter)
 			case <-lop.shutdownChan:
 				return

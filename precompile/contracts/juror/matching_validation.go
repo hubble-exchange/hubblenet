@@ -446,41 +446,6 @@ func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrd
 	return requiredMargin
 }
 
-func formatOrder(orderBytes []byte) interface{} {
-	decodeStep0, err := hu.DecodeTypeAndEncodedOrder(orderBytes)
-	if err != nil {
-		return orderBytes
-	}
-
-	if decodeStep0.OrderType == hu.Limit {
-		order, err := hu.DecodeLimitOrder(decodeStep0.EncodedOrder)
-		if err != nil {
-			return decodeStep0
-		}
-		orderJson := order.Map()
-		orderHash, err := order.Hash()
-		if err != nil {
-			return orderJson
-		}
-		orderJson["hash"] = orderHash.String()
-		return orderJson
-	}
-	if decodeStep0.OrderType == hu.IOC {
-		order, err := hu.DecodeIOCOrder(decodeStep0.EncodedOrder)
-		if err != nil {
-			return decodeStep0
-		}
-		orderJson := order.Map()
-		orderHash, err := order.Hash()
-		if err != nil {
-			return orderJson
-		}
-		orderJson["hash"] = orderHash.String()
-		return orderJson
-	}
-	return nil
-}
-
 func getValidateOrdersAndDetermineFillPriceErrorOutput(err error, element BadElement, orderHash common.Hash) ValidateOrdersAndDetermineFillPriceOutput {
 	// need to provide an empty res because PackValidateOrdersAndDetermineFillPriceOutput fails if FillPrice is nil, and if res.Instructions[0].AmmIndex is nil
 	emptyRes := IOrderHandlerMatchingValidationRes{

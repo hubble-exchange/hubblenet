@@ -255,26 +255,6 @@ func getPositionTypeBasedOnBaseAssetQuantity(baseAssetQuantity *big.Int) Positio
 	return SHORT
 }
 
-func checkIfOrderBookContractCall(tx *types.Transaction, orderBookABI abi.ABI, orderBookContractAddress common.Address) bool {
-	input := tx.Data()
-	if tx.To() != nil && tx.To().Hash() == orderBookContractAddress.Hash() && len(input) > 3 {
-		return true
-	}
-	return false
-}
-
-func getOrderBookContractCallMethod(tx *types.Transaction, orderBookABI abi.ABI, orderBookContractAddress common.Address) (*abi.Method, error) {
-	if checkIfOrderBookContractCall(tx, orderBookABI, orderBookContractAddress) {
-		input := tx.Data()
-		method := input[:4]
-		m, err := orderBookABI.MethodById(method)
-		return m, err
-	} else {
-		err := errors.New("tx is not an orderbook contract call")
-		return nil, err
-	}
-}
-
 func getAddressFromPrivateKey(key string) (common.Address, error) {
 	// blank key is allowed for non-validators
 	if key == "" {
