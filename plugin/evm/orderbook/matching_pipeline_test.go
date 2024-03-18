@@ -1,6 +1,7 @@
 package orderbook
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -246,7 +247,7 @@ func TestRunMatchingEngine(t *testing.T) {
 					fillAmount1 := longOrder1.BaseAssetQuantity
 					fillAmount2 := longOrder2.BaseAssetQuantity
 					marginMap := map[common.Address]*big.Int{
-						common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+						trader: big.NewInt(0), // limit order doesn't need any available margin
 					}
 					lotp.On("ExecuteMatchedOrdersTx", longOrder1, shortOrder1, fillAmount1).Return(nil)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder2, shortOrder2, fillAmount2).Return(nil)
@@ -276,7 +277,7 @@ func TestRunMatchingEngine(t *testing.T) {
 					lotp.On("PurgeLocalTx").Return(nil)
 					lotp.On("ExecuteMatchedOrdersTx", longOrder, shortOrder, fillAmount).Return(nil)
 					marginMap := map[common.Address]*big.Int{
-						common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+						trader: big.NewInt(0), // limit order doesn't need any available margin
 					}
 					pipeline.runMatchingEngine(lotp, longOrders, shortOrders, marginMap, minAllowableMargin, takerFee, upperBound)
 					lotp.AssertCalled(t, "ExecuteMatchedOrdersTx", longOrder, shortOrder, fillAmount)
@@ -316,7 +317,7 @@ func TestRunMatchingEngine(t *testing.T) {
 				lotp.On("PurgeLocalTx").Return(nil)
 				log.Info("longOrder1", "longOrder1", longOrder1)
 				marginMap := map[common.Address]*big.Int{
-					common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+					trader: big.NewInt(0), // limit order doesn't need any available margin
 				}
 				pipeline.runMatchingEngine(lotp, longOrders, shortOrders, marginMap, minAllowableMargin, takerFee, upperBound)
 				log.Info("longOrder1", "longOrder1", longOrder1)
@@ -525,11 +526,11 @@ func TestAreMatchingOrders(t *testing.T) {
 	longOrder_ := Order{
 		Market:                  1,
 		PositionType:            LONG,
-		BaseAssetQuantity:       big.NewInt(10),
+		BaseAssetQuantity:       hu.Mul1e18(big.NewInt(10)),
 		Trader:                  trader,
 		FilledBaseAssetQuantity: big.NewInt(0),
 		Salt:                    big.NewInt(1),
-		Price:                   big.NewInt(100),
+		Price:                   hu.Mul1e6(big.NewInt(100)),
 		ReduceOnly:              false,
 		LifecycleList:           []Lifecycle{Lifecycle{}},
 		BlockNumber:             big.NewInt(21),
@@ -537,8 +538,8 @@ func TestAreMatchingOrders(t *testing.T) {
 			BaseOrder: hu.BaseOrder{
 				AmmIndex:          big.NewInt(1),
 				Trader:            trader,
-				BaseAssetQuantity: big.NewInt(10),
-				Price:             big.NewInt(100),
+				BaseAssetQuantity: hu.Mul1e18(big.NewInt(10)),
+				Price:             hu.Mul1e6(big.NewInt(100)),
 				Salt:              big.NewInt(1),
 				ReduceOnly:        false,
 			},
@@ -546,14 +547,16 @@ func TestAreMatchingOrders(t *testing.T) {
 		},
 		OrderType: Limit,
 	}
+
+	shortTrader := common.HexToAddress("0xc413Fa79AdE66224F560BD7693F8bEc81746Bf92")
 	shortOrder_ := Order{
 		Market:                  1,
 		PositionType:            SHORT,
-		BaseAssetQuantity:       big.NewInt(-10),
-		Trader:                  trader,
+		BaseAssetQuantity:       hu.Mul1e18(big.NewInt(-10)),
+		Trader:                  shortTrader,
 		FilledBaseAssetQuantity: big.NewInt(0),
 		Salt:                    big.NewInt(2),
-		Price:                   big.NewInt(100),
+		Price:                   hu.Mul1e6(big.NewInt(100)),
 		ReduceOnly:              false,
 		LifecycleList:           []Lifecycle{Lifecycle{}},
 		BlockNumber:             big.NewInt(21),
@@ -561,8 +564,8 @@ func TestAreMatchingOrders(t *testing.T) {
 			BaseOrder: hu.BaseOrder{
 				AmmIndex:          big.NewInt(1),
 				Trader:            trader,
-				BaseAssetQuantity: big.NewInt(-10),
-				Price:             big.NewInt(100),
+				BaseAssetQuantity: hu.Mul1e18(big.NewInt(-10)),
+				Price:             hu.Mul1e6(big.NewInt(100)),
 				Salt:              big.NewInt(2),
 				ReduceOnly:        false,
 			},
@@ -577,10 +580,10 @@ func TestAreMatchingOrders(t *testing.T) {
 
 		longOrder.Price = big.NewInt(80)
 		marginMap := map[common.Address]*big.Int{
-			common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+			trader: big.NewInt(0), // limit order doesn't need any available margin
 		}
-		actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
-
+		actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+		assert.EqualError(t, err, fmt.Errorf("long order price %s is less than short order price %s", longOrder.Price.String(), shortOrder.Price.String()).Error())
 		assert.Nil(t, actualFillAmount)
 	})
 
@@ -598,9 +601,10 @@ func TestAreMatchingOrders(t *testing.T) {
 				ExpireAt:  big.NewInt(0),
 			}
 			marginMap := map[common.Address]*big.Int{
-				common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+				trader: big.NewInt(0), // limit order doesn't need any available margin
 			}
-			actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			assert.EqualError(t, err, fmt.Errorf("resting order semantics mismatch").Error())
 			assert.Nil(t, actualFillAmount)
 		})
 		t.Run("short order is post only", func(t *testing.T) {
@@ -609,9 +613,10 @@ func TestAreMatchingOrders(t *testing.T) {
 
 			shortOrder.RawOrder.(*LimitOrder).PostOnly = true
 			marginMap := map[common.Address]*big.Int{
-				common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+				trader: big.NewInt(0), // limit order doesn't need any available margin
 			}
-			actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			assert.EqualError(t, err, fmt.Errorf("resting order semantics mismatch").Error())
 			assert.Nil(t, actualFillAmount)
 		})
 	})
@@ -630,9 +635,10 @@ func TestAreMatchingOrders(t *testing.T) {
 				ExpireAt:  big.NewInt(0),
 			}
 			marginMap := map[common.Address]*big.Int{
-				common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+				trader: big.NewInt(0), // limit order doesn't need any available margin
 			}
-			actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			assert.EqualError(t, err, fmt.Errorf("resting order semantics mismatch").Error())
 			assert.Nil(t, actualFillAmount)
 		})
 		t.Run("longOrder is post only", func(t *testing.T) {
@@ -641,9 +647,10 @@ func TestAreMatchingOrders(t *testing.T) {
 
 			longOrder.RawOrder.(*LimitOrder).PostOnly = true
 			marginMap := map[common.Address]*big.Int{
-				common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+				trader: big.NewInt(0), // limit order doesn't need any available margin
 			}
-			actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			assert.EqualError(t, err, fmt.Errorf("resting order semantics mismatch").Error())
 			assert.Nil(t, actualFillAmount)
 		})
 	})
@@ -654,9 +661,10 @@ func TestAreMatchingOrders(t *testing.T) {
 
 		longOrder.FilledBaseAssetQuantity = longOrder.BaseAssetQuantity
 		marginMap := map[common.Address]*big.Int{
-			common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+			trader: big.NewInt(0), // limit order doesn't need any available margin
 		}
-		actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+		actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+		assert.EqualError(t, err, fmt.Errorf("no fill amount").Error())
 		assert.Nil(t, actualFillAmount)
 	})
 
@@ -664,12 +672,73 @@ func TestAreMatchingOrders(t *testing.T) {
 		longOrder := deepCopyOrder(&longOrder_)
 		shortOrder := deepCopyOrder(&shortOrder_)
 
-		longOrder.FilledBaseAssetQuantity = big.NewInt(5)
+		longOrder.FilledBaseAssetQuantity = hu.Mul1e18(big.NewInt(5))
 		marginMap := map[common.Address]*big.Int{
-			common.HexToAddress("0x22Bb736b64A0b4D4081E103f83bccF864F0404aa"): big.NewInt(1e9), // $1000
+			trader:      big.NewInt(0),
+			shortTrader: big.NewInt(0),
 		}
-		actualFillAmount := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
-		assert.Equal(t, big.NewInt(5), actualFillAmount)
+		actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+		assert.Nil(t, err)
+		assert.Equal(t, hu.Mul1e18(big.NewInt(5)), actualFillAmount)
+	})
+
+	t.Run("test ioc/signed orders", func(t *testing.T) {
+		t.Run("long trader has insufficient margin", func(t *testing.T) {
+			longOrder := deepCopyOrder(&longOrder_) // longOrder_ has block 21
+			longOrder.OrderType = IOC
+
+			shortOrder := deepCopyOrder(&shortOrder_) // shortOrder_ has block 2
+			shortOrder.OrderType = Signed
+
+			expectedFillAmount := longOrder.BaseAssetQuantity
+			marginMap := map[common.Address]*big.Int{
+				trader:      big.NewInt(0),
+				shortTrader: big.NewInt(0),
+			}
+			actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			requiredMargin := hu.GetRequiredMargin(longOrder.Price, expectedFillAmount, minAllowableMargin, takerFee)
+			assert.EqualError(t, err, fmt.Errorf("insufficient margin. trader %s, required: %s, available: %s", trader, requiredMargin, big.NewInt(0)).Error())
+			assert.Nil(t, actualFillAmount)
+		})
+
+		t.Run("short trader has insufficient margin", func(t *testing.T) {
+			longOrder := deepCopyOrder(&longOrder_) // longOrder_ has block 21
+			longOrder.OrderType = IOC
+
+			shortOrder := deepCopyOrder(&shortOrder_) // shortOrder_ has block 2
+			shortOrder.OrderType = Signed
+
+			expectedFillAmount := longOrder.BaseAssetQuantity
+			longRequiredMargin := hu.GetRequiredMargin(longOrder.Price, expectedFillAmount, minAllowableMargin, takerFee)
+			shortRequiredMargin := hu.GetRequiredMargin(shortOrder.Price, expectedFillAmount, minAllowableMargin, big.NewInt(0))
+			marginMap := map[common.Address]*big.Int{
+				trader:      longRequiredMargin,
+				shortTrader: big.NewInt(0),
+			}
+			actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			assert.EqualError(t, err, fmt.Errorf("insufficient margin. trader %s, required: %s, available: %s", shortTrader, shortRequiredMargin, big.NewInt(0)).Error())
+			assert.Nil(t, actualFillAmount)
+		})
+
+		t.Run("[success] match ioc order with signed order", func(t *testing.T) {
+			longOrder := deepCopyOrder(&longOrder_) // longOrder_ has block 21
+			longOrder.OrderType = IOC
+
+			shortOrder := deepCopyOrder(&shortOrder_) // shortOrder_ has block 2
+			shortOrder.OrderType = Signed
+
+			longOrder.FilledBaseAssetQuantity = hu.Mul1e18(big.NewInt(4))
+			expectedFillAmount := hu.Mul1e18(big.NewInt(6))
+			longRequiredMargin := hu.GetRequiredMargin(longOrder.Price, expectedFillAmount, minAllowableMargin, takerFee)
+			shortRequiredMargin := hu.GetRequiredMargin(shortOrder.Price, expectedFillAmount, minAllowableMargin, big.NewInt(0))
+			marginMap := map[common.Address]*big.Int{
+				trader:      longRequiredMargin,
+				shortTrader: shortRequiredMargin,
+			}
+			actualFillAmount, err := areMatchingOrders(longOrder, shortOrder, marginMap, minAllowableMargin, takerFee, upperBound)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedFillAmount, actualFillAmount)
+		})
 	})
 }
 
