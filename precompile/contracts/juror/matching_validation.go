@@ -380,7 +380,6 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *hu.BaseOrder
 	}
 
 	market := bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
-	posSize := bibliophile.GetSize(market, &order.Trader)
 	if side == Long {
 		if order.BaseAssetQuantity.Sign() <= 0 {
 			return ErrNotLongOrder
@@ -392,6 +391,7 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *hu.BaseOrder
 			return ErrOverFill
 		}
 		if order.ReduceOnly {
+			posSize := bibliophile.GetSize(market, &order.Trader)
 			// posSize should be closed to continue to be Short
 			// this also returns err if posSize >= 0, which should not happen because we are executing a long reduceOnly order on this account
 			if new(big.Int).Add(posSize, fillAmount).Sign() > 0 {
@@ -409,6 +409,7 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *hu.BaseOrder
 			return ErrOverFill
 		}
 		if order.ReduceOnly {
+			posSize := bibliophile.GetSize(market, &order.Trader)
 			// posSize should continue to be Long
 			// this also returns is posSize <= 0, which should not happen because we are executing a short reduceOnly order on this account
 			if new(big.Int).Add(posSize, fillAmount).Sign() < 0 {
@@ -417,13 +418,6 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *hu.BaseOrder
 		}
 	} else {
 		return errors.New("invalid side")
-	}
-
-	if bibliophile.GetPrecompileVersion(common.HexToAddress(SelfAddress)).Cmp(big.NewInt(1)) >= 0 {
-		posCap := bibliophile.GetPositionCap(order.AmmIndex.Int64(), order.Trader)
-		if hu.Abs(hu.Add(posSize, order.BaseAssetQuantity)).Cmp(posCap) == 1 {
-			return ErrOverPositionCap
-		}
 	}
 	return nil
 }

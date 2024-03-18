@@ -136,11 +136,12 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V1).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().IsValidator(longOrder.Trader).Return(true).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 							input := getValidateCancelLimitOrderV2Input(longOrder, trader, assertLowMargin, assertOverPositionCap)
 							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "Not Low Margin", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
-							assert.Equal(t, common.Address{}, output.Res.Amm)
+							assert.Equal(t, ammAddress, output.Res.Amm)
 							assert.Equal(t, longOrder.BaseAssetQuantity, output.Res.UnfilledAmount)
 						})
 						t.Run("it returns error for a shortOrder", func(t *testing.T) {
@@ -152,12 +153,13 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V1).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().IsValidator(shortOrder.Trader).Return(true).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 							input := getValidateCancelLimitOrderV2Input(shortOrder, trader, assertLowMargin, assertOverPositionCap)
 							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 
 							assert.Equal(t, "Not Low Margin", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
-							assert.Equal(t, common.Address{}, output.Res.Amm)
+							assert.Equal(t, ammAddress, output.Res.Amm)
 							assert.Equal(t, shortOrder.BaseAssetQuantity, output.Res.UnfilledAmount)
 						})
 					})
@@ -172,11 +174,12 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V1).Return(newMargin).Times(1)
 							mockBibliophile.EXPECT().IsValidator(longOrder.Trader).Return(true).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 							input := getValidateCancelLimitOrderV2Input(longOrder, trader, assertLowMargin, assertOverPositionCap)
 							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "Not Low Margin", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
-							assert.Equal(t, common.Address{}, output.Res.Amm)
+							assert.Equal(t, ammAddress, output.Res.Amm)
 							assert.Equal(t, longOrder.BaseAssetQuantity, output.Res.UnfilledAmount)
 						})
 						t.Run("it returns error for a shortOrder", func(t *testing.T) {
@@ -188,11 +191,12 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V1).Return(newMargin).Times(1)
 							mockBibliophile.EXPECT().IsValidator(shortOrder.Trader).Return(true).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 							input := getValidateCancelLimitOrderV2Input(shortOrder, trader, assertLowMargin, assertOverPositionCap)
 							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
 							assert.Equal(t, "Not Low Margin", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
-							assert.Equal(t, common.Address{}, output.Res.Amm)
+							assert.Equal(t, ammAddress, output.Res.Amm)
 							assert.Equal(t, shortOrder.BaseAssetQuantity, output.Res.UnfilledAmount)
 						})
 					})
@@ -280,8 +284,12 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 					})
 				})
 			})
-			t.Run("when assertLowMargin is false", func(t *testing.T) {
+			t.Run("when assertLowMargin is false, position cap not reached", func(t *testing.T) {
 				assertLowMargin := false
+				assertOverPositionCap := true // also asserts isOverPositionCap
+				mockBibliophile.EXPECT().IsValidator(trader).Return(true).Times(4)
+				mockBibliophile.EXPECT().GetSize(ammAddress, &trader).Return(big.NewInt(0)).Times(4)
+				mockBibliophile.EXPECT().GetPositionCap(ammIndex.Int64(), trader).Return(big.NewInt(1e18)).Times(4)
 				t.Run("for an unfilled Order", func(t *testing.T) {
 					t.Run("for a longOrder it returns err = nil, with ammAddress and unfilled amount of cancelled Order", func(t *testing.T) {
 						longOrder := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
@@ -348,6 +356,61 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 						assert.Equal(t, ammAddress, output.Res.Amm)
 						expectedUnfilleAmount := hu.Sub(shortOrder.BaseAssetQuantity, filledAmount)
 						assert.Equal(t, expectedUnfilleAmount, output.Res.UnfilledAmount)
+					})
+				})
+			})
+			t.Run("when assertOverPositionCap is true", func(t *testing.T) {
+				assertOverPositionCap := true
+				maxPositionCap := hu.Mul(longBaseAssetQuantity, big.NewInt(2)) // 10
+				t.Run("when sender is not a validator", func(t *testing.T) {
+					sender := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C9")
+					order := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+					input := getValidateCancelLimitOrderV2Input(order, sender, assertLowMargin, assertOverPositionCap)
+					mockBibliophile.EXPECT().IsTradingAuthority(order.Trader, sender).Return(true).Times(1)
+					mockBibliophile.EXPECT().IsValidator(sender).Return(false).Times(1)
+					output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
+					assert.Equal(t, ErrUnauthorizedCancellation.Error(), output.Err)
+				})
+				t.Run("when sender is a validator", func(t *testing.T) {
+					t.Run("when positionCap is not reached", func(t *testing.T) {
+						t.Run("return error for a longOrder", func(t *testing.T) {
+							longOrder := getOrder(ammIndex, trader, longBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+							orderHash := getOrderHash(longOrder)
+							unfilledAmount := hu.Div(longOrder.BaseAssetQuantity, big.NewInt(2))
+
+							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
+							mockBibliophile.EXPECT().IsValidator(longOrder.Trader).Return(true).Times(1)
+							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(hu.Sub(longOrder.BaseAssetQuantity, unfilledAmount)).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetSize(ammAddress, &trader).Return(big.NewInt(0)).Times(1)
+							mockBibliophile.EXPECT().GetPositionCap(longOrder.AmmIndex.Int64(), trader).Return(maxPositionCap).Times(1)
+
+							input := getValidateCancelLimitOrderV2Input(longOrder, trader, assertLowMargin, assertOverPositionCap)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
+							assert.Equal(t, ErrNotOverPositionCap.Error(), output.Err)
+							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
+							assert.Equal(t, ammAddress, output.Res.Amm)
+							assert.Equal(t, unfilledAmount, output.Res.UnfilledAmount)
+						})
+						t.Run("return error for a shortOrder", func(t *testing.T) {
+							shortOrder := getOrder(ammIndex, trader, shortBaseAssetQuantity, price, salt, reduceOnly, postOnly)
+							orderHash := getOrderHash(shortOrder)
+							unfilledAmount := hu.Div(shortOrder.BaseAssetQuantity, big.NewInt(2))
+
+							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
+							mockBibliophile.EXPECT().IsValidator(shortOrder.Trader).Return(true).Times(1)
+							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(hu.Sub(shortOrder.BaseAssetQuantity, unfilledAmount)).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetSize(ammAddress, &trader).Return(big.NewInt(0)).Times(1)
+							mockBibliophile.EXPECT().GetPositionCap(shortOrder.AmmIndex.Int64(), trader).Return(maxPositionCap).Times(1)
+
+							input := getValidateCancelLimitOrderV2Input(shortOrder, trader, assertLowMargin, assertOverPositionCap)
+							output := ValidateCancelLimitOrderV2(mockBibliophile, &input)
+							assert.Equal(t, ErrNotOverPositionCap.Error(), output.Err)
+							assert.Equal(t, orderHash, common.BytesToHash(output.OrderHash[:]))
+							assert.Equal(t, ammAddress, output.Res.Amm)
+							assert.Equal(t, unfilledAmount, output.Res.UnfilledAmount)
+						})
 					})
 				})
 			})

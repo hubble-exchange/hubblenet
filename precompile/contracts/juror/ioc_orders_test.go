@@ -490,8 +490,6 @@ func TestValidateExecuteIOCOrder(t *testing.T) {
 		mockBibliophile.EXPECT().IOC_GetOrderFilledAmount(hash).Return(big.NewInt(0))
 		mockBibliophile.EXPECT().IOC_GetOrderStatus(hash).Return(int64(1))
 		mockBibliophile.EXPECT().IOC_GetBlockPlaced(hash).Return(big.NewInt(21))
-		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0))
-		mockBibliophile.EXPECT().GetSize(ammAddress, &trader).Return(big.NewInt(0))
 
 		m, err := validateExecuteIOCOrder(mockBibliophile, &order, Long, big.NewInt(10))
 		assert.Nil(t, err)
@@ -528,7 +526,6 @@ func TestValidateExecuteIOCOrder(t *testing.T) {
 		mockBibliophile.EXPECT().IOC_GetOrderFilledAmount(hash).Return(big.NewInt(0))
 		mockBibliophile.EXPECT().IOC_GetOrderStatus(hash).Return(int64(1))
 		mockBibliophile.EXPECT().IOC_GetBlockPlaced(hash).Return(big.NewInt(21))
-		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0))
 
 		_, err := validateExecuteIOCOrder(mockBibliophile, &order, Long, big.NewInt(10))
 		assert.Nil(t, err)

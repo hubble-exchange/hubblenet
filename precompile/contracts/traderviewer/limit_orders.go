@@ -50,18 +50,17 @@ func ValidateCancelLimitOrderV2(bibliophile b.BibliophileClient, inputStruct *Va
 	default:
 	}
 	response.Res.UnfilledAmount = hu.Sub(order.BaseAssetQuantity, bibliophile.GetOrderFilledAmount(orderHash))
+	response.Res.Amm = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
 	if assertLowMargin && bibliophile.GetAvailableMargin(trader, hu.UpgradeVersionV0orV1(bibliophile.GetTimeStamp())).Sign() != -1 {
 		response.Err = "Not Low Margin"
 		return
 	} else if assertOverPositionCap {
-		ammAddress := bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
-		posSize := bibliophile.GetSize(ammAddress, &trader)
+		posSize := bibliophile.GetSize(response.Res.Amm, &trader)
 		if hu.Abs(hu.Add(posSize, response.Res.UnfilledAmount)).Cmp(bibliophile.GetPositionCap(order.AmmIndex.Int64(), trader)) <= 0 {
 			response.Err = ErrNotOverPositionCap.Error()
 			return
 		}
 	}
-	response.Res.Amm = bibliophile.GetMarketAddressFromMarketID(order.AmmIndex.Int64())
 
 	return response
 }

@@ -180,6 +180,10 @@ func traderMarginFraction(stateDB contract.StateDB, market common.Address, trade
 	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(accountPreferencesSlot(trader), big.NewInt(1)))).Big()
 }
 
+func getMaxPositionCap(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_POSITION_CAP_SLOT))).Big()
+}
+
 func getMarginFractionByMode(stateDB contract.StateDB, market common.Address, trader *common.Address, mode uint8) *big.Int {
 	if mode == hu.Maintenance_Margin {
 		if (getMarginType(stateDB, market, trader) == hu.Isolated_Margin) {
@@ -194,8 +198,9 @@ func getMarginFractionByMode(stateDB contract.StateDB, market common.Address, tr
 }
 
 func getTraderMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
-	if (traderMarginFraction(stateDB, market, trader).Cmp(big.NewInt(0)) != 0) {
-		return traderMarginFraction(stateDB, market, trader)
+	traderMarginFraction_ := traderMarginFraction(stateDB, market, trader)
+	if (traderMarginFraction_.Cmp(big.NewInt(0)) != 0) {
+		return traderMarginFraction_
 	} else if (getMarginType(stateDB, market, trader) == hu.Isolated_Margin) {
 		return getIsolatedTradeMarginFraction(stateDB, market)
 	} else {
@@ -211,10 +216,6 @@ func getRequiredMargin(stateDB contract.StateDB, baseAsset *big.Int, price *big.
 func getRequiredMarginForQuote(stateDB contract.StateDB, market common.Address, trader *common.Address, quote *big.Int) *big.Int {
 	marginFraction := getTraderMarginFraction(stateDB, market, trader)
 	return hu.Div1e6(hu.Mul(quote, marginFraction))
-}
-
-func getMaxPositionCap(stateDB contract.StateDB, market common.Address) *big.Int {
-	return stateDB.GetState(market, common.BigToHash(big.NewInt(MAX_POSITION_CAP_SLOT))).Big()
 }
 
 func getPositionCap(stateDB contract.StateDB, market int64, trader *common.Address) *big.Int {
