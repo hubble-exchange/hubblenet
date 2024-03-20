@@ -19,7 +19,7 @@ import (
 	"github.com/ava-labs/subnet-evm/eth/filters"
 	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	"github.com/ava-labs/subnet-evm/metrics"
-	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	"github.com/ava-labs/subnet-evm/orderbook"
 	"github.com/ava-labs/subnet-evm/utils"
 
 	"github.com/ava-labs/avalanchego/database"

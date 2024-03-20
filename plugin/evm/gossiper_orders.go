@@ -7,8 +7,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	hu "github.com/ava-labs/subnet-evm/hubbleutils"
+	"github.com/ava-labs/subnet-evm/orderbook"
 	"github.com/ava-labs/subnet-evm/plugin/evm/message"
-	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ethereum/go-ethereum/log"
 )
 

@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	hu "github.com/ava-labs/subnet-evm/hubbleutils"
-	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	"github.com/ava-labs/subnet-evm/orderbook"
 )
 
 type OrderAPI struct {
