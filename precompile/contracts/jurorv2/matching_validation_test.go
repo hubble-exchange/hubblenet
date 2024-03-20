@@ -12,8 +12,8 @@ import (
 
 	"testing"
 
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 

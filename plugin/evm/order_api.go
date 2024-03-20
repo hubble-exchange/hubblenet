@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 )
 
 type OrderAPI struct {
