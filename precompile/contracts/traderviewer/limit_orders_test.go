@@ -438,3 +438,44 @@ func getOrderHash(order ILimitOrderBookOrder) common.Hash {
 	}
 	return orderHash
 }
+
+func TestGetRequiredMargin(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockBibliophile := b.NewMockBibliophileClient(ctrl)
+	ammIndex := big.NewInt(0)
+	longBaseAssetQuantity := big.NewInt(5000000000000000000)
+	shortBaseAssetQuantity := big.NewInt(-5000000000000000000)
+	price := big.NewInt(100000000)
+	trader := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
+	ammAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+	marginFraction := big.NewInt(2e5) // 0.2
+	t.Run("when order is long", func(t *testing.T) {
+		input := getRequiredMarginInput(longBaseAssetQuantity, price, ammIndex, trader)
+		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(ammIndex.Int64()).Return(ammAddress).Times(1)
+		mockBibliophile.EXPECT().GetTraderMarginFraction(ammAddress, &trader).Return(marginFraction).Times(1)
+		output := GetRequiredMargin(mockBibliophile, &input)
+		expectedMargin := hu.Div1e18(hu.Mul(longBaseAssetQuantity, price))
+		expectedMargin = hu.Div1e6(hu.Mul(expectedMargin, marginFraction))
+		assert.Equal(t, expectedMargin, output)
+	})
+
+	t.Run("when order is short", func(t *testing.T) {
+		input := getRequiredMarginInput(shortBaseAssetQuantity, price, ammIndex, trader)
+		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(ammIndex.Int64()).Return(ammAddress).Times(1)
+		mockBibliophile.EXPECT().GetTraderMarginFraction(ammAddress, &trader).Return(marginFraction).Times(1)
+		output := GetRequiredMargin(mockBibliophile, &input)
+		expectedMargin := hu.Div1e18(hu.Mul(hu.Abs(shortBaseAssetQuantity), price))
+		expectedMargin = hu.Div1e6(hu.Mul(expectedMargin, marginFraction))
+		assert.Equal(t, expectedMargin, output)
+	})
+}
+
+func getRequiredMarginInput(baseAssetQuantity *big.Int, price *big.Int, ammIndex *big.Int, trader common.Address) GetRequiredMarginInput {
+	return GetRequiredMarginInput{
+		BaseAssetQuantity: baseAssetQuantity,
+		Price:             price,
+		AmmIndex:          ammIndex,
+		Trader:            trader,
+	}
+}
