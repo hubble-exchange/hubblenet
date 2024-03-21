@@ -132,8 +132,7 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							orderHash := getOrderHash(longOrder)
 
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
-							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
-							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V1).Return(big.NewInt(0)).Times(1)
+							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V2).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().IsValidator(longOrder.Trader).Return(true).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
@@ -149,8 +148,7 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							orderHash := getOrderHash(shortOrder)
 
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
-							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
-							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V1).Return(big.NewInt(0)).Times(1)
+							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V2).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().IsValidator(shortOrder.Trader).Return(true).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
@@ -170,8 +168,7 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							orderHash := getOrderHash(longOrder)
 
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
-							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
-							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V1).Return(newMargin).Times(1)
+							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V2).Return(newMargin).Times(1)
 							mockBibliophile.EXPECT().IsValidator(longOrder.Trader).Return(true).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
@@ -187,8 +184,7 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							orderHash := getOrderHash(shortOrder)
 
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
-							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
-							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V1).Return(newMargin).Times(1)
+							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V2).Return(newMargin).Times(1)
 							mockBibliophile.EXPECT().IsValidator(shortOrder.Trader).Return(true).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
@@ -208,8 +204,7 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							orderHash := getOrderHash(longOrder)
 
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
-							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
-							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V1).Return(big.NewInt(-1)).Times(1)
+							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V2).Return(big.NewInt(-1)).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 							mockBibliophile.EXPECT().IsValidator(longOrder.Trader).Return(true).Times(1)
@@ -226,8 +221,7 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							orderHash := getOrderHash(shortOrder)
 
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
-							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
-							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V1).Return(big.NewInt(-1)).Times(1)
+							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V2).Return(big.NewInt(-1)).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 							mockBibliophile.EXPECT().IsValidator(shortOrder.Trader).Return(true).Times(1)
@@ -247,8 +241,7 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							filledAmount := hu.Div(longOrder.BaseAssetQuantity, big.NewInt(2))
 
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
-							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
-							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V1).Return(big.NewInt(-1)).Times(1)
+							mockBibliophile.EXPECT().GetAvailableMargin(longOrder.Trader, hu.V2).Return(big.NewInt(-1)).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(filledAmount).Times(1)
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 							mockBibliophile.EXPECT().IsValidator(longOrder.Trader).Return(true).Times(1)
@@ -267,8 +260,7 @@ func TestValidateCancelLimitOrderV2(t *testing.T) {
 							filledAmount := hu.Div(shortOrder.BaseAssetQuantity, big.NewInt(2))
 
 							mockBibliophile.EXPECT().GetOrderStatus(orderHash).Return(int64(juror.Placed)).Times(1)
-							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
-							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V1).Return(big.NewInt(-1)).Times(1)
+							mockBibliophile.EXPECT().GetAvailableMargin(shortOrder.Trader, hu.V2).Return(big.NewInt(-1)).Times(1)
 							mockBibliophile.EXPECT().GetOrderFilledAmount(orderHash).Return(filledAmount).Times(1)
 							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
 							mockBibliophile.EXPECT().IsValidator(shortOrder.Trader).Return(true).Times(1)

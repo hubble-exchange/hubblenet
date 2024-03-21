@@ -475,7 +475,6 @@ func createJurorPrecompile() contract.StatefulPrecompiledContract {
 		"validateOrdersAndDetermineFillPrice":           validateOrdersAndDetermineFillPrice,
 		"validatePlaceIOCOrder":                         validatePlaceIOCOrder,
 		"validatePlaceLimitOrder":                       validatePlaceLimitOrder,
-		// @todo add getRequiredMargin
 	}
 
 	for name, function := range abiFunctionMap {

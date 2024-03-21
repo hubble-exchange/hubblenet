@@ -810,7 +810,7 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 						})
 
 						t.Run("when available margin is one less than requiredMargin and precompileVersion = 1", func(t *testing.T) {
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(2)
 							mockBibliophile.EXPECT().GetMinSizeRequirement(longOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
 							orderHash, err := GetLimitOrderHashFromContractStruct(&longOrder)
 							if err != nil {
@@ -820,9 +820,9 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetSize(ammAddress, &trader).Return(positionSize).Times(1)
 							mockBibliophile.EXPECT().GetReduceOnlyAmount(trader, longOrder.AmmIndex).Return(reduceOnlyAmount).Times(1)
 
-							quoteAsset := big.NewInt(0).Abs(hu.Div(hu.Mul(longOrder.BaseAssetQuantity, upperBound), big.NewInt(1e18)))
-							requiredMargin := hu.Div(quoteAsset, big.NewInt(10)) // 10x leverage
-							mockBibliophile.EXPECT().GetRequiredMargin(longOrder.BaseAssetQuantity, longOrder.Price, longOrder.AmmIndex.Int64(), &trader).Return(requiredMargin).Times(1)
+							quoteAsset := big.NewInt(0).Abs(hu.Div(hu.Mul(longOrder.BaseAssetQuantity, longOrder.Price), big.NewInt(1e18)))
+							requiredMargin := hu.Div(quoteAsset, big.NewInt(10))                                                   // 10x leverage
+							mockBibliophile.EXPECT().GetTraderMarginFraction(ammAddress, &trader).Return(big.NewInt(1e5)).Times(1) // 0.1
 							availableMargin := hu.Sub(requiredMargin, big.NewInt(1))
 							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
 							mockBibliophile.EXPECT().GetAvailableMargin(trader, hu.V1).Return(availableMargin).Times(1)
@@ -899,7 +899,7 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 							assert.Equal(t, big.NewInt(0), output.Res.ReserveAmount)
 						})
 						t.Run("when available margin is one less than requiredMargin and precompileVersion = 1", func(t *testing.T) {
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(2)
 							mockBibliophile.EXPECT().GetMinSizeRequirement(shortOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
 							orderHash, err := GetLimitOrderHashFromContractStruct(&shortOrder)
 							if err != nil {
@@ -909,9 +909,9 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetSize(ammAddress, &trader).Return(positionSize).Times(1)
 							mockBibliophile.EXPECT().GetReduceOnlyAmount(trader, shortOrder.AmmIndex).Return(reduceOnlyAmount).Times(1)
 
-							quoteAsset := big.NewInt(0).Abs(hu.Div(hu.Mul(shortOrder.BaseAssetQuantity, upperBound), big.NewInt(1e18)))
-							requiredMargin := hu.Div(quoteAsset, big.NewInt(10)) // 10x leverage
-							mockBibliophile.EXPECT().GetRequiredMargin(shortOrder.BaseAssetQuantity, shortOrder.Price, shortOrder.AmmIndex.Int64(), &trader).Return(requiredMargin).Times(1)
+							quoteAsset := big.NewInt(0).Abs(hu.Div(hu.Mul(shortOrder.BaseAssetQuantity, shortOrder.Price), big.NewInt(1e18)))
+							requiredMargin := hu.Div(quoteAsset, big.NewInt(10))                                                   // 10x leverage
+							mockBibliophile.EXPECT().GetTraderMarginFraction(ammAddress, &trader).Return(big.NewInt(1e5)).Times(1) // 0.1
 							availableMargin := hu.Sub(requiredMargin, big.NewInt(1))
 							mockBibliophile.EXPECT().GetTimeStamp().Return(hu.V1ActivationTime).Times(1)
 							mockBibliophile.EXPECT().GetAvailableMargin(trader, hu.V1).Return(availableMargin).Times(1)
@@ -1228,7 +1228,7 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 							requiredMargin := hu.Div(quoteAsset, big.NewInt(10)) // 10x leverage
 							availableMargin := hu.Add(requiredMargin, big.NewInt(1))
 
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(longOrder.AmmIndex.Int64()).Return(ammAddress).Times(2)
 							mockBibliophile.EXPECT().GetMinSizeRequirement(longOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
 							orderHash, err := GetLimitOrderHashFromContractStruct(&longOrder)
 							if err != nil {
@@ -1246,7 +1246,7 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(1)).Times(2)
 							mockBibliophile.EXPECT().GetLongOpenOrdersAmount(trader, longOrder.AmmIndex).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().GetPositionCap(longOrder.AmmIndex.Int64(), trader).Return(hu.Mul(longOrder.BaseAssetQuantity, big.NewInt(2))).Times(1)
-							mockBibliophile.EXPECT().GetRequiredMargin(longOrder.BaseAssetQuantity, longOrder.Price, longOrder.AmmIndex.Int64(), &trader).Return(requiredMargin).Times(1)
+							mockBibliophile.EXPECT().GetTraderMarginFraction(ammAddress, &trader).Return(big.NewInt(1e5)).Times(1) // 0.1
 							output := ValidatePlaceLimitOrder(mockBibliophile, &ValidatePlaceLimitOrderInput{Order: longOrder, Sender: trader})
 							assert.Equal(t, "", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))
@@ -1259,7 +1259,7 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 							requiredMargin := hu.Div(quoteAsset, big.NewInt(10)) // 10x leverage
 							availableMargin := hu.Add(requiredMargin, big.NewInt(1))
 
-							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(1)
+							mockBibliophile.EXPECT().GetMarketAddressFromMarketID(shortOrder.AmmIndex.Int64()).Return(ammAddress).Times(2)
 							mockBibliophile.EXPECT().GetMinSizeRequirement(shortOrder.AmmIndex.Int64()).Return(minSizeRequirement).Times(1)
 							orderHash, err := GetLimitOrderHashFromContractStruct(&shortOrder)
 							if err != nil {
@@ -1278,7 +1278,7 @@ func TestValidatePlaceLimitOrder(t *testing.T) {
 							mockBibliophile.EXPECT().GetLongOpenOrdersAmount(trader, shortOrder.AmmIndex).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().GetShortOpenOrdersAmount(trader, shortOrder.AmmIndex).Return(big.NewInt(0)).Times(1)
 							mockBibliophile.EXPECT().GetPositionCap(shortOrder.AmmIndex.Int64(), trader).Return(hu.Mul(shortOrder.BaseAssetQuantity, big.NewInt(-2))).Times(1)
-							mockBibliophile.EXPECT().GetRequiredMargin(shortOrder.BaseAssetQuantity, shortOrder.Price, shortOrder.AmmIndex.Int64(), &trader).Return(requiredMargin).Times(1)
+							mockBibliophile.EXPECT().GetTraderMarginFraction(ammAddress, &trader).Return(big.NewInt(1e5)).Times(1) // 0.1
 							output := ValidatePlaceLimitOrder(mockBibliophile, &ValidatePlaceLimitOrderInput{Order: shortOrder, Sender: trader})
 							assert.Equal(t, "", output.Err)
 							assert.Equal(t, orderHash, common.BytesToHash(output.Orderhash[:]))

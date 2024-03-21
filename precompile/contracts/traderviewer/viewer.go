@@ -2,7 +2,6 @@ package traderviewer
 
 import (
 	"math/big"
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -17,7 +16,7 @@ func GetNotionalPositionAndMargin(bibliophile b.BibliophileClient, input *GetNot
 }
 
 func GetCrossMarginAccountData(bibliophile b.BibliophileClient, input *GetCrossMarginAccountDataInput) GetCrossMarginAccountDataOutput {
-	notionalPosition, requiredMargin, unrealizedPnl, pendingFunding := bibliophile.GetCrossMarginAccountData(input.Trader, input.Mode, hu.V2) // @todo check if this is the right upgrade version
+	notionalPosition, requiredMargin, unrealizedPnl, pendingFunding := bibliophile.GetCrossMarginAccountData(input.Trader, input.Mode)
 	return GetCrossMarginAccountDataOutput{
 		NotionalPosition: notionalPosition,
 		RequiredMargin:   requiredMargin,

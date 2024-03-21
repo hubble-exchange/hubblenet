@@ -498,7 +498,7 @@ func validateLimitOrderLike(bibliophile b.BibliophileClient, order *hu.BaseOrder
 	if bibliophile.GetPrecompileVersion(common.HexToAddress(SelfAddress)).Cmp(big.NewInt(1)) >= 0 {
 		posSize := bibliophile.GetSize(market, &order.Trader)
 		posCap := bibliophile.GetPositionCap(order.AmmIndex.Int64(), order.Trader)
-		if hu.Abs(hu.Add(posSize, order.BaseAssetQuantity)).Cmp(posCap) == 1 {
+		if hu.Abs(hu.Add(posSize, fillAmount)).Cmp(posCap) == 1 {
 			return ErrOverPositionCap
 		}
 	}

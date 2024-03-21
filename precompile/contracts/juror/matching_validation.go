@@ -442,7 +442,10 @@ func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrd
 }
 
 func getRequiredMarginNew(bibliophile b.BibliophileClient, baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int {
-	return bibliophile.GetRequiredMargin(baseAsset, price, marketId, trader)
+	marketAddress := bibliophile.GetMarketAddressFromMarketID(marketId)
+	marginFraction := bibliophile.GetTraderMarginFraction(marketAddress,trader)
+	quoteAsset := hu.Div1e18(hu.Mul(hu.Abs(baseAsset), price))
+	return hu.Div1e6(hu.Mul(quoteAsset, marginFraction))
 }
 
 func getRequiredMarginLegacy(bibliophile b.BibliophileClient, order ILimitOrderBookOrder) *big.Int {

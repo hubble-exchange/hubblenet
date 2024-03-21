@@ -26,11 +26,11 @@ type HubbleState struct {
 }
 
 type UserState struct {
-	Positions         map[Market]*Position
-	ReduceOnlyAmounts []*big.Int
-	Margins           []*big.Int
-	PendingFunding    *big.Int
-	ReservedMargin    *big.Int
+	Positions          map[Market]*Position
+	ReduceOnlyAmounts  []*big.Int
+	Margins            []*big.Int
+	PendingFunding     *big.Int
+	ReservedMargin     *big.Int
 	AccountPreferences map[Market]*AccountPreferences
 }
 
@@ -132,7 +132,7 @@ func GetCrossMarginAccountData(hState *HubbleState, userState *UserState) (*big.
 	requiredMargin := big.NewInt(0)
 
 	for _, market := range hState.ActiveMarkets {
-		if userState.AccountPreferences[market].MarginType == Cross_Margin {
+		if userState.AccountPreferences[market].MarginMode == Cross {
 			_notionalPosition, _unrealizedPnl, _requiredMargin := GetTraderPositionDetails(userState.Positions[market], hState.OraclePrices[market], userState.AccountPreferences[market].MarginFraction)
 			notionalPosition.Add(notionalPosition, _notionalPosition)
 			unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
@@ -148,7 +148,7 @@ func GetTraderPositionDetails(position *Position, oraclePrice *big.Int, marginFr
 	}
 
 	// based on oracle price,
-	notionalPosition, unrealizedPnl, _  := GetPositionMetadata(
+	notionalPosition, unrealizedPnl, _ := GetPositionMetadata(
 		oraclePrice,
 		position.OpenNotional,
 		position.Size,

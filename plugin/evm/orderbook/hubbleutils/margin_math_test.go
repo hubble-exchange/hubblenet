@@ -56,11 +56,11 @@ var userState = &UserState{
 	ReservedMargin: big.NewInt(60 * 1e6),  // 60
 	AccountPreferences: map[Market]*AccountPreferences{
 		0: {
-			MarginType:     Cross_Margin,
+			MarginMode:     Cross,
 			MarginFraction: big.NewInt(0.2 * 1e6), // 0.2
 		},
 		1: {
-			MarginType:     Isolated_Margin,
+			MarginMode:     Isolated,
 			MarginFraction: big.NewInt(0.1 * 1e6), // 0.1
 		},
 	},
@@ -264,7 +264,7 @@ func TestGetNotionalPositionAndRequiredMargin(t *testing.T) {
 	})
 
 	t.Run("both markets in cross mode", func(t *testing.T) {
-		userState.AccountPreferences[1].MarginType = Cross_Margin
+		userState.AccountPreferences[1].MarginMode = Cross
 		notionalPosition, margin, requiredMargin := GetNotionalPositionAndRequiredMargin(_hState, userState)
 		expectedNotionalPosition := big.NewInt(0)
 		expectedRequiredMargin := big.NewInt(0)

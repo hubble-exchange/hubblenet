@@ -10,26 +10,26 @@ import (
 )
 
 const (
-	VAR_POSITIONS_SLOT              int64 = 1
-	VAR_CUMULATIVE_PREMIUM_FRACTION int64 = 2
-	MAX_ORACLE_SPREAD_RATIO_SLOT    int64 = 3
-	MAX_LIQUIDATION_RATIO_SLOT      int64 = 4
-	MIN_SIZE_REQUIREMENT_SLOT       int64 = 5
-	UNDERLYING_ASSET_SLOT           int64 = 6
-	MAX_LIQUIDATION_PRICE_SPREAD    int64 = 11
-	MULTIPLIER_SLOT                 int64 = 12
-	IMPACT_MARGIN_NOTIONAL_SLOT     int64 = 19
-	LAST_TRADE_PRICE_SLOT           int64 = 20
-	BIDS_SLOT                       int64 = 21
-	ASKS_SLOT                       int64 = 22
-	BIDS_HEAD_SLOT                  int64 = 23
-	ASKS_HEAD_SLOT                  int64 = 24
-	TRADE_MARGIN_FRACTION_SLOT      int64 = 28
-	LIQUIDATION_MARGIN_FRACTION_SLOT int64 = 29
-	ISOLATED_TRADE_MARGIN_FRACTION_SLOT int64 = 30
+	VAR_POSITIONS_SLOT                        int64 = 1
+	VAR_CUMULATIVE_PREMIUM_FRACTION           int64 = 2
+	MAX_ORACLE_SPREAD_RATIO_SLOT              int64 = 3
+	MAX_LIQUIDATION_RATIO_SLOT                int64 = 4
+	MIN_SIZE_REQUIREMENT_SLOT                 int64 = 5
+	UNDERLYING_ASSET_SLOT                     int64 = 6
+	MAX_LIQUIDATION_PRICE_SPREAD              int64 = 11
+	MULTIPLIER_SLOT                           int64 = 12
+	IMPACT_MARGIN_NOTIONAL_SLOT               int64 = 19
+	LAST_TRADE_PRICE_SLOT                     int64 = 20
+	BIDS_SLOT                                 int64 = 21
+	ASKS_SLOT                                 int64 = 22
+	BIDS_HEAD_SLOT                            int64 = 23
+	ASKS_HEAD_SLOT                            int64 = 24
+	TRADE_MARGIN_FRACTION_SLOT                int64 = 28
+	LIQUIDATION_MARGIN_FRACTION_SLOT          int64 = 29
+	ISOLATED_TRADE_MARGIN_FRACTION_SLOT       int64 = 30
 	ISOLATED_LIQUIDATION_MARGIN_FRACTION_SLOT int64 = 31
-	ACCOUNT_PREFERENCES_SLOT        int64 = 33
-	MAX_POSITION_CAP_SLOT           int64 = 34
+	ACCOUNT_PREFERENCES_SLOT                  int64 = 33
+	MAX_POSITION_CAP_SLOT                     int64 = 34
 )
 
 // AMM State
@@ -172,11 +172,11 @@ func accountPreferencesSlot(trader *common.Address) *big.Int {
 	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(trader.Bytes(), 32), common.LeftPadBytes(big.NewInt(ACCOUNT_PREFERENCES_SLOT).Bytes(), 32)...)))
 }
 
-func getMarginType(stateDB contract.StateDB, market common.Address, trader *common.Address) uint8 {
+func getMarginMode(stateDB contract.StateDB, market common.Address, trader *common.Address) uint8 {
 	return uint8(stateDB.GetState(market, common.BigToHash(accountPreferencesSlot(trader))).Big().Uint64())
 }
 
-func traderMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
+func marginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
 	return stateDB.GetState(market, common.BigToHash(new(big.Int).Add(accountPreferencesSlot(trader), big.NewInt(1)))).Big()
 }
 
@@ -186,7 +186,7 @@ func getMaxPositionCap(stateDB contract.StateDB, market common.Address) *big.Int
 
 func getMarginFractionByMode(stateDB contract.StateDB, market common.Address, trader *common.Address, mode uint8) *big.Int {
 	if mode == hu.Maintenance_Margin {
-		if (getMarginType(stateDB, market, trader) == hu.Isolated_Margin) {
+		if getMarginMode(stateDB, market, trader) == hu.Isolated {
 			return getIsolatedLiquidationMarginFraction(stateDB, market)
 		} else {
 			return getLiquidationMarginFraction(stateDB, market)
@@ -198,24 +198,14 @@ func getMarginFractionByMode(stateDB contract.StateDB, market common.Address, tr
 }
 
 func getTraderMarginFraction(stateDB contract.StateDB, market common.Address, trader *common.Address) *big.Int {
-	traderMarginFraction_ := traderMarginFraction(stateDB, market, trader)
-	if (traderMarginFraction_.Cmp(big.NewInt(0)) != 0) {
+	traderMarginFraction_ := marginFraction(stateDB, market, trader)
+	if traderMarginFraction_.Sign() != 0 {
 		return traderMarginFraction_
-	} else if (getMarginType(stateDB, market, trader) == hu.Isolated_Margin) {
+	} else if getMarginMode(stateDB, market, trader) == hu.Isolated {
 		return getIsolatedTradeMarginFraction(stateDB, market)
 	} else {
 		return getTradeMarginFraction(stateDB, market)
 	}
-}
-
-func getRequiredMargin(stateDB contract.StateDB, baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int {
-	quoteAsset := hu.Div1e18(hu.Mul(hu.Abs(baseAsset), price))
-	return getRequiredMarginForQuote(stateDB, GetMarketAddressFromMarketID(marketId, stateDB), trader, quoteAsset)
-}
-
-func getRequiredMarginForQuote(stateDB contract.StateDB, market common.Address, trader *common.Address, quote *big.Int) *big.Int {
-	marginFraction := getTraderMarginFraction(stateDB, market, trader)
-	return hu.Div1e6(hu.Mul(quote, marginFraction))
 }
 
 func getPositionCap(stateDB contract.StateDB, market int64, trader *common.Address) *big.Int {

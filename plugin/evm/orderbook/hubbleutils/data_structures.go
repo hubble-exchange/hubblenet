@@ -18,15 +18,13 @@ const (
 	Min_Allowable_Margin
 )
 
-type MarginType = uint8
-
 const (
-	Cross_Margin MarginType = iota
-	Isolated_Margin
+	Cross MarginMode = iota
+	Isolated
 )
 
 type AccountPreferences struct {
-	MarginType MarginType
+	MarginMode MarginMode
 	MarginFraction *big.Int
 }
 

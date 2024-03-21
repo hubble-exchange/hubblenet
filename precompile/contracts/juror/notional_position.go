@@ -5,7 +5,7 @@ import (
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 )
 /**
-	* Depricated. Use traderviewer.GetNotionalPositionAndMargin instead
+	* Deprecated. Use traderviewer.GetNotionalPositionAndMargin instead
 */
 func GetNotionalPositionAndMargin(bibliophile b.BibliophileClient, input *GetNotionalPositionAndMarginInput) GetNotionalPositionAndMarginOutput {
 	notionalPosition, margin := bibliophile.GetNotionalPositionAndMargin(input.Trader, input.IncludeFundingPayments, input.Mode, hu.UpgradeVersionV0orV1(bibliophile.GetTimeStamp()))

@@ -105,7 +105,7 @@ func TestValidateLimitOrderLike(t *testing.T) {
 		t.Run("position cap reached", func(t *testing.T) {
 			mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(1)).Times(1)
 			mockBibliophile.EXPECT().GetSize(common.Address{}, &order.Trader).Return(big.NewInt(1)).Times(1)
-			mockBibliophile.EXPECT().GetPositionCap(int64(0), order.Trader).Return(order.BaseAssetQuantity).Times(1)
+			mockBibliophile.EXPECT().GetPositionCap(int64(0), order.Trader).Return(fillAmount).Times(1)
 			err := validateLimitOrderLike(mockBibliophile, order, filledAmount, Placed, Long, fillAmount)
 			assert.EqualError(t, err, ErrOverPositionCap.Error())
 		})

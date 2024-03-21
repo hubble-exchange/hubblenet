@@ -53,14 +53,14 @@ type BibliophileClient interface {
 	GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int)
 	GetAcceptableBoundsForLiquidation(marketId int64) (*big.Int, *big.Int)
 	GetPositionCap(marketId int64, trader common.Address) *big.Int
+	GetTraderMarginFraction(market common.Address, trader *common.Address) *big.Int
 
 	GetTimeStamp() uint64
 	GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int)
 	GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int, *big.Int)
-	GetCrossMarginAccountData(trader common.Address, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int, *big.Int)
+	GetCrossMarginAccountData(trader common.Address, mode uint8) (*big.Int, *big.Int, *big.Int, *big.Int)
 	GetTotalFundingForCrossMarginPositions(trader *common.Address) *big.Int
 	GetTraderDataForMarket(trader common.Address, marketId int64, mode uint8) (bool, *big.Int, *big.Int, *big.Int, *big.Int)
-	GetRequiredMargin(baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int
 	HasReferrer(trader common.Address) bool
 	GetActiveMarketsCount() int64
 
@@ -224,8 +224,8 @@ func (b *bibliophileClient) GetNotionalPositionAndRequiredMargin(trader common.A
 	return output.NotionalPosition, output.Margin, output.RequiredMargin
 }
 
-func (b *bibliophileClient) GetCrossMarginAccountData(trader common.Address, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int, *big.Int, *big.Int) {
-	output := getCrossMarginAccountData(b.accessibleState.GetStateDB(), &trader, mode, upgradeVersion)
+func (b *bibliophileClient) GetCrossMarginAccountData(trader common.Address, mode uint8) (*big.Int, *big.Int, *big.Int, *big.Int) {
+	output := getCrossMarginAccountData(b.accessibleState.GetStateDB(), &trader, mode)
 	return output.NotionalPosition, output.RequiredMargin, output.UnrealizedPnl, output.PendingFunding
 }
 
@@ -238,8 +238,8 @@ func (b *bibliophileClient) GetTraderDataForMarket(trader common.Address, market
 	return output.IsIsolated, output.NotionalPosition, output.UnrealizedPnl, output.RequiredMargin, output.PendingFunding
 }
 
-func (b *bibliophileClient) GetRequiredMargin(baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int {
-	return getRequiredMargin(b.accessibleState.GetStateDB(), baseAsset, price, marketId, trader)
+func (b *bibliophileClient) GetTraderMarginFraction(market common.Address, trader *common.Address) *big.Int {
+	return getTraderMarginFraction(b.accessibleState.GetStateDB(), market, trader)
 }
 
 func (b *bibliophileClient) HasReferrer(trader common.Address) bool {
