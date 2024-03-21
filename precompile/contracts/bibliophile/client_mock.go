@@ -164,6 +164,23 @@ func (mr *MockBibliophileClientMockRecorder) GetBlockPlaced(orderHash interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockPlaced", reflect.TypeOf((*MockBibliophileClient)(nil).GetBlockPlaced), orderHash)
 }
 
+// GetCrossMarginAccountData mocks base method.
+func (m *MockBibliophileClient) GetCrossMarginAccountData(trader common.Address, mode uint8) (*big.Int, *big.Int, *big.Int, *big.Int) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCrossMarginAccountData", trader, mode)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(*big.Int)
+	ret2, _ := ret[2].(*big.Int)
+	ret3, _ := ret[3].(*big.Int)
+	return ret0, ret1, ret2, ret3
+}
+
+// GetCrossMarginAccountData indicates an expected call of GetCrossMarginAccountData.
+func (mr *MockBibliophileClientMockRecorder) GetCrossMarginAccountData(trader, mode interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCrossMarginAccountData", reflect.TypeOf((*MockBibliophileClient)(nil).GetCrossMarginAccountData), trader, mode)
+}
+
 // GetImpactMarginNotional mocks base method.
 func (m *MockBibliophileClient) GetImpactMarginNotional(ammAddress common.Address) *big.Int {
 	m.ctrl.T.Helper()
@@ -291,6 +308,22 @@ func (mr *MockBibliophileClientMockRecorder) GetNotionalPositionAndMargin(trader
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNotionalPositionAndMargin", reflect.TypeOf((*MockBibliophileClient)(nil).GetNotionalPositionAndMargin), trader, includeFundingPayments, mode, upgradeVersion)
 }
 
+// GetNotionalPositionAndRequiredMargin mocks base method.
+func (m *MockBibliophileClient) GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int, *big.Int) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNotionalPositionAndRequiredMargin", trader, includeFundingPayments, mode)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(*big.Int)
+	ret2, _ := ret[2].(*big.Int)
+	return ret0, ret1, ret2
+}
+
+// GetNotionalPositionAndRequiredMargin indicates an expected call of GetNotionalPositionAndRequiredMargin.
+func (mr *MockBibliophileClientMockRecorder) GetNotionalPositionAndRequiredMargin(trader, includeFundingPayments, mode interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNotionalPositionAndRequiredMargin", reflect.TypeOf((*MockBibliophileClient)(nil).GetNotionalPositionAndRequiredMargin), trader, includeFundingPayments, mode)
+}
+
 // GetOrderFilledAmount mocks base method.
 func (m *MockBibliophileClient) GetOrderFilledAmount(orderHash [32]byte) *big.Int {
 	m.ctrl.T.Helper()
@@ -317,6 +350,34 @@ func (m *MockBibliophileClient) GetOrderStatus(orderHash [32]byte) int64 {
 func (mr *MockBibliophileClientMockRecorder) GetOrderStatus(orderHash interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderStatus", reflect.TypeOf((*MockBibliophileClient)(nil).GetOrderStatus), orderHash)
+}
+
+// GetPositionCap mocks base method.
+func (m *MockBibliophileClient) GetPositionCap(marketId int64, trader common.Address) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPositionCap", marketId, trader)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetPositionCap indicates an expected call of GetPositionCap.
+func (mr *MockBibliophileClientMockRecorder) GetPositionCap(marketId, trader interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPositionCap", reflect.TypeOf((*MockBibliophileClient)(nil).GetPositionCap), marketId, trader)
+}
+
+// GetPrecompileVersion mocks base method.
+func (m *MockBibliophileClient) GetPrecompileVersion(precompileAddress common.Address) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPrecompileVersion", precompileAddress)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetPrecompileVersion indicates an expected call of GetPrecompileVersion.
+func (mr *MockBibliophileClientMockRecorder) GetPrecompileVersion(precompileAddress interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPrecompileVersion", reflect.TypeOf((*MockBibliophileClient)(nil).GetPrecompileVersion), precompileAddress)
 }
 
 // GetPriceMultiplier mocks base method.
@@ -429,6 +490,52 @@ func (m *MockBibliophileClient) GetTimeStamp() uint64 {
 func (mr *MockBibliophileClientMockRecorder) GetTimeStamp() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTimeStamp", reflect.TypeOf((*MockBibliophileClient)(nil).GetTimeStamp))
+}
+
+// GetTotalFundingForCrossMarginPositions mocks base method.
+func (m *MockBibliophileClient) GetTotalFundingForCrossMarginPositions(trader *common.Address) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTotalFundingForCrossMarginPositions", trader)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetTotalFundingForCrossMarginPositions indicates an expected call of GetTotalFundingForCrossMarginPositions.
+func (mr *MockBibliophileClientMockRecorder) GetTotalFundingForCrossMarginPositions(trader interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTotalFundingForCrossMarginPositions", reflect.TypeOf((*MockBibliophileClient)(nil).GetTotalFundingForCrossMarginPositions), trader)
+}
+
+// GetTraderDataForMarket mocks base method.
+func (m *MockBibliophileClient) GetTraderDataForMarket(trader common.Address, marketId int64, mode uint8) (bool, *big.Int, *big.Int, *big.Int, *big.Int) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTraderDataForMarket", trader, marketId, mode)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(*big.Int)
+	ret2, _ := ret[2].(*big.Int)
+	ret3, _ := ret[3].(*big.Int)
+	ret4, _ := ret[4].(*big.Int)
+	return ret0, ret1, ret2, ret3, ret4
+}
+
+// GetTraderDataForMarket indicates an expected call of GetTraderDataForMarket.
+func (mr *MockBibliophileClientMockRecorder) GetTraderDataForMarket(trader, marketId, mode interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTraderDataForMarket", reflect.TypeOf((*MockBibliophileClient)(nil).GetTraderDataForMarket), trader, marketId, mode)
+}
+
+// GetTraderMarginFraction mocks base method.
+func (m *MockBibliophileClient) GetTraderMarginFraction(market common.Address, trader *common.Address) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTraderMarginFraction", market, trader)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// GetTraderMarginFraction indicates an expected call of GetTraderMarginFraction.
+func (mr *MockBibliophileClientMockRecorder) GetTraderMarginFraction(market, trader interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTraderMarginFraction", reflect.TypeOf((*MockBibliophileClient)(nil).GetTraderMarginFraction), market, trader)
 }
 
 // GetUpperAndLowerBoundForMarket mocks base method.

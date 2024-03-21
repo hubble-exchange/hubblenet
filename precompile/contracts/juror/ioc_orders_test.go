@@ -408,12 +408,48 @@ func TestValidatePlaceIOCOrder(t *testing.T) {
 			mockBibliophile.EXPECT().GetSize(common.Address{101}, &trader).Return(big.NewInt(-15))
 			mockBibliophile.EXPECT().GetReduceOnlyAmount(trader, order.AmmIndex).Return(big.NewInt(0))
 			mockBibliophile.EXPECT().GetPriceMultiplier(common.Address{101}).Return(big.NewInt(10))
+			mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 
 			testValidatePlaceIOCOrderTestCase(t, mockBibliophile, ValidatePlaceIOCOrderTestCase{
 				Order:  order,
 				Sender: common.Address{1},
 				Error:  nil,
 			})
+		})
+	})
+
+	t.Run("position cap reached", func(t *testing.T) {
+		mockBibliophile := b.NewMockBibliophileClient(ctrl)
+		mockBibliophile.EXPECT().IsTradingAuthority(trader, common.Address{1}).Return(true)
+		mockBibliophile.EXPECT().GetTimeStamp().Return(uint64(1000))
+		mockBibliophile.EXPECT().IOC_GetExpirationCap().Return(big.NewInt(5))
+		mockBibliophile.EXPECT().GetMinSizeRequirement(int64(0)).Return(big.NewInt(5))
+
+		order := IImmediateOrCancelOrdersOrder{
+			OrderType:         1,
+			ExpireAt:          big.NewInt(1004),
+			AmmIndex:          big.NewInt(0),
+			Trader:            trader,
+			BaseAssetQuantity: big.NewInt(10),
+			Price:             big.NewInt(100),
+			Salt:              big.NewInt(13),
+			ReduceOnly:        true,
+		}
+		hash, _ := IImmediateOrCancelOrdersOrderToIOCOrder(&order).Hash()
+
+		mockBibliophile.EXPECT().IOC_GetOrderStatus(hash).Return(int64(0))
+		mockBibliophile.EXPECT().HasReferrer(trader).Return(true)
+		mockBibliophile.EXPECT().GetMarketAddressFromMarketID(int64(0)).Return(common.Address{101})
+		mockBibliophile.EXPECT().GetSize(common.Address{101}, &trader).Return(big.NewInt(-15))
+		mockBibliophile.EXPECT().GetReduceOnlyAmount(trader, order.AmmIndex).Return(big.NewInt(0))
+		mockBibliophile.EXPECT().GetPriceMultiplier(common.Address{101}).Return(big.NewInt(10))
+		mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(1)).Times(1)
+		mockBibliophile.EXPECT().GetPositionCap(int64(0), order.Trader).Return(order.BaseAssetQuantity).Times(1)
+
+		testValidatePlaceIOCOrderTestCase(t, mockBibliophile, ValidatePlaceIOCOrderTestCase{
+			Order:  order,
+			Sender: common.Address{1},
+			Error:  nil,
 		})
 	})
 }

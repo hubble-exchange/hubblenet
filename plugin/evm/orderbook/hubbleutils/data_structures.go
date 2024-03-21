@@ -18,6 +18,16 @@ const (
 	Min_Allowable_Margin
 )
 
+const (
+	Cross MarginMode = iota
+	Isolated
+)
+
+type AccountPreferences struct {
+	MarginMode MarginMode
+	MarginFraction *big.Int
+}
+
 type Collateral struct {
 	Price    *big.Int // scaled by 1e6
 	Weight   *big.Int // scaled by 1e6

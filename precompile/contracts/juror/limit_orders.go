@@ -7,6 +7,7 @@ import (
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 )
 
 func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *ValidatePlaceLimitOrderInput) (response ValidatePlaceLimitOrderOutput) {
@@ -60,6 +61,13 @@ func ValidatePlaceLimitOrder(bibliophile b.BibliophileClient, inputStruct *Valid
 		// if position is non-zero then reduceOnlyAmount should be zero or have the opposite sign as posSize
 		response.Err = ErrStaleReduceOnlyOrders.Error()
 		return
+	}
+
+	if bibliophile.GetPrecompileVersion(common.HexToAddress(SelfAddress)).Cmp(big.NewInt(1)) >= 0 {
+		if isOverPositionCap(bibliophile, trader, order.AmmIndex, order.BaseAssetQuantity, posSize) {
+			response.Err = ErrOverPositionCap.Error()
+			return
+		}
 	}
 
 	var orderSide Side = Side(Long)
@@ -180,4 +188,16 @@ func ILimitOrderBookOrderToLimitOrder(o *ILimitOrderBookOrder) *ob.LimitOrder {
 
 func GetLimitOrderHashFromContractStruct(o *ILimitOrderBookOrder) (common.Hash, error) {
 	return ILimitOrderBookOrderToLimitOrder(o).Hash()
+}
+
+func isOverPositionCap(bibliophile b.BibliophileClient, trader common.Address, ammIndex *big.Int, baseAssetQuantity *big.Int, posSize *big.Int) bool {
+	posCap := bibliophile.GetPositionCap(ammIndex.Int64(), trader)
+	longOpenOrdersAmount := bibliophile.GetLongOpenOrdersAmount(trader, ammIndex)
+	if baseAssetQuantity.Sign() == 1 {
+		posSize = math.BigMax(posSize, big.NewInt(0))
+		return baseAssetQuantity.Cmp(hu.Sub(posCap, hu.Add(posSize, longOpenOrdersAmount))) == 1
+	}
+	shortOpenOrdersAmount := bibliophile.GetShortOpenOrdersAmount(trader, ammIndex)
+	posSize = math.BigMax(hu.Neg(posSize), big.NewInt(0))
+	return hu.Neg(baseAssetQuantity).Cmp(hu.Sub(posCap, hu.Add(posSize, shortOpenOrdersAmount))) == 1
 }

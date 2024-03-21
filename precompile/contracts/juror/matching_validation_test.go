@@ -1124,6 +1124,7 @@ func TestGetRequiredMargin(t *testing.T) {
 	mockBibliophile.EXPECT().GetUpperAndLowerBoundForMarket(gomock.Any()).Return(big.NewInt(100), big.NewInt(10)).AnyTimes()
 	mockBibliophile.EXPECT().GetMinAllowableMargin().Return(big.NewInt(1000)).AnyTimes()
 	mockBibliophile.EXPECT().GetTakerFee().Return(big.NewInt(5)).AnyTimes()
+	mockBibliophile.EXPECT().GetPrecompileVersion(common.HexToAddress(SelfAddress)).Return(big.NewInt(0)).Times(1)
 
 	// create a mock order
 	order := ILimitOrderBookOrder{

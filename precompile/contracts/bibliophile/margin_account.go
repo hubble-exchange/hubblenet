@@ -12,6 +12,7 @@ import (
 
 const (
 	MARGIN_ACCOUNT_GENESIS_ADDRESS       = "0x03000000000000000000000000000000000000b1"
+	JUROR_ADDRESS                        = "0x03000000000000000000000000000000000000a0"
 	ORACLE_SLOT                    int64 = 4
 	SUPPORTED_COLLATERAL_SLOT      int64 = 8
 	MARGIN_MAPPING_SLOT            int64 = 10
@@ -45,8 +46,20 @@ func getReservedMargin(stateDB contract.StateDB, trader common.Address) *big.Int
 }
 
 func GetAvailableMargin(stateDB contract.StateDB, trader common.Address, upgradeVersion hu.UpgradeVersion) *big.Int {
+	if getPrecompileVersion(stateDB, common.HexToAddress(JUROR_ADDRESS)).Cmp(big.NewInt(0)) == 0 {
+		return GetAvailableMarginLegacy(stateDB, trader, upgradeVersion)
+	}
+	return GetAvailableMarginV2(stateDB, trader)
+}
+
+func GetAvailableMarginLegacy(stateDB contract.StateDB, trader common.Address, upgradeVersion hu.UpgradeVersion) *big.Int {
 	output := getNotionalPositionAndMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: true, Mode: uint8(1)}, upgradeVersion) // Min_Allowable_Margin
 	return hu.GetAvailableMargin_(output.NotionalPosition, output.Margin, getReservedMargin(stateDB, trader), GetMinAllowableMargin(stateDB))
+}
+
+func GetAvailableMarginV2(stateDB contract.StateDB, trader common.Address) *big.Int {
+	output := getNotionalPositionAndRequiredMargin(stateDB, &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: true, Mode: uint8(1)})
+	return hu.Sub(output.Margin, hu.Add(output.RequiredMargin, getReservedMargin(stateDB, trader)))
 }
 
 func getOracleAddress(stateDB contract.StateDB) common.Address {

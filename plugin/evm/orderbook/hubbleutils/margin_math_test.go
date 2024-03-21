@@ -40,8 +40,8 @@ var _hState = &HubbleState{
 var userState = &UserState{
 	Positions: map[Market]*Position{
 		0: {
-			Size:         big.NewInt(0.582 * 1e18), // 0.0582
-			OpenNotional: big.NewInt(875 * 1e6),    // 87.5, openPrice = 1503.43
+			Size:         big.NewInt(0.582 * 1e18), // 0.582
+			OpenNotional: big.NewInt(875 * 1e6),    // 875, openPrice = 1503.43
 		},
 		1: {
 			Size:         Scale(big.NewInt(-101), 18), // -101
@@ -52,8 +52,18 @@ var userState = &UserState{
 		big.NewInt(30.5 * 1e6), // 30.5
 		big.NewInt(14 * 1e6),   // 14
 	},
-	PendingFunding: big.NewInt(0),
-	ReservedMargin: big.NewInt(0),
+	PendingFunding: big.NewInt(-50 * 1e6), // +50
+	ReservedMargin: big.NewInt(60 * 1e6),  // 60
+	AccountPreferences: map[Market]*AccountPreferences{
+		0: {
+			MarginMode:     Cross,
+			MarginFraction: big.NewInt(0.2 * 1e6), // 0.2
+		},
+		1: {
+			MarginMode:     Isolated,
+			MarginFraction: big.NewInt(0.1 * 1e6), // 0.1
+		},
+	},
 }
 
 func TestWeightedAndSpotCollateral(t *testing.T) {
@@ -237,4 +247,42 @@ func TestGetTotalNotionalPositionAndUnrealizedPnl(t *testing.T) {
 
 	assert.Equal(t, expectedNotionalPosition, notionalPosition)
 	assert.Equal(t, expectedUPnL, uPnL)
+}
+
+func TestGetNotionalPositionAndRequiredMargin(t *testing.T) {
+	t.Run("one market in cross and other in isolated mode", func(t *testing.T) {
+		expectedMargin := GetNormalizedMargin(_hState.Assets, userState.Margins)
+		fmt.Println(expectedMargin)
+		notionalPosition, margin, requiredMargin := GetNotionalPositionAndRequiredMargin(_hState, userState)
+		expectedNotionalPosition := Unscale(Mul(userState.Positions[0].Size, _hState.OraclePrices[0]), 18)
+		expectedUPnL := Sub(expectedNotionalPosition, userState.Positions[0].OpenNotional)
+		expectedMargin = Sub(Add(expectedMargin, expectedUPnL), userState.PendingFunding)
+		expectedRequiredMargin := Unscale(Mul(expectedNotionalPosition, userState.AccountPreferences[0].MarginFraction), 6)
+		assert.Equal(t, expectedNotionalPosition, notionalPosition)
+		assert.Equal(t, expectedMargin, margin)
+		assert.Equal(t, expectedRequiredMargin, requiredMargin)
+	})
+
+	t.Run("both markets in cross mode", func(t *testing.T) {
+		userState.AccountPreferences[1].MarginMode = Cross
+		notionalPosition, margin, requiredMargin := GetNotionalPositionAndRequiredMargin(_hState, userState)
+		expectedNotionalPosition := big.NewInt(0)
+		expectedRequiredMargin := big.NewInt(0)
+		expectedMargin := GetNormalizedMargin(_hState.Assets, userState.Margins)
+		for _, market := range _hState.ActiveMarkets {
+			notional := Abs(Unscale(Mul(userState.Positions[market].Size, _hState.OraclePrices[market]), 18))
+			expectedNotionalPosition = Add(expectedNotionalPosition, notional)
+			multiplier := big.NewInt(1)
+			if userState.Positions[market].Size.Sign() == -1 {
+				multiplier = big.NewInt(-1)
+			}
+			expectedUPnL := Mul(Sub(notional, userState.Positions[market].OpenNotional), multiplier)
+			expectedMargin = Add(expectedMargin, expectedUPnL)
+			expectedRequiredMargin = Add(expectedRequiredMargin, Unscale(Mul(notional, userState.AccountPreferences[market].MarginFraction), 6))
+		}
+		expectedMargin = Sub(expectedMargin, userState.PendingFunding)
+		assert.Equal(t, expectedNotionalPosition, notionalPosition)
+		assert.Equal(t, expectedMargin, margin)
+		assert.Equal(t, expectedRequiredMargin, requiredMargin)
+	})
 }

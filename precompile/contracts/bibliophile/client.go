@@ -27,6 +27,7 @@ type BibliophileClient interface {
 	GetBlockPlaced(orderHash [32]byte) *big.Int
 	GetOrderFilledAmount(orderHash [32]byte) *big.Int
 	GetOrderStatus(orderHash [32]byte) int64
+	GetPrecompileVersion(precompileAddress common.Address) *big.Int
 
 	// IOC Order
 	IOC_GetBlockPlaced(orderHash [32]byte) *big.Int
@@ -51,9 +52,15 @@ type BibliophileClient interface {
 	GetPriceMultiplier(market common.Address) *big.Int
 	GetUpperAndLowerBoundForMarket(marketId int64) (*big.Int, *big.Int)
 	GetAcceptableBoundsForLiquidation(marketId int64) (*big.Int, *big.Int)
+	GetPositionCap(marketId int64, trader common.Address) *big.Int
+	GetTraderMarginFraction(market common.Address, trader *common.Address) *big.Int
 
 	GetTimeStamp() uint64
 	GetNotionalPositionAndMargin(trader common.Address, includeFundingPayments bool, mode uint8, upgradeVersion hu.UpgradeVersion) (*big.Int, *big.Int)
+	GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int, *big.Int)
+	GetCrossMarginAccountData(trader common.Address, mode uint8) (*big.Int, *big.Int, *big.Int, *big.Int)
+	GetTotalFundingForCrossMarginPositions(trader *common.Address) *big.Int
+	GetTraderDataForMarket(trader common.Address, marketId int64, mode uint8) (bool, *big.Int, *big.Int, *big.Int, *big.Int)
 	HasReferrer(trader common.Address) bool
 	GetActiveMarketsCount() int64
 
@@ -212,6 +219,37 @@ func (b *bibliophileClient) GetNotionalPositionAndMargin(trader common.Address, 
 	return output.NotionalPosition, output.Margin
 }
 
+func (b *bibliophileClient) GetNotionalPositionAndRequiredMargin(trader common.Address, includeFundingPayments bool, mode uint8) (*big.Int, *big.Int, *big.Int) {
+	output := getNotionalPositionAndRequiredMargin(b.accessibleState.GetStateDB(), &GetNotionalPositionAndMarginInput{Trader: trader, IncludeFundingPayments: includeFundingPayments, Mode: mode})
+	return output.NotionalPosition, output.Margin, output.RequiredMargin
+}
+
+func (b *bibliophileClient) GetCrossMarginAccountData(trader common.Address, mode uint8) (*big.Int, *big.Int, *big.Int, *big.Int) {
+	output := getCrossMarginAccountData(b.accessibleState.GetStateDB(), &trader, mode)
+	return output.NotionalPosition, output.RequiredMargin, output.UnrealizedPnl, output.PendingFunding
+}
+
+func (b *bibliophileClient) GetTotalFundingForCrossMarginPositions(trader *common.Address) *big.Int {
+	return getTotalFundingForCrossMarginPositions(b.accessibleState.GetStateDB(), trader)
+}
+
+func (b *bibliophileClient) GetTraderDataForMarket(trader common.Address, marketId int64, mode uint8) (bool, *big.Int, *big.Int, *big.Int, *big.Int) {
+	output := getTraderDataForMarket(b.accessibleState.GetStateDB(), &trader, marketId, mode)
+	return output.IsIsolated, output.NotionalPosition, output.UnrealizedPnl, output.RequiredMargin, output.PendingFunding
+}
+
+func (b *bibliophileClient) GetTraderMarginFraction(market common.Address, trader *common.Address) *big.Int {
+	return getTraderMarginFraction(b.accessibleState.GetStateDB(), market, trader)
+}
+
 func (b *bibliophileClient) HasReferrer(trader common.Address) bool {
 	return HasReferrer(b.accessibleState.GetStateDB(), trader)
+}
+
+func (b *bibliophileClient) GetPositionCap(marketId int64, trader common.Address) *big.Int {
+	return getPositionCap(b.accessibleState.GetStateDB(), marketId, &trader)
+}
+
+func (b *bibliophileClient) GetPrecompileVersion(precompileAddress common.Address) *big.Int {
+	return getPrecompileVersion(b.accessibleState.GetStateDB(), precompileAddress)
 }

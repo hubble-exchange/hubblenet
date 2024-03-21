@@ -26,11 +26,12 @@ type HubbleState struct {
 }
 
 type UserState struct {
-	Positions         map[Market]*Position
-	ReduceOnlyAmounts []*big.Int
-	Margins           []*big.Int
-	PendingFunding    *big.Int
-	ReservedMargin    *big.Int
+	Positions          map[Market]*Position
+	ReduceOnlyAmounts  []*big.Int
+	Margins            []*big.Int
+	PendingFunding     *big.Int
+	ReservedMargin     *big.Int
+	AccountPreferences map[Market]*AccountPreferences
 }
 
 func UpgradeVersionV0orV1(blockTimestamp uint64) UpgradeVersion {
@@ -40,6 +41,7 @@ func UpgradeVersionV0orV1(blockTimestamp uint64) UpgradeVersion {
 	return V0
 }
 
+// @todo update to newer version wherever it is used in the evm
 func GetAvailableMargin(hState *HubbleState, userState *UserState) *big.Int {
 	notionalPosition, margin := GetNotionalPositionAndMargin(hState, userState, Min_Allowable_Margin)
 	return GetAvailableMargin_(notionalPosition, margin, userState.ReservedMargin, hState.MinAllowableMargin)
@@ -116,6 +118,45 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 		return oracleBasedNotional, oracleBasedUnrealizedPnl
 	}
 	return notionalPosition, unrealizedPnl
+}
+
+func GetNotionalPositionAndRequiredMargin(hState *HubbleState, userState *UserState) (*big.Int, *big.Int, *big.Int) {
+	margin := Sub(GetNormalizedMargin(hState.Assets, userState.Margins), userState.PendingFunding)
+	notionalPosition, requiredMargin, unrealizedPnl := GetCrossMarginAccountData(hState, userState)
+	return notionalPosition, Add(margin, unrealizedPnl), requiredMargin
+}
+
+func GetCrossMarginAccountData(hState *HubbleState, userState *UserState) (*big.Int, *big.Int, *big.Int) {
+	notionalPosition := big.NewInt(0)
+	unrealizedPnl := big.NewInt(0)
+	requiredMargin := big.NewInt(0)
+
+	for _, market := range hState.ActiveMarkets {
+		if userState.AccountPreferences[market].MarginMode == Cross {
+			_notionalPosition, _unrealizedPnl, _requiredMargin := GetTraderPositionDetails(userState.Positions[market], hState.OraclePrices[market], userState.AccountPreferences[market].MarginFraction)
+			notionalPosition.Add(notionalPosition, _notionalPosition)
+			unrealizedPnl.Add(unrealizedPnl, _unrealizedPnl)
+			requiredMargin.Add(requiredMargin, _requiredMargin)
+		}
+	}
+	return notionalPosition, requiredMargin, unrealizedPnl
+}
+
+func GetTraderPositionDetails(position *Position, oraclePrice *big.Int, marginFraction *big.Int) (notionalPosition *big.Int, uPnL *big.Int, requiredMargin *big.Int) {
+	if position == nil || position.Size.Sign() == 0 {
+		return big.NewInt(0), big.NewInt(0), big.NewInt(0)
+	}
+
+	// based on oracle price,
+	notionalPosition, unrealizedPnl, _ := GetPositionMetadata(
+		oraclePrice,
+		position.OpenNotional,
+		position.Size,
+		big.NewInt(0), // margin is not used here
+	)
+	requiredMargin = Div1e6(Mul(notionalPosition, marginFraction))
+
+	return notionalPosition, unrealizedPnl, requiredMargin
 }
 
 func GetPositionMetadata(price *big.Int, openNotional *big.Int, size *big.Int, margin *big.Int) (notionalPosition *big.Int, unrealisedPnl *big.Int, marginFraction *big.Int) {

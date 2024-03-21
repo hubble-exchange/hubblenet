@@ -71,6 +71,7 @@ var (
 	ErrOpenReduceOnlyOrders               = errors.New("open reduce only orders")
 	ErrNoTradingAuthority                 = errors.New("no trading authority")
 	ErrNoReferrer                         = errors.New("no referrer")
+	ErrOverPositionCap                    = errors.New("position size over max cap")
 )
 
 type BadElement uint8
@@ -434,6 +435,20 @@ func reducesPosition(positionSize *big.Int, baseAssetQuantity *big.Int) bool {
 }
 
 func getRequiredMargin(bibliophile b.BibliophileClient, order ILimitOrderBookOrder) *big.Int {
+	if bibliophile.GetPrecompileVersion(common.HexToAddress(SelfAddress)).Cmp(big.NewInt(0)) == 0 {
+		return getRequiredMarginLegacy(bibliophile, order)
+	}
+	return getRequiredMarginNew(bibliophile, order.BaseAssetQuantity, order.Price, order.AmmIndex.Int64(), &order.Trader)
+}
+
+func getRequiredMarginNew(bibliophile b.BibliophileClient, baseAsset *big.Int, price *big.Int, marketId int64, trader *common.Address) *big.Int {
+	marketAddress := bibliophile.GetMarketAddressFromMarketID(marketId)
+	marginFraction := bibliophile.GetTraderMarginFraction(marketAddress, trader)
+	quoteAsset := hu.Div1e18(hu.Mul(hu.Abs(baseAsset), price))
+	return hu.Div1e6(hu.Mul(quoteAsset, marginFraction))
+}
+
+func getRequiredMarginLegacy(bibliophile b.BibliophileClient, order ILimitOrderBookOrder) *big.Int {
 	price := order.Price
 	upperBound, _ := bibliophile.GetUpperAndLowerBoundForMarket(order.AmmIndex.Int64())
 	if order.BaseAssetQuantity.Sign() == -1 && order.Price.Cmp(upperBound) == -1 {
