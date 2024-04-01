@@ -5,12 +5,17 @@
   "tx-regossip-max-size": 32,
   "priority-regossip-max-txs": 32,
   "priority-regossip-txs-per-address": 20,
-  "priority-regossip-addresses": ["0x8747adFCE380492ec7e9b78761Ec7C87F5Cd3d4F"],
+  "priority-regossip-addresses": [
+    "0x8747adFCE380492ec7e9b78761Ec7C87F5Cd3d4F"
+  ],
   "continuous-profiler-dir": "/var/avalanche/profiles/hubblenet/continuous/",
   "continuous-profiler-max-files": 200,
   "continuous-profiler-frequency": "10m",
   "validator-private-key-file": "/var/avalanche/validator.pk",
   "feeRecipient": "0xa5e31FbE901362Cc93b6fdab99DB9741c673a942",
   "is-validator": true,
-  "snapshot-file-path": "/tmp/snapshot"
+  "snapshot-file-path": "/tmp/snapshot",
+  "order-gossip-num-validators": 10,
+  "order-gossip-num-non-validators": 5,
+  "order-gossip-num-peers": 15
 }

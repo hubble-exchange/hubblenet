@@ -2,17 +2,78 @@ package evm
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
+	"sync"
 	"time"
 
-	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/codec"
+	"github.com/ava-labs/avalanchego/snow"
+	commonEng "github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ethereum/go-ethereum/log"
 )
 
-func (n *pushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error {
+const (
+	// [ordersGossipInterval] is how often we attempt to gossip newly seen
+	// signed orders to other nodes.
+	ordersGossipInterval = 100 * time.Millisecond
+
+	// [minGossipOrdersBatchInterval] is the minimum amount of time that must pass
+	// before our last gossip to peers.
+	minGossipOrdersBatchInterval = 50 * time.Millisecond
+
+	// [maxSignedOrdersGossipBatchSize] is the maximum number of orders we will
+	// attempt to gossip at once.
+	maxSignedOrdersGossipBatchSize = 100
+)
+
+type OrderGossiper interface {
+	// GossipSignedOrders sends signed orders to the network
+	GossipSignedOrders(orders []*hubbleutils.SignedOrder) error
+}
+
+type orderPushGossiper struct {
+	ctx    *snow.Context
+	config Config
+
+	shutdownChan chan struct{}
+	shutdownWg   *sync.WaitGroup
+
+	ordersToGossipChan chan []*hubbleutils.SignedOrder
+	ordersToGossip     []*hubbleutils.SignedOrder
+	lastOrdersGossiped time.Time
+
+	codec codec.Manager
+	stats GossipStats
+
+	appSender commonEng.AppSender
+}
+
+// createOrderGossiper constructs and returns a orderPushGossiper or noopGossiper
+func (vm *VM) createOrderGossiper(
+	stats GossipStats,
+) OrderGossiper {
+	net := &orderPushGossiper{
+		ctx:                vm.ctx,
+		config:             vm.config,
+		shutdownChan:       vm.shutdownChan,
+		shutdownWg:         &vm.shutdownWg,
+		codec:              vm.networkCodec,
+		stats:              stats,
+		ordersToGossipChan: make(chan []*hubbleutils.SignedOrder),
+		ordersToGossip:     []*hubbleutils.SignedOrder{},
+		appSender:          vm.p2pSender,
+	}
+
+	net.awaitSignedOrderGossip()
+	return net
+}
+
+func (n *orderPushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error {
 	select {
 	case n.ordersToGossipChan <- orders:
 	case <-n.shutdownChan:
@@ -20,7 +81,7 @@ func (n *pushGossiper) GossipSignedOrders(orders []*hu.SignedOrder) error {
 	return nil
 }
 
-func (n *pushGossiper) awaitSignedOrderGossip() {
+func (n *orderPushGossiper) awaitSignedOrderGossip() {
 	n.shutdownWg.Add(1)
 	go executeFuncAndRecoverPanic(func() {
 		var (
@@ -59,7 +120,7 @@ func (n *pushGossiper) awaitSignedOrderGossip() {
 	}, "panic in awaitSignedOrderGossip", orderbook.AwaitSignedOrdersGossipPanicsCounter)
 }
 
-func (n *pushGossiper) gossipSignedOrders() (int, error) {
+func (n *orderPushGossiper) gossipSignedOrders() (int, error) {
 	if (time.Since(n.lastOrdersGossiped) < minGossipOrdersBatchInterval) || len(n.ordersToGossip) == 0 {
 		return 0, nil
 	}
@@ -93,7 +154,7 @@ func (n *pushGossiper) gossipSignedOrders() (int, error) {
 	return len(selectedOrders), err
 }
 
-func (n *pushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
+func (n *orderPushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 	if len(orders) == 0 {
 		return nil
 	}
@@ -117,66 +178,16 @@ func (n *pushGossiper) sendSignedOrders(orders []*hu.SignedOrder) error {
 		"len(orders)", len(orders),
 		"size(orders)", len(msg.Orders),
 	)
-	n.stats.IncSignedOrdersGossipSent(int64(len(orders)))
-	n.stats.IncSignedOrdersGossipBatchSent()
-	return n.client.Gossip(msgBytes)
-}
 
-//   #### HANDLER ####
-
-func (h *GossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.SignedOrdersGossip) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	log.Trace(
-		"AppGossip called with SignedOrdersGossip",
-		"peerID", nodeID,
-		"bytes(orders)", len(msg.Orders),
-	)
-
-	if len(msg.Orders) == 0 {
-		log.Warn(
-			"AppGossip received empty SignedOrdersGossip Message",
-			"peerID", nodeID,
-		)
-		return nil
-	}
-
-	orders := make([]*hu.SignedOrder, 0)
-	buf := bytes.NewBuffer(msg.Orders)
-	err := gob.NewDecoder(buf).Decode(&orders)
+	validators := n.config.OrderGossipNumValidators
+	nonValidators := n.config.OrderGossipNumNonValidators
+	peers := n.config.OrderGossipNumPeers
+	err = n.appSender.SendAppGossip(context.TODO(), msgBytes, validators, nonValidators, peers)
 	if err != nil {
-		log.Error("failed to decode signed orders", "err", err)
+		log.Error("failed to gossip orders")
 		return err
 	}
-
-	h.stats.IncSignedOrdersGossipReceived(int64(len(orders)))
-	h.stats.IncSignedOrdersGossipBatchReceived()
-
-	tradingAPI := h.vm.limitOrderProcesser.GetTradingAPI()
-
-	// re-gossip orders, but not when we already knew the orders
-	ordersToGossip := make([]*hu.SignedOrder, 0)
-	for _, order := range orders {
-		_, shouldTriggerMatching, err := tradingAPI.PlaceOrder(order)
-		if err == nil {
-			h.stats.IncSignedOrdersGossipReceivedNew()
-			ordersToGossip = append(ordersToGossip, order)
-			if shouldTriggerMatching {
-				log.Info("received new match-able signed order, triggering matching pipeline...")
-				h.vm.limitOrderProcesser.RunMatchingPipeline()
-			}
-		} else if err == hu.ErrOrderAlreadyExists {
-			h.stats.IncSignedOrdersGossipReceivedKnown()
-		} else {
-			h.stats.IncSignedOrdersGossipReceiveError()
-			log.Error("failed to place order", "err", err)
-		}
-	}
-
-	if len(ordersToGossip) > 0 {
-		h.vm.gossiper.GossipSignedOrders(ordersToGossip)
-	}
-
+	n.stats.IncSignedOrdersGossipSent(int64(len(orders)))
+	n.stats.IncSignedOrdersGossipBatchSent()
 	return nil
 }

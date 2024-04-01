@@ -208,7 +208,7 @@ func GenesisVM(t *testing.T,
 	ctx, dbManager, genesisBytes, issuer, _ := setupGenesis(t, genesisJSON)
 	appSender := &commonEng.SenderTest{T: t}
 	appSender.CantSendAppGossip = true
-	appSender.SendAppGossipF = func(context.Context, []byte) error { return nil }
+	appSender.SendAppGossipF = func(context.Context, []byte, int, int, int) error { return nil }
 	createValidatorPrivateKeyIfNotExists()
 	err := vm.Initialize(
 		context.Background(),
@@ -1996,7 +1996,7 @@ func TestConfigureLogLevel(t *testing.T) {
 			ctx, dbManager, genesisBytes, issuer, _ := setupGenesis(t, test.genesisJSON)
 			appSender := &commonEng.SenderTest{T: t}
 			appSender.CantSendAppGossip = true
-			appSender.SendAppGossipF = func(context.Context, []byte) error { return nil }
+			appSender.SendAppGossipF = func(context.Context, []byte, int, int, int) error { return nil }
 			createValidatorPrivateKeyIfNotExists()
 			err := vm.Initialize(
 				context.Background(),
@@ -3273,6 +3273,12 @@ func TestCrossChainMessagestoVM(t *testing.T) {
 	err = vm.Network.CrossChainAppRequest(context.Background(), requestingChainID, 1, time.Now().Add(60*time.Second), crossChainRequest)
 	require.NoError(err)
 	require.True(calledSendCrossChainAppResponseFn, "sendCrossChainAppResponseFn was not called")
+}
+
+func TestVMOrderGossiperIsSet(t *testing.T) {
+	_, vm, _, _ := GenesisVM(t, true, "", "", "")
+	require.NotNil(t, vm.orderGossiper, "legacy gossiper should be initialized")
+	require.NoError(t, vm.Shutdown(context.Background()))
 }
 
 func createValidatorPrivateKeyIfNotExists() {
