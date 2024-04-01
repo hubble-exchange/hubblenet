@@ -22,7 +22,7 @@ func getOrderFilledAmount(stateDB contract.StateDB, orderHash [32]byte) *big.Int
 	return fromTwosComplement(num)
 }
 
-func getOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
+func GetOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
 	orderInfo := orderInfoMappingStorageSlot(orderHash)
 	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(LIMIT_ORDERBOOK_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(orderInfo, big.NewInt(3)))).Bytes()).Int64()
 }

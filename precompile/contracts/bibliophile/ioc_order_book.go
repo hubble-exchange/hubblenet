@@ -27,7 +27,7 @@ func iocGetOrderFilledAmount(stateDB contract.StateDB, orderHash [32]byte) *big.
 	return fromTwosComplement(num)
 }
 
-func iocGetOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
+func IOCGetOrderStatus(stateDB contract.StateDB, orderHash [32]byte) int64 {
 	orderInfo := iocOrderInfoMappingStorageSlot(orderHash)
 	return new(big.Int).SetBytes(stateDB.GetState(common.HexToAddress(IOC_ORDERBOOK_ADDRESS), common.BigToHash(new(big.Int).Add(orderInfo, big.NewInt(2)))).Bytes()).Int64()
 }

@@ -32,6 +32,7 @@ var IOCOrderBookContractAddress = common.HexToAddress("0x03000000000000000000000
 
 type LimitOrderTxProcessor interface {
 	GetOrderBookTxsCount() uint64
+	GetOrderBookTxs() map[common.Address]types.Transactions
 	SetOrderBookTxsBlockNumber(blockNumber uint64)
 	PurgeOrderBookTxs()
 	ExecuteMatchedOrdersTx(incomingOrder Order, matchedOrder Order, fillAmount *big.Int) error
@@ -242,6 +243,10 @@ func (lotp *limitOrderTxProcessor) PurgeOrderBookTxs() {
 
 func (lotp *limitOrderTxProcessor) GetOrderBookTxsCount() uint64 {
 	return lotp.txPool.GetOrderBookTxsCount()
+}
+
+func (lotp *limitOrderTxProcessor) GetOrderBookTxs() map[common.Address]types.Transactions {
+	return lotp.txPool.GetOrderBookTxs()
 }
 
 func (lotp *limitOrderTxProcessor) SetOrderBookTxsBlockNumber(blockNumber uint64) {

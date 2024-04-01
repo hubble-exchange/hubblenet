@@ -120,7 +120,7 @@ func (b *bibliophileClient) GetOrderFilledAmount(orderHash [32]byte) *big.Int {
 }
 
 func (b *bibliophileClient) GetOrderStatus(orderHash [32]byte) int64 {
-	return getOrderStatus(b.accessibleState.GetStateDB(), orderHash)
+	return GetOrderStatus(b.accessibleState.GetStateDB(), orderHash)
 }
 
 func (b *bibliophileClient) IOC_GetBlockPlaced(orderHash [32]byte) *big.Int {
@@ -132,7 +132,7 @@ func (b *bibliophileClient) IOC_GetOrderFilledAmount(orderHash [32]byte) *big.In
 }
 
 func (b *bibliophileClient) IOC_GetOrderStatus(orderHash [32]byte) int64 {
-	return iocGetOrderStatus(b.accessibleState.GetStateDB(), orderHash)
+	return IOCGetOrderStatus(b.accessibleState.GetStateDB(), orderHash)
 }
 
 func (b *bibliophileClient) IsTradingAuthority(trader, senderOrSigner common.Address) bool {

@@ -200,6 +200,10 @@ func (lotp *MockLimitOrderTxProcessor) GetOrderBookTxsCount() uint64 {
 	return uint64(args.Int(0))
 }
 
+func (lotp *MockLimitOrderTxProcessor) GetOrderBookTxs() map[common.Address]types.Transactions {
+	return nil
+}
+
 func (lotp *MockLimitOrderTxProcessor) ExecuteFundingPaymentTx() error {
 	return nil
 }

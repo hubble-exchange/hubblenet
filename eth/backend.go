@@ -335,6 +335,11 @@ func (s *Ethereum) SetEtherbase(etherbase common.Address) {
 	s.miner.SetEtherbase(etherbase)
 }
 
+func (s *Ethereum) SetOrderbookChecker(orderBookChecker miner.OrderBookChecker) {
+	s.miner.SetOrderbookChecker(orderBookChecker)
+
+}
+
 func (s *Ethereum) Miner() *miner.Miner { return s.miner }
 
 func (s *Ethereum) AccountManager() *accounts.Manager { return s.accountManager }

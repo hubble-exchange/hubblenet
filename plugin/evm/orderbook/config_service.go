@@ -39,12 +39,27 @@ type IConfigService interface {
 
 type ConfigService struct {
 	blockChain *core.BlockChain
+	stateDB    *state.StateDB
 }
 
 func NewConfigService(blockChain *core.BlockChain) IConfigService {
 	return &ConfigService{
 		blockChain: blockChain,
 	}
+}
+
+func NewConfigServiceFromStateDB(stateDB *state.StateDB) IConfigService {
+	return &ConfigService{
+		stateDB: stateDB,
+	}
+}
+
+func (cs *ConfigService) getStateAtCurrentBlock() *state.StateDB {
+	if cs.stateDB != nil {
+		return cs.stateDB
+	}
+	stateDB, _ := cs.blockChain.StateAt(cs.blockChain.CurrentBlock().Root)
+	return stateDB
 }
 
 func (cs *ConfigService) GetAcceptableBounds(market Market) (*big.Int, *big.Int) {
@@ -77,11 +92,6 @@ func (cs *ConfigService) getMinSizeRequirement(market Market) *big.Int {
 
 func (cs *ConfigService) GetPriceMultiplier(market Market) *big.Int {
 	return bibliophile.GetMultiplier(cs.getStateAtCurrentBlock(), int64(market))
-}
-
-func (cs *ConfigService) getStateAtCurrentBlock() *state.StateDB {
-	stateDB, _ := cs.blockChain.StateAt(cs.blockChain.CurrentBlock().Root)
-	return stateDB
 }
 
 func (cs *ConfigService) GetActiveMarketsCount() int64 {
