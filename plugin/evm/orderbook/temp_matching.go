@@ -7,10 +7,16 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/state"
 	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/metrics"
 	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook/abis"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+)
+
+var (
+	getMatchingTxsErrorCounter   = metrics.NewRegisteredCounter("GetMatchingTxs_errors", nil)
+	getMatchingTxsWarningCounter = metrics.NewRegisteredCounter("GetMatchingTxs_warnings", nil)
 )
 
 type TempMatcher struct {
@@ -48,11 +54,16 @@ func NewTempMatcher(db LimitOrderDatabase, lotp LimitOrderTxProcessor) *TempMatc
 }
 
 func (matcher *TempMatcher) GetMatchingTxs(tx *types.Transaction, stateDB *state.StateDB, blockNumber *big.Int) map[common.Address]types.Transactions {
+	var isError bool
+	defer func() {
+		if isError {
+			getMatchingTxsErrorCounter.Inc(1)
+		}
+	}()
 
 	to := tx.To()
 
 	if to == nil || len(tx.Data()) < 4 {
-		// tx is contract creation
 		return nil
 	}
 
@@ -64,8 +75,8 @@ func (matcher *TempMatcher) GetMatchingTxs(tx *types.Transaction, stateDB *state
 	if matcher.tempDB == nil {
 		matcher.tempDB, err = matcher.db.GetOrderBookDataCopy()
 		if err != nil {
-			log.Error("Error in fetching tempDB", "err", err)
-			// @todo: send to metrics
+			log.Error("GetMatchingTxs: error in fetching tempDB", "err", err)
+			isError = true
 			return nil
 		}
 	}
@@ -73,7 +84,8 @@ func (matcher *TempMatcher) GetMatchingTxs(tx *types.Transaction, stateDB *state
 	case LimitOrderBookContractAddress:
 		abiMethod, err := matcher.limitOrderBookABI.MethodById(method)
 		if err != nil {
-			log.Error("Error in fetching abiMethod", "err", err)
+			log.Error("GetMatchingTxs: error in fetching abiMethod", "err", err)
+			isError = true
 			return nil
 		}
 
@@ -82,7 +94,8 @@ func (matcher *TempMatcher) GetMatchingTxs(tx *types.Transaction, stateDB *state
 		case "placeOrders":
 			orders, err := getLimitOrdersFromMethodData(abiMethod, methodData, blockNumber)
 			if err != nil {
-				log.Error("Error in fetching orders", "err", err)
+				log.Error("GetMatchingTxs: error in fetching orders from placeOrders tx data", "err", err)
+				isError = true
 				return nil
 			}
 			marketsMap := make(map[Market]struct{})
@@ -90,8 +103,8 @@ func (matcher *TempMatcher) GetMatchingTxs(tx *types.Transaction, stateDB *state
 				// the transaction in the args is supposed to be already committed in the db, so the status should be placed
 				status := bibliophile.GetOrderStatus(stateDB, order.Id)
 				if status != 1 { // placed
-					log.Error("GetMatchingTxs: invalid limit order status", "status", status, "order", order.Id.String())
-					// send to metrics
+					log.Warn("GetMatchingTxs: invalid limit order status", "status", status, "order", order.Id.String())
+					getMatchingTxsWarningCounter.Inc(1)
 					continue
 				}
 
@@ -107,24 +120,27 @@ func (matcher *TempMatcher) GetMatchingTxs(tx *types.Transaction, stateDB *state
 		case "cancelOrders":
 			orders, err := getLimitOrdersFromMethodData(abiMethod, methodData, blockNumber)
 			if err != nil {
-				log.Error("Error in fetching orders", "err", err)
+				log.Error("GetMatchingTxs: error in fetching orders from cancelOrders tx data", "err", err)
+				isError = true
 				return nil
 			}
 			for _, order := range orders {
 				if err := matcher.tempDB.SetOrderStatus(order.Id, Cancelled, "", blockNumber.Uint64()); err != nil {
-					log.Error("GetMatchingTxs: error in SetOrderStatus", "method", "OrderCancelAccepted", "err", err)
+					log.Error("GetMatchingTxs: error in SetOrderStatus", "orderId", order.Id.String(), "err", err)
 					return nil
 				}
 			}
 			// no need to run matching
 			return nil
-
+		default:
+			return nil
 		}
 
 	case IOCOrderBookContractAddress:
 		abiMethod, err := matcher.iocOrderBookABI.MethodById(method)
 		if err != nil {
 			log.Error("Error in fetching abiMethod", "err", err)
+			isError = true
 			return nil
 		}
 
@@ -133,6 +149,7 @@ func (matcher *TempMatcher) GetMatchingTxs(tx *types.Transaction, stateDB *state
 			orders, err := getIOCOrdersFromMethodData(abiMethod, methodData, blockNumber)
 			if err != nil {
 				log.Error("Error in fetching orders", "err", err)
+				isError = true
 				return nil
 			}
 			marketsMap := make(map[Market]struct{})
@@ -140,8 +157,8 @@ func (matcher *TempMatcher) GetMatchingTxs(tx *types.Transaction, stateDB *state
 				// the transaction in the args is supposed to be already committed in the db, so the status should be placed
 				status := bibliophile.IOCGetOrderStatus(stateDB, order.Id)
 				if status != 1 { // placed
-					log.Error("GetMatchingTxs: invalid ioc order status", "status", status, "order", order.Id.String())
-					// send to metrics
+					log.Warn("GetMatchingTxs: invalid ioc order status", "status", status, "order", order.Id.String())
+					getMatchingTxsWarningCounter.Inc(1)
 					continue
 				}
 
@@ -153,7 +170,12 @@ func (matcher *TempMatcher) GetMatchingTxs(tx *types.Transaction, stateDB *state
 			for market := range marketsMap {
 				markets = append(markets, market)
 			}
+		default:
+			return nil
 		}
+	default:
+		// tx is not related to orderbook
+		return nil
 	}
 
 	configService := NewConfigServiceFromStateDB(stateDB)
