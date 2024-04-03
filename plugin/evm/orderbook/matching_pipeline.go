@@ -2,7 +2,6 @@ package orderbook
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 	"sync"
 	"time"
@@ -137,11 +136,11 @@ func (pipeline *MatchingPipeline) cancelLimitOrders(cancellableOrders map[common
 			cancellableOrderIds[order.Id] = struct{}{} // do not attempt to match these orders
 		}
 
-		log.Info("orders to cancel", "num", len(orders))
+		log.Info("skipping orders to cancel", "num", len(orders))
 		// cancel max of 5 orders. change this if the tx gas limit (1.5m) is changed
-		if err := pipeline.lotp.ExecuteLimitOrderCancel(rawOrders[0:int(math.Min(float64(len(rawOrders)), 5))]); err != nil {
-			log.Error("Error in ExecuteOrderCancel", "orders", orders, "err", err)
-		}
+		// if err := pipeline.lotp.ExecuteLimitOrderCancel(rawOrders[0:int(math.Min(float64(len(rawOrders)), 5))]); err != nil {
+		// 	log.Error("Error in ExecuteOrderCancel", "orders", orders, "err", err)
+		// }
 	}
 	return cancellableOrderIds
 }
