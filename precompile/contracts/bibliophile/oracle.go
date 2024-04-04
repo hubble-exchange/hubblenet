@@ -16,6 +16,8 @@ var (
 
 	AGGREGATOR_MAP_SLOT    int64 = 1
 	RED_STONE_ADAPTER_SLOT int64 = 2
+	CUSTOM_ORACLE_ROUND_ID_SLOT int64 = 0
+	CUSTOM_ORACLE_ENTRIES_SLOT  int64 = 1
 )
 
 const (
@@ -30,14 +32,18 @@ func getUnderlyingPrice(stateDB contract.StateDB, market common.Address) *big.In
 func getUnderlyingPrice_(stateDB contract.StateDB, underlying common.Address) *big.Int {
 	oracle := getOracleAddress(stateDB) // this comes from margin account
 	feedId := getRedStoneFeedId(stateDB, oracle, underlying)
+	aggregator := getAggregatorAddress(stateDB, oracle, underlying)
 	if feedId.Big().Sign() != 0 {
 		// redstone oracle is configured for this market
 		redStoneAdapter := getRedStoneAdapterAddress(stateDB, oracle)
 		redstonePrice := getRedStonePrice(stateDB, redStoneAdapter, feedId)
 		// log.Info("redstone-price", "amm", market, "price", redstonePrice)
 		return redstonePrice
+	} else if aggregator.Big().Sign() != 0 { // double check the assumption that no other aggregator with non-zero feedId is configured before
+		// custom oracle is configured for this market
+		return getCustomOraclePrice(stateDB, aggregator)
 	}
-	// red stone oracle is not enabled for this market, we use the default TestOracle
+	// neither red stone nor custom oracle is enabled for this market, we use the default TestOracle
 	slot := crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.BigToHash(big.NewInt(TEST_ORACLE_PRICES_MAPPING_SLOT)).Bytes()...))
 	return fromTwosComplement(stateDB.GetState(oracle, common.BytesToHash(slot)).Bytes())
 }
@@ -65,7 +71,24 @@ func getlatestRoundId(stateDB contract.StateDB, adapterAddress common.Address) *
 	return fromTwosComplement(stateDB.GetState(adapterAddress, RED_STONE_LATEST_ROUND_ID_STORAGE_LOCATION).Bytes())
 }
 
+func aggregatorMapSlot(underlying common.Address) *big.Int {
+	return new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.BigToHash(big.NewInt(AGGREGATOR_MAP_SLOT)).Bytes()...)))
+}
+
 func getRedStoneFeedId(stateDB contract.StateDB, oracle, underlying common.Address) common.Hash {
-	aggregatorMapSlot := crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.BigToHash(big.NewInt(AGGREGATOR_MAP_SLOT)).Bytes()...))
-	return stateDB.GetState(oracle, common.BytesToHash(aggregatorMapSlot))
+	aggregatorMapSlot := aggregatorMapSlot(underlying)
+	return stateDB.GetState(oracle, common.BigToHash(aggregatorMapSlot))
+}
+
+func getAggregatorAddress(stateDB contract.StateDB, oracle, underlying common.Address) common.Address {
+	aggregatorMapSlot := aggregatorMapSlot(underlying)
+	aggregatorSlot := hu.Add(aggregatorMapSlot, big.NewInt(1))
+	return common.BytesToAddress(stateDB.GetState(oracle, common.BigToHash(aggregatorSlot)).Bytes())
+}
+
+func getCustomOraclePrice(stateDB contract.StateDB, aggregator common.Address) *big.Int {
+	roundId := stateDB.GetState(aggregator, common.BigToHash(big.NewInt(CUSTOM_ORACLE_ROUND_ID_SLOT))).Bytes()
+	entriesSlot := new(big.Int).SetBytes(crypto.Keccak256(append(common.LeftPadBytes(roundId, 32), common.BigToHash(big.NewInt(CUSTOM_ORACLE_ENTRIES_SLOT)).Bytes()...)))
+	priceSlot := hu.Add(entriesSlot, big.NewInt(1))
+	return hu.Div(fromTwosComplement(stateDB.GetState(aggregator, common.BigToHash(priceSlot)).Bytes()), big.NewInt(100)) // we use 6 decimals precision everywhere
 }
