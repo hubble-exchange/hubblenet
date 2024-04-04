@@ -8,7 +8,7 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/types"
 	hu "github.com/ava-labs/subnet-evm/hubbleutils"
-	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook/abis"
+	"github.com/ava-labs/subnet-evm/orderbook/abis"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"

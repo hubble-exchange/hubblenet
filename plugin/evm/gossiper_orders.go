@@ -12,8 +12,8 @@ import (
 	commonEng "github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/subnet-evm/hubbleutils"
 	hu "github.com/ava-labs/subnet-evm/hubbleutils"
+	"github.com/ava-labs/subnet-evm/orderbook"
 	"github.com/ava-labs/subnet-evm/plugin/evm/message"
-	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ethereum/go-ethereum/log"
 )
 

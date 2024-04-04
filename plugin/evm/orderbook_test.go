@@ -12,7 +12,7 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 
 	"github.com/ava-labs/subnet-evm/core/types"
-	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	"github.com/ava-labs/subnet-evm/orderbook"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
