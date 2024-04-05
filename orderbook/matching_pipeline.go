@@ -46,13 +46,13 @@ func (pipeline *MatchingPipeline) RunSanitization() {
 	pipeline.db.RemoveExpiredSignedOrders()
 }
 
-func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
+func (pipeline *MatchingPipeline) Run(blockNumber *big.Int, marketCount int64) bool {
 	pipeline.mu.Lock()
 	defer pipeline.mu.Unlock()
 
 	// reset ticker
 	pipeline.MatchingTicker.Reset(matchingTickerDuration)
-	markets := pipeline.GetActiveMarkets()
+	markets := pipeline.GetActiveMarkets(marketCount)
 	log.Info("MatchingPipeline:Run", "blockNumber", blockNumber)
 
 	if len(markets) == 0 {
@@ -90,7 +90,7 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 	for _, market := range markets {
 		orderMap[market] = pipeline.fetchOrders(market, hState.OraclePrices[market], cancellableOrderIds, blockNumber)
 	}
-	pipeline.runLiquidations(liquidablePositions, orderMap, hState.OraclePrices, marginMap)
+	pipeline.runLiquidations(liquidablePositions, orderMap, hState.OraclePrices, marginMap, marketCount)
 	for _, market := range markets {
 		// @todo should we prioritize matching in any particular market?
 		upperBound, _ := pipeline.configService.GetAcceptableBounds(market)
@@ -111,8 +111,7 @@ type Orders struct {
 	shortOrders []Order
 }
 
-func (pipeline *MatchingPipeline) GetActiveMarkets() []Market {
-	count := pipeline.configService.GetActiveMarketsCount()
+func (pipeline *MatchingPipeline) GetActiveMarkets(count int64) []Market {
 	markets := make([]Market, count)
 	for i := int64(0); i < count; i++ {
 		markets[i] = Market(i)
@@ -166,7 +165,7 @@ func (pipeline *MatchingPipeline) fetchOrders(market Market, underlyingPrice *bi
 	return &Orders{longOrders, shortOrders}
 }
 
-func (pipeline *MatchingPipeline) runLiquidations(liquidablePositions []LiquidablePosition, orderMap map[Market]*Orders, underlyingPrices map[Market]*big.Int, marginMap map[common.Address]*big.Int) {
+func (pipeline *MatchingPipeline) runLiquidations(liquidablePositions []LiquidablePosition, orderMap map[Market]*Orders, underlyingPrices map[Market]*big.Int, marginMap map[common.Address]*big.Int, marketCount int64) {
 	if len(liquidablePositions) == 0 {
 		return
 	}
@@ -174,7 +173,7 @@ func (pipeline *MatchingPipeline) runLiquidations(liquidablePositions []Liquidab
 	log.Info("found positions to liquidate", "num", len(liquidablePositions))
 
 	// we need to retreive permissible bounds for liquidations in each market
-	markets := pipeline.GetActiveMarkets()
+	markets := pipeline.GetActiveMarkets(marketCount)
 	type S struct {
 		Upperbound *big.Int
 		Lowerbound *big.Int

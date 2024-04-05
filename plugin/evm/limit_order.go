@@ -77,7 +77,7 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 	// This is also true for local testing. once contracts are deployed it's mandatory to restart the nodes
 	hState := &hu.HubbleState{
 		Assets:             matchingPipeline.GetCollaterals(),
-		ActiveMarkets:      matchingPipeline.GetActiveMarkets(),
+		ActiveMarkets:      matchingPipeline.GetActiveMarkets(configService.GetActiveMarketsCount()),
 		MinAllowableMargin: configService.GetMinAllowableMargin(),
 		MaintenanceMargin:  configService.GetMaintenanceMargin(),
 		TakerFee:           configService.GetTakerFee(),
@@ -178,7 +178,7 @@ func (lop *limitOrderProcesser) RunMatchingPipeline() {
 		return
 	}
 	executeFuncAndRecoverPanic(func() {
-		matchesFound := lop.matchingPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number, big.NewInt(1)))
+		matchesFound := lop.matchingPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number, big.NewInt(1)), lop.configService.GetActiveMarketsCount())
 		if matchesFound {
 			lop.blockBuilder.signalTxsReady()
 		}
