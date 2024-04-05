@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -18,6 +18,7 @@ func TestRunLiquidations(t *testing.T) {
 	traderAddress := common.HexToAddress("0x710bf5f942331874dcbc7783319123679033b63b")
 	traderAddress1 := common.HexToAddress("0x376c47978271565f56DEB45495afa69E59c16Ab2")
 	market := Market(0)
+	marketCount := int64(1)
 	liqUpperBound := big.NewInt(22)
 	liqLowerBound := big.NewInt(18)
 
@@ -27,7 +28,7 @@ func TestRunLiquidations(t *testing.T) {
 		shortOrders := []Order{getShortOrder()}
 
 		orderMap := map[Market]*Orders{market: {longOrders, shortOrders}}
-		pipeline.runLiquidations([]LiquidablePosition{}, orderMap, underlyingPrices, map[common.Address]*big.Int{})
+		pipeline.runLiquidations([]LiquidablePosition{}, orderMap, underlyingPrices, map[common.Address]*big.Int{}, marketCount)
 		assert.Equal(t, longOrders, orderMap[market].longOrders)
 		assert.Equal(t, shortOrders, orderMap[market].shortOrders)
 		lotp.AssertNotCalled(t, "ExecuteLiquidation", mock.Anything, mock.Anything, mock.Anything)
@@ -44,7 +45,7 @@ func TestRunLiquidations(t *testing.T) {
 			cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
 			cs.On("GetMinAllowableMargin").Return(big.NewInt(1e5))
 			cs.On("GetTakerFee").Return(big.NewInt(1e5))
-			pipeline.runLiquidations([]LiquidablePosition{getLiquidablePos(traderAddress, LONG, 7)}, orderMap, underlyingPrices, map[common.Address]*big.Int{})
+			pipeline.runLiquidations([]LiquidablePosition{getLiquidablePos(traderAddress, LONG, 7)}, orderMap, underlyingPrices, map[common.Address]*big.Int{}, marketCount)
 			assert.Equal(t, longOrders, orderMap[market].longOrders)
 			assert.Equal(t, shortOrders, orderMap[market].shortOrders)
 			lotp.AssertNotCalled(t, "ExecuteLiquidation", mock.Anything, mock.Anything, mock.Anything)
@@ -63,7 +64,7 @@ func TestRunLiquidations(t *testing.T) {
 
 			orderMap := map[Market]*Orders{market: {[]Order{longOrder}, []Order{shortOrder}}}
 
-			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{})
+			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{}, marketCount)
 
 			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, longOrder, expectedFillAmount)
 			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
@@ -87,7 +88,7 @@ func TestRunLiquidations(t *testing.T) {
 
 			orderMap := map[Market]*Orders{market: {[]Order{longOrder, longOrder2}, []Order{}}}
 
-			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{})
+			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{}, marketCount)
 
 			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, longOrder, expectedFillAmount)
 			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
@@ -116,7 +117,7 @@ func TestRunLiquidations(t *testing.T) {
 			lotp.On("ExecuteLiquidation", traderAddress1, orderMap[market].shortOrders[0], big.NewInt(1)).Return(nil)
 			lotp.On("ExecuteLiquidation", traderAddress1, orderMap[market].shortOrders[1], big.NewInt(1)).Return(nil)
 
-			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{})
+			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{}, marketCount)
 			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)
 
 			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, longOrder0, big.NewInt(5))
@@ -156,7 +157,7 @@ func TestRunLiquidations(t *testing.T) {
 			cs.On("GetAcceptableBoundsForLiquidation", market).Return(liqUpperBound, liqLowerBound)
 			cs.On("GetMinAllowableMargin").Return(big.NewInt(1e5))
 			cs.On("GetTakerFee").Return(big.NewInt(1e5))
-			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{})
+			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{}, marketCount)
 			assert.Equal(t, longOrders, orderMap[market].longOrders)
 			assert.Equal(t, shortOrders, orderMap[market].shortOrders)
 			lotp.AssertNotCalled(t, "ExecuteLiquidation", mock.Anything, mock.Anything, mock.Anything)
@@ -173,7 +174,7 @@ func TestRunLiquidations(t *testing.T) {
 			cs.On("GetTakerFee").Return(big.NewInt(1e5))
 
 			orderMap := map[Market]*Orders{market: {[]Order{longOrder}, []Order{shortOrder}}}
-			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{})
+			pipeline.runLiquidations(liquidablePositions, orderMap, underlyingPrices, map[common.Address]*big.Int{}, marketCount)
 
 			lotp.AssertCalled(t, "ExecuteLiquidation", traderAddress, shortOrder, expectedFillAmount)
 			cs.AssertCalled(t, "GetAcceptableBoundsForLiquidation", market)

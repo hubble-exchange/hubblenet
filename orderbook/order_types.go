@@ -1,7 +1,7 @@
 package orderbook
 
 import (
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 )
 
 type ContractOrder interface {

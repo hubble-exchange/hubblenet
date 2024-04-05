@@ -8,7 +8,7 @@ import (
 	big "math/big"
 	reflect "reflect"
 
-	hubbleutils "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	hubbleutils "github.com/ava-labs/subnet-evm/hubbleutils"
 	contract "github.com/ava-labs/subnet-evm/precompile/contract"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "github.com/golang/mock/gomock"

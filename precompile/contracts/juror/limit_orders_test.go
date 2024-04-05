@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	gomock "github.com/golang/mock/gomock"
 )

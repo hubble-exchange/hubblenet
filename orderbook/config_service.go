@@ -5,7 +5,7 @@ import (
 
 	"github.com/ava-labs/subnet-evm/core"
 	"github.com/ava-labs/subnet-evm/core/state"
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 	"github.com/ethereum/go-ethereum/common"
 )

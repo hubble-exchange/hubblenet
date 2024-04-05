@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	"github.com/ava-labs/subnet-evm/metrics"
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 )

@@ -15,8 +15,8 @@ import (
 
 	"github.com/ava-labs/subnet-evm/core/txpool"
 	"github.com/ava-labs/subnet-evm/core/types"
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	"github.com/ava-labs/subnet-evm/plugin/evm/message"
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 )
 
 // GossipHandler handles incoming gossip messages

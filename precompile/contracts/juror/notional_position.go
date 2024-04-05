@@ -1,7 +1,7 @@
 package juror
 
 import (
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	b "github.com/ava-labs/subnet-evm/precompile/contracts/bibliophile"
 )
 

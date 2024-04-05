@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/ava-labs/subnet-evm/core/state"
-	ob "github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
+	ob "github.com/ava-labs/subnet-evm/orderbook"
 	"github.com/ava-labs/subnet-evm/precompile/testutils"
 	"github.com/ava-labs/subnet-evm/vmerrs"
 	"github.com/ethereum/go-ethereum/common"

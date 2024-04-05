@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"sort"
 
-	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
+	hu "github.com/ava-labs/subnet-evm/hubbleutils"
 	"github.com/ethereum/go-ethereum/common"
 )
 
