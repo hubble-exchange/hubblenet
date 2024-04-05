@@ -46,7 +46,7 @@ func (pipeline *MatchingPipeline) RunSanitization() {
 	pipeline.db.RemoveExpiredSignedOrders()
 }
 
-func (pipeline *MatchingPipeline) Run(blockNumber *big.Int, marketCount int64) bool {
+func (pipeline *MatchingPipeline) Run(blockNumber *big.Int, marketCount int64, underlyingPrices []*big.Int) bool {
 	pipeline.mu.Lock()
 	defer pipeline.mu.Unlock()
 
@@ -81,7 +81,7 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int, marketCount int64) b
 
 	// fetch various hubble market params and run the matching engine
 	hState := hu.GetHubbleState()
-	hState.OraclePrices = hu.ArrayToMap(pipeline.configService.GetUnderlyingPrices())
+	hState.OraclePrices = hu.ArrayToMap(underlyingPrices)
 
 	// build trader map
 	liquidablePositions, ordersToCancel, marginMap := pipeline.db.GetNaughtyTraders(hState)

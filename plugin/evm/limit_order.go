@@ -178,7 +178,8 @@ func (lop *limitOrderProcesser) RunMatchingPipeline() {
 		return
 	}
 	executeFuncAndRecoverPanic(func() {
-		matchesFound := lop.matchingPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number, big.NewInt(1)), lop.configService.GetActiveMarketsCount())
+		matchesFound := lop.matchingPipeline.Run(new(big.Int).Add(lop.blockChain.CurrentBlock().Number,
+			big.NewInt(1)), lop.configService.GetActiveMarketsCount(), lop.configService.GetUnderlyingPrices())
 		if matchesFound {
 			lop.blockBuilder.signalTxsReady()
 		}
