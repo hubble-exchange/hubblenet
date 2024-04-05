@@ -8,14 +8,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
 	RED_STONE_VALUES_MAPPING_STORAGE_LOCATION  = common.HexToHash("0x4dd0c77efa6f6d590c97573d8c70b714546e7311202ff7c11c484cc841d91bfc") // keccak256("RedStone.oracleValuesMapping");
 	RED_STONE_LATEST_ROUND_ID_STORAGE_LOCATION = common.HexToHash("0xc68d7f1ee07d8668991a8951e720010c9d44c2f11c06b5cac61fbc4083263938") // keccak256("RedStone.latestRoundId");
 
-	AGGREGATOR_MAP_SLOT    int64 = 1
-	RED_STONE_ADAPTER_SLOT int64 = 2
+	AGGREGATOR_MAP_SLOT         int64 = 1
+	RED_STONE_ADAPTER_SLOT      int64 = 2
 	CUSTOM_ORACLE_ROUND_ID_SLOT int64 = 0
 	CUSTOM_ORACLE_ENTRIES_SLOT  int64 = 1
 )
@@ -31,19 +32,26 @@ func getUnderlyingPrice(stateDB contract.StateDB, market common.Address) *big.In
 
 func getUnderlyingPrice_(stateDB contract.StateDB, underlying common.Address) *big.Int {
 	oracle := getOracleAddress(stateDB) // this comes from margin account
+
+	// 1. Check for redstone feed id
 	feedId := getRedStoneFeedId(stateDB, oracle, underlying)
-	aggregator := getAggregatorAddress(stateDB, oracle, underlying)
 	if feedId.Big().Sign() != 0 {
 		// redstone oracle is configured for this market
 		redStoneAdapter := getRedStoneAdapterAddress(stateDB, oracle)
 		redstonePrice := getRedStonePrice(stateDB, redStoneAdapter, feedId)
-		// log.Info("redstone-price", "amm", market, "price", redstonePrice)
 		return redstonePrice
-	} else if aggregator.Big().Sign() != 0 { // double check the assumption that no other aggregator with non-zero feedId is configured before
-		// custom oracle is configured for this market
-		return getCustomOraclePrice(stateDB, aggregator)
 	}
-	// neither red stone nor custom oracle is enabled for this market, we use the default TestOracle
+
+	// 2. Check for custom oracle
+	aggregator := getAggregatorAddress(stateDB, oracle, underlying)
+	if aggregator.Big().Sign() != 0 {
+		// custom oracle is configured for this market
+		price := getCustomOraclePrice(stateDB, aggregator)
+		log.Info("custom-oracle-price", "underlying", underlying, "price", price)
+		return price
+	}
+
+	// 3. neither red stone nor custom oracle is enabled for this market, we use the default TestOracle
 	slot := crypto.Keccak256(append(common.LeftPadBytes(underlying.Bytes(), 32), common.BigToHash(big.NewInt(TEST_ORACLE_PRICES_MAPPING_SLOT)).Bytes()...))
 	return fromTwosComplement(stateDB.GetState(oracle, common.BytesToHash(slot)).Bytes())
 }
