@@ -64,7 +64,7 @@ func (miner *Miner) SetEtherbase(addr common.Address) {
 	miner.worker.setEtherbase(addr)
 }
 
-func (miner *Miner) SetOrderbookChecker(orderBookChecker OrderBookChecker) {
+func (miner *Miner) SetOrderbookChecker(orderBookChecker OrderbookChecker) {
 	miner.worker.setOrderbookChecker(orderBookChecker)
 }
 

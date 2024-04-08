@@ -335,7 +335,7 @@ func (s *Ethereum) SetEtherbase(etherbase common.Address) {
 	s.miner.SetEtherbase(etherbase)
 }
 
-func (s *Ethereum) SetOrderbookChecker(orderBookChecker miner.OrderBookChecker) {
+func (s *Ethereum) SetOrderbookChecker(orderBookChecker miner.OrderbookChecker) {
 	s.miner.SetOrderbookChecker(orderBookChecker)
 
 }

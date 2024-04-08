@@ -100,7 +100,7 @@ type worker struct {
 	coinbase common.Address
 	clock    *mockable.Clock // Allows us mock the clock for testing
 
-	orderbookChecker OrderBookChecker
+	orderbookChecker OrderbookChecker
 }
 
 func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, clock *mockable.Clock) *worker {
@@ -125,7 +125,7 @@ func (w *worker) setEtherbase(addr common.Address) {
 	w.coinbase = addr
 }
 
-func (w *worker) setOrderbookChecker(orderBookChecker OrderBookChecker) {
+func (w *worker) setOrderbookChecker(orderBookChecker OrderbookChecker) {
 	w.orderbookChecker = orderBookChecker
 }
 
