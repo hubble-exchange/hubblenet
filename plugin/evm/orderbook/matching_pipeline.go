@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ava-labs/subnet-evm/core/types"
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ava-labs/subnet-evm/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,6 +40,18 @@ func NewMatchingPipeline(
 		configService:  configService,
 		MatchingTicker: time.NewTicker(matchingTickerDuration),
 		SanitaryTicker: time.NewTicker(sanitaryTickerDuration),
+	}
+}
+
+func NewTemporaryMatchingPipeline(
+	db LimitOrderDatabase,
+	lotp LimitOrderTxProcessor,
+	configService IConfigService) *MatchingPipeline {
+
+	return &MatchingPipeline{
+		db:            db,
+		lotp:          lotp,
+		configService: configService,
 	}
 }
 
@@ -104,6 +117,47 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 		return true
 	}
 	return false
+}
+
+func (pipeline *MatchingPipeline) GetOrderMatchingTransactions(blockNumber *big.Int, markets []Market) map[common.Address]types.Transactions {
+	pipeline.mu.Lock()
+	defer pipeline.mu.Unlock()
+
+	activeMarkets := pipeline.GetActiveMarkets()
+	log.Info("MatchingPipeline:GetOrderMatchingTransactions")
+
+	if len(activeMarkets) == 0 {
+		return nil
+	}
+
+	// start fresh and purge all local transactions
+	pipeline.lotp.PurgeOrderBookTxs()
+
+	// fetch various hubble market params and run the matching engine
+	hState := hu.GetHubbleState()
+	hState.OraclePrices = hu.ArrayToMap(pipeline.configService.GetUnderlyingPrices())
+
+	marginMap := make(map[common.Address]*big.Int)
+	for addr, trader := range pipeline.db.GetAllTraders() {
+		userState := &hu.UserState{
+			Positions:      translatePositions(trader.Positions),
+			Margins:        getMargins(&trader, len(hState.Assets)),
+			PendingFunding: getTotalFunding(&trader, hState.ActiveMarkets),
+			ReservedMargin: new(big.Int).Set(trader.Margin.Reserved),
+			// this is the only leveldb read, others above are in-memory reads
+			ReduceOnlyAmounts: pipeline.configService.GetReduceOnlyAmounts(addr),
+		}
+		marginMap[addr] = hu.GetAvailableMargin(hState, userState)
+	}
+	for _, market := range markets {
+		orders := pipeline.fetchOrders(market, hState.OraclePrices[market], map[common.Hash]struct{}{}, blockNumber)
+		upperBound, _ := pipeline.configService.GetAcceptableBounds(market)
+		pipeline.runMatchingEngine(pipeline.lotp, orders.longOrders, orders.shortOrders, marginMap, hState.MinAllowableMargin, hState.TakerFee, upperBound)
+	}
+
+	orderbookTxs := pipeline.lotp.GetOrderBookTxs()
+	pipeline.lotp.PurgeOrderBookTxs()
+	return orderbookTxs
 }
 
 type Orders struct {

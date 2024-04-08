@@ -639,6 +639,22 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 	heap.Pop(&t.heads)
 }
 
+func (t *TransactionsByPriceAndNonce) Copy() *TransactionsByPriceAndNonce {
+	txs := make(map[common.Address]Transactions, len(t.txs))
+	for acc, accTxs := range t.txs {
+		txs[acc] = make(Transactions, len(accTxs))
+		copy(txs[acc], accTxs)
+	}
+	heads := make(TxByPriceAndTime, len(t.heads))
+	copy(heads, t.heads)
+	return &TransactionsByPriceAndNonce{
+		txs:     txs,
+		heads:   heads,
+		signer:  t.signer,
+		baseFee: big.NewInt(0).Set(t.baseFee),
+	}
+}
+
 // copyAddressPtr copies an address.
 func copyAddressPtr(a *common.Address) *common.Address {
 	if a == nil {

@@ -569,6 +569,8 @@ func (vm *VM) initializeChain(lastAcceptedHash common.Hash, ethConfig ethconfig.
 	vm.miner = vm.eth.Miner()
 
 	vm.limitOrderProcesser = vm.NewLimitOrderProcesser()
+	tempMatcher := orderbook.NewTempMatcher(vm.limitOrderProcesser.GetMemoryDB(), vm.limitOrderProcesser.GetLimitOrderTxProcessor())
+	vm.eth.SetOrderbookChecker(tempMatcher)
 	vm.eth.Start()
 	return vm.initChainState(vm.blockChain.LastAcceptedBlock())
 }

@@ -99,6 +99,8 @@ type worker struct {
 	mu       sync.RWMutex   // The lock used to protect the coinbase and extra fields
 	coinbase common.Address
 	clock    *mockable.Clock // Allows us mock the clock for testing
+
+	orderbookChecker OrderbookChecker
 }
 
 func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, clock *mockable.Clock) *worker {
@@ -121,6 +123,10 @@ func (w *worker) setEtherbase(addr common.Address) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.coinbase = addr
+}
+
+func (w *worker) setOrderbookChecker(orderBookChecker OrderbookChecker) {
+	w.orderbookChecker = orderBookChecker
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
@@ -229,14 +235,36 @@ func (w *worker) commitNewWork(predicateContext *precompileconfig.PredicateConte
 	}
 	if len(localTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, localTxs, header.BaseFee)
+		txsCopy := txs.Copy()
 		w.commitTransactions(env, txs, header.Coinbase)
+		w.commitOrderbookTxs(env, txsCopy, header)
 	}
 	if len(remoteTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, remoteTxs, header.BaseFee)
+		txsCopy := txs.Copy()
 		w.commitTransactions(env, txs, header.Coinbase)
+		w.commitOrderbookTxs(env, txsCopy, header)
 	}
 
+	w.orderbookChecker.ResetMemoryDB()
+
 	return w.commit(env)
+}
+
+func (w *worker) commitOrderbookTxs(env *environment, transactions *types.TransactionsByPriceAndNonce, header *types.Header) {
+	for {
+		tx := transactions.Peek()
+		if tx == nil {
+			break
+		}
+		transactions.Pop()
+
+		orderbookTxs := w.orderbookChecker.GetMatchingTxs(tx, env.state, header.Number)
+		if orderbookTxs != nil {
+			txsByPrice := types.NewTransactionsByPriceAndNonce(env.signer, orderbookTxs, header.BaseFee)
+			w.commitTransactions(env, txsByPrice, header.Coinbase)
+		}
+	}
 }
 
 func (w *worker) createCurrentEnvironment(predicateContext *precompileconfig.PredicateContext, parent *types.Header, header *types.Header, tstart time.Time) (*environment, error) {

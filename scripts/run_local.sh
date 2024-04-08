@@ -19,7 +19,7 @@ then
     echo "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e97dc" > $FILE
 fi
 
-avalanche subnet create localnet --force --custom --genesis genesis.json --vm custom_evm.bin --config .avalanche-cli.json
+avalanche subnet create localnet --force --custom --genesis genesis.json --vm custom_evm.bin --config .avalanche-cli.json --teleporter=false
 
 # configure and add chain.json
 avalanche subnet configure localnet --chain-config chain.json --config .avalanche-cli.json

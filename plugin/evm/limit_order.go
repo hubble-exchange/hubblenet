@@ -38,6 +38,8 @@ type LimitOrderProcesser interface {
 	GetTestingAPI() *orderbook.TestingAPI
 	GetTradingAPI() *orderbook.TradingAPI
 	RunMatchingPipeline()
+	GetMemoryDB() orderbook.LimitOrderDatabase
+	GetLimitOrderTxProcessor() orderbook.LimitOrderTxProcessor
 }
 
 type limitOrderProcesser struct {
@@ -204,6 +206,14 @@ func (lop *limitOrderProcesser) GetTradingAPI() *orderbook.TradingAPI {
 
 func (lop *limitOrderProcesser) GetTestingAPI() *orderbook.TestingAPI {
 	return orderbook.NewTestingAPI(lop.memoryDb, lop.backend, lop.configService, lop.hubbleDB)
+}
+
+func (lop *limitOrderProcesser) GetMemoryDB() orderbook.LimitOrderDatabase {
+	return lop.memoryDb
+}
+
+func (lop *limitOrderProcesser) GetLimitOrderTxProcessor() orderbook.LimitOrderTxProcessor {
+	return lop.limitOrderTxProcessor
 }
 
 func (lop *limitOrderProcesser) listenAndStoreLimitOrderTransactions() {
