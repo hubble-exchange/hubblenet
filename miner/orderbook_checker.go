@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type OrderBookChecker interface {
+type OrderbookChecker interface {
 	GetMatchingTxs(tx *types.Transaction, stateDB *state.StateDB, blockNumber *big.Int) map[common.Address]types.Transactions
 	ResetMemoryDB()
 }
