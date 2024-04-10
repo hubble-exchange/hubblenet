@@ -251,6 +251,9 @@ func (api *TradingAPI) StreamDepthUpdateForMarket(ctx context.Context, market in
 				}
 				notifier.Notify(rpcSub.ID, response)
 				oldMarketDepth = newMarketDepth
+			case <-rpcSub.Err():
+				ticker.Stop()
+				return
 			case <-notifier.Closed():
 				ticker.Stop()
 				return
@@ -300,6 +303,8 @@ func (api *TradingAPI) StreamTraderUpdates(ctx context.Context, trader string, b
 				if strings.EqualFold(event.Trader.String(), trader) && event.BlockStatus == confirmationLevel {
 					notifier.Notify(rpcSub.ID, event)
 				}
+			case <-rpcSub.Err():
+				return
 			case <-notifier.Closed():
 				return
 			}
@@ -325,6 +330,8 @@ func (api *TradingAPI) StreamMarketTrades(ctx context.Context, market Market, bl
 				if event.Market == market && event.BlockStatus == confirmationLevel {
 					notifier.Notify(rpcSub.ID, event)
 				}
+			case <-rpcSub.Err():
+				return
 			case <-notifier.Closed():
 				return
 			}

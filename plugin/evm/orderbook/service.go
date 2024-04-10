@@ -266,6 +266,9 @@ func (api *OrderBookAPI) StreamDepthUpdateForMarket(ctx context.Context, market 
 				depthUpdate := getUpdateInDepth(newMarketDepth, oldMarketDepth)
 				notifier.Notify(rpcSub.ID, depthUpdate)
 				oldMarketDepth = newMarketDepth
+			case <-rpcSub.Err():
+				ticker.Stop()
+				return
 			case <-notifier.Closed():
 				ticker.Stop()
 				return
@@ -301,6 +304,9 @@ func (api *OrderBookAPI) StreamDepthUpdateForMarketAndFreq(ctx context.Context, 
 				depthUpdate := getUpdateInDepth(newMarketDepth, oldMarketDepth)
 				notifier.Notify(rpcSub.ID, depthUpdate)
 				oldMarketDepth = newMarketDepth
+			case <-rpcSub.Err():
+				ticker.Stop()
+				return
 			case <-notifier.Closed():
 				ticker.Stop()
 				return
