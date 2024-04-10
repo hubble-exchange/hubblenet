@@ -28,6 +28,12 @@ type MatchingPipeline struct {
 	SanitaryTicker *time.Ticker
 }
 
+type MatchingRequest struct {
+	BlockNumber      *big.Int
+	MarketCount      int64
+	UnderlyingPrices []*big.Int
+}
+
 func NewMatchingPipeline(
 	db LimitOrderDatabase,
 	lotp LimitOrderTxProcessor,
@@ -46,14 +52,14 @@ func (pipeline *MatchingPipeline) RunSanitization() {
 	pipeline.db.RemoveExpiredSignedOrders()
 }
 
-func (pipeline *MatchingPipeline) Run(blockNumber *big.Int, marketCount int64, underlyingPrices []*big.Int) bool {
+func (pipeline *MatchingPipeline) Run(req *MatchingRequest) bool {
 	pipeline.mu.Lock()
 	defer pipeline.mu.Unlock()
 
 	// reset ticker
 	pipeline.MatchingTicker.Reset(matchingTickerDuration)
-	markets := pipeline.GetActiveMarkets(marketCount)
-	log.Info("MatchingPipeline:Run", "blockNumber", blockNumber)
+	markets := pipeline.GetActiveMarkets(req.MarketCount)
+	log.Info("MatchingPipeline:Run", "blockNumber", req.BlockNumber)
 
 	if len(markets) == 0 {
 		return false
@@ -81,16 +87,16 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int, marketCount int64, u
 
 	// fetch various hubble market params and run the matching engine
 	hState := hu.GetHubbleState()
-	hState.OraclePrices = hu.ArrayToMap(underlyingPrices)
+	hState.OraclePrices = hu.ArrayToMap(req.UnderlyingPrices)
 
 	// build trader map
 	liquidablePositions, ordersToCancel, marginMap := pipeline.db.GetNaughtyTraders(hState)
 	cancellableOrderIds := pipeline.cancelLimitOrders(ordersToCancel)
 	orderMap := make(map[Market]*Orders)
 	for _, market := range markets {
-		orderMap[market] = pipeline.fetchOrders(market, hState.OraclePrices[market], cancellableOrderIds, blockNumber)
+		orderMap[market] = pipeline.fetchOrders(market, hState.OraclePrices[market], cancellableOrderIds, req.BlockNumber)
 	}
-	pipeline.runLiquidations(liquidablePositions, orderMap, hState.OraclePrices, marginMap, marketCount)
+	pipeline.runLiquidations(liquidablePositions, orderMap, hState.OraclePrices, marginMap, req.MarketCount)
 	for _, market := range markets {
 		// @todo should we prioritize matching in any particular market?
 		upperBound, _ := pipeline.configService.GetAcceptableBounds(market)
@@ -100,7 +106,7 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int, marketCount int64, u
 	orderBookTxsCount := pipeline.lotp.GetOrderBookTxsCount()
 	log.Info("MatchingPipeline:Complete", "orderBookTxsCount", orderBookTxsCount)
 	if orderBookTxsCount > 0 {
-		pipeline.lotp.SetOrderBookTxsBlockNumber(blockNumber.Uint64())
+		pipeline.lotp.SetOrderBookTxsBlockNumber(req.BlockNumber.Uint64())
 		return true
 	}
 	return false
