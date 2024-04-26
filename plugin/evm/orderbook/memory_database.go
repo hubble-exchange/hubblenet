@@ -331,6 +331,12 @@ func shouldRemove(acceptedBlockNumber, blockTimestamp uint64, order Order) Order
 		return KEEP
 	}
 
+	// do not remove expired signed order here. They should be removed from
+	// RemoveExpiredSignedOrders function only so that the appropriate Trader event is sent
+	if order.OrderType == Signed {
+		return KEEP
+	}
+
 	// remove if order is expired; valid for both IOC and Signed orders
 	expireAt := order.getExpireAt()
 	if expireAt.Sign() > 0 && expireAt.Int64() < int64(blockTimestamp) {
@@ -347,6 +353,24 @@ func (db *InMemoryDatabase) RemoveExpiredSignedOrders() {
 	for _, order := range db.Orders {
 		if order.OrderType == Signed && order.getExpireAt().Int64() <= now {
 			db.deleteOrderWithoutLock(order.Id)
+
+			// send TraderEvent for the expired order
+			go func(order_ *Order) {
+				traderEvent := TraderEvent{
+					Trader:      order_.Trader,
+					Removed:     false,
+					EventName:   "OrderExpired",
+					BlockStatus: ConfirmationLevelHead,
+					OrderId:     order_.Id,
+					OrderType:   order_.OrderType.String(),
+					Timestamp:   big.NewInt(now),
+				}
+
+				traderFeed.Send(traderEvent)
+				traderEvent.BlockStatus = ConfirmationLevelAccepted
+				traderFeed.Send(traderEvent)
+			}(order)
+
 		}
 	}
 }
