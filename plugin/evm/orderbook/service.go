@@ -377,6 +377,107 @@ func aggregateOrdersByPrice(orders []Order) map[string]string {
 	return aggregatedOrders
 }
 
+// {"jsonrpc":"2.0","id":1,"method":"orderbook_subscribe","params":["streamDepthUpdateForMarketAndType", 0, "1s"]}
+func (api *OrderBookAPI) StreamDepthUpdateForMarketAndType(ctx context.Context, market int, updateFreq string) (*rpc.Subscription, error) {
+	notifier, _ := rpc.NotifierFromContext(ctx)
+	rpcSub := notifier.CreateSubscription()
+	if updateFreq == "" {
+		updateFreq = "1s"
+	}
+
+	duration, err := time.ParseDuration(updateFreq)
+	if err != nil {
+		return nil, fmt.Errorf("invalid update frequency %s", updateFreq)
+	}
+	ticker := time.NewTicker(duration)
+
+	var oldMarketDepth = &MarketDepthByType{}
+
+	go executeFuncAndRecoverPanic(func() {
+		for {
+			select {
+			case <-ticker.C:
+				newMarketDepth := getDepthForMarketByType(api.db, Market(market))
+				depthUpdate := getUpdateInDepthByType(newMarketDepth, oldMarketDepth)
+				notifier.Notify(rpcSub.ID, depthUpdate)
+				oldMarketDepth = newMarketDepth
+			case <-rpcSub.Err():
+				ticker.Stop()
+				return
+			case <-notifier.Closed():
+				ticker.Stop()
+				return
+			}
+		}
+	}, "panic in StreamDepthUpdateForMarketAndType", RPCPanicsCounter)
+
+	return rpcSub, nil
+}
+
+func getUpdateInDepthByType(newMarketDepth *MarketDepthByType, oldMarketDepth *MarketDepthByType) *MarketDepthByType {
+	var diff = &MarketDepthByType{
+		Market: newMarketDepth.Market,
+		Orders: map[string]map[string]string{},
+	}
+	for price, types := range newMarketDepth.Orders {
+		for orderType, depth := range types {
+			oldDepth, exists := oldMarketDepth.Orders[price][orderType]
+			if !exists || oldDepth != depth {
+				if diff.Orders[price] == nil {
+					diff.Orders[price] = make(map[string]string)
+				}
+				diff.Orders[price][orderType] = depth
+			}
+		}
+	}
+	// Check for any prices or order types that no longer exist and set them to zero
+	for price, types := range oldMarketDepth.Orders {
+		for orderType := range types {
+			if newMarketDepth.Orders[price] == nil || newMarketDepth.Orders[price][orderType] == "" {
+				if diff.Orders[price] == nil {
+					diff.Orders[price] = make(map[string]string)
+				}
+				diff.Orders[price][orderType] = big.NewInt(0).String()
+			}
+		}
+	}
+	return diff
+}
+
+func getDepthForMarketByType(db LimitOrderDatabase, market Market) *MarketDepthByType {
+	longOrders := db.GetLongOrders(market, nil /* lowerbound */, nil /* currentBlock */)
+	shortOrders := db.GetShortOrders(market, nil /* upperbound */, nil /* currentBlock */)
+	return &MarketDepthByType{
+		Market: market,
+		Orders: aggregateOrdersByPriceAndOrderType(longOrders, shortOrders),
+	}
+}
+
+func aggregateOrdersByPriceAndOrderType(longOrders []Order, shortOrders []Order) map[string]map[string]string {
+	aggregatedOrders := map[string]map[string]string{}
+	for _, order := range append(longOrders, shortOrders...) {
+		orderType := order.OrderType.String()
+		price := order.Price.String()
+
+		if aggregatedOrders[price] == nil {
+			aggregatedOrders[price] = make(map[string]string)
+		}
+
+		quantityStr := aggregatedOrders[price][orderType]
+		if quantityStr == "" {
+			quantityStr = "0"
+		}
+		quantity, _ := big.NewInt(0).SetString(quantityStr, 10)
+		aggregatedOrders[price][orderType] = quantity.Add(quantity, order.GetUnFilledBaseAssetQuantity()).String()
+	}
+	return aggregatedOrders
+}
+
+type MarketDepthByType struct {
+	Market Market                       `json:"market"`
+	Orders map[string]map[string]string `json:"orders"` // price -> orderType -> quantity
+}
+
 type MarketDepth struct {
 	Market Market            `json:"market"`
 	Longs  map[string]string `json:"longs"`
