@@ -95,7 +95,8 @@ func (cs *ConfigService) GetPriceMultiplier(market Market) *big.Int {
 }
 
 func (cs *ConfigService) GetActiveMarketsCount() int64 {
-	return bibliophile.GetActiveMarketsCount(cs.getStateAtCurrentBlock())
+	return 0
+	// return bibliophile.GetActiveMarketsCount(cs.getStateAtCurrentBlock())
 }
 
 func (cs *ConfigService) GetUnderlyingPrices() []*big.Int {

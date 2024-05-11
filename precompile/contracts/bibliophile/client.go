@@ -84,6 +84,7 @@ func (b *bibliophileClient) GetSignedOrderStatus(orderHash [32]byte) int64 {
 }
 
 func (b *bibliophileClient) GetActiveMarketsCount() int64 {
+	return 0
 	return GetActiveMarketsCount(b.accessibleState.GetStateDB())
 }
 

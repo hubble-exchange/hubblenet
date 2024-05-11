@@ -166,6 +166,7 @@ type Orders struct {
 }
 
 func (pipeline *MatchingPipeline) GetActiveMarkets() []Market {
+	return []Market{}
 	count := pipeline.configService.GetActiveMarketsCount()
 	markets := make([]Market, count)
 	for i := int64(0); i < count; i++ {

@@ -38,11 +38,13 @@ func marketsStorageSlot() *big.Int {
 }
 
 func GetActiveMarketsCount(stateDB contract.StateDB) int64 {
+	return 0
 	rawVal := stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BytesToHash(common.LeftPadBytes(big.NewInt(AMMS_SLOT).Bytes(), 32)))
 	return new(big.Int).SetBytes(rawVal.Bytes()).Int64()
 }
 
 func GetMarkets(stateDB contract.StateDB) []common.Address {
+	return []common.Address{}
 	numMarkets := GetActiveMarketsCount(stateDB)
 	markets := make([]common.Address, numMarkets)
 	baseStorageSlot := marketsStorageSlot()
