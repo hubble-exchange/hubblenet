@@ -18,6 +18,7 @@ type HubbleState struct {
 	Assets             []Collateral
 	OraclePrices       map[Market]*big.Int
 	MidPrices          map[Market]*big.Int
+	SettlementPrices   map[Market]*big.Int
 	ActiveMarkets      []Market
 	MinAllowableMargin *big.Int
 	MaintenanceMargin  *big.Int
@@ -81,9 +82,14 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 		return big.NewInt(0), big.NewInt(0)
 	}
 
+	price := hState.OraclePrices[market]
+	if hState.SettlementPrices[market] != nil && hState.SettlementPrices[market].Sign() != 0 {
+		price = hState.SettlementPrices[market]
+	}
+
 	// based on oracle price
 	oracleBasedNotional, oracleBasedUnrealizedPnl, oracleBasedMF := GetPositionMetadata(
-		hState.OraclePrices[market],
+		price,
 		position.OpenNotional,
 		position.Size,
 		margin,

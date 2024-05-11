@@ -111,12 +111,12 @@ func (cs *ConfigService) GetCollaterals() []hu.Collateral {
 }
 
 func (cs *ConfigService) GetLastPremiumFraction(market Market, trader *common.Address) *big.Int {
-	markets := bibliophile.GetMarkets(cs.getStateAtCurrentBlock())
+	markets := bibliophile.GetMarketsIncludingSettled(cs.getStateAtCurrentBlock())
 	return bibliophile.GetLastPremiumFraction(cs.getStateAtCurrentBlock(), markets[market], trader)
 }
 
 func (cs *ConfigService) GetCumulativePremiumFraction(market Market) *big.Int {
-	markets := bibliophile.GetMarkets(cs.getStateAtCurrentBlock())
+	markets := bibliophile.GetMarketsIncludingSettled(cs.getStateAtCurrentBlock())
 	return bibliophile.GetCumulativePremiumFraction(cs.getStateAtCurrentBlock(), markets[market])
 }
 
