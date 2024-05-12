@@ -293,6 +293,7 @@ func (db *InMemoryDatabase) Accept(acceptedBlockNumber, blockTimestamp uint64) {
 	defer db.mu.Unlock()
 
 	log.Info("Accept", "acceptedBlockNumber", acceptedBlockNumber, "blockTimestamp", blockTimestamp)
+	// SUNSET: this will work with 0 markets
 	count := db.configService.GetActiveMarketsCount()
 	for m := int64(0); m < count; m++ {
 		longOrders := db.getLongOrdersWithoutLock(Market(m), nil, nil, false)
@@ -590,7 +591,8 @@ func (db *InMemoryDatabase) UpdateFilledBaseAssetQuantity(quantity *big.Int, ord
 
 	// only update margin if the order is not reduce-only
 	if order.OrderType == Signed && !order.ReduceOnly {
-		minAllowableMargin := hu.GetHubbleState().MinAllowableMargin
+		hState := GetHubbleState(db.configService)
+		minAllowableMargin := hState.MinAllowableMargin
 		requiredMargin := hu.GetRequiredMargin(order.Price, quantity, minAllowableMargin, big.NewInt(0))
 		db.updateVirtualReservedMargin(order.Trader, hu.Neg(requiredMargin))
 
@@ -1335,7 +1337,7 @@ func (db *InMemoryDatabase) GetMarginAvailableForMakerbook(trader common.Address
 		return big.NewInt(0)
 	}
 
-	hState := hu.GetHubbleState()
+	hState := GetHubbleState(db.configService)
 	hState.OraclePrices = prices
 	userState := &hu.UserState{
 		Positions:      translatePositions(_trader.Positions),
@@ -1353,6 +1355,7 @@ func (db *InMemoryDatabase) SampleImpactPrice() (impactBids, impactAsks, midPric
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
+	// SUNSET: code will not reach here when markets are settled
 	count := db.configService.GetActiveMarketsCount()
 	impactBids = make([]*big.Int, count)
 	impactAsks = make([]*big.Int, count)

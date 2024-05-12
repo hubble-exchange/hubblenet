@@ -347,3 +347,7 @@ func (cs *MockConfigService) GetImpactMarginNotional(ammAddress common.Address) 
 func (cs *MockConfigService) GetReduceOnlyAmounts(trader common.Address) []*big.Int {
 	return []*big.Int{big.NewInt(0)}
 }
+
+func (cs *MockConfigService) IsSettledAll() bool {
+	return false
+}

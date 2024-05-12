@@ -77,15 +77,6 @@ func NewLimitOrderProcesser(ctx *snow.Context, txPool *txpool.TxPool, shutdownCh
 	matchingPipeline := orderbook.NewMatchingPipeline(memoryDb, lotp, configService)
 	// if any of the following values are changed, the nodes will need to be restarted.
 	// This is also true for local testing. once contracts are deployed it's mandatory to restart the nodes
-	hState := &hu.HubbleState{
-		Assets:             matchingPipeline.GetCollaterals(),
-		ActiveMarkets:      matchingPipeline.GetActiveMarkets(),
-		MinAllowableMargin: configService.GetMinAllowableMargin(),
-		MaintenanceMargin:  configService.GetMaintenanceMargin(),
-		TakerFee:           configService.GetTakerFee(),
-		UpgradeVersion:     hu.V2,
-	}
-	hu.SetHubbleState(hState)
 	hu.SetChainIdAndVerifyingSignedOrdersContract(backend.ChainConfig().ChainID.Int64(), signedObAddy.String())
 
 	filterSystem := filters.NewFilterSystem(backend, filters.Config{})

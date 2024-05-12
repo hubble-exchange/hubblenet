@@ -65,6 +65,7 @@ func GetNotionalPositionAndMargin(hState *HubbleState, userState *UserState, mar
 	return notionalPosition, Add(margin, unrealizedPnl)
 }
 
+// SUNSET: `hState.ActiveMarkets` in the hState passed contains settled markets too
 func GetTotalNotionalPositionAndUnrealizedPnl(hState *HubbleState, userState *UserState, margin *big.Int, marginMode MarginMode) (*big.Int, *big.Int) {
 	notionalPosition := big.NewInt(0)
 	unrealizedPnl := big.NewInt(0)
