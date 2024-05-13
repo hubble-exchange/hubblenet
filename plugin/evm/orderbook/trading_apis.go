@@ -194,6 +194,7 @@ func (api *TradingAPI) GetMarginAndPositions(ctx context.Context, trader string)
 		return response, fmt.Errorf("trader not found")
 	}
 
+	// SUNSET: need to fetch total market count here, not active markets(cuz we're fetching pending funding)
 	count := api.configService.GetActiveMarketsCount()
 	markets := make([]Market, count)
 	for i := int64(0); i < count; i++ {
@@ -336,6 +337,10 @@ func (api *TradingAPI) StreamMarketTrades(ctx context.Context, market Market, bl
 
 // @todo cache api.configService values to avoid db lookups on every order placement
 func (api *TradingAPI) PlaceOrder(order *hu.SignedOrder) (common.Hash, bool, error) {
+	if api.configService.IsSettledAll() {
+		return common.Hash{}, false, errors.New("all markets are settled now")
+	}
+
 	orderId, err := order.Hash()
 	if err != nil {
 		return common.Hash{}, false, fmt.Errorf("failed to hash order: %s", err)

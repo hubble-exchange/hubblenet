@@ -39,7 +39,7 @@ func marketsStorageSlot() *big.Int {
 }
 
 func GetActiveMarketsCount(stateDB contract.StateDB) int64 {
-	if isSettledAll(stateDB) {
+	if IsSettledAll(stateDB) {
 		return 0
 	}
 	return GetMarketsCountRaw(stateDB)
@@ -50,7 +50,7 @@ func GetMarketsCountRaw(stateDB contract.StateDB) int64 {
 	return new(big.Int).SetBytes(rawVal.Bytes()).Int64()
 }
 
-func isSettledAll(stateDB contract.StateDB) bool {
+func IsSettledAll(stateDB contract.StateDB) bool {
 	return stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(big.NewInt(SETTLED_ALL_SLOT))).Big().Sign() == 1
 }
 
