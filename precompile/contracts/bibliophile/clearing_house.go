@@ -169,6 +169,14 @@ func GetMidPrices(stateDB contract.StateDB) []*big.Int {
 	return underlyingPrices
 }
 
+func GetSettlementPrices(stateDB contract.StateDB) []*big.Int {
+	underlyingPrices := make([]*big.Int, 0)
+	for _, market := range GetMarketsIncludingSettled(stateDB) {
+		underlyingPrices = append(underlyingPrices, getSettlementPrice(stateDB, market))
+	}
+	return underlyingPrices
+}
+
 func GetReduceOnlyAmounts(stateDB contract.StateDB, trader common.Address) []*big.Int {
 	numMarkets := GetActiveMarketsCount(stateDB)
 	sizes := make([]*big.Int, numMarkets)

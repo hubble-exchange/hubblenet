@@ -12,6 +12,9 @@ func GetHubbleState(configService IConfigService) *hu.HubbleState {
 	}
 	hState := &hu.HubbleState{
 		Assets:             configService.GetCollaterals(),
+		OraclePrices:       hu.ArrayToMap(configService.GetUnderlyingPrices()),
+		MidPrices:          hu.ArrayToMap(configService.GetMidPrices()),
+		SettlementPrices:   hu.ArrayToMap(configService.GetSettlementPrices()),
 		ActiveMarkets:      markets,
 		MinAllowableMargin: configService.GetMinAllowableMargin(),
 		MaintenanceMargin:  configService.GetMaintenanceMargin(),

@@ -95,7 +95,6 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 
 	// fetch various hubble market params and run the matching engine
 	hState := GetHubbleState(pipeline.configService)
-	hState.OraclePrices = hu.ArrayToMap(pipeline.configService.GetUnderlyingPrices())
 
 	// build trader map
 	liquidablePositions, ordersToCancel, marginMap := pipeline.db.GetNaughtyTraders(hState)

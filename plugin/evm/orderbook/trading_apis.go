@@ -194,8 +194,7 @@ func (api *TradingAPI) GetMarginAndPositions(ctx context.Context, trader string)
 		return response, fmt.Errorf("trader not found")
 	}
 
-	// SUNSET: need to fetch total market count here, not active markets(cuz we're fetching pending funding)
-	count := api.configService.GetActiveMarketsCount()
+	count := int64(len(api.configService.GetMarketsIncludingSettled()))
 	markets := make([]Market, count)
 	for i := int64(0); i < count; i++ {
 		markets[i] = Market(i)
