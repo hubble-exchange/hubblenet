@@ -2,6 +2,7 @@ package bibliophile
 
 import (
 	"math/big"
+	"runtime/debug"
 
 	hu "github.com/ava-labs/subnet-evm/plugin/evm/orderbook/hubbleutils"
 	"github.com/ava-labs/subnet-evm/precompile/contract"
@@ -47,7 +48,7 @@ func getUnderlyingPrice_(stateDB contract.StateDB, underlying common.Address) *b
 	if aggregator.Big().Sign() != 0 {
 		// custom oracle is configured for this market
 		price := getCustomOraclePrice(stateDB, aggregator)
-		log.Info("custom-oracle-price", "underlying", underlying, "price", price)
+		log.Info("custom-oracle-price", "underlying", underlying, "price", price, "stack", string(debug.Stack()))
 		return price
 	}
 
