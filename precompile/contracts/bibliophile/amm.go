@@ -24,7 +24,7 @@ const (
 	ASKS_SLOT                       int64 = 22
 	BIDS_HEAD_SLOT                  int64 = 23
 	ASKS_HEAD_SLOT                  int64 = 24
-	SETTLEMENT_PRICE_SLOT           int64 = 29
+	SETTLEMENT_PRICE_SLOT           int64 = 28
 )
 
 // AMM State
