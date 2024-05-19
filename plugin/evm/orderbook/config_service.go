@@ -18,8 +18,10 @@ type IConfigService interface {
 	getMinSizeRequirement(market Market) *big.Int
 	GetPriceMultiplier(market Market) *big.Int
 	GetActiveMarketsCount() int64
+	GetMarketsIncludingSettled() []common.Address
 	GetUnderlyingPrices() []*big.Int
 	GetMidPrices() []*big.Int
+	GetSettlementPrices() []*big.Int
 	GetCollaterals() []hu.Collateral
 	GetLastPremiumFraction(market Market, trader *common.Address) *big.Int
 	GetCumulativePremiumFraction(market Market) *big.Int
@@ -35,6 +37,8 @@ type IConfigService interface {
 	GetMarketAddressFromMarketID(marketId int64) common.Address
 	GetImpactMarginNotional(ammAddress common.Address) *big.Int
 	GetReduceOnlyAmounts(trader common.Address) []*big.Int
+
+	IsSettledAll() bool
 }
 
 type ConfigService struct {
@@ -98,6 +102,10 @@ func (cs *ConfigService) GetActiveMarketsCount() int64 {
 	return bibliophile.GetActiveMarketsCount(cs.getStateAtCurrentBlock())
 }
 
+func (cs *ConfigService) GetMarketsIncludingSettled() []common.Address {
+	return bibliophile.GetMarketsIncludingSettled(cs.getStateAtCurrentBlock())
+}
+
 func (cs *ConfigService) GetUnderlyingPrices() []*big.Int {
 	return bibliophile.GetUnderlyingPrices(cs.getStateAtCurrentBlock())
 }
@@ -106,17 +114,21 @@ func (cs *ConfigService) GetMidPrices() []*big.Int {
 	return bibliophile.GetMidPrices(cs.getStateAtCurrentBlock())
 }
 
+func (cs *ConfigService) GetSettlementPrices() []*big.Int {
+	return bibliophile.GetSettlementPrices(cs.getStateAtCurrentBlock())
+}
+
 func (cs *ConfigService) GetCollaterals() []hu.Collateral {
 	return bibliophile.GetCollaterals(cs.getStateAtCurrentBlock())
 }
 
 func (cs *ConfigService) GetLastPremiumFraction(market Market, trader *common.Address) *big.Int {
-	markets := bibliophile.GetMarkets(cs.getStateAtCurrentBlock())
+	markets := bibliophile.GetMarketsIncludingSettled(cs.getStateAtCurrentBlock())
 	return bibliophile.GetLastPremiumFraction(cs.getStateAtCurrentBlock(), markets[market], trader)
 }
 
 func (cs *ConfigService) GetCumulativePremiumFraction(market Market) *big.Int {
-	markets := bibliophile.GetMarkets(cs.getStateAtCurrentBlock())
+	markets := bibliophile.GetMarketsIncludingSettled(cs.getStateAtCurrentBlock())
 	return bibliophile.GetCumulativePremiumFraction(cs.getStateAtCurrentBlock(), markets[market])
 }
 
@@ -151,4 +163,8 @@ func (cs *ConfigService) GetImpactMarginNotional(ammAddress common.Address) *big
 
 func (cs *ConfigService) GetReduceOnlyAmounts(trader common.Address) []*big.Int {
 	return bibliophile.GetReduceOnlyAmounts(cs.getStateAtCurrentBlock(), trader)
+}
+
+func (cs *ConfigService) IsSettledAll() bool {
+	return bibliophile.IsSettledAll(cs.getStateAtCurrentBlock())
 }

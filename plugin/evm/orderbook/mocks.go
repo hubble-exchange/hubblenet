@@ -288,6 +288,14 @@ func (cs *MockConfigService) GetMidPrices() []*big.Int {
 	return []*big.Int{}
 }
 
+func (cs *MockConfigService) GetSettlementPrices() []*big.Int {
+	return []*big.Int{}
+}
+
+func (cs *MockConfigService) GetMarketsIncludingSettled() []common.Address {
+	return []common.Address{}
+}
+
 func (cs *MockConfigService) GetLastPremiumFraction(market Market, trader *common.Address) *big.Int {
 	return big.NewInt(0)
 }
@@ -346,4 +354,8 @@ func (cs *MockConfigService) GetImpactMarginNotional(ammAddress common.Address) 
 
 func (cs *MockConfigService) GetReduceOnlyAmounts(trader common.Address) []*big.Int {
 	return []*big.Int{big.NewInt(0)}
+}
+
+func (cs *MockConfigService) IsSettledAll() bool {
+	return false
 }

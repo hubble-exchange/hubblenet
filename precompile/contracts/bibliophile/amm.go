@@ -24,6 +24,7 @@ const (
 	ASKS_SLOT                       int64 = 22
 	BIDS_HEAD_SLOT                  int64 = 23
 	ASKS_HEAD_SLOT                  int64 = 24
+	SETTLEMENT_PRICE_SLOT           int64 = 28
 )
 
 // AMM State
@@ -91,6 +92,10 @@ func getUnderlyingAssetAddress(stateDB contract.StateDB, market common.Address) 
 func getUnderlyingPriceForMarket(stateDB contract.StateDB, marketID int64) *big.Int {
 	market := GetMarketAddressFromMarketID(marketID, stateDB)
 	return getUnderlyingPrice(stateDB, market)
+}
+
+func getSettlementPrice(stateDB contract.StateDB, market common.Address) *big.Int {
+	return stateDB.GetState(market, common.BigToHash(big.NewInt(SETTLEMENT_PRICE_SLOT))).Big()
 }
 
 // Trader State

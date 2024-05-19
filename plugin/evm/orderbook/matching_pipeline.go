@@ -65,6 +65,7 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 
 	// reset ticker
 	pipeline.MatchingTicker.Reset(matchingTickerDuration)
+	// SUNSET: this is ok, we can skip matching, liquidation, settleFunding, commitSampleLiquidity when markets are settled
 	markets := pipeline.GetActiveMarkets()
 	log.Info("MatchingPipeline:Run", "blockNumber", blockNumber)
 
@@ -93,8 +94,7 @@ func (pipeline *MatchingPipeline) Run(blockNumber *big.Int) bool {
 	}
 
 	// fetch various hubble market params and run the matching engine
-	hState := hu.GetHubbleState()
-	hState.OraclePrices = hu.ArrayToMap(pipeline.configService.GetUnderlyingPrices())
+	hState := GetHubbleState(pipeline.configService)
 
 	// build trader map
 	liquidablePositions, ordersToCancel, marginMap := pipeline.db.GetNaughtyTraders(hState)
@@ -123,6 +123,7 @@ func (pipeline *MatchingPipeline) GetOrderMatchingTransactions(blockNumber *big.
 	pipeline.mu.Lock()
 	defer pipeline.mu.Unlock()
 
+	// SUNSET: ok to skip when markets are settled
 	activeMarkets := pipeline.GetActiveMarkets()
 	log.Info("MatchingPipeline:GetOrderMatchingTransactions")
 
@@ -134,7 +135,7 @@ func (pipeline *MatchingPipeline) GetOrderMatchingTransactions(blockNumber *big.
 	pipeline.lotp.PurgeOrderBookTxs()
 
 	// fetch various hubble market params and run the matching engine
-	hState := hu.GetHubbleState()
+	hState := GetHubbleState(pipeline.configService)
 	hState.OraclePrices = hu.ArrayToMap(pipeline.configService.GetUnderlyingPrices())
 
 	marginMap := make(map[common.Address]*big.Int)
@@ -228,10 +229,14 @@ func (pipeline *MatchingPipeline) runLiquidations(liquidablePositions []Liquidab
 	log.Info("found positions to liquidate", "num", len(liquidablePositions))
 
 	// we need to retreive permissible bounds for liquidations in each market
+	// SUNSET: this is ok, we can skip liquidations when markets are settled
 	markets := pipeline.GetActiveMarkets()
 	type S struct {
 		Upperbound *big.Int
 		Lowerbound *big.Int
+	}
+	if len(markets) == 0 {
+		return
 	}
 	liquidationBounds := make([]S, len(markets))
 	for _, market := range markets {

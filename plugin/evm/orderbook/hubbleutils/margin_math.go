@@ -18,6 +18,7 @@ type HubbleState struct {
 	Assets             []Collateral
 	OraclePrices       map[Market]*big.Int
 	MidPrices          map[Market]*big.Int
+	SettlementPrices   map[Market]*big.Int
 	ActiveMarkets      []Market
 	MinAllowableMargin *big.Int
 	MaintenanceMargin  *big.Int
@@ -64,6 +65,7 @@ func GetNotionalPositionAndMargin(hState *HubbleState, userState *UserState, mar
 	return notionalPosition, Add(margin, unrealizedPnl)
 }
 
+// SUNSET: `hState.ActiveMarkets` contains active markets and ` hState.SettlementPrices` contains settlement prices
 func GetTotalNotionalPositionAndUnrealizedPnl(hState *HubbleState, userState *UserState, margin *big.Int, marginMode MarginMode) (*big.Int, *big.Int) {
 	notionalPosition := big.NewInt(0)
 	unrealizedPnl := big.NewInt(0)
@@ -81,9 +83,14 @@ func getOptimalPnl(hState *HubbleState, position *Position, margin *big.Int, mar
 		return big.NewInt(0), big.NewInt(0)
 	}
 
+	price := hState.OraclePrices[market]
+	if hState.SettlementPrices[market] != nil && hState.SettlementPrices[market].Sign() != 0 {
+		price = hState.SettlementPrices[market]
+	}
+
 	// based on oracle price
 	oracleBasedNotional, oracleBasedUnrealizedPnl, oracleBasedMF := GetPositionMetadata(
-		hState.OraclePrices[market],
+		price,
 		position.OpenNotional,
 		position.Size,
 		margin,

@@ -23,6 +23,7 @@ func (liq LiquidablePosition) GetUnfilledSize() *big.Int {
 }
 
 func calcMarginFraction(trader *Trader, hState *hu.HubbleState) *big.Int {
+	// SUNSET: this function is only used in unit tests and a test API; no need to change it
 	userState := &hu.UserState{
 		Positions:      translatePositions(trader.Positions),
 		Margins:        getMargins(trader, len(hState.Assets)),

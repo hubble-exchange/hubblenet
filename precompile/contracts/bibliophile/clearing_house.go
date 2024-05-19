@@ -17,6 +17,7 @@ const (
 	TAKER_FEE_SLOT                 int64 = 3
 	AMMS_SLOT                      int64 = 12
 	REFERRAL_SLOT                  int64 = 13
+	SETTLED_ALL_SLOT               int64 = 19
 )
 
 type MarginMode uint8
@@ -38,16 +39,36 @@ func marketsStorageSlot() *big.Int {
 }
 
 func GetActiveMarketsCount(stateDB contract.StateDB) int64 {
+	if IsSettledAll(stateDB) {
+		return 0
+	}
+	return GetMarketsCountRaw(stateDB)
+}
+
+func GetMarketsCountRaw(stateDB contract.StateDB) int64 {
 	rawVal := stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BytesToHash(common.LeftPadBytes(big.NewInt(AMMS_SLOT).Bytes(), 32)))
 	return new(big.Int).SetBytes(rawVal.Bytes()).Int64()
+}
+
+func IsSettledAll(stateDB contract.StateDB) bool {
+	return stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(big.NewInt(SETTLED_ALL_SLOT))).Big().Sign() == 1
 }
 
 func GetMarkets(stateDB contract.StateDB) []common.Address {
 	numMarkets := GetActiveMarketsCount(stateDB)
 	markets := make([]common.Address, numMarkets)
 	baseStorageSlot := marketsStorageSlot()
-	// @todo when we ever settle a market, here it needs to be taken care of
-	// because currently the following assumes that all markets are active
+	for i := int64(0); i < numMarkets; i++ {
+		amm := stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(baseStorageSlot, big.NewInt(i))))
+		markets[i] = common.BytesToAddress(amm.Bytes())
+	}
+	return markets
+}
+
+func GetMarketsIncludingSettled(stateDB contract.StateDB) []common.Address {
+	numMarkets := GetMarketsCountRaw(stateDB)
+	markets := make([]common.Address, numMarkets)
+	baseStorageSlot := marketsStorageSlot()
 	for i := int64(0); i < numMarkets; i++ {
 		amm := stateDB.GetState(common.HexToAddress(CLEARING_HOUSE_GENESIS_ADDRESS), common.BigToHash(new(big.Int).Add(baseStorageSlot, big.NewInt(i))))
 		markets[i] = common.BytesToAddress(amm.Bytes())
@@ -67,17 +88,21 @@ type GetNotionalPositionAndMarginOutput struct {
 }
 
 func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPositionAndMarginInput, upgradeVersion hu.UpgradeVersion) GetNotionalPositionAndMarginOutput {
-	markets := GetMarkets(stateDB)
+	markets := GetMarketsIncludingSettled(stateDB)
 	numMarkets := len(markets)
 	positions := make(map[int]*hu.Position, numMarkets)
 	underlyingPrices := make(map[int]*big.Int, numMarkets)
 	midPrices := make(map[int]*big.Int, numMarkets)
+	settlementPrices := make(map[int]*big.Int, numMarkets)
 	var activeMarketIds []int
 	for i, market := range markets {
 		positions[i] = getPosition(stateDB, GetMarketAddressFromMarketID(int64(i), stateDB), &input.Trader)
 		underlyingPrices[i] = getUnderlyingPrice(stateDB, market)
 		midPrices[i] = getMidPrice(stateDB, market)
-		activeMarketIds = append(activeMarketIds, i)
+		settlementPrices[i] = getSettlementPrice(stateDB, market)
+		if settlementPrices[i] == nil || settlementPrices[i].Sign() == 0 {
+			activeMarketIds = append(activeMarketIds, i)
+		}
 	}
 	pendingFunding := big.NewInt(0)
 	if input.IncludeFundingPayments {
@@ -85,11 +110,12 @@ func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 	}
 	notionalPosition, margin := hu.GetNotionalPositionAndMargin(
 		&hu.HubbleState{
-			Assets:         GetCollaterals(stateDB),
-			OraclePrices:   underlyingPrices,
-			MidPrices:      midPrices,
-			ActiveMarkets:  activeMarketIds,
-			UpgradeVersion: upgradeVersion,
+			Assets:           GetCollaterals(stateDB),
+			OraclePrices:     underlyingPrices,
+			MidPrices:        midPrices,
+			SettlementPrices: settlementPrices,
+			ActiveMarkets:    activeMarketIds,
+			UpgradeVersion:   upgradeVersion,
 		},
 		&hu.UserState{
 			Positions:      positions,
@@ -106,7 +132,7 @@ func getNotionalPositionAndMargin(stateDB contract.StateDB, input *GetNotionalPo
 
 func GetTotalFunding(stateDB contract.StateDB, trader *common.Address) *big.Int {
 	totalFunding := big.NewInt(0)
-	for _, market := range GetMarkets(stateDB) {
+	for _, market := range GetMarketsIncludingSettled(stateDB) {
 		totalFunding.Add(totalFunding, getPendingFundingPayment(stateDB, market, trader))
 	}
 	return totalFunding
@@ -143,6 +169,14 @@ func GetMidPrices(stateDB contract.StateDB) []*big.Int {
 	return underlyingPrices
 }
 
+func GetSettlementPrices(stateDB contract.StateDB) []*big.Int {
+	underlyingPrices := make([]*big.Int, 0)
+	for _, market := range GetMarketsIncludingSettled(stateDB) {
+		underlyingPrices = append(underlyingPrices, getSettlementPrice(stateDB, market))
+	}
+	return underlyingPrices
+}
+
 func GetReduceOnlyAmounts(stateDB contract.StateDB, trader common.Address) []*big.Int {
 	numMarkets := GetActiveMarketsCount(stateDB)
 	sizes := make([]*big.Int, numMarkets)
@@ -154,7 +188,7 @@ func GetReduceOnlyAmounts(stateDB contract.StateDB, trader common.Address) []*bi
 
 func getPosSizes(stateDB contract.StateDB, trader *common.Address) []*big.Int {
 	positionSizes := make([]*big.Int, 0)
-	for _, market := range GetMarkets(stateDB) {
+	for _, market := range GetMarketsIncludingSettled(stateDB) {
 		positionSizes = append(positionSizes, getSize(stateDB, market, trader))
 	}
 	return positionSizes
