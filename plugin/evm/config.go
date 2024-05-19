@@ -50,6 +50,9 @@ const (
 	defaultPopulateMissingTriesParallelism            = 1024
 	defaultStateSyncServerTrieCache                   = 64 // MB
 	defaultAcceptedCacheSize                          = 32 // blocks
+	defaulOrderGossipNumValidators                    = 10
+	defaultOrderGossipNumNonValidators                = 5
+	defaultOrderGossipNumPeers                        = 15
 
 	// defaultStateSyncMinBlocks is the minimum number of blocks the blockchain
 	// should be ahead of local last accepted to perform state sync.
@@ -60,10 +63,18 @@ const (
 	// - state sync time: ~6 hrs.
 	defaultStateSyncMinBlocks   = 300_000
 	defaultStateSyncRequestSize = 1024 // the number of key/values to ask peers for per request
+
+	defaultIsValidator             = false
+	defaultTradingAPIEnabled       = false
+	defaultLoadFromSnapshotEnabled = true
+	defaultSnapshotFilePath        = "/tmp/snapshot"
+	defaultMakerbookDatabasePath   = "/tmp/makerbook"
 )
 
 var (
-	defaultEnabledAPIs = []string{
+	defaultTestingApiEnabled       = false
+	defaultValidatorPrivateKeyFile = "/home/ubuntu/.avalanche-cli/key/validator.pk"
+	defaultEnabledAPIs             = []string{
 		"eth",
 		"eth-filter",
 		"net",
@@ -165,6 +176,11 @@ type Config struct {
 	RegossipFrequency         Duration         `json:"regossip-frequency"`
 	PriorityRegossipAddresses []common.Address `json:"priority-regossip-addresses"`
 
+	// Order Gossip Settings
+	OrderGossipNumValidators    int `json:"order-gossip-num-validators"`
+	OrderGossipNumNonValidators int `json:"order-gossip-num-non-validators"`
+	OrderGossipNumPeers         int `json:"order-gossip-num-peers"`
+
 	// Log
 	LogLevel      string `json:"log-level"`
 	LogJSONFormat bool   `json:"log-json-format"`
@@ -222,6 +238,26 @@ type Config struct {
 	// Note: only supports AddressedCall payloads as defined here:
 	// https://github.com/ava-labs/avalanchego/tree/7623ffd4be915a5185c9ed5e11fa9be15a6e1f00/vms/platformvm/warp/payload#addressedcall
 	WarpOffChainMessages []hexutil.Bytes `json:"warp-off-chain-messages"`
+
+	// Path to validator private key file
+	ValidatorPrivateKeyFile string `json:"validator-private-key-file"`
+
+	// Testing apis enabled
+	TestingApiEnabled bool `json:"testing-api-enabled"`
+	// IsValidator is true if this node is a validator
+	IsValidator bool `json:"is-validator"`
+
+	// TradingAPI is for the sdk
+	TradingAPIEnabled bool `json:"trading-api-enabled"`
+
+	// LoadFromSnapshotEnabled = true if the node should load the memory db from a snapshot
+	LoadFromSnapshotEnabled bool `json:"load-from-snapshot-enabled"`
+
+	// SnapshotFilePath is the path to the file which saves the latest snapshot bytes
+	SnapshotFilePath string `json:"snapshot-file-path"`
+
+	// MakerbookDatabasePath is the path to the file which saves the makerbook orders
+	MakerbookDatabasePath string `json:"makerbook-database-path"`
 }
 
 // EthAPIs returns an array of strings representing the Eth APIs that should be enabled
@@ -281,6 +317,16 @@ func (c *Config) SetDefaults() {
 	c.StateSyncRequestSize = defaultStateSyncRequestSize
 	c.AllowUnprotectedTxHashes = defaultAllowUnprotectedTxHashes
 	c.AcceptedCacheSize = defaultAcceptedCacheSize
+	c.ValidatorPrivateKeyFile = defaultValidatorPrivateKeyFile
+	c.TestingApiEnabled = defaultTestingApiEnabled
+	c.IsValidator = defaultIsValidator
+	c.TradingAPIEnabled = defaultTradingAPIEnabled
+	c.LoadFromSnapshotEnabled = defaultLoadFromSnapshotEnabled
+	c.SnapshotFilePath = defaultSnapshotFilePath
+	c.MakerbookDatabasePath = defaultMakerbookDatabasePath
+	c.OrderGossipNumValidators = defaulOrderGossipNumValidators
+	c.OrderGossipNumNonValidators = defaultOrderGossipNumNonValidators
+	c.OrderGossipNumPeers = defaultOrderGossipNumPeers
 }
 
 func (d *Duration) UnmarshalJSON(data []byte) (err error) {

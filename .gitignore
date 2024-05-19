@@ -51,3 +51,10 @@ cmd/simulator/simulator
 
 # goreleaser
 dist/
+
+# orderbook tests dependencies
+tests/orderbook/node_modules
+
+*.bin
+local_status.sh
+networks/*/*.env

@@ -1,0 +1,54 @@
+name: Build + Push aylin image
+
+on:
+  push:
+    branches:
+      - aylin
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build_fuji_image_aylin:
+    name: Build Docker Image
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Current Tag
+        id: get_tag
+        run: echo ::set-output name=tag::$(git describe --abbrev=0 --tags)
+
+      - name: Login to Docker hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASS }}
+
+      - name: Build Dockerfile and Push it
+        run: |
+          TAG_END=$GITHUB_SHA
+
+          if [ -n "$GITHUB_TAG" ]; then
+            TAG_END=$GITHUB_TAG
+          fi
+
+          source scripts/versions.sh
+
+          export BUILD_IMAGE_ID="${AVALANCHE_VERSION}-aylin-${TAG_END}"
+
+          # Copy binary to the correct Fuji VM ID respository
+          echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ" >> Dockerfile
+
+          # Copy binary to the correct Mainnet VM ID respository
+          echo "COPY --from=builder /build/jvrKsTB9MfYGnAXtxbzFYpXKceXr9J8J8ej6uWGrYM5tXswhJ /root/.avalanchego/plugins/o1Fg94YujMqL75Ebrdkos95MTVjZpPpdeAp5ocEsp2X9c2FSz" >> Dockerfile
+
+          ./scripts/build_image.sh
+        env:
+          CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }}
+          PUSH_DOCKER_IMAGE: true
+          DOCKERHUB_REPO: hubbleexchange/hubblenet
+          GITHUB_TAG: ${{ steps.get_tag.outputs.tag }}
+          GITHUB_SHA: ${{ github.sha }}

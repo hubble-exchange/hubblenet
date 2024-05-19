@@ -1,0 +1,30 @@
+name: Build + test + release
+
+on:
+  push:
+    branches:
+      - '*'
+
+    tags:
+      - "*"
+  # pull_request:
+
+jobs:
+  unit_test:
+    name: Golang Unit Tests v${{ matrix.go }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        go: ["1.22.0"]
+        os: [ubuntu-22.04]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+      - run: go mod download
+        shell: bash
+      - run:  go test github.com/ava-labs/subnet-evm/plugin/evm/...
+        shell: bash
+      - run: go test github.com/ava-labs/subnet-evm/precompile/...
+        shell: bash

@@ -99,6 +99,8 @@ type worker struct {
 	mu       sync.RWMutex   // The lock used to protect the coinbase and extra fields
 	coinbase common.Address
 	clock    *mockable.Clock // Allows us mock the clock for testing
+
+	orderbookChecker OrderbookChecker
 }
 
 func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, clock *mockable.Clock) *worker {
@@ -121,6 +123,10 @@ func (w *worker) setEtherbase(addr common.Address) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.coinbase = addr
+}
+
+func (w *worker) setOrderbookChecker(orderBookChecker OrderbookChecker) {
+	w.orderbookChecker = orderBookChecker
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
@@ -221,16 +227,44 @@ func (w *worker) commitNewWork(predicateContext *precompileconfig.PredicateConte
 			localTxs[account] = txs
 		}
 	}
+
+	orderBookTxs := w.eth.TxPool().GetOrderBookTxs()
+	if len(orderBookTxs) > 0 {
+		txs := types.NewTransactionsByPriceAndNonce(env.signer, orderBookTxs, header.BaseFee)
+		w.commitTransactions(env, txs, header.Coinbase)
+	}
 	if len(localTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, localTxs, header.BaseFee)
+		txsCopy := txs.Copy()
 		w.commitTransactions(env, txs, header.Coinbase)
+		w.commitOrderbookTxs(env, txsCopy, header)
 	}
 	if len(remoteTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, remoteTxs, header.BaseFee)
+		txsCopy := txs.Copy()
 		w.commitTransactions(env, txs, header.Coinbase)
+		w.commitOrderbookTxs(env, txsCopy, header)
 	}
 
+	w.orderbookChecker.ResetMemoryDB()
+
 	return w.commit(env)
+}
+
+func (w *worker) commitOrderbookTxs(env *environment, transactions *types.TransactionsByPriceAndNonce, header *types.Header) {
+	for {
+		tx := transactions.Peek()
+		if tx == nil {
+			break
+		}
+		transactions.Pop()
+
+		orderbookTxs := w.orderbookChecker.GetMatchingTxs(tx, env.state, header.Number)
+		if orderbookTxs != nil {
+			txsByPrice := types.NewTransactionsByPriceAndNonce(env.signer, orderbookTxs, header.BaseFee)
+			w.commitTransactions(env, txsByPrice, header.Coinbase)
+		}
+	}
 }
 
 func (w *worker) createCurrentEnvironment(predicateContext *precompileconfig.PredicateContext, parent *types.Header, header *types.Header, tstart time.Time) (*environment, error) {
@@ -291,7 +325,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 	for {
 		// If we don't have enough gas for any further transactions then we're done.
 		if env.gasPool.Gas() < params.TxGas {
-			log.Trace("Not enough gas for further transactions", "have", env.gasPool, "want", params.TxGas)
+			log.Info("commitTransactions - Not enough gas for further transactions", "have", env.gasPool, "want", params.TxGas)
 			break
 		}
 		// Retrieve the next transaction and abort if all done.
@@ -302,7 +336,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		// Abort transaction if it won't fit in the block and continue to search for a smaller
 		// transction that will fit.
 		if totalTxsSize := env.size + tx.Size(); totalTxsSize > targetTxsSize {
-			log.Trace("Skipping transaction that would exceed target size", "hash", tx.Hash(), "totalTxsSize", totalTxsSize, "txSize", tx.Size())
+			log.Info("commitTransactions - Skipping transaction that would exceed target size", "hash", tx.Hash(), "totalTxsSize", totalTxsSize, "txSize", tx.Size())
 
 			txs.Pop()
 			continue
@@ -314,7 +348,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !w.chainConfig.IsEIP155(env.header.Number) {
-			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
+			log.Info("commitTransactions - Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 
 			txs.Pop()
 			continue
@@ -326,12 +360,13 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		switch {
 		case errors.Is(err, core.ErrNonceTooLow):
 			// New head notification data race between the transaction pool and miner, shift
-			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
+			log.Info("commitTransactions - Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Shift()
 
 		case errors.Is(err, nil):
 			env.tcount++
 			txs.Shift()
+			log.Info("Transaction committed", "hash", tx.Hash().String(), "nonce", tx.Nonce())
 
 		default:
 			// Transaction is regarded as invalid, drop all consecutive transactions from

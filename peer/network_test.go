@@ -998,6 +998,12 @@ func (t *testGossipHandler) HandleEthTxs(nodeID ids.NodeID, msg message.EthTxsGo
 	return nil
 }
 
+func (t *testGossipHandler) HandleSignedOrders(nodeID ids.NodeID, msg message.SignedOrdersGossip) error {
+	t.received = true
+	t.nodeID = nodeID
+	return nil
+}
+
 type testRequestHandler struct {
 	message.RequestHandler
 	calls              uint32

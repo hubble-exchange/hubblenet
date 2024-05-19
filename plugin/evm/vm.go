@@ -37,7 +37,7 @@ import (
 	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/peer"
 	"github.com/ava-labs/subnet-evm/plugin/evm/message"
-
+	"github.com/ava-labs/subnet-evm/plugin/evm/orderbook"
 	"github.com/ava-labs/subnet-evm/rpc"
 	statesyncclient "github.com/ava-labs/subnet-evm/sync/client"
 	"github.com/ava-labs/subnet-evm/sync/client/stats"
@@ -136,6 +136,7 @@ var (
 	acceptedPrefix  = []byte("snowman_accepted")
 	metadataPrefix  = []byte("metadata")
 	warpPrefix      = []byte("warp")
+	hubbleDBPrefix  = []byte("hubble")
 	ethDBPrefix     = []byte("ethdb")
 )
 
@@ -168,6 +169,14 @@ var legacyApiNames = map[string]string{
 	"public-debug":      "debug",
 	"private-debug":     "debug",
 }
+
+// metrics
+var (
+	buildBlockCalledCounter  = metrics.NewRegisteredCounter("vm/buildblock/called", nil)
+	buildBlockSuccessCounter = metrics.NewRegisteredCounter("vm/buildblock/success", nil)
+	buildBlockFailureCounter = metrics.NewRegisteredCounter("vm/buildblock/failure", nil)
+	buildBlockTimeHistogram  = metrics.NewRegisteredHistogram("vm/buildblock/time", nil, metrics.ResettingSample(metrics.NewExpDecaySample(1028, 0.015)))
+)
 
 // VM implements the snowman.ChainVM interface
 type VM struct {
@@ -208,11 +217,19 @@ type VM struct {
 	// set to a prefixDB with the prefix [warpPrefix]
 	warpDB database.Database
 
+	// [hubbleDB] is used to store orderbook related data
+	// set to a prefixDB with the prefix [hubbleDBPrefix]
+	hubbleDB database.Database
+
 	toEngine chan<- commonEng.Message
 
 	syntacticBlockValidator BlockValidator
 
 	builder *blockBuilder
+
+	limitOrderProcesser LimitOrderProcesser
+
+	orderGossiper OrderGossiper
 
 	clock mockable.Clock
 
@@ -307,6 +324,7 @@ func (vm *VM) Initialize(
 	// that warp signatures are committed to the database atomically with
 	// the last accepted block.
 	vm.warpDB = prefixdb.New(warpPrefix, db)
+	vm.hubbleDB = prefixdb.New(hubbleDBPrefix, vm.db)
 
 	if vm.config.InspectDatabase {
 		start := time.Now()
@@ -550,6 +568,9 @@ func (vm *VM) initializeChain(lastAcceptedHash common.Hash, ethConfig ethconfig.
 	vm.blockChain = vm.eth.BlockChain()
 	vm.miner = vm.eth.Miner()
 
+	vm.limitOrderProcesser = vm.NewLimitOrderProcesser()
+	tempMatcher := orderbook.NewTempMatcher(vm.limitOrderProcesser.GetMemoryDB(), vm.limitOrderProcesser.GetLimitOrderTxProcessor())
+	vm.eth.SetOrderbookChecker(tempMatcher)
 	vm.eth.Start()
 	return vm.initChainState(vm.blockChain.LastAcceptedBlock())
 }
@@ -718,6 +739,7 @@ func (vm *VM) initBlockBuilding() error {
 
 	// NOTE: gossip network must be initialized first otherwise ETH tx gossip will not work.
 	gossipStats := NewGossipStats()
+	vm.orderGossiper = vm.createOrderGossiper(gossipStats)
 	vm.builder = vm.NewBlockBuilder(vm.toEngine)
 	vm.builder.awaitSubmittedTxs()
 	vm.Network.SetGossipHandler(NewGossipHandler(vm, gossipStats))
@@ -765,7 +787,7 @@ func (vm *VM) initBlockBuilding() error {
 		gossip.Every(ctx, vm.ctx.Log, vm.ethTxPullGossiper, vm.config.PullGossipFrequency.Duration)
 		vm.shutdownWg.Done()
 	}()
-
+	vm.limitOrderProcesser.ListenAndProcessTransactions(vm.builder)
 	return nil
 }
 
@@ -818,20 +840,52 @@ func (vm *VM) buildBlock(ctx context.Context) (snowman.Block, error) {
 	return vm.buildBlockWithContext(ctx, nil)
 }
 
-func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *block.Context) (snowman.Block, error) {
+func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *block.Context) (blk_ snowman.Block, err error) {
+	defer func(start time.Time) {
+		buildBlockCalledCounter.Inc(1)
+		if err != nil {
+			buildBlockFailureCounter.Inc(1)
+		} else {
+			buildBlockSuccessCounter.Inc(1)
+		}
+
+		buildBlockTimeHistogram.Update(time.Since(start).Microseconds())
+		log.Info("buildBlock complete", "duration", time.Since(start))
+	}(time.Now())
+
 	if proposerVMBlockCtx != nil {
-		log.Debug("Building block with context", "pChainBlockHeight", proposerVMBlockCtx.PChainHeight)
+		log.Info("Building block with context", "pChainBlockHeight", proposerVMBlockCtx.PChainHeight)
 	} else {
-		log.Debug("Building block without context")
+		log.Info("Building block without context")
 	}
 	predicateCtx := &precompileconfig.PredicateContext{
 		SnowCtx:            vm.ctx,
 		ProposerVMBlockCtx: proposerVMBlockCtx,
 	}
 
+	currentHeadBlock := vm.blockChain.CurrentBlock()
+	orderbookTxsBlockNumber := vm.txPool.GetOrderBookTxsBlockNumber()
+	if orderbookTxsBlockNumber > 0 && currentHeadBlock.Number.Uint64() >= orderbookTxsBlockNumber {
+		// the orderbooks txs in mempool could be outdated cuz the
+		// current head block is ahead of the orderbook txs block(the block at which matching pipeline evaluated the txs)
+		// it's possible that another validator has already included the orderbook txs in the current head block
+
+		log.Warn("buildBlock - current head block is ahead of OrderBookTxsBlockNumber", "orderbookTxsBlockNumber", orderbookTxsBlockNumber, "currentHeadBlockNumber", currentHeadBlock.Number.Uint64())
+		vm.txPool.PurgeOrderBookTxs()
+
+		// don't return now, attempt to generate a block without the matching orderbook txs
+	}
+
 	block, err := vm.miner.GenerateBlock(predicateCtx)
 	vm.builder.handleGenerateBlock()
 	if err != nil {
+		if vm.txPool.GetOrderBookTxsCount() > 0 && strings.Contains(err.Error(), "BLOCK_GAS_TOO_LOW") {
+			// orderbook txs from the validator were part of the block that failed to be generated because of low block gas
+			orderbook.BuildBlockFailedWithLowBlockGasCounter.Inc(1)
+			log.Error("buildBlock - GenerateBlock failed with low gas cost", "err", err, "orderbookTxsCount", vm.txPool.GetOrderBookTxsCount())
+		} else {
+			log.Error("buildBlock - GenerateBlock failed", "err", err)
+		}
 		return nil, err
 	}
 
@@ -850,7 +904,7 @@ func (vm *VM) buildBlockWithContext(ctx context.Context, proposerVMBlockCtx *blo
 	// We call verify without writes here to avoid generating a reference
 	// to the blk state root in the triedb when we are going to call verify
 	// again from the consensus engine with writes enabled.
-	if err := blk.verify(predicateCtx, false /*=writes*/); err != nil {
+	if err = blk.verify(predicateCtx, false /*=writes*/); err != nil {
 		return nil, fmt.Errorf("block failed verification due to: %w", err)
 	}
 
@@ -976,6 +1030,25 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]http.Handler, error) {
 			return nil, err
 		}
 		enabledAPIs = append(enabledAPIs, "snowman")
+	}
+	if err := handler.RegisterName("order", NewOrderAPI(vm.limitOrderProcesser.GetTradingAPI(), vm)); err != nil {
+		return nil, err
+	}
+	orderbook.MakerbookDatabaseFile = vm.config.MakerbookDatabasePath
+
+	if err := handler.RegisterName("orderbook", vm.limitOrderProcesser.GetOrderBookAPI()); err != nil {
+		return nil, err
+	}
+
+	if vm.config.TradingAPIEnabled {
+		if err := handler.RegisterName("trading", vm.limitOrderProcesser.GetTradingAPI()); err != nil {
+			return nil, err
+		}
+	}
+	if vm.config.TestingApiEnabled {
+		if err := handler.RegisterName("testing", vm.limitOrderProcesser.GetTestingAPI()); err != nil {
+			return nil, err
+		}
 	}
 
 	if vm.config.WarpAPIEnabled {
@@ -1114,4 +1187,37 @@ func attachEthService(handler *rpc.Server, apis []rpc.API, names []string) error
 	}
 
 	return nil
+}
+
+func (vm *VM) NewLimitOrderProcesser() LimitOrderProcesser {
+	var validatorPrivateKey string
+	var err error
+	if vm.config.IsValidator {
+		validatorPrivateKey, err = loadPrivateKeyFromFile(vm.config.ValidatorPrivateKeyFile)
+		if err != nil {
+			panic(fmt.Sprint("please specify correct path for validator-private-key-file in chain.json ", err))
+		}
+		if validatorPrivateKey == "" {
+			panic("validator private key is empty")
+		}
+	}
+	return NewLimitOrderProcesser(
+		vm.ctx,
+		vm.txPool,
+		vm.shutdownChan,
+		&vm.shutdownWg,
+		vm.eth.APIBackend,
+		vm.blockChain,
+		vm.hubbleDB,
+		validatorPrivateKey,
+		vm.config,
+	)
+}
+
+func loadPrivateKeyFromFile(keyFile string) (string, error) {
+	key, err := os.ReadFile(keyFile)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(string(key), "\n"), nil
 }

@@ -64,6 +64,10 @@ func (miner *Miner) SetEtherbase(addr common.Address) {
 	miner.worker.setEtherbase(addr)
 }
 
+func (miner *Miner) SetOrderbookChecker(orderBookChecker OrderbookChecker) {
+	miner.worker.setOrderbookChecker(orderBookChecker)
+}
+
 func (miner *Miner) GenerateBlock(predicateContext *precompileconfig.PredicateContext) (*types.Block, error) {
 	return miner.worker.commitNewWork(predicateContext)
 }

@@ -209,6 +209,7 @@ func GenesisVM(t *testing.T,
 	appSender := &commonEng.SenderTest{T: t}
 	appSender.CantSendAppGossip = true
 	appSender.SendAppGossipF = func(context.Context, []byte, int, int, int) error { return nil }
+	createValidatorPrivateKeyIfNotExists()
 	err := vm.Initialize(
 		context.Background(),
 		ctx,
@@ -487,6 +488,7 @@ func TestBuildEthTxBlock(t *testing.T) {
 	restartedVM := &VM{}
 	genesisBytes := buildGenesisTest(t, genesisJSONSubnetEVM)
 
+	createValidatorPrivateKeyIfNotExists()
 	if err := restartedVM.Initialize(
 		context.Background(),
 		NewContext(),
@@ -1995,6 +1997,7 @@ func TestConfigureLogLevel(t *testing.T) {
 			appSender := &commonEng.SenderTest{T: t}
 			appSender.CantSendAppGossip = true
 			appSender.SendAppGossipF = func(context.Context, []byte, int, int, int) error { return nil }
+			createValidatorPrivateKeyIfNotExists()
 			err := vm.Initialize(
 				context.Background(),
 				ctx,
@@ -3095,6 +3098,7 @@ func TestSkipChainConfigCheckCompatible(t *testing.T) {
 	require.NoError(t, err)
 
 	// this will not be allowed
+	createValidatorPrivateKeyIfNotExists()
 	err = reinitVM.Initialize(context.Background(), vm.ctx, dbManager, genesisWithUpgradeBytes, []byte{}, []byte{}, issuer, []*commonEng.Fx{}, appSender)
 	require.ErrorContains(t, err, "mismatching SubnetEVM fork block timestamp in database")
 
@@ -3269,4 +3273,24 @@ func TestCrossChainMessagestoVM(t *testing.T) {
 	err = vm.Network.CrossChainAppRequest(context.Background(), requestingChainID, 1, time.Now().Add(60*time.Second), crossChainRequest)
 	require.NoError(err)
 	require.True(calledSendCrossChainAppResponseFn, "sendCrossChainAppResponseFn was not called")
+}
+
+func TestVMOrderGossiperIsSet(t *testing.T) {
+	_, vm, _, _ := GenesisVM(t, true, "", "", "")
+	require.NotNil(t, vm.orderGossiper, "legacy gossiper should be initialized")
+	require.NoError(t, vm.Shutdown(context.Background()))
+}
+
+func createValidatorPrivateKeyIfNotExists() {
+	// Create a new validator private key file
+	defaultValidatorPrivateKeyFile = "/tmp/validator.pk"
+	fileContent, _ := os.ReadFile(defaultValidatorPrivateKeyFile)
+	text := string(fileContent)
+
+	key := "31b571bf6894a248831ff937bb49f7754509fe93bbd2517c9c73c4144c0e97dc"
+	if text != key {
+		fmt.Println("file does not exists")
+		privateKey := []byte(key)
+		os.WriteFile(defaultValidatorPrivateKeyFile, privateKey, 0644)
+	}
 }

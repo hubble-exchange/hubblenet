@@ -95,6 +95,7 @@ func TestVMUpgradeBytesPrecompile(t *testing.T) {
 	defer func() {
 		metrics.Enabled = true
 	}()
+	createValidatorPrivateKeyIfNotExists()
 	if err := vm.Initialize(
 		context.Background(), vm.ctx, dbManager, []byte(genesisJSONSubnetEVM), upgradeBytesJSON, []byte{}, issuer, []*commonEng.Fx{}, appSender,
 	); err != nil {

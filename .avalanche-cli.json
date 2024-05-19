@@ -1,0 +1,6 @@
+{
+  "node-config": {
+    "log-level": "info"
+  },
+  "SingleNodeEnabled": false
+}

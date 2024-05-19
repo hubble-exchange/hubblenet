@@ -12,11 +12,17 @@ import (
 )
 
 type CounterHandler struct {
+	Orders int
 	EthTxs int
 }
 
 func (h *CounterHandler) HandleEthTxs(ids.NodeID, EthTxsGossip) error {
 	h.EthTxs++
+	return nil
+}
+
+func (h *CounterHandler) HandleSignedOrders(ids.NodeID, SignedOrdersGossip) error {
+	h.Orders++
 	return nil
 }
 
